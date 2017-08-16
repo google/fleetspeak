@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package fleetspeak.client;
+
+
+// Parameters used to configure communicator plugins.
+message CommunicatorConfig {
+  // The longest possible wait before attempting to contact the server.
+  // The communicator may poll sooner if there are messages for the server.
+  int32 max_poll_delay_seconds = 2;
+
+  // The longest possible wait before attempting to contact the server when
+  // there is some data to transmit. The communicator may poll sooner if the
+  // buffer is full.
+  int32 max_buffer_delay_seconds = 3;
+
+  // The minimum time to wait after a failure to reach any server.
+  int32 min_failure_delay_seconds = 4;
+}
+
+// ClientState contains the state of the client which should be persisted across
+// restarts.
+message ClientState {
+  // The client key, normally fixed after first execution. Also defines the
+  // client's id.
+  bytes client_key = 1;
+
+  // The most recent sequencing nonce received from the server.
+  uint64 sequencing_nonce = 7;
+
+  // A set of revoked/blacklisted certificate serial numbers in big endian
+  // format. Not restricted, but normally at most 20 bytes. (RFC 3280)
+  repeated bytes revoked_cert_serials = 8;
+}

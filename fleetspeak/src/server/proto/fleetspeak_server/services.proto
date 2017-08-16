@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package fleetspeak.server;
+
+import "google/protobuf/any.proto";
+
+// A ServiceConfig describes how the server should configure a 'service', which is
+// a module that sends and processes messages.
+message ServiceConfig {
+  // The name that the service will be known as. Primary use is to address
+  // messages to the service. The service names 'server' and 'client' are
+  // reserved.
+  string name = 1;
+
+  // The name of the factory which will be used to generate the service.
+  string factory = 2;
+
+  // The maximum number of simultaneous calls to the service's ProcessMessage
+  // method. If unset, defaults to 100.
+  uint32 max_parallelism = 3;
+
+  // Additional configuration information for the factory to use when setting up
+  // the service. The allowed type depends upon the factory.
+  google.protobuf.Any config = 4;
+}

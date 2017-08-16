@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package fleetspeak.daemonservice;
+
+import "google/protobuf/duration.proto";
+
+// The configuration information expected by daemonservice.Factory in
+// ClientServiceConfig.config.
+message Config {
+  repeated string argv = 1;
+
+  // If set, process will be killed after this much inactivity. Any message to
+  // or from the process, and any stdin/stderr output counts as inactivity.
+  google.protobuf.Duration inactivity_timeout = 2;
+
+  // If set, start the process only when there is a message for it to work on.
+  // Forced to true when inactivity timeout is set.
+  bool lazy_start = 3;
+
+  // By default, daemon services report resource usage every minute. This
+  // flag disables this if set.
+  bool disable_resource_monitoring = 4;
+}

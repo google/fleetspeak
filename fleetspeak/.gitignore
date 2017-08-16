@@ -1,0 +1,9 @@
+*.pyc
+*_pb2.py
+*.swp
+*.o
+*.so
+*.pb.cc
+*.pb.h
+*~
+.idea

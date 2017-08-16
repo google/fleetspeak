@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package fleetspeak.grpcservice;
+
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+message Config {
+  string target = 1; // The address to dial.
+  bool insecure = 2; // If set, will not secure connection to the target.
+  string cert_file = 3; // If set, a pool of trusted certificates will be read from this file and used to authenticate the connection to target.
+}
+
+// Processor is the service that a target system must implement to
+// receive messages through a GRPCService based service.
+service Processor {
+  // Process accepts message and processes it.
+  rpc Process(fleetspeak.Message) returns (fleetspeak.EmptyMessage) {
+  }
+}

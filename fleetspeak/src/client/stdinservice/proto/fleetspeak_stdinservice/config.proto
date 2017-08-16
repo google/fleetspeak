@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package fleetspeak.stdinservice;
+
+// The configuration information expected by stdinservice.Factory
+// in ClientServiceConfig.config.
+message Config {
+  string cmd = 1;
+}

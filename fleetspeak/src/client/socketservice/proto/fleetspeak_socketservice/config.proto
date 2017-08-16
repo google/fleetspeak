@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package fleetspeak.socketservice;
+
+// The configuration information expected by socketservice.Factory in
+// ClientServiceConfig.config.
+message Config {
+  // The given api_proxy_path may be an arbitrary filesystem path and will be
+  // used to pair the daemon service with its non-child client process.
+  //
+  // On Unix in particular, a Unix socket will be created at this path and used
+  // for communication between FS and the client.
+  //
+  // Side note: FS requires the proxy's parent directory's perms to be 0700.
+  // If the parent directory doesn't exist, FS will mkdir -p it with perms set
+  // to 0700.
+  string api_proxy_path = 5;
+}

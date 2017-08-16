@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package fleetspeak.server;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+// A Broadcast is a template to build messages to send to a number of machines.
+message Broadcast {
+  bytes broadcast_id = 1;
+
+  // The source of the broadcast, it should only be a server side service. The
+  // destinations for the resulting broadcast messages will be different clients
+  // with the same service name.
+  fleetspeak.Address source = 2;
+
+  string message_type = 3;
+
+  // A client will only be sent this broadcast if it has been marked with all of
+  // the required labels.
+  repeated fleetspeak.Label required_labels = 4;
+
+  // A broadcast will stop being sent at this time.
+  google.protobuf.Timestamp expiration_time = 5;
+
+  google.protobuf.Any data = 6;
+}

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package fleetspeak.daemonservice;
+
+import "fleetspeak/src/common/proto/fleetspeak_monitoring/resource.proto";
+
+// A fleetspeak.Message with message type "StdOutput" and data type
+// StdOutputData is sent by a daemon service to the server when the daemon
+// subprocess produces output on stdout or stderr.
+message StdOutputData {
+  // The pid of the daemon process.
+  int64 pid = 1;
+
+  // The index of this message within the set of messages returned for
+  // this pid.
+  int64 message_index = 2;
+
+  bytes stdout = 3;
+  bytes stderr = 4;
+}

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package fleetspeak.server;
+
+import "google/protobuf/duration.proto";
+import "fleetspeak/src/server/proto/fleetspeak_server/services.proto";
+
+// Describes a server's configuration. If unset, all values default to values
+// reasonable for a unit test or small installation. Larger installations may
+// need to tune these.
+message ServerConfig {
+  // The collection of services that this server should include.
+  repeated ServiceConfig services = 1;
+
+  // The approximate time to wait between checking for new broadcasts. If unset,
+  // a default of 1 minute is used.
+  google.protobuf.Duration broadcast_poll_time = 2;
+}

@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package fleetspeak.server;
+
+import "google/protobuf/timestamp.proto";
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+import "fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto";
+
+message CreateBroadcastRequest {
+  Broadcast broadcast = 1;
+  uint64 limit = 2;
+}
+
+message ListActiveBroadcastsRequest {
+  // If set, only return broadcasts with the given service_name.
+  string service_name = 1;
+}
+
+message ListActiveBroadcastsResponse {
+  repeated Broadcast broadcasts = 1;
+}
+
+message ListClientsResponse {
+  repeated Client clients = 1;
+}
+
+message Client {
+  bytes client_id = 1;
+  repeated Label labels = 2;
+  google.protobuf.Timestamp last_contact_time = 3;
+}
+
+message GetMessageStatusRequest {
+  bytes message_id = 1;
+}
+
+message GetMessageStatusResponse {
+  google.protobuf.Timestamp creation_time = 1;
+  MessageResult result = 2;
+}
+
+message StoreFileRequest {
+  string service_name = 1;
+  string file_name = 2;
+  bytes data = 3;
+}
+
+service Admin {
+  // CreateBroadcast creates a FS broadcast, potentially sending a message to
+  // many machines in the fleet.
+  rpc CreateBroadcast (CreateBroadcastRequest) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // ListActiveBroadcasts lists the currently active FS broadcasts.
+  rpc ListActiveBroadcasts (ListActiveBroadcastsRequest) returns (ListActiveBroadcastsResponse) {
+  }
+
+  // ListClients lists the currently active FS clients.
+  rpc ListClients (fleetspeak.EmptyMessage) returns (ListClientsResponse) {
+  }
+
+  // GetMessageStatus retrieves the current status of a message.
+  rpc GetMessageStatus (GetMessageStatusRequest) returns (GetMessageStatusResponse) {
+  }
+
+  // InsertMessage inserts a message into the Fleetspeak system to be processed
+  // by the server or delivered to a client.
+  // TODO: Have this method return the message that is written to the
+  // datastore (or at least the id).
+  rpc InsertMessage (fleetspeak.Message) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // StoreFile inserts a file into the Fleetspeak system.
+  rpc StoreFile (StoreFileRequest) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // KeepAlive does as little as possible.
+  rpc KeepAlive (fleetspeak.EmptyMessage) returns (fleetspeak.EmptyMessage) {
+  }
+}

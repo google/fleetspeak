@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package fleetspeak;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+// An Address identifies the source or destination of a message.
+message Address {
+  // The client_id, if the address refers to a service on a client. If unset,
+  // the address refers to a service on the server.
+  bytes client_id = 1;
+
+  // The name of the fleetspeak service which sent or should receive the
+  // message.  Required.
+  string service_name = 2;
+}
+
+message Message {
+  // A hash based on origin and origin_message_id. It is set by the fleetspeak
+  // system on message intake and may be used for deduplication.
+  bytes message_id = 1;
+
+  // The source of the messages. Required.
+  Address source = 2;
+
+  // An sequence of bytes set by the source in a way to uniquely identify the
+  // message among all messages with the same origin.
+  bytes source_message_id = 3;
+
+  // The destination of the message. Required.
+  Address destination = 4;
+
+  // The type of message. This field is mostly opaque to the Fleetspeak system,
+  // but can be used for some statistics gathering. It is recommended that each
+  // service define a static collection of short readable message types and
+  // dispatch according to this when processing messages. e.g. "ResourceUsage",
+  // "StdOutputData".
+  string message_type = 5;
+
+  // Set when the message enters the FS system.
+  google.protobuf.Timestamp creation_time = 6;
+
+  // The data associated with this request, accepted types are determined by the
+  // service and may depend on message_type. Not typically stored after the
+  // message is processed.
+  google.protobuf.Any data = 7;
+
+  // Additional validation information, set by on the server by the (optional)
+  // authorizer component based on WrappedContactData.validators, etc.
+  string validation_info = 8;
+
+  // The result of processing the message. Set once processing has finished.
+  MessageResult result = 9;
+
+  // The message priority. The primary effect is on the ordering of messages
+  // sent from the client to the server.
+  enum Priority {
+    MEDIUM = 0; // Out of order, but results in a sensible default.
+    LOW = 1;
+    HIGH = 2;
+  }
+  Priority priority = 10;
+}
+
+message MessageResult {
+  // The time that processing finished.
+  google.protobuf.Timestamp processed_time = 2;
+
+  // Set when processing ended with a permanent failure.
+  bool failed = 3;
+
+  // A human readable error message, normally set when failed is true.
+  string failed_reason = 4;
+}
+
+// A Label is a tag assigned to a client by a plugin. Primary use is to limit
+// broadcasts to specific clients.
+message Label {
+  // The service which set this label.
+  string service_name = 1;
+
+  // A free form tag choosen by the setting plugin.
+  string label = 2;
+}
+
+message Signature {
+  bytes certificate = 1; // An ASN.1 DER encoded x509 certificate.
+  int32 algorithm = 2; // Indicates the choice of signature
+                       // algorithm. https://golang.org/pkg/crypto/x509/#SignatureAlgorithm
+  bytes signature = 3; // A signature of the validated data.
+}
+
+// A WrappedContactData is provided by the client to the server with every
+// contact.
+message WrappedContactData {
+  bytes contact_data = 1;  // A serialized ContactData.
+  repeated Signature signatures = 2; // Optional extra signatures validating
+                                     // contact_data.
+  repeated string client_labels = 3; // The labels that the client claims to
+                                     // have.
+}
+
+// On every contact, the client and server exchange ContactData messages.
+message ContactData {
+  // During every contact, the server passes a random sequencing_nonce to the
+  // client, and the client provides the sequencing_nonce to the server during
+  // the next contact.
+  uint64 sequencing_nonce = 1;
+  repeated Message messages = 2;
+}
+
+// An empty message, typically used as a trivial RPC response.
+message EmptyMessage {
+}

@@ -1,0 +1,21 @@
+# This is a text format fleetspeak.server.ServerConfig as defined in
+# server/server.proto.
+
+services {
+  name: "lsService"
+  factory: "MessageSaver"
+  config {
+    [type.googleapis.com/fleetspeak.messagesaver.Config] {
+      path: "/tmp/fs_saved/lsService"
+    }
+  }
+}
+services {
+  name: "catService"
+  factory: "MessageSaver"
+  config {
+    [type.googleapis.com/fleetspeak.messagesaver.Config] {
+      path: "/tmp/fs_saved/catService"
+    }
+  }
+}

@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package fleetspeak.frr;
+
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+// Contains the information needed to configure a frr server component.
+message Config {
+  // The address to reach the master frr server over grpc.
+  string master_server = 1;
+}
+
+// A TrafficRequest message is sent from the server to the client which tells the
+// client to send random data back.
+message TrafficRequestData {
+  // An identifier used to identify the frr master instance responsible for this.
+  int64 master_id = 1;
+
+  // An identifier used to link responses to requests.
+  int64 request_id = 2;
+
+  // How many messages to send back for this request. Defaults to 1.
+  int64 num_messages = 3;
+
+  // How large should each message be, in bytes. Defaults to 1024.
+  int64 message_size = 4;
+
+  // How long to wait between messages. Defaults to 0.
+  int64 message_delay_ms = 5;
+
+  // How much to jitter the previous parameters - all parameters will be
+  // multiplied by a number between 1.0 and 1.0 + jitter.
+  float jitter = 6;
+}
+
+message TrafficResponseData {
+  int64 master_id = 1;
+  int64 request_id = 2;
+  int64 response_index = 3;
+  bytes data = 4;
+
+  // Set when this is the last message responsive to the given request.
+  bool fin = 5;
+}
+
+// A FileRequest is sent from the server to the client and tells
+// the client to attempt to download a file from the server.
+message FileRequestData {
+  // An identifier used to identify the frr master instance
+  // responsible for this.
+  int64 master_id = 1;
+
+  // The name of the file to download.
+  string name = 2;
+}
+
+
+// A FileResponse is sent from the client to the server and
+// reports that the client successfully downloaded a file from the
+// server.
+message FileResponseData {
+  // An identifier used to identify the frr master instance
+  // responsible for the underlying request.
+  int64 master_id = 1;
+
+  // The name of the file that was downloaded.
+  string name = 2;
+
+  // The size of the file that was downloaded.
+  uint64 size = 3;
+}
+
+message MessageInfo {
+  bytes client_id = 1;
+  TrafficResponseData data = 2;
+}
+
+message FileResponseInfo {
+  bytes client_id = 1;
+  FileResponseData data = 2;
+}
+
+// The service implemented by the FRR master server to collect data from the FRR
+// Fleetspeak server services.
+service Master {
+  // RecordMessage records that a TrafficResponse message was received by
+  // the FS server.
+  rpc RecordTrafficResponse(MessageInfo) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // RecordFileResponse records that a FileResponse message was received
+  // by the FS server.
+  rpc RecordFileResponse(FileResponseInfo) returns (fleetspeak.EmptyMessage) {
+  }
+}

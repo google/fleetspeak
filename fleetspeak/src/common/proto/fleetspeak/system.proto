@@ -1,0 +1,90 @@
+// The system service is present on every Fleetspeak client and server. Its
+// messages implement much of the basic Fleetspeak functionality.
+
+syntax = "proto3";
+
+package fleetspeak;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+// A MessageAck message is sent from the client to the server to acknowledge the
+// successful receipt of one or more messages. Messages from the server to the
+// client may be repeated until ack'd.
+message MessageAckData {
+  repeated bytes message_ids = 1;
+}
+
+// A MessageError message is sent from the client to the server to indicate an
+// permanent error in processing the message.
+message MessageErrorData {
+  bytes message_id = 1;
+  string error = 2;
+}
+
+// A ClientInfo message is sent from the client to the server on initial contact
+// and after every configurate change.
+message ClientInfoData {
+  // Labels hardcoded by the client build, e.g. "client:Linux",
+  // "client:<build-nr>", "client:canary".
+  repeated Label labels = 1;
+
+  repeated ServiceID services = 2;
+  message ServiceID {
+    // The name of the installed service.
+    string name = 1;
+
+    // The signature of the installed service, as provided in the AddServiceData
+    // message which created the service.
+    bytes signature = 2;
+  }
+}
+
+// A RemoveService message is sent from the server to the client to instruct the
+// client to remove an existing service.
+message RemoveServiceData {
+  string name = 1;
+}
+
+// A SignedClientServiceConfig wraps a ClientServiceConfig with a signature,
+// making it acceptable to clients.
+message SignedClientServiceConfig {
+  // A serialized ClientServiceConfig, defined below.
+  bytes service_config = 1;
+
+  // An RSASSA-PSS signature of service_config, made using a deployment key.
+  bytes signature = 2;
+}
+
+message ClientServiceConfig {
+  // The name that the service will be known as. Primary use is to address
+  // message to the service.  the service names 'server' and 'client' are
+  // reserved.
+  string name = 1;
+
+  // The name of the factory which will be used to generate the service.
+  string factory = 2;
+
+  // Additional configuration information for the factory to use when setting up
+  // the service. The expected type depends upon the factory.
+  google.protobuf.Any config = 3;
+
+  // The service will only be installed on clients with all of the listed
+  // labels. Note that labels for the special 'client' service are checked on
+  // the client. All other labels are only checked on the server.
+  repeated Label required_labels = 6;
+
+  // The time at which the service configuration was signed. Should be populated by
+  // the signing tool when creating a SignedClientServiceConfig.
+  google.protobuf.Timestamp signed_time = 7;
+}
+
+message ClientServiceConfigs {
+  repeated ClientServiceConfig config = 1;
+}
+
+// A list of serial numbers of certificates which should be considered revoked.
+message RevokedCertificateList {
+  repeated bytes serials = 1;
+}

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package fleetspeak.monitoring;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Resource usage information about a process. This is intended to be used to
+// report service resource usage to FS servers. For stdin services,
+// ResourceUsage is reported back together with its processes' output when they
+// finish execution.
+message ResourceUsage {
+  google.protobuf.Duration user_time = 1;
+  google.protobuf.Duration system_time = 2;
+  google.protobuf.Timestamp timestamp = 3;
+
+  // Maximum resident set size in bytes. For stdin services, this is
+  // struct rusage.ru_maxrss * 1024 . See `man 2 getrusage' for more context.
+  int64 resident_memory = 4;
+
+  // Verbose, human readable resource usage status. This is roughly what you'd
+  // expect to see in /proc/<PID>/status .
+  string verbose_status = 5;
+}
+
+// A fleetspeak.Message with message type "ResourceUsage" is sent regularly by
+// the system and daemon services to the server, to record the performance of
+// processes.
+message ResourceUsageData {
+  // Name of the client service that resource usage is charged/attributed to
+  // e.g 'system' for the system Fleetspeak service, or the name of a daemon
+  // service as specified in its config.
+  string scope = 1;
+
+  int64 pid = 2;
+
+  // Time when the process was started by Fleetspeak.
+  google.protobuf.Timestamp process_start_time = 3;
+
+  ResourceUsage resource_usage = 4;
+}
