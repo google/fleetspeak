@@ -1,5 +1,4 @@
 *.pyc
-*_pb2.py
 *.swp
 *.o
 *.so
