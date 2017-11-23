@@ -198,7 +198,7 @@ func TestCommunicator(t *testing.T) {
 		}
 	}
 
-	// 105 small messages should be split into to 2 contacts, 100 in the first, 5 in the second.
+	// 105 small messages
 	for i := 0; i < sendCountThreshold+5; i++ {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{M: &fspb.Message{
@@ -207,17 +207,31 @@ func TestCommunicator(t *testing.T) {
 			t.Fatalf("unable to hand message to client: %v", err)
 		}
 	}
-	cd := <-received
-	if len(cd.Messages) != sendCountThreshold {
-		t.Errorf("Expected %d messages in delivered ContactData, got: %d", sendCountThreshold, len(cd.Messages))
+
+	// Should be split into to 2 contacts, 100 in the first, 5 in the second.
+	// However, very occasionally things move slow enough in testing that the
+	// first contact has fewer records.
+	recTotalCount := 0
+	recMaxCount := 0
+	for recTotalCount < sendCountThreshold+5 {
+		cd := <-received
+		cnt := len(cd.Messages)
+		recTotalCount += cnt
+		if cnt > recMaxCount {
+			recMaxCount = cnt
+		}
 	}
-	cd = <-received
-	if len(cd.Messages) != 5 {
-		t.Errorf("Expected 5 messages in delivered ContactData, got: %d", len(cd.Messages))
+	if recTotalCount != sendCountThreshold+5 {
+		t.Errorf("Expected %d messages, got: %d", sendCountThreshold, recTotalCount)
+	}
+	if recMaxCount < 50 {
+		t.Errorf("Expected to see at least 50 messages in some contact, got: %v", recMaxCount)
+	}
+	if recMaxCount > 100 {
+		t.Errorf("Expected to see at most 100 messages in each contact, got: %v", recMaxCount)
 	}
 
-	// 20 messages with 1MB payload each should be split into 2 contacts, 15 in
-	// the first, 5 in the second.
+	// 20 messages with 1MB payload.
 	payload := make([]byte, 1024*1024)
 	if _, err := rand.Read(payload); err != nil {
 		t.Fatalf("Unable to read random bytes: %v", err)
@@ -232,13 +246,27 @@ func TestCommunicator(t *testing.T) {
 			t.Fatalf("unable to hand message to client: %v", err)
 		}
 	}
-	cd = <-received
-	if len(cd.Messages) != 15 {
-		t.Errorf("Expected 15 messages in delivered ContactData, got: %d", len(cd.Messages))
+	// Should be split into 2 contacts, 15 in the first, 5 in the second.
+	// However, very occasionally things move slow enough in testing that the
+	// first contact has fewer records.
+	recTotalCount = 0
+	recMaxCount = 0
+	for recTotalCount < 20 {
+		cd := <-received
+		cnt := len(cd.Messages)
+		recTotalCount += cnt
+		if cnt > recMaxCount {
+			recMaxCount = cnt
+		}
 	}
-	cd = <-received
-	if len(cd.Messages) != 5 {
-		t.Errorf("Expected 5 messages in delivered ContactData, got: %d", len(cd.Messages))
+	if recTotalCount != 20 {
+		t.Errorf("Expected %d messages, got: %d", 20, recTotalCount)
+	}
+	if recMaxCount < 10 {
+		t.Errorf("Expected to see at least 10 messages in some contact, got: %v", recMaxCount)
+	}
+	if recMaxCount > 15 {
+		t.Errorf("Expected to see at most 15 messages in each contact, got: %v", recMaxCount)
 	}
 
 	// TODO Test that messages go in the other direction, error cases, etc.

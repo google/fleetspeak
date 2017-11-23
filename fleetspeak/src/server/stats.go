@@ -102,7 +102,11 @@ func (d MonitoredDatastore) ListClients(ctx context.Context, ids []common.Client
 func (d MonitoredDatastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	s := ftime.Now()
 	res, err := d.D.GetClientData(ctx, id)
-	d.C.DatastoreOperation(s, ftime.Now(), "GetClientData", err)
+	e := err
+	if e != nil && d.D.IsNotFound(e) {
+		e = nil
+	}
+	d.C.DatastoreOperation(s, ftime.Now(), "GetClientData", e)
 	return res, err
 }
 
