@@ -32,7 +32,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -49,7 +48,7 @@ type fakeClientServiceContext struct {
 	o chan *fspb.Message
 }
 
-func (f fakeClientServiceContext) Send(ctx context.Context, m channel.AckMessage) error {
+func (f fakeClientServiceContext) Send(ctx context.Context, m cservice.AckMessage) error {
 	select {
 	case f.o <- m.M:
 		if m.Ack != nil {

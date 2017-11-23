@@ -85,8 +85,16 @@ func (s adminServer) GetMessageStatus(ctx context.Context, req *spb.GetMessageSt
 		nil
 }
 
-func (s adminServer) ListClients(ctx context.Context, _ *fspb.EmptyMessage) (*spb.ListClientsResponse, error) {
-	clients, err := s.store.ListClients(ctx)
+func (s adminServer) ListClients(ctx context.Context, req *spb.ListClientsRequest) (*spb.ListClientsResponse, error) {
+	ids := make([]common.ClientID, 0, len(req.ClientIds))
+	for i, b := range req.ClientIds {
+		id, err := common.BytesToClientID(b)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse id [%d]: %v", i, err)
+		}
+		ids = append(ids, id)
+	}
+	clients, err := s.store.ListClients(ctx, ids)
 	if err != nil {
 		return nil, err
 	}

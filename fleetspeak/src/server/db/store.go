@@ -39,6 +39,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
@@ -146,8 +147,9 @@ type MessageProcessor interface {
 
 // ClientStore provides methods to store and retrieve information about clients.
 type ClientStore interface {
-	// ListClients retrieves all the clients that are currently in the database.
-	ListClients(ctx context.Context) ([]*spb.Client, error)
+	// ListClients returns basic information about clients. If ids is empty, it
+	// returns all clients.
+	ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error)
 
 	// GetClientData retrieves the current data about the client identified
 	// by id.
@@ -170,6 +172,13 @@ type ClientStore interface {
 	// LinkMessagesToContact associates messages with a contact - it records
 	// that they were sent or received during the given contact.
 	LinkMessagesToContact(ctx context.Context, contact ContactID, msgs []common.MessageID) error
+
+	// Writes resource-usage data received from a client to the data-store.
+	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error
+
+	// Fetches at most 'limit' resource-usage records for a given client from the data-store.
+	// TODO: Add more complex queries.
+	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error)
 }
 
 // Broadcast limits with special meaning.

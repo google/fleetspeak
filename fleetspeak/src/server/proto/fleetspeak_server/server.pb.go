@@ -27,7 +27,7 @@ type ServerConfig struct {
 func (m *ServerConfig) Reset()                    { *m = ServerConfig{} }
 func (m *ServerConfig) String() string            { return proto.CompactTextString(m) }
 func (*ServerConfig) ProtoMessage()               {}
-func (*ServerConfig) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (*ServerConfig) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
 
 func (m *ServerConfig) GetServices() []*ServiceConfig {
 	if m != nil {
@@ -48,10 +48,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor2)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor3)
 }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor3 = []byte{
 	// 204 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x4a, 0xcb, 0x49, 0x4d,
 	0x2d, 0x29, 0x2e, 0x48, 0x4d, 0xcc, 0xd6, 0x2f, 0x2e, 0x4a, 0xd6, 0x2f, 0x4e, 0x2d, 0x2a, 0x4b,

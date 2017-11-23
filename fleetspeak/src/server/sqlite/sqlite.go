@@ -95,7 +95,9 @@ func initSchema(db *sql.DB) error {
 	for _, s := range []string{
 		`CREATE TABLE IF NOT EXISTS clients(
 client_id TEXT(16) PRIMARY KEY,
-client_key BLOB)`,
+client_key BLOB,
+last_contact_time INT8 NOT NULL,
+last_contact_address TEXT(64))`,
 		`CREATE TABLE IF NOT EXISTS client_labels(
 client_id TEXT(16) NOT NULL,
 service_name TEXT(128) NOT NULL,
@@ -110,7 +112,23 @@ time INT8 NOT NULL,
 sent_nonce TEXT(16) NOT NULL,
 received_nonce TEXT(16) NOT NULL,
 address TEXT(64),
+-- We want auto-increment functionality, and get it because an INTEGER primary key
+-- becomes the ROWID.
 PRIMARY KEY (client_contact_id),
+FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
+		`CREATE TABLE IF NOT EXISTS client_resource_usage_records(
+client_id TEXT(16) NOT NULL,
+scope TEXT(128) NOT NULL,
+pid INT8,
+process_start_time INT8,
+client_timestamp INT8,
+server_timestamp INT8,
+mean_user_cpu_rate REAL,
+max_user_cpu_rate REAL,
+mean_system_cpu_rate REAL,
+max_system_cpu_rate REAL,
+mean_resident_memory_mib INT4,
+max_resident_memory_mib INT4,
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS messages(
 message_id TEXT(64) NOT NULL,

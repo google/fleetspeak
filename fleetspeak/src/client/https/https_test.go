@@ -30,7 +30,6 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
@@ -167,7 +166,7 @@ func TestCommunicator(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
-		channel.AckMessage{M: &fspb.Message{
+		service.AckMessage{M: &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "DummyService"}},
 		}); err != nil {
 		t.Fatalf("unable to hand message to client: %v", err)
@@ -202,7 +201,7 @@ func TestCommunicator(t *testing.T) {
 	// 105 small messages should be split into to 2 contacts, 100 in the first, 5 in the second.
 	for i := 0; i < sendCountThreshold+5; i++ {
 		if err := cl.ProcessMessage(context.Background(),
-			channel.AckMessage{M: &fspb.Message{
+			service.AckMessage{M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"}}},
 		); err != nil {
 			t.Fatalf("unable to hand message to client: %v", err)
@@ -225,7 +224,7 @@ func TestCommunicator(t *testing.T) {
 	}
 	for i := 0; i < 20; i++ {
 		if err := cl.ProcessMessage(context.Background(),
-			channel.AckMessage{M: &fspb.Message{
+			service.AckMessage{M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
 				Data:        &anypb.Any{Value: payload},
 			}},
@@ -322,7 +321,7 @@ func TestErrorDelay(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
-		channel.AckMessage{
+		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"}}},
 	); err != nil {
@@ -439,7 +438,7 @@ func TestCertificateRevoked(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
-		channel.AckMessage{M: &fspb.Message{
+		service.AckMessage{M: &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "DummyService"}}},
 	); err != nil {
 		t.Fatalf("unable to hand message to client: %v", err)

@@ -31,7 +31,6 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/flow"
 	intconfig "github.com/google/fleetspeak/fleetspeak/src/client/internal/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/message"
@@ -74,9 +73,9 @@ type Client struct {
 	// outUnsorted produces unsorted buffered messages
 	outUnsorted chan comms.MessageInfo
 	// out(High|Medium|Low) feed buffers of different priorities.
-	outHigh   chan channel.AckMessage
-	outMedium chan channel.AckMessage
-	outLow    chan channel.AckMessage
+	outHigh   chan service.AckMessage
+	outMedium chan service.AckMessage
+	outLow    chan service.AckMessage
 	// used to wait until the retry loop goroutines are done
 	retryLoopsDone sync.WaitGroup
 
@@ -111,9 +110,9 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 
 		outbox:      make(chan comms.MessageInfo),
 		outUnsorted: make(chan comms.MessageInfo),
-		outLow:      make(chan channel.AckMessage),
-		outMedium:   make(chan channel.AckMessage),
-		outHigh:     make(chan channel.AckMessage),
+		outLow:      make(chan service.AckMessage),
+		outMedium:   make(chan service.AckMessage),
+		outHigh:     make(chan service.AckMessage),
 
 		sc: &serviceConfiguration{
 			services:  make(map[string]*serviceData),
@@ -183,7 +182,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 // it. If m for the a server component, it will queue up the message to be
 // delivered to the server. Fleetspeak does not support direct messages from one
 // client to another.
-func (c *Client) ProcessMessage(ctx context.Context, am channel.AckMessage) error {
+func (c *Client) ProcessMessage(ctx context.Context, am service.AckMessage) error {
 	id := c.config.ClientID().Bytes()
 	m := am.M
 	if m.Destination == nil || m.Destination.ServiceName == "" {
@@ -197,7 +196,7 @@ func (c *Client) ProcessMessage(ctx context.Context, am channel.AckMessage) erro
 		return fmt.Errorf("cannot send directly to client %v from client %v", hex.EncodeToString(m.Destination.ClientId), hex.EncodeToString(id))
 	}
 
-	var out chan channel.AckMessage
+	var out chan service.AckMessage
 	switch m.Priority {
 	case fspb.Message_LOW:
 		out = c.outLow

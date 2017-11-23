@@ -60,9 +60,9 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	if sc.Stats == nil {
 		sc.Stats = noopStatsCollector{}
 	} else {
-		sc.Datastore = monitoredDatastore{
-			d: sc.Datastore,
-			c: sc.Stats,
+		sc.Datastore = MonitoredDatastore{
+			D: sc.Datastore,
+			C: sc.Stats,
 		}
 	}
 	if sc.Authorizer == nil {

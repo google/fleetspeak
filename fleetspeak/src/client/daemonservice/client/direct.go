@@ -21,7 +21,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 )
 
 // Init initializes the library, assuming that we are in a process started by

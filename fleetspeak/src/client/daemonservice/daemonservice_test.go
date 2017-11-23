@@ -16,12 +16,11 @@ package daemonservice
 
 import (
 	"os"
-	"path"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
 
 	"context"
 	"github.com/golang/protobuf/proto"
@@ -36,18 +35,27 @@ import (
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
-func testClient() string {
-	return "testclient/testclient"
-}
-
-func testClientPY() string {
-	return "testclient/testclient.py"
-}
-
-func startTestClient(t *testing.T, client, mode string, sc service.Context) *Service {
-	dsc := dspb.Config{
-		Argv: []string{client, "--mode=" + mode},
+func testClient() []string {
+	if runtime.GOOS == "windows" {
+		return []string{`testclient\testclient.exe`}
 	}
+
+	return []string{"testclient/testclient"}
+}
+
+func testClientPY() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"python", `testclient\testclient.py`}
+	}
+
+	return []string{"testclient/testclient.py"}
+}
+
+func startTestClient(t *testing.T, client []string, mode string, sc service.Context) *Service {
+	dsc := dspb.Config{}
+	dsc.Argv = append(dsc.Argv, client...)
+	dsc.Argv = append(dsc.Argv, "--mode="+mode)
+
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
@@ -70,8 +78,8 @@ func startTestClient(t *testing.T, client, mode string, sc service.Context) *Ser
 	return s.(*Service)
 }
 
-func exerciseLoopback(t *testing.T, client string) {
-	t.Logf("Starting loopback exercise for client %s", path.Base(client))
+func exerciseLoopback(t *testing.T, client []string) {
+	t.Logf("Starting loopback exercise for client %v", client)
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
@@ -112,7 +120,7 @@ func exerciseLoopback(t *testing.T, client string) {
 }
 
 func TestLoopback(t *testing.T) {
-	for _, client := range []string{testClient(), testClientPY()} {
+	for _, client := range [][]string{testClient(), testClientPY()} {
 		exerciseLoopback(t, client)
 	}
 }
@@ -176,9 +184,11 @@ func TestInactivityTimeout(t *testing.T) {
 	}()
 
 	dsc := dspb.Config{
-		Argv:              []string{testClient(), "--mode=loopback"},
 		InactivityTimeout: &durpb.Duration{Seconds: 1},
 	}
+	dsc.Argv = append(dsc.Argv, testClient()...)
+	dsc.Argv = append(dsc.Argv, "--mode=loopback")
+
 	dscAny, err := ptypes.MarshalAny(&dsc)
 	if err != nil {
 		t.Fatalf("ptypes.MarshalAny(*DaemonServiceConfig): %v", err)
@@ -261,8 +271,8 @@ func TestInactivityTimeout(t *testing.T) {
 
 }
 
-func exerciseBacklog(t *testing.T, client string) {
-	t.Logf("Starting backlog exercise for client %s", path.Base(client))
+func exerciseBacklog(t *testing.T, client []string) {
+	t.Logf("Starting backlog exercise for client %v", client)
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
@@ -312,7 +322,7 @@ func exerciseBacklog(t *testing.T, client string) {
 }
 
 func TestBacklog(t *testing.T) {
-	for _, client := range []string{testClient(), testClientPY()} {
+	for _, client := range [][]string{testClient(), testClientPY()} {
 		exerciseBacklog(t, client)
 	}
 }

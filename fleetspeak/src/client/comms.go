@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -74,7 +74,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedCont
 func (c commsContext) ProcessContactData(cd *fspb.ContactData) error {
 	c.c.config.SetSequencingNonce(cd.SequencingNonce)
 	for _, m := range cd.Messages {
-		if err := c.c.ProcessMessage(context.TODO(), channel.AckMessage{M: m}); err != nil {
+		if err := c.c.ProcessMessage(context.TODO(), service.AckMessage{M: m}); err != nil {
 			log.Printf("Unable to process message[%v] from server: %v", hex.EncodeToString(m.MessageId), err)
 		}
 	}

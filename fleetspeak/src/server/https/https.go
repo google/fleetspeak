@@ -34,6 +34,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -226,75 +227,83 @@ func addrFromString(addr string) net.Addr {
 // ServeHTTP implements http.Handler
 func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	ctx, fin := context.WithTimeout(req.Context(), 5*time.Minute)
-	status := http.StatusTeapot // Should never actually be returned
-	start := db.Now()
+
+	pi := stats.PollInfo{
+		Start:  db.Now(),
+		Status: http.StatusTeapot, // Should never actually be returned
+	}
 	defer func() {
 		fin()
-		if status == http.StatusTeapot {
+		if pi.Status == http.StatusTeapot {
 			log.Printf("Forgot to set status.")
 		}
-		s.fs.StatsCollector().ClientPoll(start, db.Now(), status)
+		pi.End = db.Now()
+		s.fs.StatsCollector().ClientPoll(pi)
 	}()
 
 	if !s.startProcessing() {
 		log.Print("InternalServerError: server not ready.")
-		status = http.StatusInternalServerError
-		http.Error(res, "Server not ready.", status)
+		pi.Status = http.StatusInternalServerError
+		http.Error(res, "Server not ready.", pi.Status)
 		return
 	}
 	defer s.stopProcessing()
 
 	if req.Method != http.MethodPost {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("%v not supported", req.Method), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("%v not supported", req.Method), pi.Status)
 		return
 	}
 	if req.ContentLength > MaxContactSize {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("content length too large: %v", req.ContentLength), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("content length too large: %v", req.ContentLength), pi.Status)
 		return
 	}
 
 	if req.TLS == nil {
-		status = http.StatusBadRequest
-		http.Error(res, "TLS information not found", status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, "TLS information not found", pi.Status)
 		return
 	}
 	if len(req.TLS.PeerCertificates) != 1 {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("expected 1 client cert, received %v", len(req.TLS.PeerCertificates)), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("expected 1 client cert, received %v", len(req.TLS.PeerCertificates)), pi.Status)
 		return
 	}
 
 	cert := req.TLS.PeerCertificates[0]
 	if cert.PublicKey == nil {
-		status = http.StatusBadRequest
-		http.Error(res, "public key not present in client cert", status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, "public key not present in client cert", pi.Status)
 		return
 	}
 	id, err := common.MakeClientID(cert.PublicKey)
 	if err != nil {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("unable to create client id from public key: %v", err), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("unable to create client id from public key: %v", err), pi.Status)
 		return
 	}
 
 	req.Body = http.MaxBytesReader(res, req.Body, MaxContactSize+1)
+	st := time.Now()
 	buf, err := ioutil.ReadAll(req.Body)
+	pi.ReadTime = time.Since(st)
+	pi.ReadBytes = len(buf)
+
 	if len(buf) > MaxContactSize {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("body can't be larger than %v bytes", MaxContactSize), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("body can't be larger than %v bytes", MaxContactSize), pi.Status)
 		return
 	}
 	if err != nil {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("error reading body: %v", err), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("error reading body: %v", err), pi.Status)
 		return
 	}
 	var wcd fspb.WrappedContactData
 	if err = proto.Unmarshal(buf, &wcd); err != nil {
-		status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("error parsing body: %v", err), status)
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("error parsing body: %v", err), pi.Status)
 		return
 	}
 	addr := addrFromString(req.RemoteAddr)
@@ -305,15 +314,15 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		ClientLabels: wcd.ClientLabels,
 	}
 	if !s.fs.Authorizer().Allow2(addr, contactInfo) {
-		status = http.StatusServiceUnavailable
-		http.Error(res, "not authorized", status)
+		pi.Status = http.StatusServiceUnavailable
+		http.Error(res, "not authorized", pi.Status)
 		return
 	}
 	info, err := s.fs.GetClientInfo(ctx, id)
 	if err != nil {
 		log.Printf("InternalServerError: GetClientInfo returned error: %v", err)
-		status = http.StatusInternalServerError
-		http.Error(res, fmt.Sprintf("internal error getting client info: %v", err), status)
+		pi.Status = http.StatusInternalServerError
+		http.Error(res, fmt.Sprintf("internal error getting client info: %v", err), pi.Status)
 		return
 	}
 	var clientInfo authorizer.ClientInfo
@@ -323,16 +332,16 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		clientInfo.Labels = info.Labels
 	}
 	if !s.fs.Authorizer().Allow3(addr, contactInfo, clientInfo) {
-		status = http.StatusServiceUnavailable
-		http.Error(res, "not authorized", status)
+		pi.Status = http.StatusServiceUnavailable
+		http.Error(res, "not authorized", pi.Status)
 		return
 	}
 	if info == nil {
 		info, err = s.fs.AddClient(ctx, id, cert.PublicKey)
 		if err != nil {
 			log.Printf("InternalServerError: AddClient returned error: %v", err)
-			status = http.StatusInternalServerError
-			http.Error(res, fmt.Sprintf("internal error adding client info: %v", err), status)
+			pi.Status = http.StatusInternalServerError
+			http.Error(res, fmt.Sprintf("internal error adding client info: %v", err), pi.Status)
 			return
 		}
 	}
@@ -340,24 +349,32 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	toSend, err := s.fs.HandleClientContact(ctx, info, addr, &wcd)
 	if err != nil {
 		log.Printf("InternalServerError: HandleClientContact returned error: %v", err)
-		status = http.StatusInternalServerError
-		http.Error(res, fmt.Sprintf("error processing contact: %v", err), status)
+		pi.Status = http.StatusInternalServerError
+		http.Error(res, fmt.Sprintf("error processing contact: %v", err), pi.Status)
 		return
 	}
 
 	bytes, err := proto.Marshal(toSend)
 	if err != nil {
 		log.Printf("InternalServerError: proto.Marshal returned error: %v", err)
-		status = http.StatusInternalServerError
-		http.Error(res, fmt.Sprintf("error preparing messages: %v", err), status)
+		pi.Status = http.StatusInternalServerError
+		http.Error(res, fmt.Sprintf("error preparing messages: %v", err), pi.Status)
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/octet-stream")
 	res.WriteHeader(http.StatusOK)
-	res.Write(bytes)
+	st = time.Now()
+	size, err := res.Write(bytes)
+	if err != nil {
+		log.Print("Error writing body: %v", err)
+		pi.Status = http.StatusBadRequest
+		return
+	}
 
-	status = http.StatusOK
+	pi.WriteTime = time.Since(st)
+	pi.WriteBytes = size
+	pi.Status = http.StatusOK
 }
 
 // messageServer wraps a Communicator in order to serve files.

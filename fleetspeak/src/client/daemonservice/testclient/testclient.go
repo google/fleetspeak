@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"flag"
-
 	"log"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/client"

@@ -20,12 +20,13 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 
+	"log"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
-	"github.com/google/fleetspeak/fleetspeak/src/client/monitoring"
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
@@ -93,6 +94,12 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		return fmt.Errorf("error while starting a process: %v", err)
 	}
 
+	ruf := monitoring.ResourceUsageFetcher{}
+	initialRU, ruErr := ruf.ResourceUsageForPID(cmd.Process.Pid)
+	if ruErr != nil {
+		log.Printf("Failed to get resource usage for process: %v", ruErr)
+	}
+
 	waitChan := make(chan error)
 	go func() {
 		// Note that using cmd.Run() here triggers panics.
@@ -112,9 +119,16 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 
 		e, ok := <-waitChan
 
+		const (
+			killedMessage    = "signal: killed"
+			killedMessageWin = "exit status " // + number representing the return code.
+		)
+
 		if !ok {
 			err = fmt.Errorf("%v; also, .Wait hasn't returned after killing the process", err)
-		} else if e != nil && e.Error() != "signal: killed" {
+		} else if e != nil &&
+			e.Error() != killedMessage &&
+			!strings.HasPrefix(e.Error(), killedMessageWin) {
 			err = fmt.Errorf("%v; also, .Wait returned an error: %v", err, e)
 		}
 	}
@@ -125,8 +139,15 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	om.Stdout = outBuf.Bytes()
 	om.Stderr = errBuf.Bytes()
 
-	om.ResourceUsage = monitoring.ResourceUsageFromFinishedCmd(cmd)
+	finalRU := ruf.ResourceUsageFromFinishedCmd(cmd)
+	aggRU, ruErr := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
+	if ruErr != nil {
+		log.Printf("Aggregation of resource-usage data failed: %v", ruErr)
+	} else {
+		om.ResourceUsage = aggRU
+	}
 
+	om.Timestamp = ptypes.TimestampNow()
 	if err := s.respond(ctx, om); err != nil {
 		return fmt.Errorf("error while trying to send a response to the requesting server: %v", err)
 	}
@@ -154,9 +175,5 @@ func (s *StdinService) respond(ctx context.Context, om *sspb.OutputMessage) erro
 		return err
 	}
 
-	if err := s.sc.Send(ctx, channel.AckMessage{M: m}); err != nil {
-		return err
-	}
-
-	return nil
+	return s.sc.Send(ctx, service.AckMessage{M: m})
 }

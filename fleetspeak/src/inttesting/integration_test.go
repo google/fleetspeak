@@ -26,7 +26,8 @@ import (
 )
 
 func TestFRRIntegration(t *testing.T) {
-	tmpDir := comtesting.GetTempDir("frr_integration")
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("frr_integration")
+	defer tmpDirCleanup()
 	// Create an sqlite datastore.
 	p := path.Join(tmpDir, "FRRIntegration.sqlite")
 	ds, err := sqlite.MakeDatastore(p)

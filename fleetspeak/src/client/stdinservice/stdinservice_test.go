@@ -19,21 +19,19 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 
-	durpb "github.com/golang/protobuf/ptypes/duration"
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 func TestStdinServiceWithEcho(t *testing.T) {
 	ssc := &sspb.Config{
-		Cmd: "/bin/echo",
+		Cmd: "python",
 	}
 	sscAny, err := ptypes.MarshalAny(ssc)
 	if err != nil {
@@ -57,7 +55,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	}
 
 	m := &sspb.InputMessage{
-		Args: []string{"foo", "bar"},
+		Args: []string{"-c", `print "foo bar"`},
 	}
 	mAny, err := ptypes.MarshalAny(m)
 	if err != nil {
@@ -86,14 +84,16 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	}
 
 	wantStdout := []byte("foo bar\n")
-	if !bytes.Equal(om.Stdout, wantStdout) {
+	wantStdoutWin := []byte("foo bar\r\n")
+	if !bytes.Equal(om.Stdout, wantStdout) &&
+		!bytes.Equal(om.Stdout, wantStdoutWin) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
 
 func TestStdinServiceWithCat(t *testing.T) {
 	ssc := &sspb.Config{
-		Cmd: "/bin/cat",
+		Cmd: "python",
 	}
 	sscAny, err := ptypes.MarshalAny(ssc)
 	if err != nil {
@@ -117,6 +117,13 @@ func TestStdinServiceWithCat(t *testing.T) {
 	}
 
 	m := &sspb.InputMessage{
+		Args: []string{"-c", `
+try:
+  while True:
+    print raw_input()
+except EOFError:
+  pass
+		`},
 		Input: []byte("foo bar"),
 	}
 	mAny, err := ptypes.MarshalAny(m)
@@ -145,15 +152,17 @@ func TestStdinServiceWithCat(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar")
-	if !bytes.Equal(om.Stdout, wantStdout) {
+	wantStdout := []byte("foo bar\n")
+	wantStdoutWin := []byte("foo bar\r\n")
+	if !bytes.Equal(om.Stdout, wantStdout) &&
+		!bytes.Equal(om.Stdout, wantStdoutWin) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
 
 func TestStdinServiceReportsResourceUsage(t *testing.T) {
 	ssc := &sspb.Config{
-		Cmd: "/bin/bash",
+		Cmd: "python",
 	}
 	sscAny, err := ptypes.MarshalAny(ssc)
 	if err != nil {
@@ -177,19 +186,20 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 	}
 
 	m := &sspb.InputMessage{
-		// Generate some userspace execution time... Compute Σ(i=1..100000)i .
+		// Generate some system (os.listdir) and user (everything else) execution time...
 		Args: []string{"-c", `
-			/usr/bin/seq 100000 |
-			/usr/bin/paste -s -d + |
-			/usr/bin/bc
+import os
+import time
+
+t0 = time.time()
+while time.time() - t0 < 1.:
+  os.listdir(".")
 		`},
 	}
 	mAny, err := ptypes.MarshalAny(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	preStartT := time.Now()
 
 	err = s.ProcessMessage(context.Background(),
 		&fspb.Message{
@@ -207,66 +217,35 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 		t.Fatal(".ProcessMessage (/bin/bash ...) expected to produce message, but none found")
 	}
 
-	outputReceivedT := time.Now()
-
 	om := &sspb.OutputMessage{}
 	if err := ptypes.UnmarshalAny(output.Data, om); err != nil {
 		t.Fatal(err)
-	}
-
-	wantStdout := []byte("5000050000\n")
-	if !bytes.Equal(om.Stdout, wantStdout) {
-		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 
 	if om.ResourceUsage == nil {
 		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage not set: %q", om)
 	}
 
-	protoDurationToTimeDuration := func(d *durpb.Duration) (ret time.Duration) {
-		if d != nil {
-			var err error
-			ret, err = ptypes.Duration(d)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		return
+	if om.ResourceUsage.MeanUserCpuRate <= 0 {
+		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_user_cpu_rate not set: %q", om)
 	}
 
-	ut := protoDurationToTimeDuration(om.ResourceUsage.UserTime)
-	if ut <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.user_time not set: %q", om)
+	if om.ResourceUsage.MeanSystemCpuRate <= 0 {
+		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_system_cpu_rate not set: %q", om)
 	}
 
-	// If we require positive SystemTime, the test becomes flaky, because the
-	// system space execution time is so small it sometimes rounds down to zero.
-
-	if om.ResourceUsage.Timestamp.Seconds <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.timestamp.seconds not set: %q", om)
+	if om.Timestamp.Seconds <= 0 {
+		t.Fatalf("unexpected output; StdinServiceOutputMessage.timestamp.seconds not set: %q", om)
 	}
 
-	deltaT := outputReceivedT.Sub(preStartT)
-
-	statsTime := time.Unix(om.ResourceUsage.Timestamp.Seconds, int64(om.ResourceUsage.Timestamp.Nanos))
-	execDuration := statsTime.Sub(preStartT)
-	if execDuration >= deltaT {
-		t.Fatalf("unexpected output; the reported execution wall time is longer than it took the test to run the process and collect its output (pre-execution-time: %v, post-output-collection-time: %v, delta: %v): %q", preStartT, outputReceivedT, deltaT, om)
-	}
-
-	if om.ResourceUsage.ResidentMemory <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.resident_memory not set: %q", om)
-	}
-
-	if om.ResourceUsage.VerboseStatus == "" {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.verbose_status not set: %q", om)
+	if om.ResourceUsage.MeanResidentMemory <= 0 {
+		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_resident_memory not set: %q", om)
 	}
 }
 
 func TestStdinServiceCancellation(t *testing.T) {
 	ssc := &sspb.Config{
-		Cmd: "/bin/sleep",
+		Cmd: "python",
 	}
 	sscAny, err := ptypes.MarshalAny(ssc)
 	if err != nil {
@@ -290,7 +269,11 @@ func TestStdinServiceCancellation(t *testing.T) {
 	}
 
 	m := &sspb.InputMessage{
-		Args: []string{fmt.Sprintf("%f", clitesting.MockCommTimeout.Seconds())},
+		Args: []string{"-c", fmt.Sprintf(`
+import time
+
+time.sleep(%f)
+		`, clitesting.MockCommTimeout.Seconds())},
 	}
 	mAny, err := ptypes.MarshalAny(m)
 	if err != nil {

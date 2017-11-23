@@ -33,7 +33,6 @@ import (
 	"runtime"
 
 	"flag"
-
 	"log"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"

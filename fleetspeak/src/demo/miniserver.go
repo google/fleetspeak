@@ -30,7 +30,6 @@ import (
 	"syscall"
 
 	"flag"
-
 	"log"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"

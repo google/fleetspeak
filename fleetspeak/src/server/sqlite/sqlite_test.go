@@ -25,7 +25,8 @@ import (
 )
 
 func setup(t *testing.T, caseName string) *Datastore {
-	dir := comtesting.GetTempDir("sqlite_test")
+	dir, tmpDirCleanup := comtesting.GetTempDir("sqlite_test")
+	defer tmpDirCleanup()
 	p := path.Join(dir, caseName+".sqlite")
 	log.Printf("Using database: %v", p)
 	s, err := MakeDatastore(p)

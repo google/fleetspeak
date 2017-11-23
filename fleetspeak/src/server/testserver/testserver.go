@@ -71,7 +71,9 @@ func (c FakeCommunicator) Stop() {}
 // Make creates a server.Server using the provided communicators. It creates and
 // attaches it to an sqlite datastore based on the test and test case names.
 func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) Server {
-	p := path.Join(comtesting.GetTempDir(testName), caseName+".sqlite")
+	tempDir, tmpDirCleanup := comtesting.GetTempDir(testName)
+	defer tmpDirCleanup()
+	p := path.Join(tempDir, caseName+".sqlite")
 	ds, err := sqlite.MakeDatastore(p)
 	if err != nil {
 		t.Fatal(err)

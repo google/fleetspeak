@@ -20,12 +20,12 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 )
 
 type sizedMessage struct {
 	size int
-	m    channel.AckMessage
+	m    service.AckMessage
 }
 
 // RetryLoop is a loop which reads from in and writes to out.
@@ -35,7 +35,7 @@ type sizedMessage struct {
 // when at least maxSize bytes of messages, or maxCount messages are pending.
 //
 // To shutdown gracefully, close out and Ack any pending messages.
-func RetryLoop(in <-chan channel.AckMessage, out chan<- comms.MessageInfo, maxSize, maxCount int) {
+func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, maxSize, maxCount int) {
 	// Used to send acks/nacks back to this loop. Buffered to prevent ack,nack
 	// callbacks from ever blocking.
 	acks := make(chan sizedMessage, maxCount)
@@ -55,7 +55,7 @@ func RetryLoop(in <-chan channel.AckMessage, out chan<- comms.MessageInfo, maxSi
 	}
 
 	var size, count int
-	var optIn <-chan channel.AckMessage
+	var optIn <-chan service.AckMessage
 	for {
 		if size >= maxSize || count >= maxCount {
 			optIn = nil

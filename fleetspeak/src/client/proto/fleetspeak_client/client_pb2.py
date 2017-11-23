@@ -33,7 +33,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/client/proto/fleetspeak_client/client.proto',
   package='fleetspeak.client',
   syntax='proto3',
-  serialized_pb=_b('\n:fleetspeak/src/client/proto/fleetspeak_client/client.proto\x12\x11\x66leetspeak.client\"y\n\x12\x43ommunicatorConfig\x12\x1e\n\x16max_poll_delay_seconds\x18\x02 \x01(\x05\x12 \n\x18max_buffer_delay_seconds\x18\x03 \x01(\x05\x12!\n\x19min_failure_delay_seconds\x18\x04 \x01(\x05\"Y\n\x0b\x43lientState\x12\x12\n\nclient_key\x18\x01 \x01(\x0c\x12\x18\n\x10sequencing_nonce\x18\x07 \x01(\x04\x12\x1c\n\x14revoked_cert_serials\x18\x08 \x03(\x0c\x62\x06proto3')
+  serialized_pb=_b('\n:fleetspeak/src/client/proto/fleetspeak_client/client.proto\x12\x11\x66leetspeak.client\"\x9f\x01\n\x12\x43ommunicatorConfig\x12\x1e\n\x16max_poll_delay_seconds\x18\x02 \x01(\x05\x12 \n\x18max_buffer_delay_seconds\x18\x03 \x01(\x05\x12!\n\x19min_failure_delay_seconds\x18\x04 \x01(\x05\x12$\n\x1c\x66\x61ilure_suicide_time_seconds\x18\x05 \x01(\x05\"Y\n\x0b\x43lientState\x12\x12\n\nclient_key\x18\x01 \x01(\x0c\x12\x18\n\x10sequencing_nonce\x18\x07 \x01(\x04\x12\x1c\n\x14revoked_cert_serials\x18\x08 \x03(\x0c\x62\x06proto3')
 )
 
 
@@ -67,6 +67,13 @@ _COMMUNICATORCONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='failure_suicide_time_seconds', full_name='fleetspeak.client.CommunicatorConfig.failure_suicide_time_seconds', index=3,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -79,8 +86,8 @@ _COMMUNICATORCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=81,
-  serialized_end=202,
+  serialized_start=82,
+  serialized_end=241,
 )
 
 
@@ -124,8 +131,8 @@ _CLIENTSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=204,
-  serialized_end=293,
+  serialized_start=243,
+  serialized_end=332,
 )
 
 DESCRIPTOR.message_types_by_name['CommunicatorConfig'] = _COMMUNICATORCONFIG

@@ -25,7 +25,6 @@ import (
 	"log"
 	"context"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
@@ -133,7 +132,7 @@ type serviceData struct {
 }
 
 // Send implements service.Context.
-func (d *serviceData) Send(ctx context.Context, am channel.AckMessage) error {
+func (d *serviceData) Send(ctx context.Context, am service.AckMessage) error {
 	m := am.M
 	id := d.config.client.config.ClientID().Bytes()
 

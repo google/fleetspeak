@@ -29,9 +29,9 @@ import (
 	"log"
 	"context"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/command"
-	"github.com/google/fleetspeak/fleetspeak/src/client/monitoring"
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -45,16 +45,23 @@ const (
 	outFlushTime = 5 * time.Second
 )
 
-// StatsPeriod is the time between monitoring messages containing resource usage
-// statistics. Variable for unit testing purposes.
-var StatsPeriod = time.Minute
+var (
+	// MaxStatsSamplePeriod is the period with which resource-usage data for the
+	// Fleetspeak process will be fetched from the OS (but the first few samples
+	// are collected more often, see resource_usage_monitor.go).
+	MaxStatsSamplePeriod = 30 * time.Second
 
-// ErrShuttingDown is returned once an execution has started shutting down and
-// is no longer accepting messages.
-var ErrShuttingDown = errors.New("shutting down")
+	// StatsSampleSize is the number of resource-usage query results that get aggregated into
+	// a single resource-usage report sent to Fleetspeak servers.
+	StatsSampleSize = 20
 
-var stdForward = flag.Bool("std_forward", false,
-	"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
+	// ErrShuttingDown is returned once an execution has started shutting down and
+	// is no longer accepting messages.
+	ErrShuttingDown = errors.New("shutting down")
+
+	stdForward = flag.Bool("std_forward", false,
+		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
+)
 
 // An Execution represents a specific execution of a daemonservice.
 type Execution struct {
@@ -122,10 +129,28 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		return nil, err
 	}
 
+	ruf := monitoring.ResourceUsageFetcher{}
+	initialRU, err := ruf.ResourceUsageForPID(ret.cmd.Process.Pid)
+	if err != nil {
+		log.Printf("Failed to get resource usage for daemon process: %v", err)
+	}
+
+	rum, err := monitoring.NewResourceUsageMonitor(
+		ret.sc, ret.daemonServiceName, ret.cmd.Process.Pid, ret.StartTime, MaxStatsSamplePeriod, StatsSampleSize, ret.Done)
+	if err != nil {
+		rum = nil
+		log.Printf("Failed to start resource-usage monitor: %v", err)
+	}
+
 	ret.inProcess.Add(4)
 	go ret.flushLoop()
 	go ret.inLoop()
-	go ret.statsLoop()
+	go func() {
+		defer ret.inProcess.Done()
+		if rum != nil {
+			rum.StatsReporterLoop()
+		}
+	}()
 	go func() {
 		defer func() {
 			ret.Shutdown()
@@ -136,8 +161,19 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		if ret.waitResult != nil {
 			log.Printf("subprocess ended with error: %v", ret.waitResult)
 		}
+		if rum != nil && rum.StatsSent() || initialRU == nil {
+			return
+		}
+		// Send resource-usage data to the server if the stats loop didn't get a chance to
+		// do that e.g. for short-running processes.
+		finalRU := ruf.ResourceUsageFromFinishedCmd(&ret.cmd.Cmd)
+		aggRU, err := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
+		if err != nil {
+			log.Printf("Aggregation of resource-usage data failed: %v", err)
+			return
+		}
 		ctx, c := context.WithTimeout(context.Background(), time.Second)
-		ret.sendStats(ctx, monitoring.ResourceUsageFromFinishedCmd(&ret.cmd.Cmd))
+		ret.sendStats(ctx, aggRU)
 		c()
 	}()
 
@@ -186,7 +222,7 @@ func (e *Execution) flushOut() {
 	if err != nil {
 		log.Printf("unable to marshal StdOutputData: %v", err)
 	} else {
-		e.sc.Send(context.Background(), channel.AckMessage{
+		e.sc.Send(context.Background(), service.AckMessage{
 			M: &fspb.Message{
 				MessageType: "StdOutput",
 				Data:        d,
@@ -329,7 +365,7 @@ func (e *Execution) inLoop() {
 				return
 			}
 			e.setLastActive(time.Now())
-			if err := e.sc.Send(context.Background(), channel.AckMessage{M: m}); err != nil {
+			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
 				log.Printf("error sending message to server: %v", err)
 			}
 		case err := <-e.channel.Err:
@@ -339,56 +375,33 @@ func (e *Execution) inLoop() {
 	}
 }
 
-// sendStats attempts to send an mpb.ResourceUsage.
-func (e *Execution) sendStats(ctx context.Context, ru *mpb.ResourceUsage) {
+// sendStats attempts to send an mpb.ResourceUsageData proto to the server.
+func (e *Execution) sendStats(ctx context.Context, aggRU *mpb.AggregatedResourceUsage) {
 	startTime, err := ptypes.TimestampProto(e.StartTime)
 	if err != nil {
 		// Well, this really should never happen, since the field is set to the return
 		// value of time.Now()
 		log.Printf("Client start time timestamp failed validation check: %v", e.StartTime)
+		return
 	}
 	rud := mpb.ResourceUsageData{
 		Scope:            e.daemonServiceName,
 		Pid:              int64(e.cmd.Process.Pid),
 		ProcessStartTime: startTime,
-		ResourceUsage:    ru,
+		DataTimestamp:    ptypes.TimestampNow(),
+		ResourceUsage:    aggRU,
 	}
 	d, err := ptypes.MarshalAny(&rud)
 	if err != nil {
 		log.Printf("unable to marshal ResourceUsageData: %v", err)
 	} else {
-		e.sc.Send(ctx, channel.AckMessage{
+		e.sc.Send(ctx, service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "system"},
 				MessageType: "ResourceUsage",
 				Data:        d,
+				Priority:    fspb.Message_LOW,
 			},
 		})
-	}
-}
-
-// statsLoop gathers stats from the dependent process and sends them to
-// fleetspeek approximately once per StatsPeriod.
-func (e *Execution) statsLoop() {
-	defer e.inProcess.Done()
-	t := time.NewTicker(StatsPeriod)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-e.Done:
-			return
-		case <-t.C:
-			pid := e.cmd.Process.Pid
-			ru, err := monitoring.ResourceUsageForPID(pid)
-			if err != nil {
-				log.Printf("error getting resources for pid[%d]: %v", pid, err)
-				// most likely, future attempts would also fail
-				return
-			}
-			ctx, c := context.WithTimeout(context.Background(), 30*time.Second)
-			e.sendStats(ctx, ru)
-			c()
-		}
 	}
 }

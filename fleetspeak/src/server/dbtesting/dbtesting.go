@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -37,6 +38,7 @@ import (
 	apb "github.com/golang/protobuf/ptypes/any"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
@@ -55,6 +57,7 @@ func MessageStoreTest(t *testing.T, ms db.Store) {
 	storeMessagesTest(t, ms)
 	clientMessagesForProcessingTest(t, ms)
 	registerMessageProcessorTest(t, ms)
+	listClientsTest(t, ms)
 }
 
 type idPair struct {
@@ -69,7 +72,7 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 	ctx := context.Background()
 
 	if err := ms.AddClient(ctx, clientID2, &db.ClientData{Key: []byte("test key")}); err != nil {
-		t.Fatalf("AddClient [%v] failed: %v", clientID, err)
+		t.Fatalf("AddClient [%v] failed: %v", clientID2, err)
 	}
 
 	msgs := []*fspb.Message{
@@ -229,14 +232,14 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 
 	m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10)
 	if err != nil {
-		t.Errorf("MessagesForProcessing(%v) returned error: %v", clientID, err)
+		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", clientID, err)
 	}
 	log.Printf("Retrieved: %v", m)
 	if len(m) != 1 {
-		t.Errorf("MessageForProcessing(%v) didn't return one message: %v", clientID, m)
+		t.Errorf("ClientMessageForProcessing(%v) didn't return one message: %v", clientID, m)
 	}
 	if !proto.Equal(m[0], &stored) {
-		t.Errorf("MessageForProcessing(%v) unexpected result, want: %v, got: %v", clientID, &stored, m[0])
+		t.Errorf("ClientMessageForProcessing(%v) unexpected result, want: %v, got: %v", clientID, &stored, m[0])
 	}
 }
 
@@ -611,7 +614,7 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		t.Errorf("unexpected error linking message to contact: %v", err)
 	}
 
-	clients, err := ds.ListClients(ctx)
+	clients, err := ds.ListClients(ctx, nil)
 	if err != nil {
 		t.Errorf("unexpected error while listing client ids: %v", err)
 		return
@@ -624,9 +627,12 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 	// Some datastores might not respect db.Now for LastContactTime.  If it seems
 	// to be a current timestamp (2017-2030) assume it is fine, and adjust to the
 	// expected value.
-	if got.LastContactTime.Seconds > 1483228800 && got.LastContactTime.Seconds < 1893456000 {
-		got.LastContactTime = &tpb.Timestamp{Seconds: 84}
+	adjustDbTimestamp := func(timestamp *tpb.Timestamp) {
+		if timestamp.Seconds > 1483228800 && timestamp.Seconds < 1893456000 {
+			*timestamp = tpb.Timestamp{Seconds: 84}
+		}
 	}
+	adjustDbTimestamp(got.LastContactTime)
 	want := &spb.Client{
 		ClientId: clientID.Bytes(),
 		Labels: []*fspb.Label{
@@ -639,11 +645,70 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 				Label:       "new label",
 			},
 		},
-		LastContactTime: &tpb.Timestamp{Seconds: 84},
+		LastContactTime:    &tpb.Timestamp{Seconds: 84},
+		LastContactAddress: "[ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.123.123]:65535",
 	}
+
+	labelSorter{got.Labels}.Sort()
+	labelSorter{want.Labels}.Sort()
 
 	if !proto.Equal(want, got) {
 		t.Errorf("ListClients error: want [%v] got [%v]", want, got)
+	}
+
+	meanRAM, maxRAM := 190, 200
+	rud := mpb.ResourceUsageData{
+		Scope:            "test-scope",
+		Pid:              1234,
+		ProcessStartTime: &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		DataTimestamp:    &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ResourceUsage: &mpb.AggregatedResourceUsage{
+			MeanUserCpuRate:    50.0,
+			MaxUserCpuRate:     60.0,
+			MeanSystemCpuRate:  70.0,
+			MaxSystemCpuRate:   80.0,
+			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
+			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
+		},
+	}
+	err = ds.RecordResourceUsageData(ctx, clientID, rud)
+	if err != nil {
+		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
+	}
+	records, err := ds.FetchResourceUsageRecords(ctx, clientID, 100)
+	if err != nil {
+		t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("Unexpected number of records returned. Want %d, got %v", 1, len(records))
+	}
+	expected := &spb.ClientResourceUsageRecord{
+		Scope:                 "test-scope",
+		Pid:                   1234,
+		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ServerTimestamp:       &tpb.Timestamp{Seconds: 84},
+		MeanUserCpuRate:       50.0,
+		MaxUserCpuRate:        60.0,
+		MeanSystemCpuRate:     70.0,
+		MaxSystemCpuRate:      80.0,
+		MeanResidentMemoryMib: int32(meanRAM),
+		MaxResidentMemoryMib:  int32(maxRAM),
+	}
+	record := records[0]
+	adjustDbTimestamp(record.ServerTimestamp)
+
+	// Adjust for floating-point rounding discrepancies.
+	adjustForRounding := func(actual *int32, expected int) {
+		if *actual == int32(expected-1) || *actual == int32(expected+1) {
+			*actual = int32(expected)
+		}
+	}
+	adjustForRounding(&record.MeanResidentMemoryMib, meanRAM)
+	adjustForRounding(&record.MaxResidentMemoryMib, maxRAM)
+
+	if got, want := record, expected; !proto.Equal(got, want) {
+		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
 	}
 }
 
@@ -844,6 +909,49 @@ func BroadcastStoreTest(t *testing.T, ds db.Store) {
 	}
 	if sb[0] != bid[0] {
 		t.Errorf("Expected sent broadcast to be %v got: %v", bid[0], sb[0])
+	}
+}
+
+func listClientsTest(t *testing.T, ds db.Store) {
+	ctx := context.Background()
+Cases:
+	for _, tc := range []struct {
+		name string
+		ids  []common.ClientID
+		want map[common.ClientID]bool
+	}{
+		{
+			ids:  nil,
+			want: map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
+		},
+		{
+			ids:  []common.ClientID{clientID},
+			want: map[common.ClientID]bool{clientID: true},
+		},
+		{
+			ids:  []common.ClientID{clientID, clientID2},
+			want: map[common.ClientID]bool{clientID: true, clientID2: true},
+		},
+	} {
+		clients, err := ds.ListClients(ctx, tc.ids)
+		if err != nil {
+			t.Errorf("unexpected error while listing client ids [%v]: %v", tc.ids, err)
+			continue Cases
+		}
+		got := make(map[common.ClientID]bool)
+		for _, c := range clients {
+			id, err := common.BytesToClientID(c.ClientId)
+			if err != nil {
+				t.Errorf("ListClients(%v) returned invalid client_id: %v", tc.ids, err)
+			}
+			if c.LastContactTime == nil {
+				t.Errorf("ListClients(%v) returned nil LastContactTime.", tc.ids)
+			}
+			got[id] = true
+		}
+		if !reflect.DeepEqual(tc.want, got) {
+			t.Errorf("ListClients(%v) returned unexpected set of clients, want [%v], got[%v]", tc.ids, tc.want, got)
+		}
 	}
 }
 

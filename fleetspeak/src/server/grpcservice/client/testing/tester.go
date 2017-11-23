@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"flag"
-
 	"log"
 	"context"
 	"github.com/golang/protobuf/ptypes"
@@ -52,7 +51,9 @@ var (
 
 func main() {
 	flag.Parse()
-	p := path.Join(comtesting.GetTempDir("grpcservice"), "client_test.sqlite")
+	tempDir, tmpDirCleanup := comtesting.GetTempDir("grpcservice")
+	defer tmpDirCleanup()
+	p := path.Join(tempDir, "client_test.sqlite")
 	ds, err := sqlite.MakeDatastore(p)
 
 	sertesting.SetServerRetryTime(func(_ uint32) time.Time {

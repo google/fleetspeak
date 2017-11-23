@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"flag"
-
 	"log"
 	"context"
 	"github.com/golang/protobuf/ptypes"
@@ -95,7 +94,7 @@ func (b byContactTime) Less(i, j int) bool { return contactTime(b[i]).Before(con
 
 func listClients(c sgrpc.AdminClient) {
 	ctx := context.Background()
-	res, err := c.ListClients(ctx, &fspb.EmptyMessage{})
+	res, err := c.ListClients(ctx, &spb.ListClientsRequest{})
 	if err != nil {
 		log.Fatalf("ListClients RPC failed: %v", err)
 	}

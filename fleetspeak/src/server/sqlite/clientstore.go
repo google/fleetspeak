@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package sqlite implements the fleetspeak datastore interface using an sqlite
-// database. It is meant for testing for small single-server deployments. In
-// particular, having multiple servers using the same sqlite datastore is not
-// supported.
 package sqlite
 
 import (
@@ -31,30 +27,34 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
+	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
+const (
+	bytesToMIB = 1.0 / float64(1<<20)
+)
+
 // ListClients implements db.ClientStore.
-func (d *Datastore) ListClients(ctx context.Context) ([]*spb.Client, error) {
+func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
 
 	// Return value map, maps string client ids to the return values.
 	retm := make(map[string]*spb.Client)
 
-	err := d.runInTx(func(tx *sql.Tx) error {
-		// Note all the client ids in the database.
-		rows, err := tx.QueryContext(ctx, "SELECT client_id FROM clients ")
+	h := func(rows *sql.Rows, err error) error {
 		if err != nil {
 			return err
 		}
-
 		defer rows.Close()
-
 		for rows.Next() {
 			var sid string
-			if err = rows.Scan(&sid); err != nil {
+			var timeNS int64
+			var addr sql.NullString
+			if err := rows.Scan(&sid, &timeNS, &addr); err != nil {
 				return err
 			}
 
@@ -63,13 +63,35 @@ func (d *Datastore) ListClients(ctx context.Context) ([]*spb.Client, error) {
 				return err
 			}
 
+			ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
+			if err != nil {
+				return err
+			}
+
+			if !addr.Valid {
+				addr.String = ""
+			}
+
 			retm[sid] = &spb.Client{
-				ClientId: id.Bytes(),
+				ClientId:           id.Bytes(),
+				LastContactTime:    ts,
+				LastContactAddress: addr.String,
 			}
 		}
+		return rows.Err()
+	}
 
-		if err = rows.Err(); err != nil {
-			return err
+	err := d.runInTx(func(tx *sql.Tx) error {
+		if len(ids) == 0 {
+			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address FROM clients")); err != nil {
+				return err
+			}
+		} else {
+			for _, id := range ids {
+				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address FROM clients WHERE client_id = ?", id.String())); err != nil {
+					return err
+				}
+			}
 		}
 
 		// Match all the labels in the database with the client ids noted in the
@@ -91,29 +113,7 @@ func (d *Datastore) ListClients(ctx context.Context) ([]*spb.Client, error) {
 
 			retm[sid].Labels = append(retm[sid].Labels, l)
 		}
-
-		lastRows, err := tx.QueryContext(ctx, "SELECT client_id, MAX(time) FROM client_contacts GROUP BY client_id")
-		if err != nil {
-			return err
-		}
-
-		defer lastRows.Close()
-		for lastRows.Next() {
-			var cid string
-			var timeNS int64
-			if err := lastRows.Scan(&cid, &timeNS); err != nil {
-				return err
-			}
-			if timeNS != 0 {
-				ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
-				if err != nil {
-					return err
-				}
-				retm[cid].LastContactTime = ts
-			}
-		}
-
-		return labRows.Err() // This is normally nil.
+		return nil
 	})
 
 	var ret []*spb.Client
@@ -168,7 +168,7 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
 		sid := id.String()
-		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key) VALUES(?, ?)", sid, data.Key); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, last_contact_time) VALUES(?, ?, ?)", sid, data.Key, db.Now().UnixNano()); err != nil {
 			return err
 		}
 		for _, l := range data.Labels {
@@ -197,18 +197,22 @@ func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l
 }
 
 // RecordClientContact implements db.ClientStore.
-func (d *Datastore) RecordClientContact(ctx context.Context, id common.ClientID, nonceSent, nonceReceived uint64, addr string) (db.ContactID, error) {
+func (d *Datastore) RecordClientContact(ctx context.Context, cid common.ClientID, nonceSent, nonceReceived uint64, addr string) (db.ContactID, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
 	var res db.ContactID
 	err := d.runInTx(func(tx *sql.Tx) error {
+		n := db.Now().UnixNano()
 		r, err := tx.ExecContext(ctx, "INSERT INTO client_contacts(client_id, time, sent_nonce, received_nonce, address) VALUES(?, ?, ?, ?, ?)",
-			id.String(), db.Now().UnixNano(), nonceSent, nonceReceived, addr)
+			cid.String(), n, nonceSent, nonceReceived, addr)
 		if err != nil {
 			return err
 		}
 		id, err := r.LastInsertId()
 		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ? WHERE client_id = ?", n, addr, cid.String()); err != nil {
 			return err
 		}
 		res = db.ContactID(strconv.FormatUint(uint64(id), 16))
@@ -235,4 +239,89 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 		}
 		return nil
 	})
+}
+
+// RecordResourceUsageData implements db.ClientStore.
+func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
+	d.l.Lock()
+	defer d.l.Unlock()
+	processStartTime, err := ptypes.Timestamp(rud.ProcessStartTime)
+	if err != nil {
+		return fmt.Errorf("failed to parse process start time: %v", err)
+	}
+	clientTimestamp, err := ptypes.Timestamp(rud.DataTimestamp)
+	if err != nil {
+		return fmt.Errorf("failed to parse data timestamp: %v", err)
+	}
+	return d.runInTx(func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			id.String(),
+			rud.Scope,
+			rud.Pid,
+			processStartTime.UnixNano(),
+			clientTimestamp.UnixNano(),
+			db.Now().UnixNano(),
+			rud.ResourceUsage.MeanUserCpuRate,
+			rud.ResourceUsage.MaxUserCpuRate,
+			rud.ResourceUsage.MeanSystemCpuRate,
+			rud.ResourceUsage.MaxSystemCpuRate,
+			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
+			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB))
+		return err
+	})
+}
+
+// FetchResourceUsageRecords implements db.ClientStore.
+func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+	var records []*spb.ClientResourceUsageRecord
+	err := d.runInTx(func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(
+			ctx,
+			"SELECT "+
+				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
+				"mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
+				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
+				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
+			id.String(),
+			limit)
+
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			record := &spb.ClientResourceUsageRecord{}
+			var processStartTime, clientTimestamp, serverTimestamp int64
+			err := rows.Scan(
+				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
+				&record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
+				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
+
+			if err != nil {
+				return err
+			}
+
+			record.ProcessStartTime = timestampProto(processStartTime)
+			record.ClientTimestamp = timestampProto(clientTimestamp)
+			record.ServerTimestamp = timestampProto(serverTimestamp)
+			records = append(records, record)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func timestampProto(nanos int64) *tspb.Timestamp {
+	return &tspb.Timestamp{
+		Seconds: nanos / time.Second.Nanoseconds(),
+		Nanos:   int32(nanos % time.Second.Nanoseconds()),
+	}
 }

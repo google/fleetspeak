@@ -20,9 +20,14 @@ daemonservice/channel/channel.go.
 """
 
 import os
+import platform
 import struct
 
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
+
+_WINDOWS = (platform.system() == "Windows")
+if _WINDOWS:
+  import msvcrt  # pylint: disable=g-import-not-at-top
 
 
 class ProtocolError(Exception):
@@ -54,7 +59,15 @@ def _EnvOpen(var, mode):
   value = os.getenv(var)
   if value is None:
     raise ValueError("%s is not set" % var)
-  return os.fdopen(int(value), mode)
+
+  fd = int(value)
+
+  # If running on Windows, convert the file handle to a C file descriptor; see:
+  # https://groups.google.com/forum/#!topic/dev-python/GeN5bFJWfJ4
+  if _WINDOWS:
+    fd = msvcrt.open_osfhandle(fd, 0)
+
+  return os.fdopen(fd, mode)
 
 
 class FleetspeakConnection(object):
@@ -107,6 +120,8 @@ class FleetspeakConnection(object):
 
     Args:
       message: A message protocol buffer.
+    Returns:
+      Size of the message in bytes.
     Raises:
       ValueError: If message is not a common_pb2.Message.
     """
@@ -122,11 +137,13 @@ class FleetspeakConnection(object):
     self.write_file.write(buf)
     self._WriteMagic()
 
+    return len(buf)
+
   def Recv(self):
     """Accept a message from Fleetspeak.
 
     Returns:
-      A common_pb2.Message.
+      A tuple (common_pb2.Message, size of the message in bytes).
     Raises:
       ProtocolError: If we receive unexpected data from Fleetspeak.
     """
@@ -138,7 +155,8 @@ class FleetspeakConnection(object):
     self._ReadMagic()
     res = common_pb2.Message()
     res.ParseFromString(buf)
-    return res
+
+    return res, len(buf)
 
   def _ReadMagic(self):
     got = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]

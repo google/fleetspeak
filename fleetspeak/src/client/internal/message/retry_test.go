@@ -23,18 +23,18 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-func makeMessages(count, size int) []channel.AckMessage {
-	var ret []channel.AckMessage
+func makeMessages(count, size int) []service.AckMessage {
+	var ret []service.AckMessage
 	for i := 0; i < count; i++ {
 		payload := make([]byte, size)
 		rand.Read(payload)
-		ret = append(ret, channel.AckMessage{
+		ret = append(ret, service.AckMessage{
 			M: &fspb.Message{
 				MessageId: []byte{0, 0, 0, byte(i >> 8), byte(i | 0xFF)},
 				Source: &fspb.Address{
@@ -52,7 +52,7 @@ func makeMessages(count, size int) []channel.AckMessage {
 }
 
 func TestRetryLoopNormal(t *testing.T) {
-	in := make(chan channel.AckMessage)
+	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
 	go RetryLoop(in, out, 20*1024*1024, 100)
 	defer close(in)
@@ -78,7 +78,7 @@ func TestRetryLoopNormal(t *testing.T) {
 }
 
 func TestRetryLoopNACK(t *testing.T) {
-	in := make(chan channel.AckMessage)
+	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
 	go RetryLoop(in, out, 20*1024*1024, 100)
 	defer close(in)
@@ -111,7 +111,7 @@ func TestRetryLoopNACK(t *testing.T) {
 }
 
 func TestRetryLoopSizing(t *testing.T) {
-	in := make(chan channel.AckMessage)
+	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
 	go RetryLoop(in, out, 20*1024*1024, 100)
 	defer close(in)
@@ -134,7 +134,7 @@ func TestRetryLoopSizing(t *testing.T) {
 		// Another message should not fit. Wait just a bit to make sure that it
 		// really won't fit.
 		select {
-		case in <- channel.AckMessage{M: &fspb.Message{MessageId: []byte("asdf")}}:
+		case in <- service.AckMessage{M: &fspb.Message{MessageId: []byte("asdf")}}:
 			t.Fatalf("%s: Was able to overstuff in.", tc.name)
 		case <-time.After(100 * time.Millisecond):
 		}

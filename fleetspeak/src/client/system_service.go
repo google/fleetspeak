@@ -25,17 +25,21 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
-	"github.com/google/fleetspeak/fleetspeak/src/client/monitoring"
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
-// StatsPeriod is the interval with which resource-usage stats for the
-// Fleetspeak service are sent to the server. Configurable for testing.
-var StatsPeriod = 10 * time.Minute
+var (
+	// StatsSamplePeriod is the frequency with which resource-usage data for the Fleetspeak
+	// process will be fetched from the OS.
+	StatsSamplePeriod = 30 * time.Second
+
+	// StatsSampleSize is the number of resource-usage query results that get aggregated into
+	// a single resource-usage report sent to Fleetspeak servers.
+	StatsSampleSize = 20
+)
 
 // systemService implements Service. It handles messages for the built in
 // 'system' service. It is installed directly by client.New and is given direct
@@ -52,12 +56,23 @@ type systemService struct {
 func (s *systemService) Start(sc service.Context) error {
 	s.sc = sc
 	s.done = make(chan struct{})
+	rum, err := monitoring.NewResourceUsageMonitor(
+		s.sc, "system", s.client.pid, s.client.startTime, StatsSamplePeriod, StatsSampleSize, s.done)
+	if err != nil {
+		rum = nil
+		log.Printf("Failed to start resource-usage monitor: %v", err)
+	}
 	s.wait.Add(4)
 	// TODO: call pollRevokedCerts on startup.
 	go s.ackLoop()
 	go s.errLoop()
 	go s.cfgLoop()
-	go s.statsLoop()
+	go func() {
+		defer s.wait.Done()
+		if rum != nil {
+			rum.StatsReporterLoop()
+		}
+	}()
 	return nil
 }
 
@@ -101,7 +116,7 @@ func (s *systemService) ackLoop() {
 				log.Fatalf("Unable to marshal MessageAckData: %v", err)
 			}
 			ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := s.sc.Send(ctx, channel.AckMessage{
+			if err := s.sc.Send(ctx, service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "system"},
 					MessageType: "MessageAck",
@@ -128,7 +143,7 @@ func (s *systemService) errLoop() {
 				log.Fatalf("unable to marshal MessageErrData: %v", err)
 			}
 			ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := s.sc.Send(ctx, channel.AckMessage{
+			if err := s.sc.Send(ctx, service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "system"},
 					MessageType: "MessageError",
@@ -159,7 +174,7 @@ func (s *systemService) cfgLoop() {
 				log.Fatalf("unable to marshal ClientInfoData: %v", err)
 			}
 			ctx, c := context.WithTimeout(context.Background(), 5*time.Minute)
-			if err := s.sc.Send(ctx, channel.AckMessage{
+			if err := s.sc.Send(ctx, service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "system"},
 					MessageType: "ClientInfo",
@@ -171,58 +186,6 @@ func (s *systemService) cfgLoop() {
 			}
 			c()
 		}
-	}
-}
-
-func (s *systemService) statsLoop() {
-	defer s.wait.Done()
-	statsTicker := time.NewTicker(StatsPeriod)
-	defer statsTicker.Stop()
-
-	for {
-		select {
-		case <-s.done:
-			return
-		case <-statsTicker.C:
-			s.reportResourceUsage()
-		}
-	}
-}
-
-func (s *systemService) reportResourceUsage() {
-	ru, err := monitoring.ResourceUsageForPID(s.client.pid)
-	if err != nil {
-		log.Printf(
-			"Error getting resource usage for Fleetspeak process[%d]: %v", s.client.pid, err)
-		return
-	}
-	startTime, err := ptypes.TimestampProto(s.client.startTime)
-	if err != nil {
-		// Well, this really should never happen, since the field is set to the return
-		// value of time.Now()
-		log.Printf("Client start time timestamp failed validation check: %v", s.client.startTime)
-	}
-	rud := mpb.ResourceUsageData{
-		Scope:            "system",
-		Pid:              int64(s.client.pid),
-		ProcessStartTime: startTime,
-		ResourceUsage:    ru,
-	}
-	d, err := ptypes.MarshalAny(&rud)
-	if err != nil {
-		log.Printf("Unable to marshal ResourceUsageData: %v", err)
-		return
-	}
-	ctx, c := context.WithTimeout(context.Background(), 30*time.Second)
-	defer c()
-	if err := s.sc.Send(ctx, channel.AckMessage{
-		M: &fspb.Message{
-			Destination: &fspb.Address{ServiceName: "system"},
-			MessageType: "ResourceUsage",
-			Data:        d,
-		},
-	}); err != nil {
-		log.Printf("Error sending resource usage data: %v", err)
 	}
 }
 

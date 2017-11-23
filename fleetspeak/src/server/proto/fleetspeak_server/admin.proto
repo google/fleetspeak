@@ -20,6 +20,12 @@ message ListActiveBroadcastsResponse {
   repeated Broadcast broadcasts = 1;
 }
 
+message ListClientsRequest {
+  // If non-empty, restricts results to the listed client_ids. If empty, all
+  // clients known to the system will be listed.
+  repeated bytes client_ids = 1;
+}
+
 message ListClientsResponse {
   repeated Client clients = 1;
 }
@@ -28,6 +34,7 @@ message Client {
   bytes client_id = 1;
   repeated Label labels = 2;
   google.protobuf.Timestamp last_contact_time = 3;
+  string last_contact_address = 4;
 }
 
 message GetMessageStatusRequest {
@@ -56,7 +63,7 @@ service Admin {
   }
 
   // ListClients lists the currently active FS clients.
-  rpc ListClients (fleetspeak.EmptyMessage) returns (ListClientsResponse) {
+  rpc ListClients (ListClientsRequest) returns (ListClientsResponse) {
   }
 
   // GetMessageStatus retrieves the current status of a message.

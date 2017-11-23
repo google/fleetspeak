@@ -17,16 +17,16 @@ package execution
 import (
 	"bytes"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"log"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -34,16 +34,28 @@ import (
 )
 
 func testClient() string {
+	if runtime.GOOS == "windows" {
+		return `..\testclient\testclient.exe`
+	}
+
 	return "../testclient/testclient"
 }
 
 func TestFailures(t *testing.T) {
-	var omag, omess time.Duration
-	channel.MagicTimeout, omag = 5*time.Second, channel.MagicTimeout
-	channel.MessageTimeout, omess = 5*time.Second, channel.MessageTimeout
+	prevMagicTimeout := channel.MagicTimeout
+	prevMessageTimeout := channel.MessageTimeout
+	prevMaxStatsSamplePeriod := MaxStatsSamplePeriod
+	prevSampleSize := StatsSampleSize
+	channel.MagicTimeout = 5 * time.Second
+	channel.MessageTimeout = 5 * time.Second
+	// Set freq to a large value so resource-usage data can be computed after the process is finished.
+	MaxStatsSamplePeriod = 1 * time.Hour
+	StatsSampleSize = 1
 	defer func() {
-		channel.MagicTimeout = omag
-		channel.MessageTimeout = omess
+		channel.MagicTimeout = prevMagicTimeout
+		channel.MessageTimeout = prevMessageTimeout
+		MaxStatsSamplePeriod = prevMaxStatsSamplePeriod
+		StatsSampleSize = prevSampleSize
 	}()
 
 	sc := clitesting.MockServiceContext{
@@ -85,8 +97,8 @@ func TestFailures(t *testing.T) {
 				t.Errorf("Unable to unmarshal ResourceUsageData: %v", err)
 				break
 			}
-			if rd.ResourceUsage == nil || rd.ResourceUsage.ResidentMemory == 0 {
-				t.Errorf("Expected received ResourceUsageData to have nonzero ResidentMemeory, got: %v", rd)
+			if rd.ResourceUsage == nil || rd.ResourceUsage.MeanResidentMemory <= 0.0 {
+				t.Errorf("Expected mean_resident_memory to be >0 , got: %v", rd)
 			}
 			break
 		}
@@ -202,10 +214,13 @@ func TestStd(t *testing.T) {
 }
 
 func TestStats(t *testing.T) {
-	var osp time.Duration
-	StatsPeriod, osp = 100*time.Millisecond, StatsPeriod
+	prevMaxStatsSamplePeriod := MaxStatsSamplePeriod
+	prevSampleSize := StatsSampleSize
+	MaxStatsSamplePeriod = 20 * time.Millisecond
+	StatsSampleSize = 5
 	defer func() {
-		StatsPeriod = osp
+		MaxStatsSamplePeriod = prevMaxStatsSamplePeriod
+		StatsSampleSize = prevSampleSize
 	}()
 
 	sc := clitesting.MockServiceContext{
@@ -238,7 +253,6 @@ func TestStats(t *testing.T) {
 	}()
 
 	cnt := 0
-	var last *mpb.ResourceUsage
 	for cnt < 5 {
 		m := <-sc.OutChan
 		if m.MessageType == "DummyMessageResponse" {
@@ -254,25 +268,13 @@ func TestStats(t *testing.T) {
 		}
 		ru := rud.ResourceUsage
 		if ru == nil {
-			t.Errorf("ResourceUsageData should have non-nil ResourceUsage, got: %v", rud)
+			t.Error("ResourceUsageData should have non-nil ResourceUsage")
 			break
 		}
-		if ru.ResidentMemory <= 0 {
-			t.Errorf("ResourceUsage.ResidentMemory should be >0, got: %d", ru.ResidentMemory)
+		if ru.MeanResidentMemory <= 0.0 {
+			t.Errorf("ResourceUsage.MeanResidentMemory should be >0, got: %d", ru.MeanResidentMemory)
 			break
 		}
-		if last != nil {
-			ut, err := ptypes.Duration(ru.UserTime)
-			if err != nil {
-				t.Errorf("Unable to read UserTime, got: %v", ru.UserTime)
-				break
-			}
-			lut, _ := ptypes.Duration(last.UserTime)
-			if lut > ut {
-				t.Errorf("User time should be non-decreasing, went from %v to %v", lut, ut)
-			}
-		}
-		last = ru
 		cnt++
 	}
 	for {

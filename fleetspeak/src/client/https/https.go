@@ -43,8 +43,11 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-const sendBytesThreshold = 15 * 1024 * 1024
-const sendCountThreshold = 100
+const (
+	sendBytesThreshold = 15 * 1024 * 1024
+	sendCountThreshold = 100
+	closeWaitThreshold = 30 * time.Second // Matches IdleTimeout in server/https.
+)
 
 // Communicator implements comms.Communicator and communicates with a Fleetspeak
 // server using https.
@@ -103,24 +106,29 @@ func (c *Communicator) configure() error {
 		return errors.New("no communicator_config in client configuration")
 	}
 	if c.conf.MaxPollDelaySeconds == 0 {
-		c.conf.MaxPollDelaySeconds = 300
+		c.conf.MaxPollDelaySeconds = 60 * 5
 	}
 	if c.conf.MaxBufferDelaySeconds == 0 {
 		c.conf.MaxBufferDelaySeconds = 5
 	}
 	if c.conf.MinFailureDelaySeconds == 0 {
-		c.conf.MinFailureDelaySeconds = 60
+		c.conf.MinFailureDelaySeconds = 60 * 5
+	}
+	if c.conf.FailureSuicideTimeSeconds == 0 {
+		c.conf.FailureSuicideTimeSeconds = 60 * 60 * 24 * 7
 	}
 
 	if c.DialContext == nil {
 		c.DialContext = (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
+			DualStack: true,
 		}).DialContext
 	}
 
 	c.hc = &http.Client{
 		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				RootCAs:      si.TrustedCerts,
 				Certificates: []tls.Certificate{certPair},
@@ -205,6 +213,11 @@ func (c *Communicator) processingLoop() {
 			toSend = nil
 			toSendSize = 0
 
+			if (lastPoll != time.Time{}) && (time.Since(lastPoll) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second) {
+				// Die in the hopes that our replacement will be better configured, or otherwise have better luck.
+				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastPoll))
+			}
+
 			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
 			select {
 			case <-t.C:
@@ -266,6 +279,12 @@ func (c *Communicator) processingLoop() {
 
 		delay := deadline.Sub(now)
 		t := time.NewTimer(delay)
+
+		if delay > closeWaitThreshold {
+			// Our planned sleep is longer than the idle timeout, so go ahead and kill
+			// any idle connection now.
+			c.hc.Transport.(*http.Transport).CloseIdleConnections()
+		}
 
 		select {
 		case <-c.ctx.Done():

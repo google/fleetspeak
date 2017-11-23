@@ -22,7 +22,6 @@ import (
 
 	"context"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -43,7 +42,7 @@ type MockServiceContext struct {
 }
 
 // Send implements service.Context by copying the message to sc.OutChan.
-func (sc *MockServiceContext) Send(ctx context.Context, m channel.AckMessage) error {
+func (sc *MockServiceContext) Send(ctx context.Context, m service.AckMessage) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

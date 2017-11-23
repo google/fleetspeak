@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package fleetspeak.server;
+
+import "google/protobuf/timestamp.proto";
+
+// Represents client resource-usage data in the data-store.
+message ClientResourceUsageRecord {
+  // Name of the client service that resource usage is charged/attributed to
+  // e.g 'system' for the system Fleetspeak service, or the name of a daemon
+  // service as specified in its config.
+  string scope = 1;
+
+  int64 pid = 2;
+  google.protobuf.Timestamp process_start_time = 3;
+
+  // When the resource-usage metrics were measured on the client.
+  google.protobuf.Timestamp client_timestamp = 4;
+
+  // When the resource usage record was written to the data-store.
+  google.protobuf.Timestamp server_timestamp = 5;
+
+  // CPU-usage is in millis per second.
+  float mean_user_cpu_rate = 6;
+  float max_user_cpu_rate = 7;
+  float mean_system_cpu_rate = 8;
+  float max_system_cpu_rate = 9;
+
+  int32 mean_resident_memory_mib = 10;
+  int32 max_resident_memory_mib = 11;
+}

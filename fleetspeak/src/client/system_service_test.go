@@ -28,7 +28,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
@@ -42,7 +41,7 @@ type fakeServiceContext struct {
 	out          chan fspb.Message
 }
 
-func (sc fakeServiceContext) Send(ctx context.Context, m channel.AckMessage) error {
+func (sc fakeServiceContext) Send(ctx context.Context, m service.AckMessage) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -146,9 +145,15 @@ func TestErrorMsg(t *testing.T) {
 }
 
 func TestStatsMsg(t *testing.T) {
-	prevPeriod := StatsPeriod
-	StatsPeriod = 50 * time.Millisecond
-	defer func() { StatsPeriod = prevPeriod }()
+	prevPeriod := StatsSamplePeriod
+	prevSize := StatsSampleSize
+	StatsSamplePeriod = 10 * time.Millisecond
+	StatsSampleSize = 5
+	defer func() {
+		StatsSamplePeriod = prevPeriod
+		StatsSampleSize = prevSize
+	}()
+
 	env, err := newTestEnv()
 	if err != nil {
 		t.Fatalf("Failed to create testEnv: %v", err)
@@ -157,6 +162,7 @@ func TestStatsMsg(t *testing.T) {
 	statsTimeout := 200 * time.Millisecond
 	ticker := time.NewTicker(statsTimeout)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case res := <-env.ctx.out:
@@ -173,10 +179,13 @@ func TestStatsMsg(t *testing.T) {
 			}
 			expectedStartTime := int64(1234567890)
 			if rud.ProcessStartTime.Seconds != expectedStartTime {
-				t.Errorf("Expected process_start_time to be %d, but it was %d", expectedStartTime, rud.ResourceUsage.Timestamp.Seconds)
+				t.Errorf("Expected process_start_time to be %d, but it was %d", expectedStartTime, rud.ProcessStartTime.Seconds)
 			}
-			if rud.ResourceUsage.ResidentMemory <= 0 {
-				t.Errorf("resident_memory is not set")
+			if rud.ResourceUsage.MeanResidentMemory <= 0.0 {
+				t.Error("mean_resident_memory is not set")
+			}
+			if rud.ResourceUsage.MaxResidentMemory <= 0 {
+				t.Error("max_resident_memory is not set")
 			}
 			return
 		case <-ticker.C:

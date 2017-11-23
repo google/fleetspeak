@@ -26,6 +26,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	apb "github.com/golang/protobuf/ptypes/any"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -41,6 +42,7 @@ const (
 // Datastore isn't provided to normal services.
 type systemService struct {
 	sctx      service.Context
+	stats     stats.Collector
 	datastore db.Store
 	w         sync.WaitGroup
 }
@@ -226,6 +228,10 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if err := ptypes.UnmarshalAny(d, &rud); err != nil {
 		return fmt.Errorf("unable to unmarshal data as ResourceUsageData: %v", err)
 	}
-	// TODO: Implement.
+	s.stats.ResourceUsageDataReceived(rud)
+	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
+		err = fmt.Errorf("failed to write resource-usage data: %v", err)
+		return err
+	}
 	return nil
 }

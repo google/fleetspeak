@@ -14,20 +14,30 @@
 # limitations under the License.
 
 
+# Get absolute path to symlink's directory
+set +e # Do not exit if readlink errors out
+SCRIPT_DIR="$(/usr/bin/dirname "$(readlink -e "${ARGV0}" 2>/dev/null)")"
 # Exit on error.
 set -e
-
-readonly ARGV0=${0}
-readonly SCRIPT_PATH=$(/bin/readlink -e "${ARGV0}")
-readonly SCRIPT_DIR=$(/usr/bin/dirname "${SCRIPT_PATH}")
+if [[ -z "${SCRIPT_DIR}" ]]; then
+  SCRIPT_DIR="$(/usr/bin/dirname "${BASH_SOURCE[0]}")"
+  if [[ -z "${SCRIPT_DIR}" ]]; then
+    /bin/echo 'Failed to resolve script directory.'
+    exit 1
+  fi
+fi
 # Go to this script's directory.
 cd "${SCRIPT_DIR}"
 
-readonly TEST_GOS=$(/usr/bin/find -name '*_test.go')
+readonly TEST_GOS=$(/usr/bin/find . -name '*_test.go')
 readonly TEST_SHS='src/server/grpcservice/client/testing/client_test.sh'
-readonly TEST_GO_DIRS=$(
-  /usr/bin/dirname ${TEST_GOS} | /usr/bin/sort | /usr/bin/uniq
-)
+# Note that the MacOS version of dirname cannot take multiple inputs.
+# ${TEST_GOS} should not be double-quoted.
+# shellcheck disable=SC2086
+TEST_GO_DIRS=$(for test_file in ${TEST_GOS}; do /usr/bin/dirname $test_file; done)
+# ${TEST_GO_DIRS} should not be double-quoted.
+# shellcheck disable=SC2086
+readonly TEST_GO_DIRS=$(echo ${TEST_GO_DIRS} | /usr/bin/sort | /usr/bin/uniq)
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
@@ -53,7 +63,7 @@ time (
   RC=0
 
   pretty_echo 'Executing Go tests.'
-  time go test ${TEST_GO_DIRS} || RC=1
+  time go test --timeout 1m ${TEST_GO_DIRS} || RC=1
 
   pretty_echo 'Executing Python tests.'
   python -m unittest discover --pattern '*_test.py' || RC=2

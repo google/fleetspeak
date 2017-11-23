@@ -5,17 +5,30 @@ package fleetspeak.client;
 
 // Parameters used to configure communicator plugins.
 message CommunicatorConfig {
-  // The longest possible wait before attempting to contact the server.
-  // The communicator may poll sooner if there are messages for the server.
+  // The longest possible wait before attempting to contact the server.  The
+  // communicator may poll sooner if there are messages for the server, of it
+  // there has been recent communication with the server.
+  //
+  // A default of 5 minutes is used if unset.
   int32 max_poll_delay_seconds = 2;
 
   // The longest possible wait before attempting to contact the server when
   // there is some data to transmit. The communicator may poll sooner if the
   // buffer is full.
+  //
+  // A default of 5 seconds is used if unset.
   int32 max_buffer_delay_seconds = 3;
 
   // The minimum time to wait after a failure to reach any server.
+  //
+  // A default of 5 minutes is used if unset.
   int32 min_failure_delay_seconds = 4;
+
+  // If the communicator is unable to communicate with the server for this long,
+  // it should kill fleetspeak, in the hope that a restart will fix things.
+  //
+  // A default of 7 days is used if unset.
+  int32 failure_suicide_time_seconds = 5;
 }
 
 // ClientState contains the state of the client which should be persisted across

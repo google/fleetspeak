@@ -163,7 +163,7 @@ func TestListClientsAPI(t *testing.T) {
 		t.Errorf("AddClient returned an error: %v", err)
 	}
 
-	lcRes, err := as.ListClients(ctx, &fspb.EmptyMessage{})
+	lcRes, err := as.ListClients(ctx, &spb.ListClientsRequest{})
 	if err != nil {
 		t.Errorf("ListClients returned an error: %v", err)
 	}
@@ -184,6 +184,13 @@ func TestListClientsAPI(t *testing.T) {
 	sort.Slice(lcRes.Clients, func(i, j int) bool {
 		return bytes.Compare(lcRes.Clients[i].ClientId, lcRes.Clients[j].ClientId) < 0
 	})
+
+	for _, c := range lcRes.Clients {
+		if c.LastContactTime == nil {
+			t.Errorf("ListClients error: LastSeenTimestamp is nil")
+		}
+		c.LastContactTime = nil
+	}
 
 	if !proto.Equal(lcRes, lcWant) {
 		t.Errorf("ListClients error: want [%v], got [%v]", lcWant, lcRes)

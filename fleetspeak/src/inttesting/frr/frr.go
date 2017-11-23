@@ -30,7 +30,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
@@ -128,7 +127,7 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 			}
 			for {
 				ctx, c := context.WithTimeout(context.Background(), time.Second)
-				err := s.sc.Send(ctx, channel.AckMessage{M: m})
+				err := s.sc.Send(ctx, cservice.AckMessage{M: m})
 				c()
 				if err == nil {
 					break
@@ -170,7 +169,7 @@ func (s *frrClientService) processFileRequest(ctx context.Context, m *fspb.Messa
 	if err != nil {
 		log.Fatalf("failed to marshal FileResponseData: %v", err)
 	}
-	return s.sc.Send(ctx, channel.AckMessage{M: &fspb.Message{
+	return s.sc.Send(ctx, cservice.AckMessage{M: &fspb.Message{
 		Destination: &fspb.Address{ServiceName: "FRR"},
 		Data:        d,
 		MessageType: "FileResponse",

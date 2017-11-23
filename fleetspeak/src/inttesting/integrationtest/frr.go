@@ -44,10 +44,12 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -91,12 +93,15 @@ func (c *statsCounter) MessageDropped(service, messageType string) {
 	}
 }
 
-func (c *statsCounter) ClientPoll(start, end time.Time, status int) {
+func (c *statsCounter) ClientPoll(stats.PollInfo) {
 	atomic.AddInt64(&c.clientPolls, 1)
 }
 
 func (c *statsCounter) DatastoreOperation(start, end time.Time, operation string, err error) {
 	atomic.AddInt64(&c.datastoreOperations, 1)
+}
+
+func (c *statsCounter) ResourceUsageDataReceived(rud mpb.ResourceUsageData) {
 }
 
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore

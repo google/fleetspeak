@@ -20,17 +20,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"log"
 	"context"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
-	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/socketservice/proto/fleetspeak_socketservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -57,12 +54,12 @@ func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	}, nil
 }
 
-// Service imlements service.Service which communicates with an agent process
-// over a unix domain socket.
+// Service implements service.Service which communicates with an agent process
+// over a Unix domain socket (or a Windows named pipe).
 type Service struct {
 	cfg *sspb.Config
 	sc  service.Context
-	l   *net.UnixListener
+	l   net.Listener
 
 	stop chan struct{}      // closed to indicate that Stop() has been called
 	msgs chan *fspb.Message // passes messages to the monitorChannel goroutine
@@ -77,40 +74,9 @@ type Service struct {
 func (s *Service) Start(sc service.Context) error {
 	s.sc = sc
 
-	// Ensure that the parent directory exists and that the socket itself does not.
-	p := s.cfg.ApiProxyPath
-	// We create the listener in this temporary location, chmod it, and then move
-	// it. This prevents the client library from observing the listener before its
-	// permissions are set.
-	tmpP := p + ".tmp"
-	parent := filepath.Dir(p)
-	if err := os.MkdirAll(parent, 0700); err != nil {
-		return fmt.Errorf("os.MkdirAll failed: %v", err)
-	}
-
-	for _, f := range []string{p, tmpP} {
-		if err := os.Remove(f); err != nil {
-			if !os.IsNotExist(err) {
-				return fmt.Errorf("os.Remove(%q): %v", f, err)
-			}
-		}
-	}
-
-	l, err := net.ListenUnix("unix", &net.UnixAddr{tmpP, "unix"})
+	l, err := listen(s.cfg.ApiProxyPath)
 	if err != nil {
-		return fmt.Errorf("failed to create a Unix domain listener: %v", err)
-	}
-
-	if err := os.Chmod(tmpP, 0600); err != nil {
-		return fmt.Errorf("failed to chmod a Unix domain listener: %v", err)
-	}
-
-	if err := os.Rename(tmpP, p); err != nil {
-		return fmt.Errorf("failed to rename a Unix domain listener: %v", err)
-	}
-
-	if err := checks.CheckUnixSocket(p); err != nil {
-		return fmt.Errorf("CheckUnixSocket(...): %v", err)
+		return err
 	}
 
 	s.l = l
@@ -139,14 +105,14 @@ func (s *Service) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 
 type chanInfo struct {
 	*channel.Channel
-	ra    *channel.RelentlessAcknowledger
-	uconn *net.UnixConn
-	done  chan struct{}
+	ra   *channel.RelentlessAcknowledger
+	conn net.Conn
+	done chan struct{}
 }
 
 func (s *Service) monitorChannel(ch *chanInfo) {
 	defer func() {
-		ch.uconn.Close()
+		ch.conn.Close()
 		close(ch.done)
 		s.routines.Done()
 	}()
@@ -212,18 +178,18 @@ func (s *Service) feedChannel(ch *chanInfo, msg *fspb.Message) (bool, *fspb.Mess
 
 func (s *Service) accept() *chanInfo {
 	for {
-		con, err := s.l.AcceptUnix()
+		con, err := s.l.Accept()
 		if err == nil {
 			r := &chanInfo{
 				Channel: channel.New(con, con),
-				uconn:   con,
+				conn:    con,
 				done:    make(chan struct{}),
 			}
 
 			r.ra = channel.NewRelentlessAcknowledger(r.Channel, 100)
 			return r
 		}
-		log.Printf("AcceptUnix returned error: %v", err)
+		log.Printf("Accept returned error: %v", err)
 
 		select {
 		case <-s.stop:

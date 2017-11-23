@@ -23,7 +23,6 @@ import (
 	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
@@ -79,7 +78,7 @@ func TestMessageDelivery(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
-		channel.AckMessage{
+		service.AckMessage{
 			M: &fspb.Message{
 				MessageId: mid.Bytes(),
 				Source:    &fspb.Address{ServiceName: "FakeService"},
@@ -146,7 +145,7 @@ func TestMessageValidation(t *testing.T) {
 			want: "cannot send directly to client",
 		},
 	} {
-		err := cl.ProcessMessage(context.Background(), channel.AckMessage{M: &tc.m})
+		err := cl.ProcessMessage(context.Background(), service.AckMessage{M: &tc.m})
 		if err == nil || !strings.HasPrefix(err.Error(), tc.want) {
 			t.Errorf("ProcessMessage(%v) should give error starting with [%v] but got [%v]", tc.m, tc.want, err)
 		}

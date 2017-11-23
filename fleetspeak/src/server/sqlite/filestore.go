@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package sqlite implements the fleetspeak datastore interface using an sqlite
-// database. It is meant for testing for small single-server deployments. In
-// particular, having multiple servers using the same sqlite datastore is not
-// supported.
 package sqlite
 
 import (

@@ -25,6 +25,7 @@ import (
 	"log"
 	"context"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/time/rate"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -57,8 +58,9 @@ func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, 
 		manager:        &m,
 		name:           "system",
 		maxParallelism: 100,
+		pLogLimiter:    rate.NewLimiter(rate.Every(10*time.Second), 1),
 	}
-	ss := systemService{sctx: &ssd, datastore: dataStore}
+	ss := systemService{sctx: &ssd, stats: stats, datastore: dataStore}
 	ssd.service = &ss
 	m.services["system"] = &ssd
 	ss.Start(&ssd)
@@ -98,6 +100,7 @@ func (c *Manager) Install(cfg *spb.ServiceConfig) error {
 		service: s,
 
 		maxParallelism: cfg.MaxParallelism,
+		pLogLimiter:    rate.NewLimiter(rate.Every(10*time.Second), 1),
 	}
 
 	if err = s.Start(&d); err != nil {
@@ -179,6 +182,9 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	// https://golang.org/pkg/sync/atomic/#AddUint32
 	defer atomic.AddUint32(&s.parallelism, ^uint32(0))
 	if p > s.maxParallelism {
+		if s.pLogLimiter.Allow() {
+			log.Printf("%s: Overloaded with %d concurrent messages, dropping excess, will retry.", s.name, s.maxParallelism)
+		}
 		s.manager.stats.MessageDropped(s.name, m.MessageType)
 		return nil
 	}
@@ -197,9 +203,11 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
 		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, m.MessageType, true)
+		log.Printf("%s: Temporary error processing message %v, will retry: %v", s.name, mid, e)
 		return nil
 	case !service.IsTemporary(e):
 		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, m.MessageType, false)
+		log.Printf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
 		return &fspb.MessageResult{
 			ProcessedTime: db.NowProto(),
 			Failed:        true,
@@ -310,6 +318,7 @@ type liveService struct {
 
 	parallelism    uint32 // Current number of calls, used for load shedding. atomic access only.
 	maxParallelism uint32
+	pLogLimiter    *rate.Limiter
 }
 
 func (s *liveService) stop() {

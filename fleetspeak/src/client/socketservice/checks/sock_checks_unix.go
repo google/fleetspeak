@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package checks implements code which checks permissions of unix sockets to
+// +build linux darwin
+
+// Package checks implements code which checks permissions of socket files to
 // mitigate the possibility of a non-root attacker messing with socketservice
 // communications channel.
 package checks
@@ -26,21 +28,21 @@ import (
 	"syscall"
 )
 
-// CheckUnixSocket ensures the naming, mode (perms, filetype) and ownership
-// (uid, gid) of a Unix socket match what we create in a Fleetspeak daemon
+// CheckSocketFile ensures the naming, mode (perms, filetype) and ownership
+// (uid, gid) of a Unix socket match what we create in a Fleetspeak socket
 // service. This gives us some extra security. Note that using os.Lstat here
 // prevents confusing FS with symlink tricks.
-func CheckUnixSocket(unixAddr string) error {
-	if !strings.HasPrefix(unixAddr, "/") {
-		return fmt.Errorf("expected a Unix domain socket address starting with \"/\", got %q", unixAddr)
+func CheckSocketFile(socketPath string) error {
+	if !strings.HasPrefix(socketPath, "/") {
+		return fmt.Errorf("expected a Unix domain socket address starting with \"/\", got %q", socketPath)
 	}
 
-	parent := filepath.Dir(unixAddr)
+	parent := filepath.Dir(socketPath)
 
 	// Lstat prevents using a symlink as the Unix socket or the parent dir.
 	parentFI, err := os.Lstat(parent)
 	if err != nil {
-		return fmt.Errorf("can't stat the given unixAddr's (%q) parent directory: %v", unixAddr, err)
+		return fmt.Errorf("can't stat the given socketPath's (%q) parent directory: %v", socketPath, err)
 	}
 
 	// Note that providing such specific mode is deliberately much stricter than
@@ -50,24 +52,24 @@ func CheckUnixSocket(unixAddr string) error {
 	// because some implementations of Unix domain sockets apparently ignore
 	// the permissions entirely.
 	if parentFI.Mode() != 0700|os.ModeDir {
-		return fmt.Errorf("the given unixAddr's (%q) parent directory has unexpected mode", unixAddr)
+		return fmt.Errorf("the given socketPath's (%q) parent directory has unexpected mode", socketPath)
 	}
 
 	if err := checkUnixOwnership(parentFI); err != nil {
-		return fmt.Errorf("unexpected ownership of unixAddr's (%q) parent directory: %v", unixAddr, err)
+		return fmt.Errorf("unexpected ownership of socketPath's (%q) parent directory: %v", socketPath, err)
 	}
 
-	fi, err := os.Lstat(unixAddr)
+	fi, err := os.Lstat(socketPath)
 	if err != nil {
-		return fmt.Errorf("can't stat the given unixAddr (%q): %v", unixAddr, err)
+		return fmt.Errorf("can't stat the given socketPath (%q): %v", socketPath, err)
 	}
 
 	if fi.Mode() != 0600|os.ModeSocket {
-		return fmt.Errorf("the given unixAddr (%q) has unexpected mode", unixAddr)
+		return fmt.Errorf("the given socketPath (%q) has unexpected mode", socketPath)
 	}
 
 	if err := checkUnixOwnership(fi); err != nil {
-		return fmt.Errorf("unexpected ownership of unixAddr (%q): %v", unixAddr, err)
+		return fmt.Errorf("unexpected ownership of socketPath (%q): %v", socketPath, err)
 	}
 
 	return nil

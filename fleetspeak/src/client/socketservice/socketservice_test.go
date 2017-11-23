@@ -15,14 +15,17 @@
 package socketservice
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"log"
-
 	"context"
 
 	"github.com/golang/protobuf/proto"
@@ -34,8 +37,30 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+func getTempDir() (string, func(), error) {
+	if runtime.GOOS == "windows" {
+		tempDir, cleanUpFn := comtesting.GetTempDir("socketservice")
+		return tempDir, cleanUpFn, nil
+	}
+	// We need unix socket paths to be short (see socketservice_unix.go), so we ignore the $TMPDIR env variable,
+	// which could point to arbitrary directories, and use /tmp.
+	tempDir, err := ioutil.TempDir("/tmp", "socketservice_")
+	// Explicitly set the group owner for tempDir in case it was inherited from /tmp.
+	if err := os.Chown(tempDir, os.Getuid(), os.Getgid()); err != nil {
+		return "", func() {}, fmt.Errorf("os.Chown(%q) failed: %v", tempDir, err)
+	}
+	return tempDir, func() {}, err
+}
+
 func testClient() string {
 	return "testclient/testclient"
+}
+
+func isErrKilled(err error) bool {
+	if runtime.GOOS == "windows" {
+		return strings.HasSuffix(err.Error(), "exit status 1")
+	}
+	return strings.HasSuffix(err.Error(), "signal: killed")
 }
 
 // exerciseLoopback attempts to send messages through a testclient in loopback mode using
@@ -109,8 +134,12 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 }
 
 func TestLoopback(t *testing.T) {
-	tmpDir := comtesting.GetTempDir("socketservice")
-	socketPath := path.Join(tmpDir, "sockets/TestLoopbackSocket")
+	tmpDir, cleanUpFn, err := getTempDir()
+	if err != nil {
+		t.Fatalf("Failed to create tempdir for test: %v", err)
+	}
+	defer cleanUpFn()
+	socketPath := path.Join(tmpDir, "Loopback")
 
 	cmd := exec.Command(testClient(), "--mode=loopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
@@ -121,7 +150,7 @@ func TestLoopback(t *testing.T) {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
-			if !strings.HasSuffix(err.Error(), "signal: killed") {
+			if !isErrKilled(err) {
 				t.Errorf("error waiting for testclient: %v", err)
 			}
 		}
@@ -135,8 +164,12 @@ func TestLoopback(t *testing.T) {
 }
 
 func TestAckLoopback(t *testing.T) {
-	tmpDir := comtesting.GetTempDir("socketservice")
-	socketPath := path.Join(tmpDir, "sockets/TestAckLoopbackSocket")
+	tmpDir, cleanUpFn, err := getTempDir()
+	if err != nil {
+		t.Fatalf("Failed to create tempdir for test: %v", err)
+	}
+	defer cleanUpFn()
+	socketPath := path.Join(tmpDir, "AckLoopback")
 
 	cmd := exec.Command(testClient(), "--mode=ackLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
@@ -147,7 +180,7 @@ func TestAckLoopback(t *testing.T) {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
-			if !strings.HasSuffix(err.Error(), "signal: killed") {
+			if !isErrKilled(err) {
 				t.Errorf("error waiting for testclient: %v", err)
 			}
 		}
@@ -156,8 +189,12 @@ func TestAckLoopback(t *testing.T) {
 }
 
 func TestStutteringLoopback(t *testing.T) {
-	tmpDir := comtesting.GetTempDir("socketservice")
-	socketPath := path.Join(tmpDir, "sockets/TestStutteringLoopbackSocket")
+	tmpDir, cleanUpFn, err := getTempDir()
+	if err != nil {
+		t.Fatalf("Failed to create tempdir for test: %v", err)
+	}
+	defer cleanUpFn()
+	socketPath := path.Join(tmpDir, "StutteringLoopback")
 
 	cmd := exec.Command(testClient(), "--mode=stutteringLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
@@ -168,7 +205,7 @@ func TestStutteringLoopback(t *testing.T) {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
-			if !strings.HasSuffix(err.Error(), "signal: killed") {
+			if !isErrKilled(err) {
 				t.Errorf("error waiting for testclient: %v", err)
 			}
 		}
@@ -222,5 +259,22 @@ func TestStutteringLoopback(t *testing.T) {
 	}
 	if err := s.Stop(); err != nil {
 		t.Errorf("Error stopping service: %v", err)
+	}
+}
+
+func TestMaxSockLenUnix(t *testing.T) {
+	var maxSockLen int
+	if runtime.GOOS == "windows" {
+		return // Test doesn't apply.
+	} else if runtime.GOOS == "darwin" {
+		maxSockLen = 103
+	} else {
+		maxSockLen = 107
+	}
+	sockPath := "/tmp/This is a really really long path that definitely will not fit in the sockaddr_un struct on most unix platforms"
+	want := fmt.Errorf("socket path is too long (120 chars) - max allowed length is %d: %s.tmp", maxSockLen, sockPath)
+	_, got := listen(sockPath)
+	if got.Error() != want.Error() {
+		t.Errorf("Wrong error received. Want '%s'; got '%s'", want, got)
 	}
 }

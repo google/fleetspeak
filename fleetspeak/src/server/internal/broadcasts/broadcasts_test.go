@@ -33,7 +33,8 @@ import (
 )
 
 func TestManager(t *testing.T) {
-	tmpDir := comtesting.GetTempDir("broadcasts")
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("broadcasts")
+	defer tmpDirCleanup()
 	ds, err := sqlite.MakeDatastore(path.Join(tmpDir, "TestManager.sqlite"))
 	if err != nil {
 		t.Fatal(err)

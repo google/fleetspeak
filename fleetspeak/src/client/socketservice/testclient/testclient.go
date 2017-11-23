@@ -20,10 +20,10 @@ import (
 	"sync"
 
 	"flag"
-
 	"log"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
+	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/client"
 )
 
@@ -66,7 +66,7 @@ func loopback() {
 	for m := range ch.In {
 		log.Printf("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
-		ch.Out <- channel.AckMessage{M: m}
+		ch.Out <- service.AckMessage{M: m}
 		log.Printf("Message %x looped.", m.MessageId)
 	}
 }
@@ -80,7 +80,7 @@ func ackLoopback() {
 		log.Printf("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
 		w.Add(1)
-		ch.Out <- channel.AckMessage{M: m, Ack: w.Done}
+		ch.Out <- service.AckMessage{M: m, Ack: w.Done}
 		log.Printf("Message %x looped.", m.MessageId)
 		w.Wait()
 		log.Printf("Message %x ack'd.", m.MessageId)
@@ -100,7 +100,7 @@ func stutteringLoopback() {
 		log.Printf("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
 		w.Add(1)
-		ch.Out <- channel.AckMessage{M: m, Ack: w.Done}
+		ch.Out <- service.AckMessage{M: m, Ack: w.Done}
 		log.Printf("Message %x looped.", m.MessageId)
 		w.Wait()
 		log.Printf("Message %x ack'd.", m.MessageId)

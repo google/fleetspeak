@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"log"
 )
@@ -26,10 +27,14 @@ var tempDir string
 
 // GetTempDir creates and returns the name of a temporary directory. Multiple
 // calls will return the same name. It uses the name of the test that is being
-// run as part of the name the directory.
-func GetTempDir(testName string) string {
+// run as part of the name of the directory.
+//
+// The second returned value is a platform-specific cleanup function.
+// This is particularly useful on Windows, where the current user's homedir
+// can be returned as the temp dir, and gets cluttered quickly.
+func GetTempDir(testName string) (string, func()) {
 	if tempDir != "" {
-		return tempDir
+		return tempDir, cleanup
 	}
 
 	tempDir = os.Getenv("TEST_TMPDIR")
@@ -42,5 +47,18 @@ func GetTempDir(testName string) string {
 		tempDir = d
 	}
 	log.Printf("Created temp directory: %s", tempDir)
-	return tempDir
+	return tempDir, cleanup
+}
+
+func cleanup() {
+	if runtime.GOOS != "windows" || tempDir == "" {
+		return
+	}
+
+	if err := os.RemoveAll(tempDir); err != nil {
+		log.Printf("Failed to cleanup temp dir; os.RemoveAll(%q): %v", tempDir, err)
+		return
+	}
+
+	tempDir = ""
 }

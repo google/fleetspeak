@@ -36,7 +36,7 @@ def Loopback():
   con = clib.FleetspeakConnection()
   logging.info("connection created")
   while True:
-    msg = con.Recv()
+    msg, _ = con.Recv()
     msg.message_type += "Response"
     con.Send(msg)
 

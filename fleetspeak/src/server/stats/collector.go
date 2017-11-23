@@ -16,7 +16,26 @@
 // statistics from a fleetspeak server.
 package stats
 
-import "time"
+import (
+	"time"
+
+	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+)
+
+// A PollInfo describes a client poll operation which has occurred.
+type PollInfo struct {
+	// When the operation started and ended.
+	Start, End time.Time
+
+	// Http status code returned to the client.
+	Status int
+
+	// Bytes read and written.
+	ReadBytes, WriteBytes int
+
+	// Time spent reading and writing messages.
+	ReadTime, WriteTime time.Duration
+}
 
 // A Collector is a component which is notified when certain events occurred, to support
 // performance monitoring of a fleetspeak installation.
@@ -41,10 +60,12 @@ type Collector interface {
 	// message will be retried after some minutes.
 	MessageDropped(service, messageType string)
 
-	// ClientPoll is called every time a client polls the server and include
-	// the status code returned to the client.
-	ClientPoll(start, end time.Time, httpStatus int)
+	// ClientPoll is called every time a client polls the server.
+	ClientPoll(info PollInfo)
 
 	// DatastoreOperation is called every time a database operation completes.
 	DatastoreOperation(start, end time.Time, operation string, result error)
+
+	// ResourceUsageDataReceived is called every time a client-resource-usage proto is received.
+	ResourceUsageDataReceived(rud mpb.ResourceUsageData)
 }

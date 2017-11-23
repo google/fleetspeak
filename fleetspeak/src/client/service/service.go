@@ -21,11 +21,17 @@ import (
 	"time"
 
 	"context"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
+
+// AckMessage is a message that can be acknowledged. If no acknowledgement is
+// required, Ack may be nil.
+type AckMessage struct {
+	M   *fspb.Message
+	Ack func()
+}
 
 // A Service represents a configured client component which can accept and send
 // messages via Fleetspeak.
@@ -64,7 +70,7 @@ type LocalInfo struct {
 type Context interface {
 	// Send provides a message to the Fleetspeak system for delivery to the server or to other
 	// Fleetspeak services running on the local client.
-	Send(context.Context, channel.AckMessage) error
+	Send(context.Context, AckMessage) error
 
 	// GetLocalInfo returns information about the local client.
 	GetLocalInfo() *LocalInfo

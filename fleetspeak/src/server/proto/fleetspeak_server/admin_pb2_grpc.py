@@ -41,7 +41,7 @@ class AdminStub(object):
         )
     self.ListClients = channel.unary_unary(
         '/fleetspeak.server.Admin/ListClients',
-        request_serializer=fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2.EmptyMessage.SerializeToString,
+        request_serializer=fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_admin__pb2.ListClientsRequest.SerializeToString,
         response_deserializer=fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_admin__pb2.ListClientsResponse.FromString,
         )
     self.GetMessageStatus = channel.unary_unary(
@@ -138,7 +138,7 @@ def add_AdminServicer_to_server(servicer, server):
       ),
       'ListClients': grpc.unary_unary_rpc_method_handler(
           servicer.ListClients,
-          request_deserializer=fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2.EmptyMessage.FromString,
+          request_deserializer=fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_admin__pb2.ListClientsRequest.FromString,
           response_serializer=fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_admin__pb2.ListClientsResponse.SerializeToString,
       ),
       'GetMessageStatus': grpc.unary_unary_rpc_method_handler(
