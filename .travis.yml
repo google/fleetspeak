@@ -1,0 +1,15 @@
+language: go
+
+python: 2.7
+
+before_install:
+  - pip install --upgrade pip virtualenv
+  - virtualenv "${HOME}/FSENV"
+
+install:
+  - source "${HOME}/FSENV/bin/activate" && pip install -e .
+  - go get -v -t ./... # Install dependencies needed for tests.
+
+script:
+  - source "${HOME}/FSENV/bin/activate"
+  - fleetspeak/build.sh && fleetspeak/test.sh
