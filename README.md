@@ -1,5 +1,7 @@
 # Fleetspeak
 
+[<img src="https://travis-ci.org/google/fleetspeak.svg?branch=master" />](https://travis-ci.org/google/fleetspeak)
+
 Fleetspeak is a framework for communicating with a fleet of machines, with a
 focus on security monitoring and basic administrative use cases.  It is a
 subproject of [GRR](https://github.com/google/grr/blob/master/README.md), and
@@ -13,8 +15,40 @@ next weeks to months we will be organizing our open source development process,
 building out installation processes and otherwise preparing for broader external
 use, both as part of GRR and for other uses.
 
-To get started with a basic stand-along configuration, you might try to follow
-the directions in our
+## Getting Started
+On linux, assuming a recent version of the go development environment (tested
+with 1.9, probably requires at least 1.8) and virtualenv, the following sequence
+of commands will build and test this pre-release:
+
+```bash
+# Required golang dependencies:
+go get \
+  github.com/golang/protobuf/proto \
+  github.com/mattn/go-sqlite3 \
+  golang.org/x/sys \
+  golang.org/x/time/rate \
+  google.golang.org/grpc
+
+# This package:
+go get github.com/google/fleetspeak
+
+# Assuming default $GOPATH:
+cd ~/go/src/github.com/google/fleetspeak
+
+# Setup virtualenv - fleetspeak provides some python integration libraries,
+# and this ensures they are set up in a known way.
+virtualenv venv
+source venv/bin/activate
+pip install -e .
+source venv/bin/activate
+
+# Build and test the release:
+cd fleetspeak
+STRICT=true ./build.sh
+./test.sh
+```
+
+Once built, you can take a look at the files and instructions in our
 [demo directory](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/demo).
 
 ## DISCLAIMER
