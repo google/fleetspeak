@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 
@@ -138,7 +138,7 @@ func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
 
 func (c *Communicator) serve(l net.Listener) {
 	err := c.hs.Serve(l)
-	log.Printf("Serving finished with error: %v", err)
+	log.Errorf("Serving finished with error: %v", err)
 }
 
 // Setup implements server.Communicator.
@@ -235,14 +235,14 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	defer func() {
 		fin()
 		if pi.Status == http.StatusTeapot {
-			log.Printf("Forgot to set status.")
+			log.Errorf("Forgot to set status.")
 		}
 		pi.End = db.Now()
 		s.fs.StatsCollector().ClientPoll(pi)
 	}()
 
 	if !s.startProcessing() {
-		log.Print("InternalServerError: server not ready.")
+		log.Error("InternalServerError: server not ready.")
 		pi.Status = http.StatusInternalServerError
 		http.Error(res, "Server not ready.", pi.Status)
 		return
@@ -320,7 +320,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	info, err := s.fs.GetClientInfo(ctx, id)
 	if err != nil {
-		log.Printf("InternalServerError: GetClientInfo returned error: %v", err)
+		log.Errorf("InternalServerError: GetClientInfo returned error: %v", err)
 		pi.Status = http.StatusInternalServerError
 		http.Error(res, fmt.Sprintf("internal error getting client info: %v", err), pi.Status)
 		return
@@ -339,7 +339,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if info == nil {
 		info, err = s.fs.AddClient(ctx, id, cert.PublicKey)
 		if err != nil {
-			log.Printf("InternalServerError: AddClient returned error: %v", err)
+			log.Errorf("InternalServerError: AddClient returned error: %v", err)
 			pi.Status = http.StatusInternalServerError
 			http.Error(res, fmt.Sprintf("internal error adding client info: %v", err), pi.Status)
 			return
@@ -348,7 +348,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	toSend, err := s.fs.HandleClientContact(ctx, info, addr, &wcd)
 	if err != nil {
-		log.Printf("InternalServerError: HandleClientContact returned error: %v", err)
+		log.Errorf("InternalServerError: HandleClientContact returned error: %v", err)
 		pi.Status = http.StatusInternalServerError
 		http.Error(res, fmt.Sprintf("error processing contact: %v", err), pi.Status)
 		return
@@ -356,7 +356,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	bytes, err := proto.Marshal(toSend)
 	if err != nil {
-		log.Printf("InternalServerError: proto.Marshal returned error: %v", err)
+		log.Errorf("InternalServerError: proto.Marshal returned error: %v", err)
 		pi.Status = http.StatusInternalServerError
 		http.Error(res, fmt.Sprintf("error preparing messages: %v", err), pi.Status)
 		return
@@ -367,7 +367,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	st = time.Now()
 	size, err := res.Write(bytes)
 	if err != nil {
-		log.Print("Error writing body: %v", err)
+		log.Warning("Error writing body: %v", err)
 		pi.Status = http.StatusBadRequest
 		return
 	}

@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 
@@ -78,7 +78,7 @@ func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) S
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Printf("Created database: %s", p)
+	log.Infof("Created database: %s", p)
 
 	var ret Server
 

@@ -18,7 +18,7 @@ import (
 	"path"
 	"testing"
 
-	"log"
+	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/dbtesting"
@@ -28,7 +28,7 @@ func setup(t *testing.T, caseName string) *Datastore {
 	dir, tmpDirCleanup := comtesting.GetTempDir("sqlite_test")
 	defer tmpDirCleanup()
 	p := path.Join(dir, caseName+".sqlite")
-	log.Printf("Using database: %v", p)
+	log.Infof("Using database: %v", p)
 	s, err := MakeDatastore(p)
 	if err != nil {
 		t.Fatal(err)

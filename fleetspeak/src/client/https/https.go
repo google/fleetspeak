@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -206,7 +206,7 @@ func (c *Communicator) processingLoop() {
 	poll := func() {
 		active, err := c.poll(toSend)
 		if err != nil {
-			log.Printf("Failure during polling: %v", err)
+			log.Warningf("Failure during polling: %v", err)
 			for _, m := range toSend {
 				m.Nack()
 			}
@@ -335,31 +335,31 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 
 		resp, err := c.hc.Post(u.String(), "", bytes.NewReader(data))
 		if err != nil {
-			log.Printf("POST to %v failed with error: %v", u, err)
+			log.Warningf("POST to %v failed with error: %v", u, err)
 			continue
 		}
 
 		if resp.StatusCode != 200 {
-			log.Printf("POST to %v failed with status: %v", u, resp.StatusCode)
+			log.Warningf("POST to %v failed with status: %v", u, resp.StatusCode)
 			continue
 		}
 
 		var b bytes.Buffer
 		if _, err := b.ReadFrom(resp.Body); err != nil {
 			resp.Body.Close()
-			log.Print("Unable to read response body.")
+			log.Warning("Unable to read response body.")
 			continue
 		}
 		resp.Body.Close()
 
 		var r fspb.ContactData
 		if err := proto.Unmarshal(b.Bytes(), &r); err != nil {
-			log.Printf("Unable to parse ContactData from server: %v", err)
+			log.Warningf("Unable to parse ContactData from server: %v", err)
 			continue
 		}
 
 		if err := c.cctx.ProcessContactData(&r); err != nil {
-			log.Printf("Error processing ContactData from server: %v", err)
+			log.Warningf("Error processing ContactData from server: %v", err)
 			continue
 		}
 

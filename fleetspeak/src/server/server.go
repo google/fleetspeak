@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
@@ -122,9 +122,9 @@ func (s *Server) Stop() {
 	s.processing.Wait()
 	s.serviceConfig.Stop()
 	if err := s.broadcastManager.Close(context.Background()); err != nil {
-		log.Printf("Error closing BroadcastManager: %v", err)
+		log.Errorf("Error closing BroadcastManager: %v", err)
 	}
 	if err := s.dataStore.Close(); err != nil {
-		log.Printf("Error closing datastore: %v", err)
+		log.Errorf("Error closing datastore: %v", err)
 	}
 }

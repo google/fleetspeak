@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 )
@@ -34,11 +34,11 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
-			log.Printf("failure checking perms of [%s], will retry: %v", socketPath, err)
+			log.Warningf("failure checking perms of [%s], will retry: %v", socketPath, err)
 		} else if conn, err = net.DialUnix("unix", nil, &net.UnixAddr{socketPath, "unix"}); err != nil {
-			log.Printf("failed to connect to [%s], will retry: %v", socketPath, err)
+			log.Warningf("failed to connect to [%s], will retry: %v", socketPath, err)
 		} else {
-			log.Printf("connected to [%s]", socketPath)
+			log.Infof("connected to [%s]", socketPath)
 			return channel.New(conn, conn), func() {
 				// Because it is a socket, this is sufficient to terminate any pending
 				// I/O operations.

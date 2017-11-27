@@ -81,7 +81,7 @@ import (
 	"time"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -107,10 +107,10 @@ func main() {
 
 	i, err := os.Stat(*configDir)
 	if err != nil {
-		log.Fatalf("Unable to stat config directory [%v]: %v", *configDir, err)
+		log.Exitf("Unable to stat config directory [%v]: %v", *configDir, err)
 	}
 	if !i.Mode().IsDir() {
-		log.Fatalf("Config directory path [%v] is not a directory.", *configDir)
+		log.Exitf("Config directory path [%v] is not a directory.", *configDir)
 	}
 
 	createServerCert()
@@ -131,29 +131,29 @@ func createServerCert() bool {
 		if s.Mode().IsRegular() {
 			// We don't need to create a cert - it will be opened
 			// and validated later.
-			log.Printf("Using existing server cert: %v", f)
+			log.Infof("Using existing server cert: %v", f)
 			return false
 		}
-		log.Fatalf("Existing path %v is not a regular file: %v", f, s.Mode())
+		log.Exitf("Existing path %v is not a regular file: %v", f, s.Mode())
 	}
 	// If the file doesn't exist, we will create it. But if we have any other error
 	// something odd is going on.
 	if !os.IsNotExist(err) {
-		log.Fatalf("Unable to stat %v: %v", f, err)
+		log.Exitf("Unable to stat %v: %v", f, err)
 	}
 
-	log.Printf("Creating server cert file: %v", f)
+	log.Infof("Creating server cert file: %v", f)
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
-		log.Fatalf("Unable to generate new server key: %v", err)
+		log.Exitf("Unable to generate new server key: %v", err)
 	}
 
 	// Create a random serial number.
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		log.Fatalf("Unable to generate serial number: %s", err)
+		log.Exitf("Unable to generate serial number: %s", err)
 	}
 
 	// Create a self signed certificate good for 2 years, valid for the
@@ -172,7 +172,7 @@ func createServerCert() bool {
 	for _, hp := range serverHostPorts {
 		h, _, err := net.SplitHostPort(hp)
 		if err != nil {
-			log.Fatalf("Unable to split host and port of %v: %v", hp, err)
+			log.Exitf("Unable to split host and port of %v: %v", hp, err)
 		}
 		// If it looks like an IP address, assume it is one.
 		ip := net.ParseIP(h)
@@ -185,21 +185,21 @@ func createServerCert() bool {
 
 	dc, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, privKey.Public(), privKey)
 	if err != nil {
-		log.Fatalf("Unable to create server cert: %v", err)
+		log.Exitf("Unable to create server cert: %v", err)
 	}
 	c := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: dc})
 	if err := ioutil.WriteFile(f, c, 0644); err != nil {
-		log.Fatalf("Unable to write server cert file [%v]: %v", f, err)
+		log.Exitf("Unable to write server cert file [%v]: %v", f, err)
 	}
 
 	kf := path.Join(*configDir, "server_key.pem")
 	dk, err := x509.MarshalECPrivateKey(privKey)
 	if err != nil {
-		log.Fatalf("Unable to marshal key: %v", err)
+		log.Exitf("Unable to marshal key: %v", err)
 	}
 	k := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: dk})
 	if err := ioutil.WriteFile(kf, k, 0600); err != nil {
-		log.Fatalf("Unable to write server key file [%v]: %v", kf, err)
+		log.Exitf("Unable to write server key file [%v]: %v", kf, err)
 	}
 	return true
 }
@@ -213,33 +213,33 @@ func createDeploymentKey() {
 			// and validated later.
 			return
 		}
-		log.Fatalf("Existing path %v is not a regular file: %v", f, s.Mode())
+		log.Exitf("Existing path %v is not a regular file: %v", f, s.Mode())
 	}
 	// If the file doesn't exist, we will create it. But if we have any other error
 	// something odd is going on.
 	if !os.IsNotExist(err) {
-		log.Fatalf("Unable to stat %v: %v", f, err)
+		log.Exitf("Unable to stat %v: %v", f, err)
 	}
 
-	log.Printf("Creating deployment key file: %v", f)
+	log.Infof("Creating deployment key file: %v", f)
 
 	k, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Fatalf("Unable to generate deployment key: %v", err)
+		log.Exitf("Unable to generate deployment key: %v", err)
 	}
 	pk := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)})
 	if err := ioutil.WriteFile(f, pk, 0600); err != nil {
-		log.Fatalf("Unable to write deployment key file [%v]: %v", f, err)
+		log.Exitf("Unable to write deployment key file [%v]: %v", f, err)
 	}
 
 	f = path.Join(*configDir, "deployment_public_key.pem")
 	pb, err := x509.MarshalPKIXPublicKey(k.Public())
 	if err != nil {
-		log.Fatalf("Unable to encode public key: %v", err)
+		log.Exitf("Unable to encode public key: %v", err)
 	}
 	pk = pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pb})
 	if err := ioutil.WriteFile(f, pk, 0644); err != nil {
-		log.Fatalf("Unable to write public key file [%v]: %v", f, err)
+		log.Exitf("Unable to write public key file [%v]: %v", f, err)
 	}
 }
 
@@ -247,11 +247,11 @@ func validateServerConfig() {
 	f := path.Join(*configDir, "server_config.txt")
 	b, err := ioutil.ReadFile(f)
 	if err != nil {
-		log.Fatalf("Unable to read server configuration file [%v]: %v", f, err)
+		log.Exitf("Unable to read server configuration file [%v]: %v", f, err)
 	}
 	var conf spb.ServerConfig
 	if err := proto.UnmarshalText(string(b), &conf); err != nil {
-		log.Fatalf("Unable to parse server configuration file [%v]: %v", f, err)
+		log.Exitf("Unable to parse server configuration file [%v]: %v", f, err)
 	}
 }
 
@@ -259,52 +259,52 @@ func signServiceConfigs() {
 	df := path.Join(*configDir, "deployment_key.pem")
 	dfb, err := ioutil.ReadFile(df)
 	if err != nil {
-		log.Fatalf("Unable to read deployment key [%v]: %v", dfb, err)
+		log.Exitf("Unable to read deployment key [%v]: %v", dfb, err)
 	}
 	db, _ := pem.Decode(dfb)
 	if db == nil || db.Type != "RSA PRIVATE KEY" {
-		log.Fatalf("Did not find valid RSA pem block in deployment key file [%v]", df)
+		log.Exitf("Did not find valid RSA pem block in deployment key file [%v]", df)
 	}
 	dk, err := x509.ParsePKCS1PrivateKey(db.Bytes)
 	if err != nil {
-		log.Fatalf("Unable to parse key in deployment key file [%v]: %v", df, err)
+		log.Exitf("Unable to parse key in deployment key file [%v]: %v", df, err)
 	}
 
 	csf := path.Join(*configDir, "client_service_configs.txt")
 	csb, err := ioutil.ReadFile(csf)
 	if err != nil {
-		log.Fatalf("Unable to read client service file [%v]: %v", csf, err)
+		log.Exitf("Unable to read client service file [%v]: %v", csf, err)
 	}
 	var cspb fspb.ClientServiceConfigs
 	if err := proto.UnmarshalText(string(csb), &cspb); err != nil {
-		log.Fatalf("Unable to parse client service file [%v]: %v", csf, err)
+		log.Exitf("Unable to parse client service file [%v]: %v", csf, err)
 	}
 
 	sp := path.Join(*configDir, "client", "services")
 	if err := os.MkdirAll(sp, 0755); err != nil {
-		log.Fatalf("Unable to create service directory [%s]: %v", sp, err)
+		log.Exitf("Unable to create service directory [%s]: %v", sp, err)
 	}
 
 	for i, sc := range cspb.Config {
 		if sc.Name == "" {
-			log.Fatalf("Service %d does not have a name.", i)
+			log.Exitf("Service %d does not have a name.", i)
 		}
 		serialized, err := proto.Marshal(sc)
 		if err != nil {
-			log.Fatalf("Unable to serialize service config %v: %v", i, err)
+			log.Exitf("Unable to serialize service config %v: %v", i, err)
 		}
 		hashed := sha256.Sum256(serialized)
 		sig, err := rsa.SignPSS(rand.Reader, dk, crypto.SHA256, hashed[:], nil)
 		if err != nil {
-			log.Fatalf("Unable to sign service config %v: %v", i, err)
+			log.Exitf("Unable to sign service config %v: %v", i, err)
 		}
 		ssp := path.Join(sp, sc.Name)
 		b, err := proto.Marshal(&fspb.SignedClientServiceConfig{ServiceConfig: serialized, Signature: sig})
 		if err != nil {
-			log.Fatalf("Unable to serialize service config: %v", err)
+			log.Exitf("Unable to serialize service config: %v", err)
 		}
 		if err := ioutil.WriteFile(ssp, b, 0644); err != nil {
-			log.Fatalf("Unable to write service config file [%s]: %v", ssp, err)
+			log.Exitf("Unable to write service config file [%s]: %v", ssp, err)
 		}
 	}
 }

@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 )
 
 func checkFloat64(name string, value, min, max float64) error {
@@ -61,7 +61,7 @@ while time.time() - t0 < 1.:
 	runTime := time.Since(start)
 	ru := ruf.ResourceUsageFromFinishedCmd(cmd)
 
-	log.Printf("got resource usage: %#v", ru)
+	log.Infof("got resource usage: %#v", ru)
 
 	// Can CPU time be > observed wall-time if multiple cores are involved?
 	if err := checkFloat64("UserCPUMillis", ru.UserCPUMillis, 0.0, runTime.Seconds()*1000.0); err != nil {
@@ -78,7 +78,7 @@ while time.time() - t0 < 1.:
 
 func TestResourceUsageForPID(t *testing.T) {
 	ruf := ResourceUsageFetcher{}
-	log.Printf("Testing resource usage on [%s, %s]", runtime.GOARCH, runtime.GOOS)
+	log.Infof("Testing resource usage on [%s, %s]", runtime.GOARCH, runtime.GOOS)
 	// Generate some system (os.listdir) and user (everything else) execution
 	// time, consume some memory...
 	cmd := exec.Command("python", "-c", `
@@ -102,7 +102,7 @@ while time.time() - t0 < 60.:
 			t.Errorf("Error killing cmd: %v", err)
 		}
 		if err := cmd.Wait(); err != nil {
-			log.Printf("Error waiting for cmd: %v", err)
+			log.Errorf("Error waiting for cmd: %v", err)
 		}
 	}()
 	time.Sleep(3 * time.Second)
@@ -111,7 +111,7 @@ while time.time() - t0 < 60.:
 	if err != nil {
 		t.Fatalf("Error getting ResourceUsageForPid: %v", err)
 	}
-	log.Printf("got resource usage: %#v", ru)
+	log.Infof("got resource usage: %#v", ru)
 
 	// Can CPU time be > observed wall-time if multiple cores are involved?
 	if err := checkFloat64("UserCPUMillis", ru.UserCPUMillis, 0.0, runTime.Seconds()*1000.0); err != nil {

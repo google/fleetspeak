@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
@@ -110,23 +110,23 @@ func (s *systemService) processMessageAck(ctx context.Context, mid common.Messag
 		if msg.Result == nil {
 			mmid, err := common.BytesToMessageID(msg.MessageId)
 			if err != nil {
-				log.Printf("%v: retrieved message with bad message id[%v]: %v", mid, msg.MessageId, err)
+				log.Errorf("%v: retrieved message with bad message id[%v]: %v", mid, msg.MessageId, err)
 				continue
 			}
 			mcid, err := common.BytesToClientID(msg.Destination.ClientId)
 			if err != nil {
-				log.Printf("%v: retrieved message[%v] with bad client id[%v]: %v", mid, mmid, msg.Destination.ClientId, err)
+				log.Errorf("%v: retrieved message[%v] with bad client id[%v]: %v", mid, mmid, msg.Destination.ClientId, err)
 				continue
 			}
 			if cid != mcid {
-				log.Printf("%v: attempt by client [%v] to ack a message meant for client [%v]", mid, cid, mcid)
+				log.Errorf("%v: attempt by client [%v] to ack a message meant for client [%v]", mid, cid, mcid)
 				continue
 			}
 			if err := s.datastore.StoreMessages(ctx, []*fspb.Message{
 				{MessageId: mmid.Bytes(),
 					Result: &fspb.MessageResult{ProcessedTime: db.NowProto()}},
 			}, ""); err != nil {
-				log.Printf("%v: unable to mark message [%v] processed: %v", mid, mmid, err)
+				log.Errorf("%v: unable to mark message [%v] processed: %v", mid, mmid, err)
 			}
 		}
 	}
@@ -188,7 +188,7 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 	nl := make(map[string]bool)
 	for _, l := range data.Labels {
 		if l.ServiceName != clientServiceName {
-			log.Printf("attempt to set non-client label: %v", l)
+			log.Errorf("attempt to set non-client label: %v", l)
 			continue
 		}
 		nl[l.Label] = true

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
@@ -120,7 +120,7 @@ func (s *Service) newExec(lastStart time.Time) *execution.Execution {
 			return exec
 		}
 		lastStart = time.Now()
-		log.Printf("Execution of service [%s] failed, retrying: %v", s.name, err)
+		log.Errorf("Execution of service [%s] failed, retrying: %v", s.name, err)
 	}
 }
 
@@ -135,7 +135,7 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 		}
 		select {
 		case <-e.Done:
-			log.Printf("Execution of [%s] ended spontaneously.", s.name)
+			log.Warningf("Execution of [%s] ended spontaneously.", s.name)
 			return
 		case <-s.stop:
 			return

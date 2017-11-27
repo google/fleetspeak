@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
@@ -157,7 +157,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 
 	for _, s := range cfg.FixedServices {
 		if err := ret.sc.InstallService(s, nil); err != nil {
-			log.Printf("Unable to install fixed service [%s]: %v", s.Name, err)
+			log.Errorf("Unable to install fixed service [%s]: %v", s.Name, err)
 		}
 	}
 
@@ -205,7 +205,7 @@ func (c *Client) ProcessMessage(ctx context.Context, am service.AckMessage) erro
 	case fspb.Message_HIGH:
 		out = c.outHigh
 	default:
-		log.Printf("Received message with unknown priority %v, treating as Medium.", m.Priority)
+		log.Warningf("Received message with unknown priority %v, treating as Medium.", m.Priority)
 		m.Priority = fspb.Message_MEDIUM
 		out = c.outMedium
 	}
@@ -258,24 +258,24 @@ func (c *Client) loadServices() {
 	p := path.Join(c.cfg.ConfigurationPath, "services")
 	i, err := os.Stat(c.cfg.ConfigurationPath)
 	if err != nil {
-		log.Printf("Unable to stat services path [%s], not loading services: %v", p, err)
+		log.Warningf("Unable to stat services path [%s], not loading services: %v", p, err)
 		return
 	}
 	if !i.Mode().IsDir() {
-		log.Printf("Services path [%s] is not a directory, not loading services.", p)
+		log.Warningf("Services path [%s] is not a directory, not loading services.", p)
 		return
 	}
 
 	d, err := os.Open(p)
 	if err != nil {
-		log.Printf("Unable to open services path [%s], not loading services: %v", p, err)
+		log.Warningf("Unable to open services path [%s], not loading services: %v", p, err)
 		return
 	}
 	defer d.Close()
 
 	fs, err := d.Readdirnames(0)
 	if err != nil {
-		log.Printf("Unable to list files in services path [%s], not loading services: %v", p, err)
+		log.Warningf("Unable to list files in services path [%s], not loading services: %v", p, err)
 		return
 	}
 
@@ -283,16 +283,16 @@ func (c *Client) loadServices() {
 		fp := path.Join(p, f)
 		b, err := ioutil.ReadFile(fp)
 		if err != nil {
-			log.Printf("Unable to read service file [%s], ignoring: %v", fp, err)
+			log.Warningf("Unable to read service file [%s], ignoring: %v", fp, err)
 			continue
 		}
 		var s fspb.SignedClientServiceConfig
 		if err := proto.Unmarshal(b, &s); err != nil {
-			log.Printf("Unable to parse service file [%s], ingoring: %v", fp, err)
+			log.Warningf("Unable to parse service file [%s], ingoring: %v", fp, err)
 			continue
 		}
 		if err := c.sc.InstallSignedService(&s); err != nil {
-			log.Printf("Unable in install service file [%s], ignoring: %v", fp, err)
+			log.Warningf("Unable in install service file [%s], ignoring: %v", fp, err)
 		}
 	}
 }

@@ -20,7 +20,7 @@ import (
 	"os"
 	"runtime"
 
-	"log"
+	log "github.com/golang/glog"
 )
 
 var tempDir string
@@ -46,7 +46,7 @@ func GetTempDir(testName string) (string, func()) {
 		}
 		tempDir = d
 	}
-	log.Printf("Created temp directory: %s", tempDir)
+	log.Infof("Created temp directory: %s", tempDir)
 	return tempDir, cleanup
 }
 
@@ -56,7 +56,7 @@ func cleanup() {
 	}
 
 	if err := os.RemoveAll(tempDir); err != nil {
-		log.Printf("Failed to cleanup temp dir; os.RemoveAll(%q): %v", tempDir, err)
+		log.Errorf("Failed to cleanup temp dir; os.RemoveAll(%q): %v", tempDir, err)
 		return
 	}
 

@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -129,7 +129,7 @@ func (c *RelentlessChannel) receiveOne() (am service.AckMessage, newChan, shutdo
 	for {
 		select {
 		case e := <-c.ch.Err:
-			log.Printf("Channel failed with error: %v", e)
+			log.Errorf("Channel failed with error: %v", e)
 			newChan = true
 			return
 		case m2, ok := <-c.ch.In:
@@ -155,7 +155,7 @@ func (c *RelentlessChannel) sendOne(m *fspb.Message) (newChan bool) {
 	for {
 		select {
 		case e := <-c.ch.Err:
-			log.Printf("Channel failed with error: %v", e)
+			log.Errorf("Channel failed with error: %v", e)
 			return true
 		case m2, ok := <-c.ch.In:
 			if !ok {
@@ -176,7 +176,7 @@ func (c *RelentlessChannel) processAck(m *fspb.Message) bool {
 	}
 	var d fspb.MessageAckData
 	if err := ptypes.UnmarshalAny(m.Data, &d); err != nil {
-		log.Printf("Error parsing m.Data: %v", err)
+		log.Errorf("Error parsing m.Data: %v", err)
 		return true
 	}
 	for _, id := range d.MessageIds {
@@ -185,7 +185,7 @@ func (c *RelentlessChannel) processAck(m *fspb.Message) bool {
 		if !ok {
 			// This should be uncommon, but could happen if we restart while the FS
 			// server has acknowledgments for our predecessor.
-			log.Printf("Received unexpected id: %x", id)
+			log.Warningf("Received unexpected id: %x", id)
 			continue
 		}
 		if m.Ack != nil {

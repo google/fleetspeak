@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -58,7 +58,7 @@ func main() {
 
 	conn, err := grpc.Dial(*adminAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("Unable to connect to fleetspeak admin interface [%v]: %v", *adminAddr, err)
+		log.Exitf("Unable to connect to fleetspeak admin interface [%v]: %v", *adminAddr, err)
 	}
 	admin := sgrpc.NewAdminClient(conn)
 
@@ -96,7 +96,7 @@ func listClients(c sgrpc.AdminClient) {
 	ctx := context.Background()
 	res, err := c.ListClients(ctx, &spb.ListClientsRequest{})
 	if err != nil {
-		log.Fatalf("ListClients RPC failed: %v", err)
+		log.Exitf("ListClients RPC failed: %v", err)
 	}
 	if len(res.Clients) == 0 {
 		fmt.Println("No clients found.")
@@ -107,7 +107,7 @@ func listClients(c sgrpc.AdminClient) {
 	for _, cl := range res.Clients {
 		id, err := common.BytesToClientID(cl.ClientId)
 		if err != nil {
-			log.Printf("Ignoring invalid client id [%v], %v", cl.ClientId, err)
+			log.Errorf("Ignoring invalid client id [%v], %v", cl.ClientId, err)
 			continue
 		}
 		var ls []string
@@ -116,7 +116,7 @@ func listClients(c sgrpc.AdminClient) {
 		}
 		ts, err := ptypes.Timestamp(cl.LastContactTime)
 		if err != nil {
-			log.Printf("Unable to parse last contact time for %v: %v", id, err)
+			log.Errorf("Unable to parse last contact time for %v: %v", id, err)
 		}
 		fmt.Printf("%v %v [%v]\n", id, ts.Format("15:04:05.000 2006.01.02"), strings.Join(ls, ","))
 	}
@@ -129,7 +129,7 @@ func startStdin(c sgrpc.AdminClient, service string, args ...string) {
 	}
 	id, err := common.StringToClientID(args[0])
 	if err != nil {
-		log.Fatalf("Unable to parse %v as client id: %v", flag.Arg(1), err)
+		log.Exitf("Unable to parse %v as client id: %v", flag.Arg(1), err)
 	}
 
 	ctx := context.Background()
@@ -141,10 +141,10 @@ func startStdin(c sgrpc.AdminClient, service string, args ...string) {
 	}
 	m.Data, err = ptypes.MarshalAny(&im)
 	if err != nil {
-		log.Fatalf("Unable to marshal StdinServiceInputMessage as Any: %v", err)
+		log.Exitf("Unable to marshal StdinServiceInputMessage as Any: %v", err)
 	}
 	_, err = c.InsertMessage(ctx, &m)
 	if err != nil {
-		log.Printf("InsertMessage RPC failed: %v", err)
+		log.Errorf("InsertMessage RPC failed: %v", err)
 	}
 }

@@ -47,7 +47,7 @@ import (
 	"time"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 )
 
 var (
@@ -81,10 +81,10 @@ func main() {
 
 	i, err := os.Stat(*configDir)
 	if err != nil {
-		log.Fatalf("Unable to stat config directory [%v]: %v", *configDir, err)
+		log.Exitf("Unable to stat config directory [%v]: %v", *configDir, err)
 	}
 	if !i.Mode().IsDir() {
-		log.Fatalf("Config directory path [%v] is not a directory.", *configDir)
+		log.Exitf("Config directory path [%v] is not a directory.", *configDir)
 	}
 
 	createCACert()
@@ -100,31 +100,31 @@ func createCACert() bool {
 		if s.Mode().IsRegular() {
 			// We don't need to create a cert - it will be opened
 			// and validated later.
-			log.Printf("Using existing CA cert file: %v", f)
+			log.Infof("Using existing CA cert file: %v", f)
 			return false
 		}
-		log.Fatalf("Existing path %v is not a regular file: %v", f, s.Mode())
+		log.Exitf("Existing path %v is not a regular file: %v", f, s.Mode())
 	}
 	// If the file doesn't exist, we will create it. But if we have any other error
 	// something odd is going on.
 	if !os.IsNotExist(err) {
-		log.Fatalf("Unable to stat %v: %v", f, err)
+		log.Exitf("Unable to stat %v: %v", f, err)
 	}
 
 	if *caCommonName == "" {
-		log.Fatal("ca_common_name must be set to create CA cert")
+		log.Exit("ca_common_name must be set to create CA cert")
 	}
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
-		log.Fatalf("Unable to generate new CA key: %v", err)
+		log.Exitf("Unable to generate new CA key: %v", err)
 	}
 
 	// Create a random serial number.
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		log.Fatalf("Unable to generate serial number: %s", err)
+		log.Exitf("Unable to generate serial number: %s", err)
 	}
 
 	tmpl := x509.Certificate{
@@ -142,21 +142,21 @@ func createCACert() bool {
 	}
 	dc, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, privKey.Public(), privKey)
 	if err != nil {
-		log.Fatalf("Unable to create CA cert: %v", err)
+		log.Exitf("Unable to create CA cert: %v", err)
 	}
 	c := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: dc})
 	if err := ioutil.WriteFile(f, c, 0644); err != nil {
-		log.Fatalf("Unable to write CA cert file [%v]: %v", f, err)
+		log.Exitf("Unable to write CA cert file [%v]: %v", f, err)
 	}
 
 	kf := path.Join(*configDir, "ca_key.pem")
 	dk, err := x509.MarshalECPrivateKey(privKey)
 	if err != nil {
-		log.Fatalf("Unable to marshal key: %v", err)
+		log.Exitf("Unable to marshal key: %v", err)
 	}
 	k := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: dk})
 	if err := ioutil.WriteFile(kf, k, 0600); err != nil {
-		log.Fatalf("Unable to write CA key file [%v]: %v", kf, err)
+		log.Exitf("Unable to write CA key file [%v]: %v", kf, err)
 	}
 	return true
 }
@@ -170,32 +170,32 @@ func createServerCert() {
 		if s.Mode().IsRegular() {
 			return
 		}
-		log.Fatalf("Existing path %v is not a regular file: %v", f, s.Mode())
+		log.Exitf("Existing path %v is not a regular file: %v", f, s.Mode())
 	}
 	// If the file doesn't exist, we will create it. But if we have any other error
 	// something odd is going on.
 	if !os.IsNotExist(err) {
-		log.Fatalf("Unable to stat %v: %v", f, err)
+		log.Exitf("Unable to stat %v: %v", f, err)
 	}
 	if *serverCommonName == "" {
-		log.Fatal("server_common _name must be set to create a server cert")
+		log.Exit("server_common _name must be set to create a server cert")
 	}
 	if len(serverHostnames) == 0 {
-		log.Fatal("server_hostnames must be set to create a server cert")
+		log.Exit("server_hostnames must be set to create a server cert")
 	}
 
 	caCert, caKey := loadCA()
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
-		log.Fatalf("Unable to generate new CA key: %v", err)
+		log.Exitf("Unable to generate new CA key: %v", err)
 	}
 
 	// Create a random serial number.
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		log.Fatalf("Unable to generate serial number: %s", err)
+		log.Exitf("Unable to generate serial number: %s", err)
 	}
 
 	tmpl := x509.Certificate{
@@ -223,22 +223,22 @@ func createServerCert() {
 
 	dc, err := x509.CreateCertificate(rand.Reader, &tmpl, caCert, privKey.Public(), caKey)
 	if err != nil {
-		log.Fatalf("Unable to create server cert: %v", err)
+		log.Exitf("Unable to create server cert: %v", err)
 	}
 
 	c := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: dc})
 	if err := ioutil.WriteFile(f, c, 0644); err != nil {
-		log.Fatalf("Unable to write server cert file [%v]: %v", f, err)
+		log.Exitf("Unable to write server cert file [%v]: %v", f, err)
 	}
 
 	kf := path.Join(*configDir, "server_key.pem")
 	dk, err := x509.MarshalECPrivateKey(privKey)
 	if err != nil {
-		log.Fatalf("Unable to marshal key: %v", err)
+		log.Exitf("Unable to marshal key: %v", err)
 	}
 	k := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: dk})
 	if err := ioutil.WriteFile(kf, k, 0600); err != nil {
-		log.Fatalf("Unable to write server key file [%v]: %v", kf, err)
+		log.Exitf("Unable to write server key file [%v]: %v", kf, err)
 	}
 
 }
@@ -247,40 +247,40 @@ func loadCA() (*x509.Certificate, interface{}) {
 	f := path.Join(*configDir, "ca_cert.pem")
 	b, err := ioutil.ReadFile(f)
 	if err != nil {
-		log.Fatalf("Unable to read CA certificate [%v]: %v", f, err)
+		log.Exitf("Unable to read CA certificate [%v]: %v", f, err)
 	}
 	cb, _ := pem.Decode(b)
 	if cb == nil || cb.Type != "CERTIFICATE" {
-		log.Fatalf("Did not find valid pem block in CA certificate file [%v]", f)
+		log.Exitf("Did not find valid pem block in CA certificate file [%v]", f)
 	}
 	cert, err := x509.ParseCertificate(cb.Bytes)
 	if err != nil {
-		log.Fatalf("Unable to parse certificate in CA certificate file [%v]: %v", f, err)
+		log.Exitf("Unable to parse certificate in CA certificate file [%v]: %v", f, err)
 	}
 
 	kf := path.Join(*configDir, "ca_key.pem")
 	kfb, err := ioutil.ReadFile(kf)
 	if err != nil {
-		log.Fatalf("Unable to read CA key [%v]: %v", kf, err)
+		log.Exitf("Unable to read CA key [%v]: %v", kf, err)
 	}
 	db, _ := pem.Decode(kfb)
 	if db == nil {
-		log.Fatalf("Unable to parse PEM in CA key[%v].", kf)
+		log.Exitf("Unable to parse PEM in CA key[%v].", kf)
 	}
 	var key interface{}
 	switch db.Type {
 	case "RSA PRIVATE KEY":
 		key, err = x509.ParsePKCS1PrivateKey(db.Bytes)
 		if err != nil {
-			log.Fatalf("Unable to parse RSA key in CA key file [%v]: %v", kf, err)
+			log.Exitf("Unable to parse RSA key in CA key file [%v]: %v", kf, err)
 		}
 	case "EC PRIVATE KEY":
 		key, err = x509.ParseECPrivateKey(db.Bytes)
 		if err != nil {
-			log.Fatalf("Unable to parse EC key in CA key file [%v]: %v", kf, err)
+			log.Exitf("Unable to parse EC key in CA key file [%v]: %v", kf, err)
 		}
 	default:
-		log.Fatalf("Unsupported PEM block [%v] in CA key file [%v].", db.Type, err)
+		log.Exitf("Unsupported PEM block [%v] in CA key file [%v].", db.Type, err)
 	}
 
 	return cert, key

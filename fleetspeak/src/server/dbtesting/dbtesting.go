@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -234,7 +234,7 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 	if err != nil {
 		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", clientID, err)
 	}
-	log.Printf("Retrieved: %v", m)
+	log.Infof("Retrieved: %v", m)
 	if len(m) != 1 {
 		t.Errorf("ClientMessageForProcessing(%v) didn't return one message: %v", clientID, m)
 	}

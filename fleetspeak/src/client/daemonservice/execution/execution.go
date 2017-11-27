@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -115,7 +115,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	ret.Out = ret.channel.Out
 
 	if *stdForward {
-		log.Printf("std_forward is set, connecting std... to %s", cfg.Argv[0])
+		log.Warningf("std_forward is set, connecting std... to %s", cfg.Argv[0])
 		ret.cmd.Stdin = os.Stdin
 		ret.cmd.Stdout = os.Stdout
 		ret.cmd.Stderr = os.Stderr
@@ -132,14 +132,14 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	ruf := monitoring.ResourceUsageFetcher{}
 	initialRU, err := ruf.ResourceUsageForPID(ret.cmd.Process.Pid)
 	if err != nil {
-		log.Printf("Failed to get resource usage for daemon process: %v", err)
+		log.Errorf("Failed to get resource usage for daemon process: %v", err)
 	}
 
 	rum, err := monitoring.NewResourceUsageMonitor(
 		ret.sc, ret.daemonServiceName, ret.cmd.Process.Pid, ret.StartTime, MaxStatsSamplePeriod, StatsSampleSize, ret.Done)
 	if err != nil {
 		rum = nil
-		log.Printf("Failed to start resource-usage monitor: %v", err)
+		log.Errorf("Failed to start resource-usage monitor: %v", err)
 	}
 
 	ret.inProcess.Add(4)
@@ -159,7 +159,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		ret.waitResult = ret.cmd.Wait()
 		close(ret.dead)
 		if ret.waitResult != nil {
-			log.Printf("subprocess ended with error: %v", ret.waitResult)
+			log.Warningf("subprocess ended with error: %v", ret.waitResult)
 		}
 		if rum != nil && rum.StatsSent() || initialRU == nil {
 			return
@@ -169,7 +169,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		finalRU := ruf.ResourceUsageFromFinishedCmd(&ret.cmd.Cmd)
 		aggRU, err := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
 		if err != nil {
-			log.Printf("Aggregation of resource-usage data failed: %v", err)
+			log.Errorf("Aggregation of resource-usage data failed: %v", err)
 			return
 		}
 		ctx, c := context.WithTimeout(context.Background(), time.Second)
@@ -220,7 +220,7 @@ func (e *Execution) flushOut() {
 	e.outData.Pid = int64(e.cmd.Process.Pid)
 	d, err := ptypes.MarshalAny(e.outData)
 	if err != nil {
-		log.Printf("unable to marshal StdOutputData: %v", err)
+		log.Errorf("unable to marshal StdOutputData: %v", err)
 	} else {
 		e.sc.Send(context.Background(), service.AckMessage{
 			M: &fspb.Message{
@@ -333,13 +333,13 @@ func (e *Execution) Shutdown() {
 		// wrapped process - its child. This would ensure that the process is still
 		// around all the way to the SIGKILL.
 		if err := e.cmd.SoftKill(); err != nil {
-			log.Printf("SoftKill [%d] returned error: %v", e.cmd.Process.Pid, err)
+			log.Errorf("SoftKill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
 		if e.waitForDeath(time.Second) {
 			return
 		}
 		if err := e.cmd.Kill(); err != nil {
-			log.Printf("Kill [%d] returned error: %v", e.cmd.Process.Pid, err)
+			log.Errorf("Kill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
 		if e.waitForDeath(time.Second) {
 			return
@@ -347,7 +347,7 @@ func (e *Execution) Shutdown() {
 		// It is hard to imagine how we might end up here - maybe the process is
 		// somehow stuck in a system call or there is some other OS level weirdness.
 		// One possibility is that cmd is a zombie process now.
-		log.Printf("Subprocess [%d] appears to have survived SIGKILL.", e.cmd.Process.Pid)
+		log.Errorf("Subprocess [%d] appears to have survived SIGKILL.", e.cmd.Process.Pid)
 	})
 }
 
@@ -366,10 +366,10 @@ func (e *Execution) inLoop() {
 			}
 			e.setLastActive(time.Now())
 			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
-				log.Printf("error sending message to server: %v", err)
+				log.Errorf("error sending message to server: %v", err)
 			}
 		case err := <-e.channel.Err:
-			log.Printf("channel produced error: %v", err)
+			log.Errorf("channel produced error: %v", err)
 			return
 		}
 	}
@@ -381,7 +381,7 @@ func (e *Execution) sendStats(ctx context.Context, aggRU *mpb.AggregatedResource
 	if err != nil {
 		// Well, this really should never happen, since the field is set to the return
 		// value of time.Now()
-		log.Printf("Client start time timestamp failed validation check: %v", e.StartTime)
+		log.Errorf("Client start time timestamp failed validation check: %v", e.StartTime)
 		return
 	}
 	rud := mpb.ResourceUsageData{
@@ -393,7 +393,7 @@ func (e *Execution) sendStats(ctx context.Context, aggRU *mpb.AggregatedResource
 	}
 	d, err := ptypes.MarshalAny(&rud)
 	if err != nil {
-		log.Printf("unable to marshal ResourceUsageData: %v", err)
+		log.Errorf("unable to marshal ResourceUsageData: %v", err)
 	} else {
 		e.sc.Send(ctx, service.AckMessage{
 			M: &fspb.Message{

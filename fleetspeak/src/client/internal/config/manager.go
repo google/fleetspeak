@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -111,7 +111,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		}
 		r.writebackPath = path.Join(cfg.ConfigurationPath, "writeback")
 		if err := r.readWriteback(); err != nil {
-			log.Printf("initial load of writeback failed (continuing): %v", err)
+			log.Errorf("initial load of writeback failed (continuing): %v", err)
 			r.state = &clpb.ClientState{}
 		}
 	}
@@ -131,7 +131,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		if err != nil {
 			return nil, fmt.Errorf("unable to create clientID: %v", err)
 		}
-		log.Printf("Using client id: %v (Escaped: %q, Octal: %o)", r.id, r.id.Bytes(), r.id.Bytes())
+		log.Infof("Using client id: %v (Escaped: %q, Octal: %o)", r.id, r.id.Bytes(), r.id.Bytes())
 	}
 
 	r.readCommunicatorConfig()
@@ -168,7 +168,7 @@ func (m *Manager) rekey() error {
 	m.dirty = true
 	m.lock.Unlock()
 
-	log.Printf("Using new client id: %v (Escaped: %q, Octal: %o)", id, id.Bytes(), id.Bytes())
+	log.Infof("Using new client id: %v (Escaped: %q, Octal: %o)", id, id.Bytes(), id.Bytes())
 
 	return nil
 }
@@ -235,14 +235,14 @@ func (m *Manager) readCommunicatorConfig() {
 	b, err := ioutil.ReadFile(p)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("Error reading communicator config [%s], ignoring: %v", p, err)
+			log.Errorf("Error reading communicator config [%s], ignoring: %v", p, err)
 		}
 		return
 	}
 
 	var cc clpb.CommunicatorConfig
 	if err := proto.UnmarshalText(string(b), &cc); err != nil {
-		log.Printf("Error parsing communicator config [%s], ignoring: %v", p, err)
+		log.Errorf("Error parsing communicator config [%s], ignoring: %v", p, err)
 		return
 	}
 	m.cc = &cc

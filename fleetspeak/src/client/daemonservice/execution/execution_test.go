@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -77,7 +77,7 @@ func TestFailures(t *testing.T) {
 		if err != nil {
 			t.Fatalf("execution.New returned error: %v", err)
 		}
-		log.Printf("started %s on %p", mode, ex)
+		log.Infof("started %s on %p", mode, ex)
 		// This should close to indicate we gave up waiting and the execution is over.
 		<-ex.Done
 		close(ex.Out)

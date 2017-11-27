@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -234,7 +234,7 @@ func (m *ResourceUsageMonitor) StatsReporterLoop() {
 		case rud := <-m.RChan:
 			d, err := ptypes.MarshalAny(&rud)
 			if err != nil {
-				log.Printf("Unable to marshal ResourceUsageData: %v", err)
+				log.Errorf("Unable to marshal ResourceUsageData: %v", err)
 				continue
 			}
 			ctx, c := context.WithTimeout(context.Background(), 30*time.Second)
@@ -251,7 +251,7 @@ func (m *ResourceUsageMonitor) StatsReporterLoop() {
 			}
 			c()
 		case err := <-m.ErrChan:
-			log.Printf("Resource-usage monitor encountered an error: %v", err)
+			log.Errorf("Resource-usage monitor encountered an error: %v", err)
 			continue
 		}
 	}

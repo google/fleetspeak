@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
@@ -59,7 +59,7 @@ func TestWriteback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create temp directory: %v", err)
 	}
-	log.Printf("Create temp directory: %v", d)
+	log.Infof("Create temp directory: %v", d)
 
 	m1, err := StartManager(&config.Configuration{
 		ConfigurationPath: d,

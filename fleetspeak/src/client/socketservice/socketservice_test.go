@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 
 	"github.com/golang/protobuf/proto"
@@ -109,14 +109,14 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 	ctx := context.Background()
 	go func() {
 		for _, m := range msgs {
-			log.Printf("Processing message [%x]", m.MessageId)
+			log.Infof("Processing message [%x]", m.MessageId)
 			err := s.ProcessMessage(ctx, m)
 			if err != nil {
 				t.Errorf("Error processing message: %v", err)
 			}
-			log.Print("Message Processed.")
+			log.Info("Message Processed.")
 		}
-		log.Print("Done processing messages.")
+		log.Info("Done processing messages.")
 	}()
 	for _, m := range msgs {
 		g := <-sc.OutChan
@@ -130,7 +130,7 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 			t.Errorf("Unexpected message from loopback: got [%v], want [%v]", got, want)
 		}
 	}
-	log.Printf("looped %d messages", len(msgs))
+	log.Infof("looped %d messages", len(msgs))
 }
 
 func TestLoopback(t *testing.T) {
@@ -228,7 +228,7 @@ func TestStutteringLoopback(t *testing.T) {
 
 	starts := make(chan struct{}, 1)
 	s.(*Service).newChan = func() {
-		log.Printf("starting new channel")
+		log.Infof("starting new channel")
 		starts <- struct{}{}
 	}
 
@@ -255,7 +255,7 @@ func TestStutteringLoopback(t *testing.T) {
 		// Wait for the looped message. After sending the message, the other end
 		// will close and restart.
 		m := <-sc.OutChan
-		log.Printf("received looped back message: %x", m.MessageId)
+		log.Infof("received looped back message: %x", m.MessageId)
 	}
 	if err := s.Stop(); err != nil {
 		t.Errorf("Error stopping service: %v", err)

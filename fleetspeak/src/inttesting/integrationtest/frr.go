@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
@@ -132,7 +132,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	}
 	defer gms.Stop()
 	go func() {
-		log.Printf("Finished with MasterServer[%v]: %v", tl.Addr(), gms.Serve(tl))
+		log.Infof("Finished with MasterServer[%v]: %v", tl.Addr(), gms.Serve(tl))
 	}()
 
 	// Create FS server certs and server communicator.
@@ -152,7 +152,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Printf("Communicator listening to: %v", listener.Addr())
+	log.Infof("Communicator listening to: %v", listener.Addr())
 
 	// Create authorizer and signers.
 	auth, signs := makeAuthorizerSigners(t)
@@ -198,7 +198,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	}
 	defer gas.Stop()
 	go func() {
-		log.Printf("Finished with AdminServer[%v]: %v", asl.Addr(), gas.Serve(asl))
+		log.Infof("Finished with AdminServer[%v]: %v", asl.Addr(), gas.Serve(asl))
 	}()
 
 	// Connect the FRR master to the resulting FS AdminInterface.
@@ -257,12 +257,12 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 		}
 		clients = append(clients, cl)
 	}
-	log.Printf("%v clients started", numClients)
+	log.Infof("%v clients started", numClients)
 
 	// We expect each client to create one response for the hunt.
 	for i := 0; i < numClients; i++ {
 		<-completed
-		log.Printf("%v clients finished", i+1)
+		log.Infof("%v clients finished", i+1)
 	}
 
 	// Now check file handling. Store a file on the server and broadcast a
@@ -278,7 +278,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	// We expect each client to create one response for the hunt.
 	for i := 0; i < numClients; i++ {
 		<-completed
-		log.Printf("%v clients finished download", i+1)
+		log.Infof("%v clients finished download", i+1)
 	}
 
 	// Shut down everything before reading counters, to avoid even the

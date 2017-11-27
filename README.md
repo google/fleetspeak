@@ -27,7 +27,8 @@ go get \
   github.com/mattn/go-sqlite3 \
   golang.org/x/sys \
   golang.org/x/time/rate \
-  google.golang.org/grpc
+  google.golang.org/grpc \
+  github.com/golang/glog
 
 # This package:
 go get github.com/google/fleetspeak

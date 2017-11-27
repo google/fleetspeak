@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 	"github.com/google/fleetspeak/fleetspeak/src/windows/wnixsocket"
@@ -36,12 +36,12 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 	timeout := time.Second
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
-			log.Printf("Failure checking perms of [%s], will retry: %v", socketPath, err)
+			log.Warningf("Failure checking perms of [%s], will retry: %v", socketPath, err)
 			time.Sleep(timeout)
 		} else if conn, err = wnixsocket.Dial(socketPath, timeout); err != nil {
-			log.Printf("Failed to connect to [%s], will retry: %v", socketPath, err)
+			log.Warningf("Failed to connect to [%s], will retry: %v", socketPath, err)
 		} else {
-			log.Printf("Connected to [%s]", socketPath)
+			log.Infof("Connected to [%s]", socketPath)
 
 			return channel.New(conn, conn), func() {
 				// Because it is a socket, this is sufficient to terminate any pending

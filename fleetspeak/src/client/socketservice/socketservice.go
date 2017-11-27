@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -119,14 +119,14 @@ func (s *Service) monitorChannel(ch *chanInfo) {
 	for {
 		select {
 		case err := <-ch.Err:
-			log.Printf("Channel closing with error: %v", err)
+			log.Errorf("Channel closing with error: %v", err)
 			return
 		case m, ok := <-ch.ra.In:
 			if !ok {
 				return
 			}
 			if err := s.sc.Send(context.Background(), m); err != nil {
-				log.Printf("Error sending message: %v", err)
+				log.Errorf("Error sending message: %v", err)
 			}
 		}
 	}
@@ -189,7 +189,7 @@ func (s *Service) accept() *chanInfo {
 			r.ra = channel.NewRelentlessAcknowledger(r.Channel, 100)
 			return r
 		}
-		log.Printf("Accept returned error: %v", err)
+		log.Errorf("Accept returned error: %v", err)
 
 		select {
 		case <-s.stop:

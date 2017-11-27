@@ -25,7 +25,7 @@ import (
 	"sort"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 
@@ -128,7 +128,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		if len(msgs) == 0 {
 			return nil, err
 		}
-		log.Print("Got %v messages along with error, continuing: %v", len(msgs), err)
+		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
 
 	bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.ID, info.Labels)
@@ -190,7 +190,7 @@ func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.
 	for _, m := range received.Messages {
 		err := c.validateMessageFromClient(info.ID, m, validationInfo)
 		if err != nil {
-			log.Printf("Dropping invalid message from [%v]: %v", info.ID, err)
+			log.Errorf("Dropping invalid message from [%v]: %v", info.ID, err)
 			continue
 		}
 		msgs = append(msgs, m)

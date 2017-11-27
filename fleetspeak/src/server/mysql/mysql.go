@@ -22,7 +22,7 @@ package mysql
 import (
 	"database/sql"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 )
 
@@ -189,7 +189,7 @@ PRIMARY KEY (service, name))
 `,
 	} {
 		if _, err := db.Exec(s); err != nil {
-			log.Printf("Error [%v] creating table: \n%v", err, s)
+			log.Errorf("Error [%v] creating table: \n%v", err, s)
 			return err
 		}
 	}

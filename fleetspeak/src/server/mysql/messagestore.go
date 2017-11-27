@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -263,7 +263,7 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 		c, err := strconv.ParseUint(string(contact), 16, 64)
 		if err != nil {
 			e := fmt.Errorf("unable to parse ContactID [%v]: %v", contact, err)
-			log.Print(e)
+			log.Error(e)
 			return e
 		}
 		for _, id := range ids {
@@ -680,7 +680,7 @@ type messageLooper struct {
 // RegisterMessageProcessor implements db.MessageStore.
 func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 	if d.looper != nil {
-		log.Print("Attempt to register a second MessageProcessor.")
+		log.Warning("Attempt to register a second MessageProcessor.")
 		d.looper.stop()
 	}
 	d.looper = &messageLooper{
@@ -725,7 +725,7 @@ func (l *messageLooper) processMessages() {
 	for {
 		msgs, err := l.d.internalServerMessagesForProcessing(context.Background(), 10)
 		if err != nil {
-			log.Printf("Failed to read server messages for processing: %v", err)
+			log.Errorf("Failed to read server messages for processing: %v", err)
 			continue
 		}
 		l.mp.ProcessMessages(msgs)

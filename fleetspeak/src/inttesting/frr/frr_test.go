@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -212,13 +212,13 @@ type fakeMasterServer struct {
 }
 
 func (s fakeMasterServer) RecordTrafficResponse(ctx context.Context, i *fpb.MessageInfo) (*fspb.EmptyMessage, error) {
-	log.Printf("recording m: %v", i)
+	log.Infof("recording m: %v", i)
 	s.rec <- i
 	return &fspb.EmptyMessage{}, nil
 }
 
 func (s fakeMasterServer) RecordFileResponse(ctx context.Context, i *fpb.FileResponseInfo) (*fspb.EmptyMessage, error) {
-	log.Printf("recording m: %v", i)
+	log.Infof("recording m: %v", i)
 	s.recFile <- i
 	return &fspb.EmptyMessage{}, nil
 }
@@ -244,7 +244,7 @@ func TestServerService(t *testing.T) {
 	}
 	defer s.Stop()
 	go func() {
-		log.Printf("Finished with: %v", s.Serve(tl))
+		log.Infof("Finished with: %v", s.Serve(tl))
 	}()
 
 	// Directly create and start a FRR service.

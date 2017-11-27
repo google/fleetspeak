@@ -30,7 +30,7 @@ import (
 	"syscall"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
@@ -80,10 +80,10 @@ func main() {
 			},
 			Communicators: []comms.Communicator{com}})
 	if err != nil {
-		log.Fatalf("Unable to initialize Fleetspeak server: %v", err)
+		log.Exitf("Unable to initialize Fleetspeak server: %v", err)
 	}
 	defer s.Stop()
-	log.Printf("Fleetspeak server started, listening for clients on: %v", httpAddr)
+	log.Infof("Fleetspeak server started, listening for clients on: %v", httpAddr)
 
 	// Separately start listening for admin requests.
 	as := serveAdminInterface(s, ds)
@@ -101,7 +101,7 @@ func main() {
 func initDB() db.Store {
 	ds, err := sqlite.MakeDatastore(*databasePath)
 	if err != nil {
-		log.Fatalf("Unable to open or create sqlite database[%v]: %v", *databasePath, err)
+		log.Exitf("Unable to open or create sqlite database[%v]: %v", *databasePath, err)
 	}
 	return ds
 }
@@ -109,11 +109,11 @@ func initDB() db.Store {
 func readConfig() *spb.ServerConfig {
 	cb, err := ioutil.ReadFile(*configPath)
 	if err != nil {
-		log.Fatalf("Unable to read configuration file [%v]: %v", *configPath, err)
+		log.Exitf("Unable to read configuration file [%v]: %v", *configPath, err)
 	}
 	var conf spb.ServerConfig
 	if err := proto.UnmarshalText(string(cb), &conf); err != nil {
-		log.Fatalf("Unable to parse configuration file [%v]: %v", *configPath, err)
+		log.Exitf("Unable to parse configuration file [%v]: %v", *configPath, err)
 	}
 	return &conf
 }
@@ -121,23 +121,23 @@ func readConfig() *spb.ServerConfig {
 func initCommunicator() (comms.Communicator, net.Addr) {
 	cert, err := ioutil.ReadFile(*serverCert)
 	if err != nil {
-		log.Fatalf("Unable to read server cert file [%v]: %v", *serverCert, err)
+		log.Exitf("Unable to read server cert file [%v]: %v", *serverCert, err)
 	}
 	key, err := ioutil.ReadFile(*serverKey)
 	if err != nil {
-		log.Fatalf("Unable to read server key file [%v]: %v", *serverKey, err)
+		log.Exitf("Unable to read server key file [%v]: %v", *serverKey, err)
 	}
 	addr, err := net.ResolveTCPAddr("tcp", *httpsAddr)
 	if err != nil {
-		log.Fatalf("Unable to resolve https listener address [%v]: %v", *httpsAddr, err)
+		log.Exitf("Unable to resolve https listener address [%v]: %v", *httpsAddr, err)
 	}
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log.Fatalf("Unable to listen on [%v]: %v", addr, err)
+		log.Exitf("Unable to listen on [%v]: %v", addr, err)
 	}
 	com, err := https.NewCommunicator(l, cert, key)
 	if err != nil {
-		log.Fatalf("Unable to initialize https communications: %v", err)
+		log.Exitf("Unable to initialize https communications: %v", err)
 	}
 	return com, l.Addr()
 }
@@ -151,16 +151,16 @@ func serveAdminInterface(fs *server.Server, ds db.Store) *grpc.Server {
 	sgrpc.RegisterAdminServer(gs, as)
 	addr, err := net.ResolveTCPAddr("tcp", *adminAddr)
 	if err != nil {
-		log.Fatalf("Unable to resolve admin listener address [%v]: %v", *adminAddr, err)
+		log.Exitf("Unable to resolve admin listener address [%v]: %v", *adminAddr, err)
 	}
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log.Fatalf("Unable to listen on [%v]: %v", addr, err)
+		log.Exitf("Unable to listen on [%v]: %v", addr, err)
 	}
 	go func() {
 		err := gs.Serve(l)
-		log.Printf("Admin server finished with error: %v", err)
+		log.Errorf("Admin server finished with error: %v", err)
 	}()
-	log.Printf("Admin interface started, listening for clients on: %v", l.Addr())
+	log.Infof("Admin interface started, listening for clients on: %v", l.Addr())
 	return gs
 }

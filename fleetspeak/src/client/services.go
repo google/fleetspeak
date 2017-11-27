@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -107,7 +107,7 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		old.stop()
 	}
 
-	log.Printf("Started service %v with config:\n%v", cfg.Name, cfg)
+	log.Infof("Started service %v with config:\n%v", cfg.Name, cfg)
 	return nil
 }
 
@@ -190,7 +190,7 @@ func (d *serviceData) processingLoop() {
 		}
 		id, err := common.BytesToMessageID(m.MessageId)
 		if err != nil {
-			log.Printf("ignoring message with bad message id: [%v]", m.MessageId)
+			log.Errorf("ignoring message with bad message id: [%v]", m.MessageId)
 			continue
 		}
 		if err := d.service.ProcessMessage(context.TODO(), m); err != nil {

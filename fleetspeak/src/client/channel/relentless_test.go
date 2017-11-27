@@ -20,7 +20,7 @@ import (
 	"sort"
 	"testing"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -34,7 +34,7 @@ func TestRelentlessLoop(t *testing.T) {
 	r := make(chan struct{}, 1)
 
 	loopEnd := NewRelentlessChannel(func() (*Channel, func()) {
-		log.Print("building channel")
+		log.Info("building channel")
 		toLoopReader, toLoopWriter := io.Pipe()
 		fromLoopReader, fromLoopWriter := io.Pipe()
 
@@ -43,7 +43,7 @@ func TestRelentlessLoop(t *testing.T) {
 		r <- struct{}{}
 
 		return New(toLoopReader, fromLoopWriter), func() {
-			log.Print("shutting down channel")
+			log.Info("shutting down channel")
 			toLoopReader.Close()
 			toLoopWriter.Close()
 			fromLoopReader.Close()
@@ -59,7 +59,7 @@ func TestRelentlessLoop(t *testing.T) {
 
 	go func() {
 		defer func() {
-			log.Print("shutting down loopback")
+			log.Info("shutting down loopback")
 			close(loopEnd.Out)
 		}()
 		for {

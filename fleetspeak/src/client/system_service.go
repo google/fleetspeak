@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -60,7 +60,7 @@ func (s *systemService) Start(sc service.Context) error {
 		s.sc, "system", s.client.pid, s.client.startTime, StatsSamplePeriod, StatsSampleSize, s.done)
 	if err != nil {
 		rum = nil
-		log.Printf("Failed to start resource-usage monitor: %v", err)
+		log.Errorf("Failed to start resource-usage monitor: %v", err)
 	}
 	s.wait.Add(4)
 	// TODO: call pollRevokedCerts on startup.
@@ -124,7 +124,7 @@ func (s *systemService) ackLoop() {
 					Data:        d,
 				},
 			}); err != nil {
-				log.Printf("error acknowledging message: %v", err)
+				log.Errorf("error acknowledging message: %v", err)
 			}
 			c()
 		}
@@ -151,7 +151,7 @@ func (s *systemService) errLoop() {
 					Data:        d,
 				},
 			}); err != nil {
-				log.Printf("error reporting message error: %v", err)
+				log.Errorf("error reporting message error: %v", err)
 			}
 			c()
 		}
@@ -182,7 +182,7 @@ func (s *systemService) cfgLoop() {
 					Data:        d,
 				},
 			}); err != nil {
-				log.Printf("error reporting configuration change: %v", err)
+				log.Errorf("error reporting configuration change: %v", err)
 			}
 			c()
 		}
@@ -194,14 +194,14 @@ func (s *systemService) pollRevokedCerts() {
 	defer c()
 	data, _, err := s.sc.GetFileIfModified(ctx, "RevokedCertificates", time.Time{})
 	if err != nil {
-		log.Printf("Unable to get revoked certificate list: %v", err)
+		log.Errorf("Unable to get revoked certificate list: %v", err)
 		return
 	}
 	defer data.Close()
 
 	b, err := ioutil.ReadAll(data)
 	if err != nil {
-		log.Printf("Unable to read revoked certificate list: %v", err)
+		log.Errorf("Unable to read revoked certificate list: %v", err)
 		return
 	}
 	if len(b) == 0 {
@@ -209,7 +209,7 @@ func (s *systemService) pollRevokedCerts() {
 	}
 	var l fspb.RevokedCertificateList
 	if err := proto.Unmarshal(b, &l); err != nil {
-		log.Printf("Unable to parse revoked certificate list: %v", err)
+		log.Errorf("Unable to parse revoked certificate list: %v", err)
 		return
 	}
 	s.client.config.AddRevokedSerials(l.Serials)

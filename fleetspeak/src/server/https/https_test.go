@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
@@ -64,7 +64,7 @@ func makeServer(t *testing.T, caseName string) (*server.Server, *sqlite.Datastor
 		t.Fatal(err)
 	}
 	time.Sleep(time.Second)
-	log.Printf("Communicator listening to: %v", tl.Addr())
+	log.Infof("Communicator listening to: %v", tl.Addr())
 	ts := testserver.Make(t, "https", caseName, []comms.Communicator{com})
 
 	return ts.S, ts.DS, tl.Addr().String()

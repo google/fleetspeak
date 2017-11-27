@@ -17,7 +17,7 @@ package db
 import (
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 

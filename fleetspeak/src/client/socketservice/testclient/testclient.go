@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -39,7 +39,7 @@ func main() {
 
 	// All of the modes require interaction with the socket.
 	if *socketPath == "" {
-		log.Fatal("--socket_path is required")
+		log.Exit("--socket_path is required")
 	}
 
 	switch *mode {
@@ -50,45 +50,45 @@ func main() {
 	case "stutteringLoopback":
 		stutteringLoopback()
 	default:
-		log.Fatalf("unknown mode: %s", *mode)
+		log.Exitf("unknown mode: %s", *mode)
 	}
 }
 
 func openChannel() *channel.RelentlessChannel {
-	log.Printf("opening relentless channel to %s", *socketPath)
+	log.Infof("opening relentless channel to %s", *socketPath)
 	return client.OpenChannel(*socketPath)
 }
 
 func loopback() {
-	log.Print("starting loopback")
+	log.Info("starting loopback")
 
 	ch := openChannel()
 	for m := range ch.In {
-		log.Printf("Looping message of type [%s]", m.MessageType)
+		log.Infof("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
 		ch.Out <- service.AckMessage{M: m}
-		log.Printf("Message %x looped.", m.MessageId)
+		log.Infof("Message %x looped.", m.MessageId)
 	}
 }
 
 func ackLoopback() {
-	log.Print("starting acknowledging loopback")
+	log.Info("starting acknowledging loopback")
 
 	ch := openChannel()
 	var w sync.WaitGroup
 	for m := range ch.In {
-		log.Printf("Looping message of type [%s]", m.MessageType)
+		log.Infof("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
 		w.Add(1)
 		ch.Out <- service.AckMessage{M: m, Ack: w.Done}
-		log.Printf("Message %x looped.", m.MessageId)
+		log.Infof("Message %x looped.", m.MessageId)
 		w.Wait()
-		log.Printf("Message %x ack'd.", m.MessageId)
+		log.Infof("Message %x ack'd.", m.MessageId)
 	}
 }
 
 func stutteringLoopback() {
-	log.Print("starting stuttering loopback")
+	log.Info("starting stuttering loopback")
 
 	ch := openChannel()
 	var w sync.WaitGroup
@@ -97,13 +97,13 @@ func stutteringLoopback() {
 		if !ok {
 			log.Fatal("RelentlessChannel unexpectedly closed.")
 		}
-		log.Printf("Looping message of type [%s]", m.MessageType)
+		log.Infof("Looping message of type [%s]", m.MessageType)
 		m.MessageType = m.MessageType + "Response"
 		w.Add(1)
 		ch.Out <- service.AckMessage{M: m, Ack: w.Done}
-		log.Printf("Message %x looped.", m.MessageId)
+		log.Infof("Message %x looped.", m.MessageId)
 		w.Wait()
-		log.Printf("Message %x ack'd.", m.MessageId)
+		log.Infof("Message %x ack'd.", m.MessageId)
 
 		close(ch.Out)
 

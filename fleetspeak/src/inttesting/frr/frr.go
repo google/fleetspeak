@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
@@ -96,7 +96,7 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 		defer s.w.Done()
 
 		cnt := jitter(rd.NumMessages, rd.Jitter)
-		log.Printf("%v: creating %v responses for request %v", s.sc.GetLocalInfo().ClientID, cnt, rd.RequestId)
+		log.V(1).Infof("%v: creating %v responses for request %v", s.sc.GetLocalInfo().ClientID, cnt, rd.RequestId)
 		for i := int64(0); i < cnt; i++ {
 			delay := time.Duration(time.Millisecond * time.Duration(jitter(rd.MessageDelayMs, rd.Jitter)))
 			t := time.NewTimer(delay)
@@ -282,7 +282,7 @@ type MasterServer struct {
 // NewMasterServer returns MasterServer object.
 func NewMasterServer(admin sgrpc.AdminClient) *MasterServer {
 	id := rand.Int63()
-	log.Printf("Creating master server with id: %v", id)
+	log.Infof("Creating master server with id: %v", id)
 	return &MasterServer{
 		clients:   make(map[common.ClientID]*clientInfo),
 		completed: nil,
@@ -339,7 +339,7 @@ func (s *MasterServer) RecordTrafficResponse(ctx context.Context, i *fpb.Message
 	if i.Data.MasterId != s.masterID {
 		return &fspb.EmptyMessage{}, nil
 	}
-	log.Printf("%v: processing message: %v, %v, %v", id, i.Data.RequestId, i.Data.ResponseIndex, i.Data.Fin)
+	log.V(2).Infof("%v: processing message: %v, %v, %v", id, i.Data.RequestId, i.Data.ResponseIndex, i.Data.Fin)
 
 	ci := s.getClientInfo(id)
 	ci.lock.Lock()
@@ -356,7 +356,7 @@ func (s *MasterServer) RecordTrafficResponse(ctx context.Context, i *fpb.Message
 	}
 
 	if ri.completed() {
-		log.Printf("%v: completed request %v", id, i.Data.RequestId)
+		log.V(1).Infof("%v: completed request %v", id, i.Data.RequestId)
 		if s.completed != nil {
 			select {
 			case <-ctx.Done():
@@ -487,7 +487,7 @@ func (s *MasterServer) CreateHunt(ctx context.Context, rd *fpb.TrafficRequestDat
 			break
 		}
 		if grpc.Code(err) == codes.Unavailable {
-			log.Printf("FS server unavailable, retrying in %v", retryDelay)
+			log.Warningf("FS server unavailable, retrying in %v", retryDelay)
 			time.Sleep(retryDelay)
 			continue
 		}
@@ -527,7 +527,7 @@ func (s *MasterServer) CreateFileDownloadHunt(ctx context.Context, name string, 
 			break
 		}
 		if grpc.Code(err) == codes.Unavailable {
-			log.Printf("FS server unavailable, retrying in %v", retryDelay)
+			log.Warningf("FS server unavailable, retrying in %v", retryDelay)
 			time.Sleep(retryDelay)
 			continue
 		}

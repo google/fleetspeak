@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/signer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 
@@ -74,7 +74,7 @@ func (s *testSigner) SignContact(data []byte) *fspb.Signature {
 	hashed := h.Sum(nil)
 	sig, err := s.signer.Sign(rand.Reader, hashed, s.hash)
 	if err != nil {
-		log.Fatalf("Unable to sign hashed of length %d with (%v): %v", len(hashed), s.hash, err)
+		log.Exitf("Unable to sign hashed of length %d with (%v): %v", len(hashed), s.hash, err)
 	}
 	return &fspb.Signature{
 		Certificate: s.cert.Raw,

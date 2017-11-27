@@ -19,7 +19,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/proto"
 
@@ -75,7 +75,7 @@ func (c commsContext) ProcessContactData(cd *fspb.ContactData) error {
 	c.c.config.SetSequencingNonce(cd.SequencingNonce)
 	for _, m := range cd.Messages {
 		if err := c.c.ProcessMessage(context.TODO(), service.AckMessage{M: m}); err != nil {
-			log.Printf("Unable to process message[%v] from server: %v", hex.EncodeToString(m.MessageId), err)
+			log.Warningf("Unable to process message[%v] from server: %v", hex.EncodeToString(m.MessageId), err)
 		}
 	}
 	return nil

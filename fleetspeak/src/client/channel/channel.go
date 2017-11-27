@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -154,7 +154,7 @@ func (c *Channel) readLoop() {
 		// The magic number should always come quickly.
 		b, err := c.read(4, MagicTimeout)
 		if err != nil {
-			log.Printf("error reading magic number: %v", err) // do not submit
+			log.Errorf("error reading magic number: %v", err) // do not submit
 			c.e <- fmt.Errorf("error reading magic number: %v", err)
 			return
 		}
@@ -217,11 +217,11 @@ func (c *Channel) writeLoop() {
 	for msg := range c.o {
 		buf, err := proto.Marshal(msg)
 		if err != nil {
-			log.Printf("Unable to marshal message to send: %v", err)
+			log.Errorf("Unable to marshal message to send: %v", err)
 			continue
 		}
 		if len(buf) > int(maxSize) {
-			log.Printf("Overlarge message to send, want less than [%x] got [%x]", maxSize, len(buf))
+			log.Errorf("Overlarge message to send, want less than [%x] got [%x]", maxSize, len(buf))
 			continue
 		}
 		if err := binary.Write(c.pipeWrite, byteOrder, int32(len(buf))); err != nil {

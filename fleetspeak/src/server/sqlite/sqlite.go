@@ -22,7 +22,7 @@ import (
 	"database/sql"
 	"sync"
 
-	"log"
+	log "github.com/golang/glog"
 
 	// We access the driver through sql.Open, but need to bring in the
 	// dependency.
@@ -43,7 +43,7 @@ type Datastore struct {
 // MakeDatastore opens the given sqlite database file and creates any missing
 // tables.
 func MakeDatastore(fileName string) (*Datastore, error) {
-	log.Printf("Opening sql database: %v", fileName)
+	log.Infof("Opening sql database: %v", fileName)
 	db, err := sql.Open("sqlite3", fileName)
 	if err != nil {
 		return nil, err
@@ -206,7 +206,7 @@ PRIMARY KEY (service, name))
 `,
 	} {
 		if _, err := db.Exec(s); err != nil {
-			log.Printf("Error [%v] creating table: \n%v", err, s)
+			log.Errorf("Error [%v] creating table: \n%v", err, s)
 			return err
 		}
 	}

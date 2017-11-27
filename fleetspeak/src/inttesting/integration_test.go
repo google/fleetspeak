@@ -19,7 +19,7 @@ import (
 	"path"
 	"testing"
 
-	"log"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/inttesting/integrationtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
@@ -34,7 +34,7 @@ func TestFRRIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Printf("Created database: %s", p)
+	log.Infof("Created database: %s", p)
 	defer ds.Close()
 
 	integrationtest.FRRIntegrationTest(t, ds, tmpDir)

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
@@ -226,7 +226,7 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 	c, err := strconv.ParseUint(string(contact), 16, 64)
 	if err != nil {
 		e := fmt.Errorf("unable to parse ContactID [%v]: %v", contact, err)
-		log.Print(e)
+		log.Error(e)
 		return e
 	}
 	d.l.Lock()

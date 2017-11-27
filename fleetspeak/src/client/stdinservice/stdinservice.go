@@ -22,7 +22,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/golang/protobuf/ptypes"
 
@@ -97,7 +97,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	ruf := monitoring.ResourceUsageFetcher{}
 	initialRU, ruErr := ruf.ResourceUsageForPID(cmd.Process.Pid)
 	if ruErr != nil {
-		log.Printf("Failed to get resource usage for process: %v", ruErr)
+		log.Errorf("Failed to get resource usage for process: %v", ruErr)
 	}
 
 	waitChan := make(chan error)
@@ -142,7 +142,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	finalRU := ruf.ResourceUsageFromFinishedCmd(cmd)
 	aggRU, ruErr := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
 	if ruErr != nil {
-		log.Printf("Aggregation of resource-usage data failed: %v", ruErr)
+		log.Errorf("Aggregation of resource-usage data failed: %v", ruErr)
 	} else {
 		om.ResourceUsage = aggRU
 	}

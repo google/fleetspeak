@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"log"
+	log "github.com/golang/glog"
 	"context"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -165,7 +165,7 @@ Infos:
 	for _, i := range is {
 		mid, err := common.RandomMessageID()
 		if err != nil {
-			log.Printf("unable to create message id: %v", err)
+			log.Errorf("unable to create message id: %v", err)
 			if i.limit != db.BroadcastUnlimited {
 				// Incantation to decrement a uint64, recommend AddUint64 docs:
 				atomic.AddUint64(&i.sent, ^uint64(0))
@@ -188,7 +188,7 @@ Infos:
 		err = m.bs.SaveBroadcastMessage(ctx, msg, i.bID, id, i.aID)
 		i.lock.Unlock()
 		if err != nil {
-			log.Printf("SaveBroadcastMessage of instance of broadcast %v failed. Not sending. [%v]", i.bID, err)
+			log.Errorf("SaveBroadcastMessage of instance of broadcast %v failed. Not sending. [%v]", i.bID, err)
 			if i.limit != db.BroadcastUnlimited {
 				// Incantation to decrement a uint64, recommend by AddUint64 docs:
 				atomic.AddUint64(&i.sent, ^uint64(0))
@@ -214,7 +214,7 @@ func (m *Manager) refreshLoop() {
 		}
 
 		if err := m.refreshInfo(ctx); err != nil {
-			log.Printf("Error refreshing broadcast infos: %v", err)
+			log.Errorf("Error refreshing broadcast infos: %v", err)
 
 		}
 	}
@@ -237,7 +237,7 @@ func (m *Manager) refreshInfo(ctx context.Context) error {
 	for _, b := range bs {
 		id, err := ids.BytesToBroadcastID(b.Broadcast.BroadcastId)
 		if err != nil {
-			log.Printf("Broadcast [%v] has bad id, skipping: %v", b.Broadcast, err)
+			log.Errorf("Broadcast [%v] has bad id, skipping: %v", b.Broadcast, err)
 			continue
 		}
 		activeIds[id] = true
@@ -247,7 +247,7 @@ func (m *Manager) refreshInfo(ctx context.Context) error {
 			}
 			a, err := m.bs.CreateAllocation(ctx, id, allocFrac, ftime.Now().Add(allocDuration))
 			if err != nil {
-				log.Printf("Unable to create alloc for broadcast %v, skipping: %v", id, err)
+				log.Errorf("Unable to create alloc for broadcast %v, skipping: %v", id, err)
 				continue
 			}
 			if a != nil {

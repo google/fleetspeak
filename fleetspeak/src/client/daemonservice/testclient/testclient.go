@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"flag"
-	"log"
+	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/client"
 )
@@ -51,18 +51,18 @@ func main() {
 	case "subprocess":
 		subprocess()
 	default:
-		log.Fatalf("unknown  mode: %v", *mode)
+		log.Exitf("unknown  mode: %v", *mode)
 	}
 }
 
 // loopback sends received messages to the server, appending "Response" to the
 // MessageType field.
 func loopback() {
-	log.Print("starting loopback")
+	log.Info("starting loopback")
 
 	ch, err := client.Init()
 	if err != nil {
-		log.Fatalf("Unable to initialize client: %v", err)
+		log.Exitf("Unable to initialize client: %v", err)
 	}
 
 	for {
@@ -74,23 +74,23 @@ func loopback() {
 			m.MessageType = m.MessageType + "Response"
 			ch.Out <- m
 		case e := <-ch.Err:
-			log.Fatalf("Channel reported error: %v", e)
+			log.Exitf("Channel reported error: %v", e)
 		}
 	}
 }
 
 // garbage writes random data to the server.
 func garbage() {
-	log.Print("starting garbage")
+	log.Info("starting garbage")
 
 	strOutFd := os.Getenv("FLEETSPEAK_COMMS_CHANNEL_OUTFD")
 	if strOutFd == "" {
-		log.Fatal("Environment variable FLEETSPEAK_COMMS_CHANNEL_OUTFD not set")
+		log.Exit("Environment variable FLEETSPEAK_COMMS_CHANNEL_OUTFD not set")
 	}
 
 	outFd, err := strconv.Atoi(strOutFd)
 	if err != nil {
-		log.Fatalf("Unable to parse FLEETSPEAK_COMMS_CHANNEL_OUTFD (%q): %v", strOutFd, err)
+		log.Exitf("Unable to parse FLEETSPEAK_COMMS_CHANNEL_OUTFD (%q): %v", strOutFd, err)
 	}
 
 	pw := os.NewFile(uintptr(outFd), "-")
@@ -100,14 +100,14 @@ func garbage() {
 		rand.Read(buf)
 		_, err := pw.Write(buf)
 		if err != nil {
-			log.Fatalf("Garbage write failed: %v", err)
+			log.Exitf("Garbage write failed: %v", err)
 		}
 	}
 }
 
 // freeze does nothing for a period of time.
 func freeze(hard bool) {
-	log.Print("starting freeze")
+	log.Info("starting freeze")
 	if hard {
 		signal.Ignore(os.Interrupt)
 	}
@@ -118,7 +118,7 @@ func freeze(hard bool) {
 func stdSpam() {
 	_, err := client.Init()
 	if err != nil {
-		log.Fatalf("Unable to initialize client: %v", err)
+		log.Exitf("Unable to initialize client: %v", err)
 	}
 
 	for i := 0; i < 128*1024; i++ {
@@ -129,11 +129,11 @@ func stdSpam() {
 
 // subprocess starts a subprocess tree, writes a leaf pid to stdout, and waits
 func subprocess() {
-	log.Print("starting subprocess")
+	log.Info("starting subprocess")
 
 	_, err := client.Init()
 	if err != nil {
-		log.Fatalf("Unable to initialize client: %v", err)
+		log.Exitf("Unable to initialize client: %v", err)
 	}
 
 	cmd := exec.Command("/bin/bash", "-c", `
@@ -146,7 +146,7 @@ func subprocess() {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("Unable to spawn tree: %v", err)
+		log.Exitf("Unable to spawn tree: %v", err)
 	}
 	cmd.Wait()
 }
