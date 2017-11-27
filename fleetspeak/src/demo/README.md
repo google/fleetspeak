@@ -3,7 +3,7 @@ run a small scale Fleetspeak server for demonstration purposes. It could also
 serve as a starting point for a larger installation, but do read the
 productionization notes below.
 
-Quick start:
+### Quick start:
 
 Build all programs in this directory:
 
@@ -21,7 +21,7 @@ go build -o bin/admin_cli admin_cli/admin_cli.go
 go build -o bin/certgen certgen/certgen.go
 ```
 
-Copy configs/* to `/tmp/fs_config/`
+Copy `configs/*` to `/tmp/fs_config/`
 
 Run configurator with no (default) parameters, or equivalently:
 
@@ -92,7 +92,7 @@ Productionization notes:
 
 1) The `configurator` creates a server cert assuming that the client to connect
    to `localhost:6060`, or according to `server_host_ports` flag. You will need
-   to recreate server_cert.pem if you change this - delete server_cert.pem to
+   to recreate `server_cert.pem` if you change this - delete `server_cert.pem to
    force recreation.
 
 2) If a `server_cert.pem` is present, it will be used rather than created. This
