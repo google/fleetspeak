@@ -17,7 +17,9 @@
 package grpcservice
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"context"
@@ -39,8 +41,9 @@ import (
 // messages to an implementation of ggrpc.Processor.
 type GRPCService struct {
 	sctx   service.Context
-	conn   grpc.ClientConn
+	conn   *grpc.ClientConn
 	client ggrpc.ProcessorClient
+	l      sync.RWMutex
 }
 
 // NewGRPCService returns a service.Service which forwards received
@@ -48,9 +51,13 @@ type GRPCService struct {
 // security or otherwise control the connection used should define a
 // service.Factory based on this.
 func NewGRPCService(c *grpc.ClientConn) *GRPCService {
-	return &GRPCService{
-		client: ggrpc.NewProcessorClient(c),
+	ret := &GRPCService{
+		conn: c,
 	}
+	if c != nil {
+		ret.client = ggrpc.NewProcessorClient(c)
+	}
+	return ret
 }
 
 // Start implements service.Service.
@@ -61,15 +68,48 @@ func (s *GRPCService) Start(sctx service.Context) error {
 
 // Stop implements service.Service.
 func (s *GRPCService) Stop() error {
-	s.conn.Close()
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	if s.conn != nil {
+		s.conn.Close()
+	}
+	s.conn = nil
+	s.client = nil
+
 	return nil
+}
+
+// Update replaces the current connection with the given one, may be nil to
+// indicate that a connection is currently unavailable.
+func (s *GRPCService) Update(c *grpc.ClientConn) {
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	if s.conn != nil {
+		s.conn.Close()
+	}
+	if c == nil {
+		s.conn = nil
+		s.client = nil
+	} else {
+		s.conn = c
+		s.client = ggrpc.NewProcessorClient(c)
+	}
 }
 
 // ProcessMessage implements service.Service.
 func (s *GRPCService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
-	// TODO: Remove retry logic when possible.
 	var err error
 	d := time.Second
+
+	s.l.RLock()
+	defer s.l.RUnlock()
+	if s.client == nil {
+		return service.TemporaryError{errors.New("connection unavailable")}
+	}
+
+	// TODO: Remove retry logic when possible.
 L:
 	for {
 		_, err = s.client.Process(ctx, m)

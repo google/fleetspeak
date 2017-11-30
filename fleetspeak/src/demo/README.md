@@ -92,8 +92,8 @@ Productionization notes:
 
 1) The `configurator` creates a server cert assuming that the client to connect
    to `localhost:6060`, or according to `server_host_ports` flag. You will need
-   to recreate `server_cert.pem` if you change this - delete `server_cert.pem to
-   force recreation.
+   to recreate `server_cert.pem` if you change this - delete `server_cert.pem`
+   to force recreation.
 
 2) If a `server_cert.pem` is present, it will be used rather than created. This
    means that you may provide your own. In this case:
