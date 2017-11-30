@@ -1,10 +1,8 @@
 # Fleetspeak Design
 
 Fleetspeak is a client-server framework for communicating with a fleet of
-machines. This document summarizes the various components, from the point of
-view of somebody who wants to understand the structure of the codebase in order
-to improve the library or write additional components to support their specific
-installation.
+machines. This document summarizes the various components, providing an overview
+of what bits serve what purpose.
 
 ## Identity
 
@@ -39,7 +37,7 @@ of messages of each type.
 # Server
 
 A Fleetspeak Server middleware process written in go. To start a server, you
-instatiate a
+instantiate a
 [server.Server](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server#Server),
 providing the components needed for your particular installation.
 
@@ -53,8 +51,8 @@ demonstrations and small installations.
 When run, the miniserver binary binds two ports, and accepts bind addresses for
 each from the command line. The `--https_addr` flag determines the interface and
 port that clients will connect to. It needs to be open to the internet, or at
-least to all Fleetspeak client machines. See [Communicator](#communicator),
-below.
+least to all Fleetspeak client machines. See [Server
+Communicator](#server-communicator), below.
 
 The `--admin_addr` flag determines the interface and port that the
 [Administrative Interface](#administrative-interface) listens on. The miniserver
@@ -78,7 +76,7 @@ or a different process, so long as it is connected to the same
 ## Datastore
 
 The
-[db.Store](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/db#Store),
+[db.Store](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/db#Store)
 interface defines the persistent state held by a Fleetspeak Server. If a
 Fleetspeak installation has multiple server processes, they should run the same
 Datastore implementation providing a view of the same database. Currently we
@@ -107,8 +105,8 @@ The
 [mysql.Datastore](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/mysql#Datastore)
 implements
 [db.Store](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/db#Store)
-backed by a mysql database. Using recent versions of [the
-mysql](https://github.com/go-sql-driver/mysql) driver it passes
+backed by a mysql database. Using recent versions of the
+[go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) driver it passes
 [dbtesting](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/dbtesting),
 but performance testing and database optimization is still in progress.
 
@@ -120,7 +118,7 @@ component which handles communication with clients. This component defines how
 the server communicates with fleetspeak machines and should agree on protocol
 with a corresponding [Client Communicator](#client-communicator).
 
-The quintissential example is
+The quintessential example is
 [https.Communicator](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/https#Communicator)
 and at this point it is the expected implementation for essentially all
 installations. By adjusting the passed in `net.Listener` parameter, it should be
@@ -153,8 +151,8 @@ files.
 
 The
 [grpcservice](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/grpcservice)
-provides a `service.Factory` which makes a [GRPC](https://grpc.io/) call for
-each delivered message, in this way handing the message off to another
+package provides a `service.Factory` which makes a [GRPC](https://grpc.io/) call
+for each delivered message, in this way handing the message off to another
 process.
 
 It expects configuration parameters to be provided in a
@@ -189,14 +187,14 @@ signing it as a trusted binary) and otherwise adjust client behavior.
 A Fleetspeak client must be provided with a list of TLS root certificates. The
 client will then only communicate a server if it present one of these certs, or
 a cert chaining to one of these certs. The `--trusted_cert_file` flag is
-required by miniclent to set this list.
+required by miniclient to set this list.
 
 A Fleetspeek client must also be provided with the server (host and port) to
 connect to. The client will require that the presented TLS server be valid for
 this host. The `--server` flag is required by miniclient to set this server.
 
 In addition, a Fleetspeak client needs a public key that it will use to check
-the signature of externally provided service configurations. The imlications of
+the signature of externally provided service configurations. The implications of
 this discussed in more detail below. The `--deployment_key_file` flag is
 required by miniclient to configure this.
 
@@ -221,7 +219,7 @@ component which handles communication with the server. This component defines ho
 the client communicates with the Fleetspeak server and should agree on protocol
 with a corresponding [Server Communicator](#server-communicator).
 
-The quintissential example is
+The quintessential example is
 [https.Communicator](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/https#Communicator)
 and at this point it is the expected implementation for essentially all
 installations. By adjusting the `DialContext` attribute before starting the
@@ -249,7 +247,7 @@ which determines what code to use to process incoming messages.
 The
 [stdinservice.Factory](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/stdinservice#Factory)
 handles the use case in which you want to run a binary on the client machine
-without any particular integraiton work. The service configuration determines
+without any particular integration work. The service configuration determines
 what binary to run. The service then waits for a message containing the
 parameters and stdin bytes to pass to the binary. The binary is then run and the
 resulting output returned is one or more messages to the server. The
