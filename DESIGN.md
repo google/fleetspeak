@@ -272,7 +272,7 @@ The
 [socketservice.Factory](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/daemonservice#Factory)
 handles the use case in which you want Fleetspeak to open a UNIX domain socket,
 or equivalent, and use this to communicate with a separately running
-process. Must like [Daemonservice](#daemonservice) this also gives full control
+process. Much like [Daemonservice](#daemonservice) this also gives full control
 over what is sent to the server and requires some integration. The sister
 process should use the [socketservice client
 library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/socketservice/client)
