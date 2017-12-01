@@ -275,10 +275,9 @@ library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/
 The
 [`socketservice.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/socketservice#Factory)
 handles the use case in which you want Fleetspeak and some separately running
-process to find each other and communicate over something like a local
-filesystem path, e.g. a UNIX domain socket.  Much like
-[`Daemonservice`](#daemonservice) this also gives full control over what is sent
-to the server and requires some integration. The sister process should use the
-[`socketservice` client
+process to find each other and communicate using a local filesystem path,
+e.g. through a UNIX domain socket.  Much like [`Daemonservice`](#daemonservice)
+this also gives full control over what is sent to the server and requires some
+integration. The sister process should use the [`socketservice` client
 library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/socketservice/client)
 to communicate through Fleetspeak.
