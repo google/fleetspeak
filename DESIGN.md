@@ -92,7 +92,7 @@ The
 [`sqlite.Datastore`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/sqlite#Datastore)
 implements
 [`db.Store`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/db#Store)
-backed by an Sqlite version 3 database. This implementation is used extensively
+backed by an SQLite version 3 database. This implementation is used extensively
 in our unit tests, and its design choices focus on simplicity, safety and
 ease-of-use rather than performance. It is meant for testing, local
 demonstrations, and single server installations with a small number of clients.
@@ -185,9 +185,9 @@ binary in order to hardcode security critical parameters (for example, before
 signing it as a trusted binary) and otherwise adjust client behavior.
 
 A Fleetspeak client must be provided with a list of TLS root certificates. The
-client will then only communicate a server if it presents one of these certs, or
-a cert chaining to one of these certs. The `--trusted_cert_file` flag is
-required by miniclient to set this list.
+client will then only communicate with a server if it presents one of these
+certs, or a cert chaining to one of these certs. The `--trusted_cert_file` flag
+is required by miniclient to set this list.
 
 A Fleetspeek client must also be provided with the server (host and port) to
 connect to. The client will require that the presented TLS server be valid for
