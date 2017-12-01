@@ -253,7 +253,7 @@ capable of.
 The
 [`stdinservice.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/stdinservice#Factory)
 runs a binary with flags and standard input provided by a message, and returns
-and output it produces. The service configuration determines what binary to
+the output it produces. The service configuration determines what binary to
 run. Every message received by the service causes and execution of the
 binary. The configuration used in the [`demo`
 directory](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/demo)
