@@ -19,11 +19,16 @@ package stats
 import (
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
 // A PollInfo describes a client poll operation which has occurred.
 type PollInfo struct {
+	// The ClientID of the polling client, if available.
+	ID common.ClientID
+
 	// When the operation started and ended.
 	Start, End time.Time
 
