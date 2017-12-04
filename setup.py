@@ -83,12 +83,12 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'futures',
-        'google-apputils',
-        'grpcio',
-        'grpcio-tools',
-        'python-gflags',
-        'six',
+        'futures==3.2.0',
+        'google-apputils==0.4.2',
+        'grpcio==1.7.0',
+        'grpcio-tools==1.7.0',
+        'python-gflags==3.1.2',
+        'six==1.11.0',
     ],
 
     # List additional groups of dependencies here (e.g. development
