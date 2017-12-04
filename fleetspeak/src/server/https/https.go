@@ -26,8 +26,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -283,6 +284,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, fmt.Sprintf("unable to create client id from public key: %v", err), pi.Status)
 		return
 	}
+	pi.ID = id
 
 	req.Body = http.MaxBytesReader(res, req.Body, MaxContactSize+1)
 	st := time.Now()
