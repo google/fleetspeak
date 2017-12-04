@@ -18,7 +18,7 @@ Forked from https://github.com/pypa/sampleproject/blob/master/setup.py .
 """
 
 # Always prefer setuptools over distutils
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='fleetspeak',
@@ -28,11 +28,17 @@ setup(
     # https://packaging.python.org/en/latest/single_source_version.html
     version='0.0.1',
 
-    description='',
-    long_description='',
+    description='Fleetspeak',
+    long_description=(
+        'Fleetspeak is a framework for communicating with a fleet of '
+        'machines, with a focus on security monitoring and basic '
+        'administrative use cases. It is a subproject of GRR ( '
+        'https://github.com/google/grr/blob/master/README.md ), and can be '
+        'seen as an effort to modularizing and modernizing its communication '
+        'mechanism.'),
 
     # The project's main homepage.
-    url='https://github.com',
+    url='https://github.com/google/fleetspeak',
 
     # Author details
     author='',
@@ -47,7 +53,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -66,7 +72,7 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=['fleetspeak'],
+    packages=find_packages(),
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:
