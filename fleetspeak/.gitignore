@@ -6,3 +6,13 @@
 *.pb.h
 *~
 .idea
+
+
+./src/client/socketservice/testclient/testclient
+./src/client/daemonservice/testclient/testclient
+./src/server/grpcservice/client/testing/tester
+./src/demo/miniclient/miniclient
+./src/demo/certgen/certgen
+./src/demo/configurator/configurator
+./src/demo/admin_cli/admin_cli
+./src/demo/miniserver/miniserver
