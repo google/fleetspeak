@@ -47,6 +47,7 @@ import (
 	"time"
 
 	"flag"
+
 	log "github.com/golang/glog"
 )
 
@@ -186,7 +187,7 @@ func createServerCert() {
 
 	caCert, caKey := loadCA()
 
-	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		log.Exitf("Unable to generate new CA key: %v", err)
 	}

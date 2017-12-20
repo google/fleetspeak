@@ -149,7 +149,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 }
 
 func (m *Manager) rekey() error {
-	k, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return fmt.Errorf("unable to generate new key: %v", err)
 	}
