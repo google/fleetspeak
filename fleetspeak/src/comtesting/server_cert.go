@@ -33,7 +33,7 @@ import (
 // encoded private key, appropriate for use when creating Fleetspeak test server
 // in a unit test.
 func ServerCert() (cert []byte, key []byte, err error) {
-	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate key: %v", err)
 	}

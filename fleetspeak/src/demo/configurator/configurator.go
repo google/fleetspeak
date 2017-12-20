@@ -81,6 +81,7 @@ import (
 	"time"
 
 	"flag"
+
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
@@ -144,7 +145,7 @@ func createServerCert() bool {
 
 	log.Infof("Creating server cert file: %v", f)
 
-	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		log.Exitf("Unable to generate new server key: %v", err)
 	}
