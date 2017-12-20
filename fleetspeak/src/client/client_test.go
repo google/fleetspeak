@@ -16,15 +16,25 @@ package client
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"reflect"
 	"strings"
 	"testing"
 
 	"context"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -71,6 +81,7 @@ func TestMessageDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create client: %v", err)
 	}
+	defer cl.Stop()
 
 	mid, err := common.RandomMessageID()
 	if err != nil {
@@ -104,8 +115,6 @@ func TestMessageDelivery(t *testing.T) {
 	if !reflect.DeepEqual(li.Services, []string{"FakeService"}) {
 		t.Errorf("Expected LocalInfo to be %v, got %v", []string{"FakeService"}, li.Services)
 	}
-
-	cl.Stop()
 }
 
 func TestMessageValidation(t *testing.T) {
@@ -152,4 +161,120 @@ func TestMessageValidation(t *testing.T) {
 	}
 
 	cl.Stop()
+}
+
+func TestServiceValidation(t *testing.T) {
+	tmpDir, fin := comtesting.GetTempDir("client_service_validation")
+	defer fin()
+
+	k, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Fatalf("Unable to generate deployment key: %v", err)
+	}
+	pk := *(k.Public().(*rsa.PublicKey))
+
+	sp := path.Join(tmpDir, "services")
+	if err := os.Mkdir(sp, 0777); err != nil {
+		t.Fatalf("Unable to create services path [%s]: %v", sp, err)
+	}
+
+	msgs := make(chan *fspb.Message, 1)
+	fakeServiceFactory := func(*fspb.ClientServiceConfig) (service.Service, error) {
+		return &fakeService{c: msgs}, nil
+	}
+
+	// This factory is used for service configs that shouldn't validate - if it does, it
+	// causes the test to fail.
+	failingServiceFactory := func(cfg *fspb.ClientServiceConfig) (service.Service, error) {
+		t.Fatalf("failingServiceFactory called on %s", cfg.Name)
+		return nil, fmt.Errorf("failingServiceFactory called")
+	}
+
+	// A service which should work.
+	cfg := signServiceConfig(t, k, &fspb.ClientServiceConfig{
+		Name:           "FakeService",
+		Factory:        "FakeService",
+		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "linux"}},
+	})
+	writeServiceConfig(t, path.Join(sp, "FakeService.signed"), cfg)
+
+	// A service signed with the wrong key - should not be started.
+	bk, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Fatalf("Unable to generate bad deployment key: %v", err)
+	}
+	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{Name: "FailingServiceBadSig", Factory: "FailingService"})
+	writeServiceConfig(t, path.Join(sp, "FailingServiceBadSig.signed"), cfg)
+
+	// A service signed with the right key, but requiring the wrong label.
+	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{
+		Name:           "FailingServiceBadLabel",
+		Factory:        "FailingService",
+		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "windows"}},
+	})
+	writeServiceConfig(t, path.Join(sp, "FailingServiceBadLabel.signed"), cfg)
+
+	cl, err := New(
+		config.Configuration{
+			DeploymentPublicKeys: []rsa.PublicKey{pk},
+			Ephemeral:            true,
+			ConfigurationPath:    tmpDir,
+			ClientLabels: []*fspb.Label{
+				{ServiceName: "client", Label: "TestClient"},
+				{ServiceName: "client", Label: "linux"}},
+		},
+		Components{
+			ServiceFactories: map[string]service.Factory{
+				"NOOP":           service.NOOPFactory,
+				"FakeService":    fakeServiceFactory,
+				"FailingService": failingServiceFactory,
+			},
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Check that the good service started by passing a message through it.
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "FakeService"},
+				Destination: &fspb.Address{
+					ClientId:    cl.config.ClientID().Bytes(),
+					ServiceName: "FakeService"},
+			}}); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	m := <-msgs
+
+	if !bytes.Equal(m.MessageId, mid.Bytes()) {
+		t.Errorf("Expected message with id: %v, got: %v", mid, m)
+	}
+}
+
+func signServiceConfig(t *testing.T, k *rsa.PrivateKey, cfg *fspb.ClientServiceConfig) *fspb.SignedClientServiceConfig {
+	b, err := proto.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Unable to serialize service config: %v", err)
+	}
+	h := sha256.Sum256(b)
+	sig, err := rsa.SignPSS(rand.Reader, k, crypto.SHA256, h[:], nil)
+	return &fspb.SignedClientServiceConfig{ServiceConfig: b, Signature: sig}
+}
+
+func writeServiceConfig(t *testing.T, path string, cfg *fspb.SignedClientServiceConfig) {
+	b, err := proto.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Unable to serialize signed service config: %v", err)
+	}
+	if err := ioutil.WriteFile(path, b, 0644); err != nil {
+		t.Fatalf("Unable to write signed service config[%s]: %v", path, err)
+	}
 }

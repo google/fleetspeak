@@ -22,8 +22,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -64,6 +65,18 @@ func (c *serviceConfiguration) InstallSignedService(sd *fspb.SignedClientService
 	var cfg fspb.ClientServiceConfig
 	if err := proto.Unmarshal(sd.ServiceConfig, &cfg); err != nil {
 		return fmt.Errorf("Unable to parse service config [%v], ignoring: %v", sd.Signature, err)
+	}
+
+ll:
+	for _, l := range cfg.RequiredLabels {
+		if l.ServiceName == "client" {
+			for _, cl := range c.client.cfg.ClientLabels {
+				if cl.Label == l.Label {
+					continue ll
+				}
+			}
+			return fmt.Errorf("Service config requires label %v.", l)
+		}
 	}
 
 	return c.InstallService(&cfg, sd.Signature)
