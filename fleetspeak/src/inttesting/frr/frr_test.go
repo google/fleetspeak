@@ -26,8 +26,9 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -38,8 +39,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
+	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	srpb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
@@ -197,6 +198,9 @@ func TestClientServiceEarlyShutdown(t *testing.T) {
 		MessageType: "TrafficRequest",
 	}
 	m.Data, err = ptypes.MarshalAny(&fpb.TrafficRequestData{RequestId: 1, NumMessages: 5})
+	if err != nil {
+		t.Fatalf("unable to marshal TrafficRequestData: %v", err)
+	}
 	if err := cs.ProcessMessage(context.Background(), &m); err != nil {
 		t.Error("unable to process message")
 	}

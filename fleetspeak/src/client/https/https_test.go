@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -122,6 +123,9 @@ func TestCommunicator(t *testing.T) {
 			SequencingNonce: 42,
 		}
 		buf, err = proto.Marshal(&cd)
+		if err != nil {
+			t.Errorf("Unable to marshal ContactData: %v", err)
+		}
 		res.Header().Set("Content-Type", "application/octet-stream")
 		res.WriteHeader(http.StatusOK)
 		res.Write(buf)
@@ -421,6 +425,9 @@ func TestCertificateRevoked(t *testing.T) {
 			SequencingNonce: 42,
 		}
 		buf, err = proto.Marshal(&cd)
+		if err != nil {
+			t.Fatalf("unable to marshal ContactData in test server: %v", err)
+		}
 		res.Header().Set("Content-Type", "application/octet-stream")
 		res.WriteHeader(http.StatusOK)
 		res.Write(buf)
