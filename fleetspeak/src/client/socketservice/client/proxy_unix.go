@@ -35,7 +35,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
 			log.Warningf("failure checking perms of [%s], will retry: %v", socketPath, err)
-		} else if conn, err = net.DialUnix("unix", nil, &net.UnixAddr{socketPath, "unix"}); err != nil {
+		} else if conn, err = net.DialUnix("unix", nil, &net.UnixAddr{Name: socketPath, Net: "unix"}); err != nil {
 			log.Warningf("failed to connect to [%s], will retry: %v", socketPath, err)
 		} else {
 			log.Infof("connected to [%s]", socketPath)

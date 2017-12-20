@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -64,8 +65,8 @@ func fromBroadcastProto(b *spb.Broadcast) (*dbBroadcast, error) {
 		messageType:       b.MessageType,
 	}
 	if b.ExpirationTime != nil {
-		res.expirationTimeSeconds = sql.NullInt64{b.ExpirationTime.Seconds, true}
-		res.expirationTimeNanos = sql.NullInt64{int64(b.ExpirationTime.Nanos), true}
+		res.expirationTimeSeconds = sql.NullInt64{Int64: b.ExpirationTime.Seconds, Valid: true}
+		res.expirationTimeNanos = sql.NullInt64{Int64: int64(b.ExpirationTime.Nanos), Valid: true}
 	}
 	if b.Data != nil {
 		res.dataTypeURL = sql.NullString{String: b.Data.TypeUrl, Valid: true}
