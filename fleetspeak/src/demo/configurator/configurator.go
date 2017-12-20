@@ -34,7 +34,7 @@
 //
 // Required on the server machine:
 //
-// server_config.txt - A text represenation of the ServerConfig protocol buffer.
+// server_config.txt - A text representation of the ServerConfig protocol buffer.
 // server_cert.pem   - A PEM encoded X509 certificate chain that the server should
 //                     use to identify itself.
 // server_key.pem    - The PEM encoded private key matching server_cert.pem.

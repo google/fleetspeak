@@ -25,8 +25,9 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 
 	chttps "github.com/google/fleetspeak/fleetspeak/src/client/https"
@@ -38,11 +39,11 @@ import (
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/inttesting/frr"
+	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
-	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
@@ -50,10 +51,10 @@ import (
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
-	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 const numClients = 5
@@ -105,7 +106,7 @@ func (c *statsCounter) ResourceUsageDataReceived(rud mpb.ResourceUsageData) {
 }
 
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
-// and exercies it.
+// and exercises it.
 func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
 		return db.Now().Add(time.Second)

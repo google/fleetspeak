@@ -216,7 +216,7 @@ type RelentlessAcknowledger struct {
 }
 
 // NewRelentlessAcknowledger creates a RelentlessAcknowledger wrapping c, buffered to
-// smoothly handle 'size' simultaniously unacknowledged messages.
+// smoothly handle 'size' simultaneously unacknowledged messages.
 func NewRelentlessAcknowledger(c *Channel, size int) *RelentlessAcknowledger {
 	in := make(chan service.AckMessage)
 	r := &RelentlessAcknowledger{

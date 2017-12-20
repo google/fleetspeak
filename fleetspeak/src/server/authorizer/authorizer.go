@@ -68,7 +68,7 @@ type Authorizer interface {
 	// Allow1 is called when a network connection is opened.
 	//
 	// If it returns true, processing will continue, otherwise the
-	// connection will be immediatly closed.
+	// connection will be immediately closed.
 	Allow1(net.Addr) bool
 
 	// Allow2 is called after basic analysis of the contact has been
@@ -87,7 +87,7 @@ type Authorizer interface {
 	// or equivalent error code.
 	Allow3(net.Addr, ContactInfo, ClientInfo) bool
 
-	// Allow4 is called immediatly before actually saving and
+	// Allow4 is called immediately before actually saving and
 	// processing the messages provided by the client.
 	//
 	// When accept=true, all messages will have their

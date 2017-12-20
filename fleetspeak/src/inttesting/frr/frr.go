@@ -24,11 +24,12 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -36,10 +37,10 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
-	srpb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	srpb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 const retryDelay = 15 * time.Second
@@ -248,7 +249,7 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 		if err := ptypes.UnmarshalAny(m.Data, &rd); err != nil {
 			log.Fatalf("unable to parse data as TrafficResponseData: %v", err)
 		}
-		// Zero the data field - save bandwith and cpu communicating with master.
+		// Zero the data field - save bandwidth and cpu communicating with master.
 		rd.Data = nil
 		if _, err := s.m.RecordTrafficResponse(ctx, &fpb.MessageInfo{ClientId: m.Source.ClientId, Data: &rd}); err != nil {
 			return service.TemporaryError{fmt.Errorf("failed to reach FRR master server: %v", err)}

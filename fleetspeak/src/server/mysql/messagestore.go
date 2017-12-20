@@ -23,8 +23,9 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -240,7 +241,7 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 			case e != nil:
 				return e
 			case processedTime.Valid && (!failed.Valid || !failed.Bool):
-				// Message previously sucessfully processed, ignore this reprocessing.
+				// Message previously successfully processed, ignore this reprocessing.
 			case m.Result != nil && (!processedTime.Valid || !m.Result.Failed):
 				mid, err := common.BytesToMessageID(m.MessageId)
 				if err != nil {

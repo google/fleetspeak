@@ -45,7 +45,7 @@ import (
 
 // A Store describes the full persistence mechanism required by the base
 // fleetspeak system. These operations must be thread safe. These must also be
-// all-or-nothing, fully commited on success, and are otherwise trusted to be
+// all-or-nothing, fully committed on success, and are otherwise trusted to be
 // individually transactional.
 type Store interface {
 	MessageStore
