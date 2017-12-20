@@ -21,8 +21,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -184,8 +185,8 @@ func (s *Service) feedExecution(msg *fspb.Message, e *execution.Execution) (bool
 func (s *Service) executionManagerLoop() {
 	defer s.routines.Done()
 	var lastStart time.Time
+	var msg *fspb.Message
 	for {
-		var msg *fspb.Message
 		if s.cfg.LazyStart {
 			select {
 			case <-s.stop:
