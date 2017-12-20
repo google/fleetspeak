@@ -75,7 +75,7 @@ ll:
 					continue ll
 				}
 			}
-			return fmt.Errorf("Service config requires label %v.", l)
+			return fmt.Errorf("service config requires label %v", l)
 		}
 	}
 
