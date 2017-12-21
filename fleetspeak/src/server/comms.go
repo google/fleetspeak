@@ -16,6 +16,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/x509"
 	"errors"
@@ -25,7 +26,6 @@ import (
 	"sort"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 

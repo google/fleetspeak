@@ -15,14 +15,13 @@
 package client
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"

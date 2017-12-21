@@ -17,10 +17,10 @@
 package service
 
 import (
+	"context"
 	"io"
 	"time"
 
-	"context"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"

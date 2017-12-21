@@ -15,12 +15,12 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 

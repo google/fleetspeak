@@ -17,10 +17,9 @@
 package clitesting
 
 import (
+	"context"
 	"fmt"
 	"time"
-
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 

@@ -15,12 +15,12 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"sync"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"

@@ -15,6 +15,7 @@
 package https
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -25,8 +26,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"

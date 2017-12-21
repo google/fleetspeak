@@ -17,7 +17,9 @@
 package execution
 
 import (
+	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,10 +27,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"context"
-	"flag"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/command"
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"

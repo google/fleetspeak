@@ -15,11 +15,11 @@
 package client
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 

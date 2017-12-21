@@ -18,6 +18,7 @@ package dbtesting
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -25,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"

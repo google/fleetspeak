@@ -16,13 +16,13 @@
 package services
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"

@@ -15,14 +15,14 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
-	"context"
-	"flag"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"

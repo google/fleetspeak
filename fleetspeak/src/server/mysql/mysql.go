@@ -20,9 +20,9 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 
-	"context"
 	log "github.com/golang/glog"
 )
 

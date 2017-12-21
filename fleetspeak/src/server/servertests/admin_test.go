@@ -16,10 +16,10 @@ package servertests_test
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"testing"
 
-	"context"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"

@@ -18,6 +18,7 @@
 package testserver
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"net"
@@ -25,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 

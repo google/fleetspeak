@@ -15,14 +15,13 @@
 package daemonservice
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"context"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"

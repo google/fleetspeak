@@ -15,11 +15,11 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 

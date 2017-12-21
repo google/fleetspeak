@@ -15,10 +15,10 @@
 package grpcservice
 
 import (
+	"context"
 	"net"
 	"testing"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"

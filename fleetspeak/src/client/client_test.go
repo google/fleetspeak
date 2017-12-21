@@ -16,6 +16,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -27,8 +28,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"context"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"

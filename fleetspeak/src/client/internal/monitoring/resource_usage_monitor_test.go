@@ -15,13 +15,13 @@
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync"
 	"testing"
 	"time"
 
-	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 

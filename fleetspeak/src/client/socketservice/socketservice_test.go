@@ -15,6 +15,7 @@
 package socketservice
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,11 +26,10 @@ import (
 	"testing"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 

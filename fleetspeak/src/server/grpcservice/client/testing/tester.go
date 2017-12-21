@@ -16,12 +16,12 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"net"
 	"path"
 	"time"
 
-	"context"
-	"flag"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"

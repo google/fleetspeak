@@ -17,11 +17,10 @@
 package daemonservice
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"

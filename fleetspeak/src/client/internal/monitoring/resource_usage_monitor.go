@@ -15,16 +15,17 @@
 package monitoring
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
 	"sync/atomic"
 	"time"
 
-	"context"
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
