@@ -23,12 +23,13 @@ of commands will build and test this pre-release:
 ```bash
 # Required golang dependencies:
 go get \
+  github.com/go-sql-driver/mysql \
+  github.com/golang/glog \
   github.com/golang/protobuf/proto \
   github.com/mattn/go-sqlite3 \
   golang.org/x/sys \
   golang.org/x/time/rate \
-  google.golang.org/grpc \
-  github.com/golang/glog
+  google.golang.org/grpc
 
 # This package:
 go get github.com/google/fleetspeak
@@ -41,9 +42,15 @@ cd ~/go/src/github.com/google/fleetspeak
 virtualenv venv
 source venv/bin/activate
 pip install -e .
-source venv/bin/activate
+
+# Set mysql parameters. The mysql datastore test will run if the following environment
+# variables are set. Otherwise it will be skipped.
+export MYSQL_TEST_USER=<username>
+export MYSQL_TEST_PASS=<password>   # will assume null password if unset.
+export MYSQL_TEST_ADDR=<host:port>
 
 # Build and test the release:
+source venv/bin/activate
 cd fleetspeak
 STRICT=true ./build.sh
 ./test.sh
