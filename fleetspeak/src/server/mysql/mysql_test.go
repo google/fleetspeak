@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"github.com/google/fleetspeak/fleetspeak/src/inttesting/integrationtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/dbtesting"
 
 	// We access the driver through sql.Open, but need to bring in the
@@ -87,4 +89,14 @@ func TestFileStore(t *testing.T) {
 
 	dbtesting.FileStoreTest(t, ms)
 	ms.Close()
+}
+
+func TestIntegration(t *testing.T) {
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("mysql_integration")
+	defer tmpDirCleanup()
+
+	ms, fin := setup(t, "TestIntegration")
+	defer fin()
+
+	integrationtest.FRRIntegrationTest(t, ms, tmpDir)
 }
