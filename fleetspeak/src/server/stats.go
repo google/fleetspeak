@@ -15,10 +15,9 @@
 package server
 
 import (
+	"context"
 	"io"
 	"time"
-
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"

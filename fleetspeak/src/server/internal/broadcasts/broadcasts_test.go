@@ -15,11 +15,10 @@
 package broadcasts
 
 import (
+	"context"
 	"path"
 	"testing"
 	"time"
-
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"

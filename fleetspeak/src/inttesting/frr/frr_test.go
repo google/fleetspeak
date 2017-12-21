@@ -16,6 +16,7 @@ package frr
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -25,8 +26,6 @@ import (
 	"sort"
 	"testing"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"

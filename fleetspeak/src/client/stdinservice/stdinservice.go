@@ -18,11 +18,10 @@ package stdinservice
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"

@@ -52,15 +52,15 @@ func TestWithLoopback(t *testing.T) {
 	}()
 
 	for _, m := range []*fspb.Message{
-		&fspb.Message{
+		{
 			MessageId:   []byte("abc"),
 			MessageType: "MessageOne",
 		},
-		&fspb.Message{
+		{
 			MessageId:   []byte("abcabc"),
 			MessageType: "MessageTwo",
 		},
-		&fspb.Message{
+		{
 			MessageId:   []byte("abcabcabc"),
 			MessageType: "MessageThree",
 		},

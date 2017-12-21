@@ -15,12 +15,12 @@
 package client
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"

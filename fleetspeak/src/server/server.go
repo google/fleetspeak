@@ -16,11 +16,12 @@
 package server
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	log "github.com/golang/glog"
-	"context"
+
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"

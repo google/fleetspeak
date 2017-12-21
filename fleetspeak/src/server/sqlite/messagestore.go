@@ -15,14 +15,13 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 

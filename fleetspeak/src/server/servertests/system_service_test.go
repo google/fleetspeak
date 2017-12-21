@@ -16,11 +16,12 @@
 package servertests_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"context"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"

@@ -19,27 +19,25 @@ package integrationtest
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"net"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"context"
-
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
-
-	chttps "github.com/google/fleetspeak/fleetspeak/src/client/https"
-	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
+	chttps "github.com/google/fleetspeak/fleetspeak/src/client/https"
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/inttesting/frr"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"

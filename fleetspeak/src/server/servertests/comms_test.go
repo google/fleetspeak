@@ -15,6 +15,7 @@
 package servertests_test
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -23,7 +24,6 @@ import (
 	"net"
 	"testing"
 
-	"context"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"

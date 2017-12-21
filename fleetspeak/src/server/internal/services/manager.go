@@ -16,6 +16,7 @@
 package services
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -23,7 +24,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
 

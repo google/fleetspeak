@@ -15,13 +15,13 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
 	"time"
 
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"

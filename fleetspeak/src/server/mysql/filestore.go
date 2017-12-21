@@ -16,12 +16,11 @@ package mysql
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"io"
 	"io/ioutil"
 	"time"
-
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 )

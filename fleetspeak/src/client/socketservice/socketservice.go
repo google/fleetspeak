@@ -17,6 +17,7 @@
 package socketservice
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -24,8 +25,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 

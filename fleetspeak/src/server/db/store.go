@@ -28,12 +28,11 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
 	"time"
-
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"

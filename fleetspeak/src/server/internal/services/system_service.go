@@ -15,12 +15,12 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"

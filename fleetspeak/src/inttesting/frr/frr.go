@@ -18,13 +18,12 @@
 package frr
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"sync"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"

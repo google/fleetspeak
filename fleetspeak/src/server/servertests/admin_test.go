@@ -16,10 +16,10 @@ package servertests_test
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"testing"
 
-	"context"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -147,11 +147,11 @@ func TestListClientsAPI(t *testing.T) {
 	}
 
 	lab1 := []*fspb.Label{
-		&fspb.Label{
+		{
 			ServiceName: "BarService",
 			Label:       "BarLabel",
 		},
-		&fspb.Label{
+		{
 			ServiceName: "FooService",
 			Label:       "FooLabel",
 		},

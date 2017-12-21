@@ -16,6 +16,7 @@ package https
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -31,11 +32,10 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"context"
 
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
-	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 )

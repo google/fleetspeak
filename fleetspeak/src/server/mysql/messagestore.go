@@ -15,6 +15,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -22,8 +23,6 @@ import (
 	"math/rand"
 	"strconv"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 

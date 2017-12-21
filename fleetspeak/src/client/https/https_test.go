@@ -15,6 +15,7 @@
 package https
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -24,8 +25,6 @@ import (
 	"net/http"
 	"testing"
 	"time"
-
-	"context"
 
 	"github.com/golang/protobuf/proto"
 

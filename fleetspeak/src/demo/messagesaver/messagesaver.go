@@ -17,12 +17,12 @@
 package messagesaver
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path"
 
-	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 

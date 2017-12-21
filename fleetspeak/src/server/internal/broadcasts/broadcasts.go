@@ -17,6 +17,7 @@
 package broadcasts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -24,8 +25,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"context"
 
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
