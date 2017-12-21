@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
@@ -145,7 +146,7 @@ func TestRespawn(t *testing.T) {
 	start := time.Now()
 
 	// Every execution should produce at least one resource usage.  With our
-	// modified RespawnDelay, we should see a respawn approximatly once per
+	// modified RespawnDelay, we should see a respawn approximately once per
 	// second.
 	//
 	// test that it takes more than 2 seconds to see 3 different pids, but

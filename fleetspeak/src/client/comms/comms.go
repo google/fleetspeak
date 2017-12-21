@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package comms defines the interface between the Fleetspeak client base libary and the
-// Communicator component used to talk to the server.
+// Package comms defines the interface between the Fleetspeak client base
+// library and the Communicator component used to talk to the server.
 package comms
 
 import (

@@ -22,8 +22,9 @@ import (
 	"os/exec"
 	"strings"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
@@ -114,7 +115,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 
 		// The error message string literal is a copypaste from exec_unix.go .
 		if e := cmd.Process.Kill(); e != nil && e.Error() != "os: process already finished" {
-			err = fmt.Errorf("%v; also, an error occured while killing the process: %v", err, e)
+			err = fmt.Errorf("%v; also, an error occurred while killing the process: %v", err, e)
 		}
 
 		e, ok := <-waitChan

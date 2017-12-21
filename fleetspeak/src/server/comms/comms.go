@@ -38,7 +38,7 @@ type Communicator interface {
 	Stop()               // Tells the communicator to stop sending and receiving messages.
 }
 
-// A ClientInfo is the basic infomation that we have about a client.
+// A ClientInfo is the basic information that we have about a client.
 type ClientInfo struct {
 	ID     common.ClientID
 	Key    crypto.PublicKey

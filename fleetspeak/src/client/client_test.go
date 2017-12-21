@@ -266,6 +266,9 @@ func signServiceConfig(t *testing.T, k *rsa.PrivateKey, cfg *fspb.ClientServiceC
 	}
 	h := sha256.Sum256(b)
 	sig, err := rsa.SignPSS(rand.Reader, k, crypto.SHA256, h[:], nil)
+	if err != nil {
+		t.Fatalf("Unable to sign service config: %v", err)
+	}
 	return &fspb.SignedClientServiceConfig{ServiceConfig: b, Signature: sig}
 }
 

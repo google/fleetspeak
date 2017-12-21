@@ -246,7 +246,7 @@ func (c *Communicator) processingLoop() {
 		}
 
 		// Compute the time that we should next send (assuming we don't hit a send
-		// threshold). This could be MaxPollDelay after the last successfull send.
+		// threshold). This could be MaxPollDelay after the last successful send.
 		deadline := lastPoll.Add(jitter(c.conf.MaxPollDelaySeconds))
 
 		// If we received something recently, we reduce it to 200ms + 1/10 of the

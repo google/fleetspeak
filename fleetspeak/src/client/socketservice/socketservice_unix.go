@@ -55,7 +55,7 @@ func listen(path string) (net.Listener, error) {
 		}
 	}
 
-	l, err := net.ListenUnix("unix", &net.UnixAddr{tmpPath, "unix"})
+	l, err := net.ListenUnix("unix", &net.UnixAddr{Name: tmpPath, Net: "unix"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Unix domain listener: %v", err)
 	}

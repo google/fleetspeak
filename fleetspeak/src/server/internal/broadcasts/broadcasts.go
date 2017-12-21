@@ -25,8 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
@@ -70,14 +71,14 @@ func MakeManager(ctx context.Context, bs db.BroadcastStore, pw time.Duration) (*
 	return r, nil
 }
 
-// bInfo containes what a broadcast manager needs to know about a broadcast.
+// bInfo contains what a broadcast manager needs to know about a broadcast.
 type bInfo struct {
 	bID      ids.BroadcastID
 	b        *spb.Broadcast
 	useCount sync.WaitGroup // How many goroutines are using this bInfo and associated allocation.
 
 	// The remaining fields describe the allocation that we have for the broadcast. If limit is
-	// set to BroadcastUnlimited, then we don't actualy have (or need) an allocation.
+	// set to BroadcastUnlimited, then we don't actually have (or need) an allocation.
 	aID    ids.AllocationID
 	limit  uint64
 	sent   uint64 // How many messages have we sent under the current allocation, only accessed through atomic.
