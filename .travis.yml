@@ -2,13 +2,21 @@ language: go
 
 python: 2.7
 
+services:
+  - mysql
+
 before_install:
   - pip install --upgrade pip virtualenv
   - virtualenv "${HOME}/FSENV"
+  - mysql --print-defaults
 
 install:
   - source "${HOME}/FSENV/bin/activate" && pip install -e .
   - go get -v -t ./... # Install dependencies needed for tests.
+
+before_script:
+  - export MYSQL_TEST_USER=travis
+  - export MYSQL_TEST_ADDR=127.0.0.1:3306
 
 script:
   - source "${HOME}/FSENV/bin/activate"
