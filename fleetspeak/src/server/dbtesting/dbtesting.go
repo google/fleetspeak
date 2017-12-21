@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
@@ -331,9 +331,9 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 	checkResults(t, ms,
 		map[common.MessageID]*fspb.MessageResult{
 			newID: nil,
-			processedID: &fspb.MessageResult{
+			processedID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 42, Nanos: 20000}},
-			erroredID: &fspb.MessageResult{
+			erroredID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 42},
 				Failed:        true,
 				FailedReason:  "broken test message",
@@ -353,11 +353,11 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 
 	checkResults(t, ms,
 		map[common.MessageID]*fspb.MessageResult{
-			newID: &fspb.MessageResult{
+			newID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
-			processedID: &fspb.MessageResult{
+			processedID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 42, Nanos: 20000}},
-			erroredID: &fspb.MessageResult{
+			erroredID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 52},
 			},
 		})

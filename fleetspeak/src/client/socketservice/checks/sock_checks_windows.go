@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/hectane/go-acl/api"
-	"golang.org/x/sys/windows" 
+	"golang.org/x/sys/windows"
 )
 
 // CheckSocketFile ensures the naming, filetype and ownership

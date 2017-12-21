@@ -20,28 +20,28 @@ import (
 	"path"
 	"time"
 
+	"context"
 	"flag"
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
-	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	gpb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 var (

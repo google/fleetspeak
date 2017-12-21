@@ -24,9 +24,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/Microsoft/go-winio"
 	"github.com/google/fleetspeak/fleetspeak/src/windows/hashpipe"
 	"github.com/hectane/go-acl"
-	"github.com/Microsoft/go-winio"
 )
 
 // Listen prepares a net.Listener bound to the given filesystem path.

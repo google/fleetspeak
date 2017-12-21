@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"

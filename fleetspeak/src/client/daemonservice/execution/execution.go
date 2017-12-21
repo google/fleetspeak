@@ -25,9 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"context"
 	"flag"
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/command"

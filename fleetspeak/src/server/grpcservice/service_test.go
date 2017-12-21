@@ -18,8 +18,8 @@ import (
 	"net"
 	"testing"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
@@ -27,8 +27,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	gpb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
 	ggrpc "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
+	gpb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 

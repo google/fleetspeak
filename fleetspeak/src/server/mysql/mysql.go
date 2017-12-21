@@ -22,8 +22,8 @@ package mysql
 import (
 	"database/sql"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 )
 
 // Datastore wraps a mysql backed sql.DB and implements db.Store.

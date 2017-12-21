@@ -152,7 +152,7 @@ func TestRelentlessLoop(t *testing.T) {
 	// Should be able to read and ack the messages. Retry order may be different,
 	// so we collect and sort.
 	var got []*fspb.Message
-	for _ = range msgs {
+	for range msgs {
 		am, ok := <-ra.In
 		if !ok {
 			t.Fatal("ra.In unexpectedly closed")

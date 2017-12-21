@@ -35,17 +35,17 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/demo/messagesaver"
+	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
-	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 
 	// Import protos that might be used in received messages, so that messagesave
 	// will be able to produce a nice output.

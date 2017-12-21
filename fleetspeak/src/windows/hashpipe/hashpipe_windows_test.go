@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 	"github.com/Microsoft/go-winio"
+	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 )
 
 func TestHashpipe(t *testing.T) {

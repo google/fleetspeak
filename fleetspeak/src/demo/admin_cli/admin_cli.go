@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"flag"
 	log "github.com/golang/glog"
-	"context"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
@@ -31,8 +31,8 @@ import (
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 var adminAddr = flag.String("admin_addr", "localhost:6061", "Address for the admin server.")

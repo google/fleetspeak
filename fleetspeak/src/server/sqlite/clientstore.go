@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"

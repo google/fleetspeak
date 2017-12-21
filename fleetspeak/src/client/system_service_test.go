@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/golang/glog"
 	"context"
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
