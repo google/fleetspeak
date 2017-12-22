@@ -19,20 +19,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
-	"strings"
-	"time"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
+	"github.com/google/fleetspeak/fleetspeak/src/admin/cli"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 var adminAddr = flag.String("admin_addr", "localhost:6061", "Address for the admin server.")
@@ -69,56 +66,15 @@ func main() {
 			usage()
 			os.Exit(1)
 		}
-		listClients(admin)
+		cli.ListClients(admin)
 	case "ls":
 		startStdin(admin, "lsService", flag.Args()[1:]...)
 	case "cat":
 		startStdin(admin, "catService", flag.Args()[1:]...)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", flag.Arg(1))
+		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", flag.Arg(0))
 		usage()
 		os.Exit(1)
-	}
-}
-
-func contactTime(c *spb.Client) time.Time {
-	return time.Unix(c.LastContactTime.Seconds, int64(c.LastContactTime.Nanos))
-}
-
-// byContactTime adapts []*spb.Client for use by sort.Sort.
-type byContactTime []*spb.Client
-
-func (b byContactTime) Len() int           { return len(b) }
-func (b byContactTime) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byContactTime) Less(i, j int) bool { return contactTime(b[i]).Before(contactTime(b[j])) }
-
-func listClients(c sgrpc.AdminClient) {
-	ctx := context.Background()
-	res, err := c.ListClients(ctx, &spb.ListClientsRequest{})
-	if err != nil {
-		log.Exitf("ListClients RPC failed: %v", err)
-	}
-	if len(res.Clients) == 0 {
-		fmt.Println("No clients found.")
-		return
-	}
-	sort.Sort(byContactTime(res.Clients))
-	fmt.Printf("%-16s %-23s %s\n", "Client ID:", "Last Seen:", "Labels:")
-	for _, cl := range res.Clients {
-		id, err := common.BytesToClientID(cl.ClientId)
-		if err != nil {
-			log.Errorf("Ignoring invalid client id [%v], %v", cl.ClientId, err)
-			continue
-		}
-		var ls []string
-		for _, l := range cl.Labels {
-			ls = append(ls, l.ServiceName+":"+l.Label)
-		}
-		ts, err := ptypes.Timestamp(cl.LastContactTime)
-		if err != nil {
-			log.Errorf("Unable to parse last contact time for %v: %v", id, err)
-		}
-		fmt.Printf("%v %v [%v]\n", id, ts.Format("15:04:05.000 2006.01.02"), strings.Join(ls, ","))
 	}
 }
 
