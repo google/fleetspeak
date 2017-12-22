@@ -7,12 +7,12 @@
 *~
 .idea
 
-
-./src/client/socketservice/testclient/testclient
+./src/admin/fleetspeak_admin
 ./src/client/daemonservice/testclient/testclient
-./src/server/grpcservice/client/testing/tester
-./src/demo/miniclient/miniclient
+./src/client/socketservice/testclient/testclient
+./src/demo/admin_cli/admin_cli
 ./src/demo/certgen/certgen
 ./src/demo/configurator/configurator
-./src/demo/admin_cli/admin_cli
+./src/demo/miniclient/miniclient
 ./src/demo/miniserver/miniserver
+./src/server/grpcservice/client/testing/tester
