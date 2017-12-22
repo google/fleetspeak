@@ -52,6 +52,21 @@ message StoreFileRequest {
   bytes data = 3;
 }
 
+message ListClientContactsRequest {
+  bytes client_id = 1;
+}
+
+message ListClientContactsResponse {
+  repeated ClientContact contacts = 1;
+}
+
+message ClientContact {
+  fixed64 sent_nonce = 1;
+  fixed64 received_nonce = 2;
+  string observed_address = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
 service Admin {
   // CreateBroadcast creates a FS broadcast, potentially sending a message to
   // many machines in the fleet.
@@ -64,6 +79,10 @@ service Admin {
 
   // ListClients lists the currently active FS clients.
   rpc ListClients (ListClientsRequest) returns (ListClientsResponse) {
+  }
+
+  // ListClientContacts lists the contact history for a client.
+  rpc ListClientContacts (ListClientContactsRequest) returns (ListClientContactsResponse) {
   }
 
   // GetMessageStatus retrieves the current status of a message.
