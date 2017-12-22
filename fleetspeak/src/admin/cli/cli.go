@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +37,10 @@ import (
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
+// dateFmt is a fairly dense, 23 character date format string, suitable for
+// tabular date information.
+const dateFmt = "15:04:05.000 2006.01.02"
+
 // Usage prints usage information describing the command line flags and behavior
 // of programs based on Execute.
 func Usage() {
@@ -43,7 +48,8 @@ func Usage() {
 	fmt.Fprintf(os.Stderr,
 		"Usage:\n"+
 			"    %s listclients\n"+
-			"\n", n)
+			"    %s listcontacts <client_id> [limit]\n"+
+			"\n", n, n)
 }
 
 // Execute examines command line flags and executes one of the standard command line
@@ -60,12 +66,9 @@ func Execute(conn *grpc.ClientConn) {
 
 	switch flag.Arg(0) {
 	case "listclients":
-		if flag.NArg() != 1 {
-			fmt.Fprint(os.Stderr, "listclients takes no parameters.\n")
-			Usage()
-			os.Exit(1)
-		}
-		ListClients(admin)
+		ListClients(admin, flag.Args()[1:]...)
+	case "listcontacts":
+		ListContacts(admin, flag.Args()[1:]...)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", flag.Arg(0))
 		Usage()
@@ -74,7 +77,11 @@ func Execute(conn *grpc.ClientConn) {
 }
 
 // ListClients prints a list of all clients in the fleetspeak system.
-func ListClients(c sgrpc.AdminClient) {
+func ListClients(c sgrpc.AdminClient, args ...string) {
+	if len(args) > 0 {
+		Usage()
+		os.Exit(1)
+	}
 	ctx := context.Background()
 	res, err := c.ListClients(ctx, &spb.ListClientsRequest{})
 	if err != nil {
@@ -100,7 +107,7 @@ func ListClients(c sgrpc.AdminClient) {
 		if err != nil {
 			log.Errorf("Unable to parse last contact time for %v: %v", id, err)
 		}
-		fmt.Printf("%v %v [%v]\n", id, ts.Format("15:04:05.000 2006.01.02"), strings.Join(ls, ","))
+		fmt.Printf("%v %v [%v]\n", id, ts.Format(dateFmt), strings.Join(ls, ","))
 	}
 }
 
@@ -113,4 +120,62 @@ func (b byContactTime) Less(i, j int) bool { return contactTime(b[i]).Before(con
 
 func contactTime(c *spb.Client) time.Time {
 	return time.Unix(c.LastContactTime.Seconds, int64(c.LastContactTime.Nanos))
+}
+
+// ListContacts prints a list contacts that the system has recorded for a
+// client. args[0] must be a client id. If present, args[1] limits to the most
+// recent args[1] contacts.
+func ListContacts(c sgrpc.AdminClient, args ...string) {
+	if len(args) == 0 || len(args) > 2 {
+		Usage()
+		os.Exit(1)
+	}
+	id, err := common.StringToClientID(args[0])
+	if err != nil {
+		log.Exitf("Unable to parse %s as client id: %v", args[0], err)
+	}
+	var lim int
+	if len(args) == 2 {
+		lim, err = strconv.Atoi(args[1])
+		if err != nil {
+			log.Exitf("Unable to parse %s as a limit: %v", args[1], err)
+		}
+	}
+
+	ctx := context.Background()
+	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()})
+	if err != nil {
+		log.Exitf("ListClientContacts RPC failed: %v", err)
+	}
+	if len(res.Contacts) == 0 {
+		fmt.Println("No contacts found.")
+		return
+	}
+
+	fmt.Printf("Found %d contacts.\n", len(res.Contacts))
+
+	sort.Sort(byTimestamp(res.Contacts))
+	fmt.Printf("%-23s %s", "Timestamp:", "Observed IP:\n")
+	for i, con := range res.Contacts {
+		if lim > 0 && i > lim {
+			break
+		}
+		ts, err := ptypes.Timestamp(con.Timestamp)
+		if err != nil {
+			log.Errorf("Unable to parse timestamp for contact: %v", err)
+			continue
+		}
+		fmt.Printf("%s %s\n", ts.Format(dateFmt), con.ObservedAddress)
+	}
+}
+
+// byTimestamp adapts []*spb.ClientContact for use by sort.Sort.
+type byTimestamp []*spb.ClientContact
+
+func (b byTimestamp) Len() int           { return len(b) }
+func (b byTimestamp) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byTimestamp) Less(i, j int) bool { return timestamp(b[i]).Before(timestamp(b[j])) }
+
+func timestamp(c *spb.ClientContact) time.Time {
+	return time.Unix(c.Timestamp.Seconds, int64(c.Timestamp.Nanos))
 }

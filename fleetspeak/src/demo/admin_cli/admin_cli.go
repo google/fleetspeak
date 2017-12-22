@@ -38,6 +38,7 @@ func usage() {
 	fmt.Fprint(os.Stderr,
 		"Usage:\n"+
 			"    admin_cli listclients\n"+
+			"    admin_cli listcontacts <client_id> [limit]\n"+
 			"    admin_cli ls <client_id> path...\n"+
 			"    admin_cli cat <client_id> path...\n"+
 			"\n"+
@@ -61,12 +62,9 @@ func main() {
 
 	switch flag.Arg(0) {
 	case "listclients":
-		if flag.NArg() != 1 {
-			fmt.Fprint(os.Stderr, "listclients takes no parameters.\n")
-			usage()
-			os.Exit(1)
-		}
-		cli.ListClients(admin)
+		cli.ListClients(admin, flag.Args()[1:]...)
+	case "listcontacts":
+		cli.ListContacts(admin, flag.Args()[1:]...)
 	case "ls":
 		startStdin(admin, "lsService", flag.Args()[1:]...)
 	case "cat":
