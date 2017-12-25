@@ -29,20 +29,21 @@ func setup(t *testing.T, caseName string) (ds *Datastore, fin func()) {
 		t.Skip("MYSQL_TEST_ADDR not set")
 	}
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
+	defer fin()
 
 	cs := fmt.Sprintf("%s:%s@tcp(%s)/", user, pass, addr)
 	ac, err := sql.Open("mysql", cs)
 	if err != nil {
-		t.Fatal("Unable to open connection [%s] to create database: %v", cs, err)
+		t.Fatalf("Unable to open connection [%s] to create database: %v", cs, err)
 	}
 	if _, err := ac.ExecContext(ctx, "CREATE DATABASE "+caseName); err != nil {
-		t.Fatal("Unable to create database [%s]: %v", caseName, err)
+		t.Fatalf("Unable to create database [%s]: %v", caseName, err)
 	}
 
 	cs = fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, addr, caseName)
 	c, err := sql.Open("mysql", cs)
 	if err != nil {
-		t.Fatal("Unable to open connection [%s] to database: %v", cs, err)
+		t.Fatalf("Unable to open connection [%s] to database: %v", cs, err)
 	}
 	s, err := MakeDatastore(c)
 	if err != nil {
