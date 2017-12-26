@@ -104,6 +104,21 @@ func (s adminServer) ListClients(ctx context.Context, req *spb.ListClientsReques
 	}, nil
 }
 
+func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClientContactsRequest) (*spb.ListClientContactsResponse, error) {
+	id, err := common.BytesToClientID(req.ClientId)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse id [%d]: %v", req.ClientId, err)
+	}
+
+	contacts, err := s.store.ListClientContacts(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &spb.ListClientContactsResponse{
+		Contacts: contacts,
+	}, nil
+}
+
 // InsertMessage implements sgrpc.AdminServer.
 func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.EmptyMessage, error) {
 	// At this point, we mostly trust the message we get, but do some basic

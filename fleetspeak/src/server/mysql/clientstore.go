@@ -208,6 +208,45 @@ func (d *Datastore) RecordClientContact(ctx context.Context, cid common.ClientID
 	return res, err
 }
 
+func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+	var res []*spb.ClientContact
+	if err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(
+			ctx,
+			"SELECT time, sent_nonce, received_nonce, address FROM client_contacts WHERE client_id = ?",
+			id.String())
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var addr sql.NullString
+			var timeNS int64
+			c := &spb.ClientContact{}
+			if err := rows.Scan(&timeNS, &c.SentNonce, &c.ReceivedNonce, &addr); err != nil {
+				return err
+			}
+
+			if addr.Valid {
+				c.ObservedAddress = addr.String
+			}
+
+			ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
+			if err != nil {
+				return err
+			}
+			c.Timestamp = ts
+
+			res = append(res, c)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // LinkMessagesToContact implements db.ClientStore.
 func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, ids []common.MessageID) error {
 	c, err := strconv.ParseUint(string(contact), 16, 64)

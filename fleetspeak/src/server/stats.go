@@ -137,6 +137,13 @@ func (d MonitoredDatastore) RecordClientContact(ctx context.Context, id common.C
 	return res, err
 }
 
+func (d MonitoredDatastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+	s := ftime.Now()
+	res, err := d.D.ListClientContacts(ctx, id)
+	d.C.DatastoreOperation(s, ftime.Now(), "ListClientContacts", err)
+	return res, err
+}
+
 func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
 	s := ftime.Now()
 	err := d.D.RecordResourceUsageData(ctx, id, rud)

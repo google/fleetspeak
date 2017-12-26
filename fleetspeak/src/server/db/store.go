@@ -22,7 +22,7 @@
 //
 // SECURITY NOTE:
 //
-// The endpoints provide many of the fields presented to this interface.
+// The endpoints provide much of the data passed through this interface.
 // Implementations are responsible for using safe coding practices to prevent
 // SQL injection and similar attacks.
 package db
@@ -167,6 +167,14 @@ type ClientStore interface {
 	// client. On success provides a contact id - an opaque string which can
 	// be used to link messages to a contact.
 	RecordClientContact(ctx context.Context, id common.ClientID, nonceSent, nonceReceived uint64, addr string) (ContactID, error)
+
+	// ListClientContacts lists all of the contacts in the database for a given
+	// client.
+	//
+	// NOTE: This method is explicitly permitted to return data up to 30 seconds
+	// stale. Also, it is normal (and expected) for a datastore to delete contact
+	// older than a few weeks.
+	ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error)
 
 	// LinkMessagesToContact associates messages with a contact - it records
 	// that they were sent or received during the given contact.

@@ -578,8 +578,8 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 			}
 		}
 	}
-
-	contactID, err := ds.RecordClientContact(ctx, clientID, 42, 54, "[ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.123.123]:65535")
+	longAddr := "[ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.123.123]:65535"
+	contactID, err := ds.RecordClientContact(ctx, clientID, 42, 54, longAddr)
 	if err != nil {
 		t.Errorf("unexpected error for RecordClientContact: %v", err)
 	}
@@ -646,7 +646,7 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 			},
 		},
 		LastContactTime:    &tpb.Timestamp{Seconds: 84},
-		LastContactAddress: "[ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.123.123]:65535",
+		LastContactAddress: longAddr,
 	}
 
 	labelSorter{got.Labels}.Sort()
@@ -654,6 +654,23 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 
 	if !proto.Equal(want, got) {
 		t.Errorf("ListClients error: want [%v] got [%v]", want, got)
+	}
+
+	contacts, err := ds.ListClientContacts(ctx, clientID)
+	if err != nil {
+		t.Errorf("ListClientContacts returned error: %v", err)
+	}
+	if len(contacts) != 1 {
+		t.Errorf("ListClientContacts returned %d results, expected 1.", len(contacts))
+	} else {
+		if contacts[0].SentNonce != 42 || contacts[0].ReceivedNonce != 54 {
+			t.Errorf("ListClientContact[0] should return nonces (42, 54), got (%d, %d)",
+				contacts[0].SentNonce, contacts[0].ReceivedNonce)
+		}
+		if contacts[0].ObservedAddress != longAddr {
+			t.Errorf("ListClientContact[0] should return address %s, got %s",
+				longAddr, contacts[0].ObservedAddress)
+		}
 	}
 
 	meanRAM, maxRAM := 190, 200
