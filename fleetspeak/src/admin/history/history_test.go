@@ -134,8 +134,7 @@ func TestSummary(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{ // Client is repeatedly restored twice from a backup, each time leading to
-			// nonce reuse.
+		{ // Client is restored twice from a backup.
 			name: "backupRestore",
 			in: []*spb.ClientContact{
 				{

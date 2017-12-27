@@ -150,19 +150,6 @@ func validateTime(nm map[uint64]*spb.ClientContact) error {
 	return nil
 }
 
-func findBounds(contacts []*spb.ClientContact) (start, end time.Time) {
-	for _, c := range contacts {
-		t, _ := ptypes.Timestamp(c.Timestamp)
-		if start.IsZero() || t.Before(start) {
-			start = t
-		}
-		if end.IsZero() || t.After(end) {
-			end = t
-		}
-	}
-	return
-}
-
 func countIPs(contacts []*spb.ClientContact) int {
 	m := make(map[string]bool)
 	for _, c := range contacts {
