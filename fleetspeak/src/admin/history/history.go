@@ -177,14 +177,14 @@ func countSplits(nm map[uint64]*spb.ClientContact) (splits, splitPoints int) {
 	for _, c := range nm {
 		// Anything not in nm must be too old - coalesce with the 0 target.
 		if c.ReceivedNonce == 0 || nm[c.ReceivedNonce] == nil {
-			ts[0] = ts[0] + 1
+			ts[0]++
 		} else {
 			ts[c.ReceivedNonce] = ts[c.ReceivedNonce] + 1
 		}
 	}
 	for _, t := range ts {
 		if t > 1 {
-			splitPoints += 1
+			splitPoints++
 			splits += t - 1
 		}
 	}
