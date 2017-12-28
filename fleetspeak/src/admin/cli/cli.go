@@ -18,7 +18,6 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -31,6 +30,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
+	"github.com/google/fleetspeak/fleetspeak/src/admin/history"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -49,28 +49,31 @@ func Usage() {
 		"Usage:\n"+
 			"    %s listclients\n"+
 			"    %s listcontacts <client_id> [limit]\n"+
-			"\n", n, n)
+			"    %s analysehistory <client_id>\n"+
+			"\n", n, n, n)
 }
 
 // Execute examines command line flags and executes one of the standard command line
-// actions, as summarized by Usage. It assumes that conn has a fleetspeak admin interface
-// and that flag.Parse() has been called.
-func Execute(conn *grpc.ClientConn) {
+// actions, as summarized by Usage. It requires a grpc connection to an admin server
+// and the command line parameters to interpret.
+func Execute(conn *grpc.ClientConn, args ...string) {
 	admin := sgrpc.NewAdminClient(conn)
 
-	if flag.NArg() == 0 {
+	if len(args) == 0 {
 		fmt.Fprint(os.Stderr, "A command is required.\n")
 		Usage()
 		os.Exit(1)
 	}
 
-	switch flag.Arg(0) {
+	switch args[0] {
 	case "listclients":
-		ListClients(admin, flag.Args()[1:]...)
+		ListClients(admin, args[1:]...)
 	case "listcontacts":
-		ListContacts(admin, flag.Args()[1:]...)
+		ListContacts(admin, args[1:]...)
+	case "analysehistory":
+		AnalyseHistory(admin, args[1:]...)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", flag.Arg(0))
+		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
 		os.Exit(1)
 	}
@@ -178,4 +181,45 @@ func (b byTimestamp) Less(i, j int) bool { return timestamp(b[i]).Before(timesta
 
 func timestamp(c *spb.ClientContact) time.Time {
 	return time.Unix(c.Timestamp.Seconds, int64(c.Timestamp.Nanos))
+}
+
+// AnalyseHistory prints a summary analysis of a client's history. args[0] must
+// be a client id.
+func AnalyseHistory(c sgrpc.AdminClient, args ...string) {
+	if len(args) != 1 {
+		Usage()
+		os.Exit(1)
+	}
+	id, err := common.StringToClientID(args[0])
+	if err != nil {
+		log.Exitf("Unable to parse %s as client id: %v", args[0], err)
+	}
+	ctx := context.Background()
+	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()})
+	if err != nil {
+		log.Exitf("ListClientContacts RPC failed: %v", err)
+	}
+	if len(res.Contacts) == 0 {
+		fmt.Println("No contacts found.")
+		return
+	}
+	s, err := history.Summarize(res.Contacts)
+	if err != nil {
+		log.Exitf("Error creating summary: %v", err)
+	}
+	fmt.Printf(`Raw Summary:
+  First Recorded Contact: %v
+  Last Recorded Contact: %v
+  Contact Count: %d
+  Observed IP Count: %d
+  Split Points: %d
+  Splits: %d
+  Skips: %d
+`, s.Start, s.End, s.Count, s.IPCount, s.SplitPoints, s.Splits, s.Skips)
+	if s.Splits > 0 {
+		fmt.Printf("This client appears to have be restored %d times from %d different backup images.\n", s.Splits, s.SplitPoints)
+	}
+	if s.Skips > s.Splits {
+		fmt.Printf("Observed %d Skips, but only %d splits. The machine may have been cloned.\n", s.Skips, s.Splits)
+	}
 }
