@@ -18,7 +18,6 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -53,24 +52,24 @@ func Usage() {
 }
 
 // Execute examines command line flags and executes one of the standard command line
-// actions, as summarized by Usage. It assumes that conn has a fleetspeak admin interface
-// and that flag.Parse() has been called.
-func Execute(conn *grpc.ClientConn) {
+// actions, as summarized by Usage. It requires a grpc connection to an admin server
+// and the command line parameters to interpret.
+func Execute(conn *grpc.ClientConn, args ...string) {
 	admin := sgrpc.NewAdminClient(conn)
 
-	if flag.NArg() == 0 {
+	if len(args) == 0 {
 		fmt.Fprint(os.Stderr, "A command is required.\n")
 		Usage()
 		os.Exit(1)
 	}
 
-	switch flag.Arg(0) {
+	switch args[0] {
 	case "listclients":
-		ListClients(admin, flag.Args()[1:]...)
+		ListClients(admin, args[1:]...)
 	case "listcontacts":
-		ListContacts(admin, flag.Args()[1:]...)
+		ListContacts(admin, args[1:]...)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", flag.Arg(0))
+		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
 		os.Exit(1)
 	}

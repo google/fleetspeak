@@ -39,5 +39,5 @@ func main() {
 		log.Exitf("Unable to connect to fleetspeak admin interface [%v]: %v", *adminAddr, err)
 	}
 
-	cli.Execute(conn)
+	cli.Execute(conn, flag.Args()...)
 }
