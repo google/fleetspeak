@@ -38,7 +38,7 @@ import (
 // In normal operation they will all be 0.
 //
 // When a machine is restored from a backup, restarted from a fixed VM image or
-// otherwise cause to use old FS state, we will count 1 Split and 1 Skip for
+// otherwise caused to use old FS state, we will count 1 Split and 1 Skip for
 // every restore. We also count 1 SplitPoint for every image that we restore
 // from.
 //
@@ -143,7 +143,7 @@ func validateTime(nm map[uint64]*spb.ClientContact) error {
 				// The nonce recieved from a client cannot reference a nonce produced by
 				// the server in the future. If this seems to have happened, it is a
 				// data error that could confuse other analysis.
-				return fmt.Errorf("Nonce at [%v] references future time [%v].", i.Timestamp, p.Timestamp)
+				return fmt.Errorf("nonce at [%v] references future time [%v]", i.Timestamp, p.Timestamp)
 			}
 		}
 	}
@@ -179,7 +179,7 @@ func countSplits(nm map[uint64]*spb.ClientContact) (splits, splitPoints int) {
 		if c.ReceivedNonce == 0 || nm[c.ReceivedNonce] == nil {
 			ts[0]++
 		} else {
-			ts[c.ReceivedNonce] = ts[c.ReceivedNonce] + 1
+			ts[c.ReceivedNonce]++
 		}
 	}
 	for _, t := range ts {
