@@ -132,10 +132,10 @@ func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.
 	err := d.runInTx(func(tx *sql.Tx) error {
 		sid := id.String()
 
-		r := tx.QueryRowContext(ctx, "SELECT client_key FROM clients WHERE client_id=?", sid)
+		r := tx.QueryRowContext(ctx, "SELECT client_key, blacklisted FROM clients WHERE client_id=?", sid)
 		var c db.ClientData
 
-		err := r.Scan(&c.Key)
+		err := r.Scan(&c.Key, &c.Blacklisted)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
 		sid := id.String()
-		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, last_contact_time) VALUES(?, ?, ?)", sid, data.Key, db.Now().UnixNano()); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, 0, ?)", sid, data.Key, db.Now().UnixNano()); err != nil {
 			return err
 		}
 		for _, l := range data.Labels {
@@ -193,6 +193,12 @@ func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l
 	d.l.Lock()
 	defer d.l.Unlock()
 	_, err := d.db.ExecContext(ctx, "DELETE FROM client_labels WHERE client_id=? AND service_name=? AND label=?", id.String(), l.ServiceName, l.Label)
+	return err
+}
+
+// BlacklistClient implements db.ClientStore
+func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
+	_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=1 WHERE client_id=?", id.String())
 	return err
 }
 
