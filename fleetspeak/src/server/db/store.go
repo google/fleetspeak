@@ -64,6 +64,10 @@ type Store interface {
 type ClientData struct {
 	Key    []byte        // The der encoded public key for the client.
 	Labels []*fspb.Label // The client's labels.
+
+	// Whether the client_id has been blacklisted. Once blacklisted any contact
+	// from this client_id will result in an rekey request.
+	Blacklisted bool
 }
 
 // A ContactID identifies a communication with a client. The form is determined
@@ -162,6 +166,10 @@ type ClientStore interface {
 
 	// RemoveLabel records that a client no longer has a label.
 	RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error
+
+	// BlacklistClient records that a client_id is no longer trusted and should be
+	// recreated.
+	BlacklistClient(ctx context.Context, id common.ClientID) error
 
 	// RecordClientContact records an authenticated contact with a
 	// client. On success provides a contact id - an opaque string which can
