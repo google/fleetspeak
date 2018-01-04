@@ -60,7 +60,11 @@ func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*c
 	if err != nil {
 		return nil, err
 	}
-	return &comms.ClientInfo{ID: id, Key: k, Labels: cld.Labels}, nil
+	return &comms.ClientInfo{
+		ID:          id,
+		Key:         k,
+		Labels:      cld.Labels,
+		Blacklisted: cld.Blacklisted}, nil
 }
 
 // AddClient adds a new client to the system.
@@ -123,6 +127,10 @@ func (c commsContext) HandleClientContact(ctx context.Context, info *comms.Clien
 // FindMessagesForClient finds unprocessed messages for a given client and
 // reserves them for processing.
 func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, maxMessages int) ([]*fspb.Message, error) {
+	if info.Blacklisted {
+		m, err := c.MakeBlacklistMessage(ctx, info, contactID)
+		return []*fspb.Message{m}, err
+	}
 	msgs, err := c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
 	if err != nil {
 		if len(msgs) == 0 {
@@ -154,6 +162,28 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		return nil, err
 	}
 	return msgs, nil
+}
+
+func (c commsContext) MakeBlacklistMessage(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID) (*fspb.Message, error) {
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create message id: %v", err)
+	}
+	msg := &fspb.Message{
+		MessageId: mid.Bytes(),
+		Source: &fspb.Address{
+			ServiceName: "system",
+		},
+		Destination: &fspb.Address{
+			ServiceName: "system",
+			ClientId:    info.ID.Bytes(),
+		},
+		MessageType: "RekeyRequest",
+	}
+	if err = c.s.dataStore.StoreMessages(ctx, []*fspb.Message{msg}, contactID); err != nil {
+		return nil, fmt.Errorf("unable to store RekeyRequest: %v", err)
+	}
+	return msg, nil
 }
 
 func (c commsContext) validateMessageFromClient(id common.ClientID, m *fspb.Message, validationInfo string) error {
