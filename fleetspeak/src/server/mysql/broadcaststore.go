@@ -99,7 +99,6 @@ func toBroadcastProto(b *dbBroadcast) (*spb.Broadcast, error) {
 	return ret, nil
 }
 
-// CreateBroadcast implements db.BroadcastStore.
 func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit uint64) error {
 	dbB, err := fromBroadcastProto(b)
 	if err != nil {
@@ -140,7 +139,6 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 	})
 }
 
-// SetBroadcastLimit implements db.BroadcastStore.
 func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE broadcasts(message_limit) VALUES(?) WHERE broadcast_id=?", limit, id.String())
@@ -148,7 +146,6 @@ func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, l
 	})
 }
 
-// SaveBroadcastMessage implements db.BroadcastStore.
 func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bID ids.BroadcastID, cID common.ClientID, aID ids.AllocationID) error {
 	dbm, err := fromMessageProto(msg)
 	if err != nil {
@@ -185,7 +182,6 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 	})
 }
 
-// ListActiveBroadcasts implements db.BroadcastStore.
 func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
 	var ret []*db.BroadcastInfo
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
@@ -271,7 +267,6 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 	return ret, err
 }
 
-// ListSentBroadcasts implements db.BroadcastStore.
 func (d *Datastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) ([]ids.BroadcastID, error) {
 	rs, err := d.db.QueryContext(ctx, "SELECT broadcast_id FROM broadcast_sent WHERE client_id = ?", id.String())
 	if err != nil {
@@ -297,7 +292,6 @@ func (d *Datastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) 
 	return res, nil
 }
 
-// CreateAllocation implements db.BroadcastStore.
 func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, frac float32, expiry time.Time) (*db.AllocationInfo, error) {
 	var ret *db.AllocationInfo
 	err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
@@ -345,7 +339,6 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 	return ret, err
 }
 
-// CleanupAllocation implements db.BroadcastStore.
 func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, aID ids.AllocationID) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var b dbBroadcast

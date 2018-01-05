@@ -211,7 +211,6 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 	return pm, nil
 }
 
-// StoreMessages implements db.MessageStore.
 func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, contact db.ContactID) error {
 	ids := make([]string, 0, len(msgs))
 
@@ -352,7 +351,6 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 	return nil
 }
 
-// GetMessages implements db.MessageStore.
 func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
 	res := make([]*fspb.Message, 0, len(ids))
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
@@ -417,7 +415,6 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 	return res, err
 }
 
-// GetMessageResult implements db.MessageStore.
 func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error) {
 	var ret *fspb.MessageResult
 
@@ -452,7 +449,6 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 	return ret, err
 }
 
-// ClientMessagesForProcessing implements db.MessageStore.
 func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
 	if id == (common.ClientID{}) {
 		return nil, errors.New("a client is required")
@@ -677,7 +673,6 @@ type messageLooper struct {
 	loopDone         chan struct{}
 }
 
-// RegisterMessageProcessor implements db.MessageStore.
 func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 	if d.looper != nil {
 		log.Warning("Attempt to register a second MessageProcessor.")
@@ -693,7 +688,6 @@ func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 	go d.looper.messageProcessingLoop()
 }
 
-// StopMessageProcessor implements db.MessageStore.
 func (d *Datastore) StopMessageProcessor() {
 	if d.looper != nil {
 		d.looper.stop()
