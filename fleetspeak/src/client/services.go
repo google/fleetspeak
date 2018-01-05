@@ -46,7 +46,7 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 	c.lock.RUnlock()
 
 	if target == nil {
-		return fmt.Errorf("Destination service not installed.")
+		return fmt.Errorf("destination service not installed")
 	}
 	select {
 	case target.inbox <- m:
