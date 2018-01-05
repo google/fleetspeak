@@ -160,3 +160,15 @@ func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (
 func (s adminServer) KeepAlive(ctx context.Context, _ *fspb.EmptyMessage) (*fspb.EmptyMessage, error) {
 	return &fspb.EmptyMessage{}, nil
 }
+
+// BlacklistClient implements sgrpc.BlacklistClient.
+func (s adminServer) BlacklistClient(ctx context.Context, req *spb.BlacklistClientRequest) (*fspb.EmptyMessage, error) {
+	id, err := common.BytesToClientID(req.ClientId)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse id [%d]: %v", req.ClientId, err)
+	}
+	if err := s.store.BlacklistClient(ctx, id); err != nil {
+		return nil, err
+	}
+	return &fspb.EmptyMessage{}, nil
+}
