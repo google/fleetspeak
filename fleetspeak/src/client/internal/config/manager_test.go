@@ -45,7 +45,7 @@ func TestRekey(t *testing.T) {
 	if (id1 == common.ClientID{}) {
 		t.Errorf("new config manager should provide non-trivial ClientID")
 	}
-	if err := m.rekey(); err != nil {
+	if err := m.Rekey(); err != nil {
 		t.Errorf("unable to rekey: %v", err)
 	}
 	id2 := m.ClientID()

@@ -96,6 +96,7 @@ func initSchema(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS clients(
 client_id TEXT(16) PRIMARY KEY,
 client_key BLOB,
+blacklisted BOOLEAN NOT NULL,
 last_contact_time INT8 NOT NULL,
 last_contact_address TEXT(64))`,
 		`CREATE TABLE IF NOT EXISTS client_labels(

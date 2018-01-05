@@ -119,7 +119,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	r.AddRevokedSerials(cfg.RevokedCertSerials)
 
 	if r.state.ClientKey == nil {
-		if err := r.rekey(); err != nil {
+		if err := r.Rekey(); err != nil {
 			return nil, fmt.Errorf("no key present, and %v", err)
 		}
 	} else {
@@ -148,7 +148,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	return &r, nil
 }
 
-func (m *Manager) rekey() error {
+func (m *Manager) Rekey() error {
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return fmt.Errorf("unable to generate new key: %v", err)

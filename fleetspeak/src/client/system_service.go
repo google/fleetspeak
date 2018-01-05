@@ -78,8 +78,13 @@ func (s *systemService) Start(sc service.Context) error {
 
 // ProcessMessage implements Service.
 func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error {
-	// TODO: Add support to handle incoming messages that, e.g.,
-	// configure a new service on the client or request a rekey.
+	if m.MessageType == "RekeyRequest" {
+		if err := s.client.config.Rekey(); err != nil {
+			// Very unlikely.
+			return fmt.Errorf("unable to rekey client: %v", err)
+		}
+		return nil
+	}
 	return fmt.Errorf("unable to process message of type: %v", m.MessageType)
 }
 

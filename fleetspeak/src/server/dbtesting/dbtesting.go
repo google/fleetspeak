@@ -727,6 +727,24 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 	if got, want := record, expected; !proto.Equal(got, want) {
 		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
 	}
+
+	if err := ds.BlacklistClient(ctx, clientID); err != nil {
+		t.Errorf("Error blacklisting client: %v", err)
+	}
+	g, err := ds.GetClientData(ctx, clientID)
+	if err != nil {
+		t.Errorf("Error getting client data after blacklisting: %v", err)
+	}
+	w := &db.ClientData{
+		Key: key,
+		Labels: []*fspb.Label{
+			{ServiceName: "system", Label: "Windows"},
+			{ServiceName: "system", Label: "new label"}},
+		Blacklisted: true,
+	}
+	if !clientDataEqual(g, w) {
+		t.Errorf("Got %+v want %+v after blacklisting client.", g, w)
+	}
 }
 
 type idSet struct {

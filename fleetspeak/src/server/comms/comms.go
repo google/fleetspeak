@@ -40,9 +40,10 @@ type Communicator interface {
 
 // A ClientInfo is the basic information that we have about a client.
 type ClientInfo struct {
-	ID     common.ClientID
-	Key    crypto.PublicKey
-	Labels []*fspb.Label
+	ID          common.ClientID
+	Key         crypto.PublicKey
+	Labels      []*fspb.Label
+	Blacklisted bool
 }
 
 // A Context defines the view of the Fleetspeak server provided to a Communicator.

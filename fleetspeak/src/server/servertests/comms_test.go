@@ -15,6 +15,7 @@
 package servertests_test
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -38,7 +39,7 @@ func TestCommsContext(t *testing.T) {
 	fakeTime := sertesting.FakeNow(50)
 	defer fakeTime.Revert()
 
-	ts := testserver.Make(t, "server", "CommsMethods", nil)
+	ts := testserver.Make(t, "server", "CommsContext", nil)
 	defer ts.S.Stop()
 	ctx := context.Background()
 
@@ -148,5 +149,72 @@ func TestCommsContext(t *testing.T) {
 		if !proto.Equal(msgs[0], want) {
 			t.Errorf("%s: GetMessages(%v)=%v, but want %v", tc.name, id, msgs[0], want)
 		}
+	}
+}
+
+func TestBlacklist(t *testing.T) {
+	ts := testserver.Make(t, "server", "Blacklist", nil)
+	defer ts.S.Stop()
+	ctx := context.Background()
+
+	id, err := ts.AddClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Put a message in the database that would otherwise be ready for delivery.
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+	if err := ts.DS.StoreMessages(ctx, []*fspb.Message{
+		{
+			MessageId: mid.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "testService",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "testService",
+				ClientId:    id.Bytes(),
+			},
+			MessageType: "TestMessage",
+		}}, ""); err != nil {
+		t.Fatalf("Unable to store message: %v", err)
+	}
+
+	// Blacklist the client
+	if err := ts.DS.BlacklistClient(ctx, id); err != nil {
+		t.Fatalf("BlacklistClient returned error: %v", err)
+	}
+
+	msgs, err := ts.SimulateContactFromClient(ctx, id, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(msgs) != 1 {
+		t.Fatalf("Expected 1 message, got: %+v", msgs)
+	}
+	msg := msgs[0]
+
+	if msg.MessageType != "RekeyRequest" {
+		t.Errorf("Expected RekeyRequest, got: %+v", msg)
+	}
+
+	// Verify that the RekeyRequest message is in the database.
+	mid, err = common.BytesToMessageID(msg.MessageId)
+	if err != nil {
+		t.Fatalf("Unable to parse RekeyRequest message id: %v", err)
+	}
+
+	msgs, err = ts.DS.GetMessages(ctx, []common.MessageID{mid}, true)
+	if err != nil {
+		t.Fatalf("Error reading rekey message from datastore: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("GetMessages([%v]) returned %d messages, expected 1.", mid, len(msgs))
+	}
+	if !bytes.Equal(msgs[0].MessageId, msg.MessageId) || msgs[0].MessageType != "RekeyRequest" {
+		t.Errorf("GetMessage([%v]) did not return expected RekeyRequest, want: %+v got: %+v", mid, msg, msgs[0])
 	}
 }
