@@ -37,7 +37,6 @@ const (
 	bytesToMIB = 1.0 / float64(1<<20)
 )
 
-// ListClients implements db.ClientStore.
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -124,7 +123,6 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	return ret, err
 }
 
-// GetClientData implements db.ClientStore.
 func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -162,7 +160,6 @@ func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.
 	return cd, err
 }
 
-// AddClient implements db.ClientStore.
 func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.ClientData) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -180,7 +177,6 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 	})
 }
 
-// AddClientLabel implements db.ClientStore.
 func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -188,7 +184,6 @@ func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, l *f
 	return err
 }
 
-// RemoveClientLabel implements db.ClientStore.
 func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -196,13 +191,11 @@ func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l
 	return err
 }
 
-// BlacklistClient implements db.ClientStore
 func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
 	_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=1 WHERE client_id=?", id.String())
 	return err
 }
 
-// RecordClientContact implements db.ClientStore.
 func (d *Datastore) RecordClientContact(ctx context.Context, cid common.ClientID, nonceSent, nonceReceived uint64, addr string) (db.ContactID, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -266,7 +259,6 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 	return res, nil
 }
 
-// LinkMessagesToContact implements db.ClientStore.
 func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, ids []common.MessageID) error {
 	c, err := strconv.ParseUint(string(contact), 16, 64)
 	if err != nil {
@@ -286,7 +278,6 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 	})
 }
 
-// RecordResourceUsageData implements db.ClientStore.
 func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -318,7 +309,6 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	})
 }
 
-// FetchResourceUsageRecords implements db.ClientStore.
 func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
 	var records []*spb.ClientResourceUsageRecord
 	err := d.runInTx(func(tx *sql.Tx) error {
