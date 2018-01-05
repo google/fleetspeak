@@ -64,7 +64,6 @@ type Communicator struct {
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error) // If set, will be used to initiate network connections to the server.
 }
 
-// Setup implements client.Communicator.
 func (c *Communicator) Setup(cl comms.Context) error {
 	c.cctx = cl
 	return c.configure()
@@ -152,14 +151,12 @@ func (c *Communicator) configure() error {
 	return nil
 }
 
-// Start implements comms.Communicator.
 func (c *Communicator) Start() error {
 	c.working.Add(1)
 	go c.processingLoop()
 	return nil
 }
 
-// Stop implements comms.Communicator.
 func (c *Communicator) Stop() {
 	c.done()
 	c.working.Wait()
@@ -377,7 +374,6 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 	return false, errors.New("unable to contact any server")
 }
 
-// GetFileIfModified implements comms.Communicator.
 func (c *Communicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
 	var lastErr error
 	c.hostLock.RLock()

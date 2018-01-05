@@ -87,14 +87,12 @@ func (s *Service) Start(sc service.Context) error {
 	return nil
 }
 
-// Stop implements service.Service.
 func (s *Service) Stop() error {
 	close(s.stop)
 	s.routines.Wait()
 	return nil
 }
 
-// ProcessMessage implements service.Service.
 func (s *Service) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	select {
 	case s.msgs <- m:

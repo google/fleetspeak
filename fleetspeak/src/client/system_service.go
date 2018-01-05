@@ -52,7 +52,6 @@ type systemService struct {
 	wait          sync.WaitGroup
 }
 
-// Start implements Service.
 func (s *systemService) Start(sc service.Context) error {
 	s.sc = sc
 	s.done = make(chan struct{})
@@ -76,7 +75,6 @@ func (s *systemService) Start(sc service.Context) error {
 	return nil
 }
 
-// ProcessMessage implements Service.
 func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error {
 	if m.MessageType == "RekeyRequest" {
 		if err := s.client.config.Rekey(); err != nil {
@@ -89,7 +87,6 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 	return fmt.Errorf("unable to process message of type: %v", m.MessageType)
 }
 
-// Stop implements Service.
 func (s *systemService) Stop() error {
 	close(s.done)
 	s.wait.Wait()
