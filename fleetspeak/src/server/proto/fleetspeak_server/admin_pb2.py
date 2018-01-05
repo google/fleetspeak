@@ -36,7 +36,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/server/proto/fleetspeak_server/admin.proto',
   package='fleetspeak.server',
   syntax='proto3',
-  serialized_pb=_b('\n9fleetspeak/src/server/proto/fleetspeak_server/admin.proto\x12\x11\x66leetspeak.server\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x33\x66leetspeak/src/common/proto/fleetspeak/common.proto\x1a>fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto\"X\n\x16\x43reateBroadcastRequest\x12/\n\tbroadcast\x18\x01 \x01(\x0b\x32\x1c.fleetspeak.server.Broadcast\x12\r\n\x05limit\x18\x02 \x01(\x04\"3\n\x1bListActiveBroadcastsRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\"P\n\x1cListActiveBroadcastsResponse\x12\x30\n\nbroadcasts\x18\x01 \x03(\x0b\x32\x1c.fleetspeak.server.Broadcast\"(\n\x12ListClientsRequest\x12\x12\n\nclient_ids\x18\x01 \x03(\x0c\"A\n\x13ListClientsResponse\x12*\n\x07\x63lients\x18\x01 \x03(\x0b\x32\x19.fleetspeak.server.Client\"\x93\x01\n\x06\x43lient\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12!\n\x06labels\x18\x02 \x03(\x0b\x32\x11.fleetspeak.Label\x12\x35\n\x11last_contact_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1c\n\x14last_contact_address\x18\x04 \x01(\t\"-\n\x17GetMessageStatusRequest\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\"x\n\x18GetMessageStatusResponse\x12\x31\n\rcreation_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x06result\x18\x02 \x01(\x0b\x32\x19.fleetspeak.MessageResult\"I\n\x10StoreFileRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\".\n\x19ListClientContactsRequest\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\"P\n\x1aListClientContactsResponse\x12\x32\n\x08\x63ontacts\x18\x01 \x03(\x0b\x32 .fleetspeak.server.ClientContact\"\x84\x01\n\rClientContact\x12\x12\n\nsent_nonce\x18\x01 \x01(\x06\x12\x16\n\x0ereceived_nonce\x18\x02 \x01(\x06\x12\x18\n\x10observed_address\x18\x03 \x01(\t\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp2\xf3\x05\n\x05\x41\x64min\x12X\n\x0f\x43reateBroadcast\x12).fleetspeak.server.CreateBroadcastRequest\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12y\n\x14ListActiveBroadcasts\x12..fleetspeak.server.ListActiveBroadcastsRequest\x1a/.fleetspeak.server.ListActiveBroadcastsResponse\"\x00\x12^\n\x0bListClients\x12%.fleetspeak.server.ListClientsRequest\x1a&.fleetspeak.server.ListClientsResponse\"\x00\x12s\n\x12ListClientContacts\x12,.fleetspeak.server.ListClientContactsRequest\x1a-.fleetspeak.server.ListClientContactsResponse\"\x00\x12m\n\x10GetMessageStatus\x12*.fleetspeak.server.GetMessageStatusRequest\x1a+.fleetspeak.server.GetMessageStatusResponse\"\x00\x12@\n\rInsertMessage\x12\x13.fleetspeak.Message\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12L\n\tStoreFile\x12#.fleetspeak.server.StoreFileRequest\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12\x41\n\tKeepAlive\x12\x18.fleetspeak.EmptyMessage\x1a\x18.fleetspeak.EmptyMessage\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n9fleetspeak/src/server/proto/fleetspeak_server/admin.proto\x12\x11\x66leetspeak.server\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x33\x66leetspeak/src/common/proto/fleetspeak/common.proto\x1a>fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto\"X\n\x16\x43reateBroadcastRequest\x12/\n\tbroadcast\x18\x01 \x01(\x0b\x32\x1c.fleetspeak.server.Broadcast\x12\r\n\x05limit\x18\x02 \x01(\x04\"3\n\x1bListActiveBroadcastsRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\"P\n\x1cListActiveBroadcastsResponse\x12\x30\n\nbroadcasts\x18\x01 \x03(\x0b\x32\x1c.fleetspeak.server.Broadcast\"(\n\x12ListClientsRequest\x12\x12\n\nclient_ids\x18\x01 \x03(\x0c\"A\n\x13ListClientsResponse\x12*\n\x07\x63lients\x18\x01 \x03(\x0b\x32\x19.fleetspeak.server.Client\"\x93\x01\n\x06\x43lient\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12!\n\x06labels\x18\x02 \x03(\x0b\x32\x11.fleetspeak.Label\x12\x35\n\x11last_contact_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1c\n\x14last_contact_address\x18\x04 \x01(\t\"-\n\x17GetMessageStatusRequest\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\"x\n\x18GetMessageStatusResponse\x12\x31\n\rcreation_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x06result\x18\x02 \x01(\x0b\x32\x19.fleetspeak.MessageResult\"I\n\x10StoreFileRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\".\n\x19ListClientContactsRequest\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\"P\n\x1aListClientContactsResponse\x12\x32\n\x08\x63ontacts\x18\x01 \x03(\x0b\x32 .fleetspeak.server.ClientContact\"\x84\x01\n\rClientContact\x12\x12\n\nsent_nonce\x18\x01 \x01(\x06\x12\x16\n\x0ereceived_nonce\x18\x02 \x01(\x06\x12\x18\n\x10observed_address\x18\x03 \x01(\t\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"+\n\x16\x42lacklistClientRequest\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x32\xcd\x06\n\x05\x41\x64min\x12X\n\x0f\x43reateBroadcast\x12).fleetspeak.server.CreateBroadcastRequest\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12y\n\x14ListActiveBroadcasts\x12..fleetspeak.server.ListActiveBroadcastsRequest\x1a/.fleetspeak.server.ListActiveBroadcastsResponse\"\x00\x12^\n\x0bListClients\x12%.fleetspeak.server.ListClientsRequest\x1a&.fleetspeak.server.ListClientsResponse\"\x00\x12s\n\x12ListClientContacts\x12,.fleetspeak.server.ListClientContactsRequest\x1a-.fleetspeak.server.ListClientContactsResponse\"\x00\x12m\n\x10GetMessageStatus\x12*.fleetspeak.server.GetMessageStatusRequest\x1a+.fleetspeak.server.GetMessageStatusResponse\"\x00\x12@\n\rInsertMessage\x12\x13.fleetspeak.Message\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12L\n\tStoreFile\x12#.fleetspeak.server.StoreFileRequest\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12\x41\n\tKeepAlive\x12\x18.fleetspeak.EmptyMessage\x1a\x18.fleetspeak.EmptyMessage\"\x00\x12X\n\x0f\x42lacklistClient\x12).fleetspeak.server.BlacklistClientRequest\x1a\x18.fleetspeak.EmptyMessage\"\x00\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2.DESCRIPTOR,fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_broadcasts__pb2.DESCRIPTOR,])
 
@@ -484,6 +484,37 @@ _CLIENTCONTACT = _descriptor.Descriptor(
   serialized_end=1221,
 )
 
+
+_BLACKLISTCLIENTREQUEST = _descriptor.Descriptor(
+  name='BlacklistClientRequest',
+  full_name='fleetspeak.server.BlacklistClientRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='client_id', full_name='fleetspeak.server.BlacklistClientRequest.client_id', index=0,
+      number=1, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b(""),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1223,
+  serialized_end=1266,
+)
+
 _CREATEBROADCASTREQUEST.fields_by_name['broadcast'].message_type = fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_broadcasts__pb2._BROADCAST
 _LISTACTIVEBROADCASTSRESPONSE.fields_by_name['broadcasts'].message_type = fleetspeak_dot_src_dot_server_dot_proto_dot_fleetspeak__server_dot_broadcasts__pb2._BROADCAST
 _LISTCLIENTSRESPONSE.fields_by_name['clients'].message_type = _CLIENT
@@ -505,6 +536,7 @@ DESCRIPTOR.message_types_by_name['StoreFileRequest'] = _STOREFILEREQUEST
 DESCRIPTOR.message_types_by_name['ListClientContactsRequest'] = _LISTCLIENTCONTACTSREQUEST
 DESCRIPTOR.message_types_by_name['ListClientContactsResponse'] = _LISTCLIENTCONTACTSRESPONSE
 DESCRIPTOR.message_types_by_name['ClientContact'] = _CLIENTCONTACT
+DESCRIPTOR.message_types_by_name['BlacklistClientRequest'] = _BLACKLISTCLIENTREQUEST
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 CreateBroadcastRequest = _reflection.GeneratedProtocolMessageType('CreateBroadcastRequest', (_message.Message,), dict(
@@ -591,6 +623,13 @@ ClientContact = _reflection.GeneratedProtocolMessageType('ClientContact', (_mess
   ))
 _sym_db.RegisterMessage(ClientContact)
 
+BlacklistClientRequest = _reflection.GeneratedProtocolMessageType('BlacklistClientRequest', (_message.Message,), dict(
+  DESCRIPTOR = _BLACKLISTCLIENTREQUEST,
+  __module__ = 'fleetspeak.src.server.proto.fleetspeak_server.admin_pb2'
+  # @@protoc_insertion_point(class_scope:fleetspeak.server.BlacklistClientRequest)
+  ))
+_sym_db.RegisterMessage(BlacklistClientRequest)
+
 
 
 _ADMIN = _descriptor.ServiceDescriptor(
@@ -599,8 +638,8 @@ _ADMIN = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=1224,
-  serialized_end=1979,
+  serialized_start=1269,
+  serialized_end=2114,
   methods=[
   _descriptor.MethodDescriptor(
     name='CreateBroadcast',
@@ -671,6 +710,15 @@ _ADMIN = _descriptor.ServiceDescriptor(
     index=7,
     containing_service=None,
     input_type=fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2._EMPTYMESSAGE,
+    output_type=fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2._EMPTYMESSAGE,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='BlacklistClient',
+    full_name='fleetspeak.server.Admin.BlacklistClient',
+    index=8,
+    containing_service=None,
+    input_type=_BLACKLISTCLIENTREQUEST,
     output_type=fleetspeak_dot_src_dot_common_dot_proto_dot_fleetspeak_dot_common__pb2._EMPTYMESSAGE,
     options=None,
   ),
