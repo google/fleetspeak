@@ -204,6 +204,9 @@ func (c *Communicator) processingLoop() {
 	// and updates the variables defined above. In case of failure it also sleeps
 	// for the MinFailureDelay.
 	poll := func() {
+		if c.cctx.CurrentID() != c.id {
+			c.configure()
+		}
 		active, err := c.poll(toSend)
 		if err != nil {
 			log.Warningf("Failure during polling: %v", err)

@@ -83,6 +83,7 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 			// Very unlikely.
 			return fmt.Errorf("unable to rekey client: %v", err)
 		}
+		s.client.config.SendConfigUpdate()
 		return nil
 	}
 	return fmt.Errorf("unable to process message of type: %v", m.MessageType)
