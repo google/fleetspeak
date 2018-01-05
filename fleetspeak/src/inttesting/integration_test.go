@@ -26,7 +26,7 @@ import (
 )
 
 func TestFRRIntegration(t *testing.T) {
-	tmpDir, tmpDirCleanup := comtesting.GetTempDir("frr_integration")
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_frr_integration")
 	defer tmpDirCleanup()
 	// Create an sqlite datastore.
 	p := path.Join(tmpDir, "FRRIntegration.sqlite")
@@ -38,4 +38,19 @@ func TestFRRIntegration(t *testing.T) {
 	defer ds.Close()
 
 	integrationtest.FRRIntegrationTest(t, ds, tmpDir)
+}
+
+func TestCloneHandling(t *testing.T) {
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_clone_handling")
+	defer tmpDirCleanup()
+	// Create an sqlite datastore.
+	p := path.Join(tmpDir, "CloneHandling.sqlite")
+	ds, err := sqlite.MakeDatastore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Infof("Created database: %s", p)
+	defer ds.Close()
+
+	integrationtest.CloneHandlingTest(t, ds, tmpDir)
 }
