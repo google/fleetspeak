@@ -50,6 +50,7 @@ func Usage() {
 			"    %s listclients\n"+
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
+			"    %s blacklistclient <client_id>\n"+
 			"\n", n, n, n)
 }
 
@@ -72,6 +73,8 @@ func Execute(conn *grpc.ClientConn, args ...string) {
 		ListContacts(admin, args[1:]...)
 	case "analysehistory":
 		AnalyseHistory(admin, args[1:]...)
+	case "blacklistclient":
+		BlacklistClient(admin, args[1:]...)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
@@ -221,5 +224,22 @@ func AnalyseHistory(c sgrpc.AdminClient, args ...string) {
 	}
 	if s.Skips > s.Splits {
 		fmt.Printf("Observed %d Skips, but only %d splits. The machine may have been cloned.\n", s.Skips, s.Splits)
+	}
+}
+
+// BlacklistClient blacklists a client id, forcing any client(s) using it to
+// rekey. args[0] must be a client id.
+func BlacklistClient(c sgrpc.AdminClient, args ...string) {
+	if len(args) != 1 {
+		Usage()
+		os.Exit(1)
+	}
+	id, err := common.StringToClientID(args[0])
+	if err != nil {
+		log.Exitf("Unable to parse %s as client id: %v", args[0], err)
+	}
+	ctx := context.Background()
+	if _, err := c.BlacklistClient(ctx, &spb.BlacklistClientRequest{ClientId: id.Bytes()}); err != nil {
+		log.Exitf("BlacklistClient RPC failed: %v", err)
 	}
 }
