@@ -141,7 +141,6 @@ func (c *Communicator) serve(l net.Listener) {
 	log.Errorf("Serving finished with error: %v", err)
 }
 
-// Setup implements server.Communicator.
 func (c *Communicator) Setup(fs comms.Context) error {
 	c.fs = fs
 	c.l = guardedListener{
@@ -151,7 +150,6 @@ func (c *Communicator) Setup(fs comms.Context) error {
 	return nil
 }
 
-// Start implements server.Communicator.
 func (c *Communicator) Start() error {
 	go c.serve(tls.NewListener(c.l, c.hs.TLSConfig))
 
@@ -161,7 +159,6 @@ func (c *Communicator) Start() error {
 	return nil
 }
 
-// Stop implements server.Communicator.
 func (c *Communicator) Stop() {
 	// The most graceful way to shut down an http.Server is to close the associated listener.
 	c.l.Close()

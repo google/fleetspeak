@@ -56,16 +56,13 @@ type FakeCommunicator struct {
 	Dest *Server
 }
 
-// Setup implements comms.Communicator.
 func (c FakeCommunicator) Setup(cc comms.Context) error {
 	c.Dest.CC = cc
 	return nil
 }
 
-// Start implements comms.Communicator.
 func (c FakeCommunicator) Start() error { return nil }
 
-// Stop implements comms.Communicator.
 func (c FakeCommunicator) Stop() {}
 
 // Make creates a server.Server using the provided communicators. It creates and
