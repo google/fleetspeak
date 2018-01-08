@@ -103,7 +103,7 @@ func (s *systemService) processMessageAck(ctx context.Context, mid common.Messag
 
 	msgs, err := s.datastore.GetMessages(ctx, ids, false)
 	if err != nil {
-		return service.TemporaryError{fmt.Errorf("unable to retrieve messages to ack: %v", err)}
+		return service.TemporaryError{E: fmt.Errorf("unable to retrieve messages to ack: %v", err)}
 	}
 
 	for _, msg := range msgs {
@@ -150,7 +150,7 @@ func (s *systemService) processMessageError(ctx context.Context, cid common.Clie
 
 	msgs, err := s.datastore.GetMessages(ctx, []common.MessageID{id}, false)
 	if err != nil {
-		return service.TemporaryError{fmt.Errorf("error from GetMessage([]{%v}): %v", id, err)}
+		return service.TemporaryError{E: fmt.Errorf("error from GetMessage([]{%v}): %v", id, err)}
 	}
 	if len(msgs) != 1 {
 		return fmt.Errorf("expected one result from GetMessages, got %v", len(msgs))
@@ -171,7 +171,7 @@ func (s *systemService) processMessageError(ctx context.Context, cid common.Clie
 				FailedReason:  data.Error,
 			}},
 	}, ""); err != nil {
-		return service.TemporaryError{fmt.Errorf("unable to mark message [%v] as failed: %v", id, err)}
+		return service.TemporaryError{E: fmt.Errorf("unable to mark message [%v] as failed: %v", id, err)}
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 	}
 	cd, err := s.datastore.GetClientData(ctx, cid)
 	if err != nil {
-		return service.TemporaryError{fmt.Errorf("GetClientData(%v) failed: %v", cid, err)}
+		return service.TemporaryError{E: fmt.Errorf("GetClientData(%v) failed: %v", cid, err)}
 	}
 
 	// We create a set of the new client labels.
@@ -203,7 +203,7 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 		if l.ServiceName == clientServiceName {
 			if !nl[l.Label] {
 				if err = s.datastore.RemoveClientLabel(ctx, cid, l); err != nil {
-					return service.TemporaryError{fmt.Errorf("unable to remove label[%v]: %v", l, err)}
+					return service.TemporaryError{E: fmt.Errorf("unable to remove label[%v]: %v", l, err)}
 				}
 			} else {
 				ol[l.Label] = true
@@ -218,7 +218,7 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 		}
 		if !ol[l.Label] {
 			if err = s.datastore.AddClientLabel(ctx, cid, l); err != nil {
-				return service.TemporaryError{fmt.Errorf("unable to add label[%v]: %v", l, err)}
+				return service.TemporaryError{E: fmt.Errorf("unable to add label[%v]: %v", l, err)}
 			}
 		}
 	}

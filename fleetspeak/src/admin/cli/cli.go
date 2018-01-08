@@ -51,7 +51,7 @@ func Usage() {
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
 			"    %s blacklistclient <client_id>\n"+
-			"\n", n, n, n)
+			"\n", n, n, n, n)
 }
 
 // Execute examines command line flags and executes one of the standard command line

@@ -276,7 +276,7 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 
 func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMessage, isBroadcast bool) error {
 	if dbm.creationTimeSeconds == 0 {
-		return errors.New("CreationTime must be set.")
+		return errors.New("message CreationTime must be set")
 	}
 	res, err := tx.ExecContext(ctx, "INSERT IGNORE INTO messages("+
 		"message_id, "+

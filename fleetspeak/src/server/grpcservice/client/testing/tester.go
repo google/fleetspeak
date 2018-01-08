@@ -84,7 +84,7 @@ func main() {
 		server.Components{
 			Datastore:        ds,
 			ServiceFactories: map[string]service.Factory{"GRPC": grpcservice.Factory},
-			Communicators:    []comms.Communicator{&testserver.FakeCommunicator{&ts}},
+			Communicators:    []comms.Communicator{&testserver.FakeCommunicator{Dest: &ts}},
 		},
 	)
 	ts.S = s

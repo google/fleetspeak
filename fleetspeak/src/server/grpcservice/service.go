@@ -103,7 +103,7 @@ func (s *GRPCService) ProcessMessage(ctx context.Context, m *fspb.Message) error
 	s.l.RLock()
 	defer s.l.RUnlock()
 	if s.client == nil {
-		return service.TemporaryError{errors.New("connection unavailable")}
+		return service.TemporaryError{E: errors.New("connection unavailable")}
 	}
 
 	// TODO: Remove retry logic when possible.
@@ -133,7 +133,7 @@ L:
 			c == codes.Canceled ||
 			c == codes.Unauthenticated ||
 			c == codes.PermissionDenied {
-			err = service.TemporaryError{err}
+			err = service.TemporaryError{E: err}
 		}
 	}
 	return err
