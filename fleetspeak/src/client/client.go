@@ -154,6 +154,8 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	}
 	ret.sc.services["system"] = ssd
 	ssd.start()
+	ssd.working.Add(1)
+	go ssd.processingLoop()
 
 	for _, s := range cfg.FixedServices {
 		if err := ret.sc.InstallService(s, nil); err != nil {

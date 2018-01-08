@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -113,6 +114,59 @@ func TestMessageDelivery(t *testing.T) {
 	}
 	if !reflect.DeepEqual(li.Services, []string{"FakeService"}) {
 		t.Errorf("Expected LocalInfo to be %v, got %v", []string{"FakeService"}, li.Services)
+	}
+}
+
+func TestRekey(t *testing.T) {
+	cl, err := New(
+		config.Configuration{
+			Ephemeral:     true,
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+		},
+		Components{
+			ServiceFactories: map[string]service.Factory{
+				"NOOP": service.NOOPFactory,
+			},
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	oid := cl.config.ClientID()
+
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "system"},
+				Destination: &fspb.Address{
+					ClientId:    oid.Bytes(),
+					ServiceName: "system"},
+				MessageType: "RekeyRequest",
+			},
+		}); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	tk := time.NewTicker(200 * time.Millisecond)
+	start := time.Now()
+	var nid common.ClientID
+	defer tk.Stop()
+	for _ = range tk.C {
+		nid = cl.config.ClientID()
+		if nid != oid {
+			break
+		}
+		if time.Since(start) > 20*time.Second {
+			t.Errorf("Timed out waiting for id to change.")
+			break
+		}
 	}
 }
 

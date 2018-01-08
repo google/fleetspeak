@@ -67,6 +67,10 @@ message ClientContact {
   google.protobuf.Timestamp timestamp = 4;
 }
 
+message BlacklistClientRequest {
+  bytes client_id = 1;
+}
+
 service Admin {
   // CreateBroadcast creates a FS broadcast, potentially sending a message to
   // many machines in the fleet.
@@ -102,5 +106,10 @@ service Admin {
 
   // KeepAlive does as little as possible.
   rpc KeepAlive (fleetspeak.EmptyMessage) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // BlacklistClient marks a client_id as invalid, forcing all Fleetspeak
+  // clients using it to rekey.
+  rpc BlacklistClient (BlacklistClientRequest) returns (fleetspeak.EmptyMessage) {
   }
 }

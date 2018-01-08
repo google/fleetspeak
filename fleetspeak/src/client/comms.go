@@ -85,6 +85,10 @@ func (c commsContext) ChainRevoked(chain []*x509.Certificate) bool {
 	return c.c.config.ChainRevoked(chain)
 }
 
+func (c commsContext) CurrentID() common.ClientID {
+	return c.c.config.ClientID()
+}
+
 func (c commsContext) CurrentIdentity() (comms.ClientIdentity, error) {
 	p := c.c.config.CurrentState()
 	if p.ClientKey == nil {

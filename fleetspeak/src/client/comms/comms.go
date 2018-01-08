@@ -90,7 +90,10 @@ type Context interface {
 	// of the chain has been revoked.
 	ChainRevoked(chains []*x509.Certificate) bool
 
-	// CurrentIdentity returns the client's current identifying information.
+	// CurrentID returns the current client id.
+	CurrentID() common.ClientID
+
+	// CurrentIdentity returns the client's full identifying information.
 	CurrentIdentity() (ClientIdentity, error)
 
 	// ServerInfo returns the servers that the client should attempt to

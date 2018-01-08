@@ -101,3 +101,13 @@ func TestIntegration(t *testing.T) {
 
 	integrationtest.FRRIntegrationTest(t, ms, tmpDir)
 }
+
+func TestCloneHandling(t *testing.T) {
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("mysql_clone_handling")
+	defer tmpDirCleanup()
+
+	ms, fin := setup(t, "TestCloneHandling")
+	defer fin()
+
+	integrationtest.CloneHandlingTest(t, ms, tmpDir)
+}
