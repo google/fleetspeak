@@ -99,7 +99,6 @@ func toBroadcastProto(b *dbBroadcast) (*spb.Broadcast, error) {
 	return ret, nil
 }
 
-// CreateBroadcast implements db.BroadcastStore.
 func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit uint64) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -142,7 +141,6 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 	})
 }
 
-// SetBroadcastLimit implements db.BroadcastStore.
 func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -152,7 +150,6 @@ func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, l
 	})
 }
 
-// SaveBroadcastMessage implements db.BroadcastStore.
 func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bID ids.BroadcastID, cID common.ClientID, aID ids.AllocationID) error {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -191,7 +188,6 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 	})
 }
 
-// ListActiveBroadcasts implements db.BroadcastStore.
 func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -279,7 +275,6 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 	return ret, err
 }
 
-// ListSentBroadcasts implements db.BroadcastStore.
 func (d *Datastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) ([]ids.BroadcastID, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -307,7 +302,6 @@ func (d *Datastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) 
 	return res, nil
 }
 
-// CreateAllocation implements db.BroadcastStore.
 func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, frac float32, expiry time.Time) (*db.AllocationInfo, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -357,7 +351,6 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 	return ret, err
 }
 
-// CleanupAllocation implements db.BroadcastStore.
 func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, aID ids.AllocationID) error {
 	d.l.Lock()
 	defer d.l.Unlock()

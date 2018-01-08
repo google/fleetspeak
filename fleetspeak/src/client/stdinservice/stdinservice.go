@@ -54,21 +54,21 @@ func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	}, nil
 }
 
-// StdinService implements Service.
+// StdinService implements a service.Service which runs a command one for each
+// message received, passing data to it through stdin and getting the results
+// through stdout/stderr.
 type StdinService struct {
 	conf   *fspb.ClientServiceConfig
 	ssConf *sspb.Config
 	sc     service.Context
 }
 
-// Start implements Service.
 func (s *StdinService) Start(sc service.Context) error {
 	s.sc = sc
 
 	return nil
 }
 
-// ProcessMessage implements Service.
 func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	om := &sspb.OutputMessage{}
 
@@ -155,7 +155,6 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	return nil
 }
 
-// Stop implements Service.
 func (s *StdinService) Stop() error {
 	return nil
 }

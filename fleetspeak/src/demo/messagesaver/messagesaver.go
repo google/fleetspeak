@@ -51,10 +51,7 @@ type serv struct {
 
 func (s *serv) Start(sctx service.Context) error {
 	s.sctx = sctx
-	if err := os.MkdirAll(s.path, 0700); err != nil {
-		return err
-	}
-	return nil
+	return os.MkdirAll(s.path, 0700)
 }
 
 func (s *serv) ProcessMessage(ctx context.Context, m *fspb.Message) error {
@@ -80,10 +77,7 @@ func (s *serv) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 		return err
 	}
 	fileName := path.Join(clientDir, t.Format("2006.01.02_15:04:05.000_")+mid.String())
-	if err := ioutil.WriteFile(fileName, []byte(proto.MarshalTextString(m)), 0700); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(fileName, []byte(proto.MarshalTextString(m)), 0700)
 }
 
 func (s *serv) Stop() error {

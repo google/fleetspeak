@@ -29,7 +29,6 @@ type FakeContext struct {
 	ClientData   map[common.ClientID]*db.ClientData
 }
 
-// Send implements sevice.Context.
 func (c *FakeContext) Send(ctx context.Context, m *fspb.Message) error {
 	select {
 	case c.SentMessages <- m:
@@ -39,7 +38,6 @@ func (c *FakeContext) Send(ctx context.Context, m *fspb.Message) error {
 	}
 }
 
-// GetClientData implements sevice.Context.
 func (c *FakeContext) GetClientData(_ context.Context, id common.ClientID) (*db.ClientData, error) {
 	return c.ClientData[id], nil
 }

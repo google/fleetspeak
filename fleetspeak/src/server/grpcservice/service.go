@@ -60,13 +60,11 @@ func NewGRPCService(c *grpc.ClientConn) *GRPCService {
 	return ret
 }
 
-// Start implements service.Service.
 func (s *GRPCService) Start(sctx service.Context) error {
 	s.sctx = sctx
 	return nil
 }
 
-// Stop implements service.Service.
 func (s *GRPCService) Stop() error {
 	s.l.Lock()
 	defer s.l.Unlock()
@@ -98,7 +96,6 @@ func (s *GRPCService) Update(c *grpc.ClientConn) {
 	}
 }
 
-// ProcessMessage implements service.Service.
 func (s *GRPCService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	var err error
 	d := time.Second

@@ -58,7 +58,8 @@ type Context interface {
 	GetClientData(context.Context, common.ClientID) (*db.ClientData, error)
 }
 
-// ServiceFactory creates a server service for the provided configuration.
+// A Factory is a function which creates a server service for the provided
+// configuration.
 type Factory func(*spb.ServiceConfig) (Service, error)
 
 // NOOPFactory is a services.Factory that creates a service which drops all messages.

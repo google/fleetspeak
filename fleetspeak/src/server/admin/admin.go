@@ -36,6 +36,7 @@ func NewServer(s db.Store) sgrpc.AdminServer {
 	return adminServer{s}
 }
 
+// adminServer implements admin_grpc.AdminServer.
 type adminServer struct {
 	store db.Store
 }
@@ -119,7 +120,6 @@ func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClient
 	}, nil
 }
 
-// InsertMessage implements sgrpc.AdminServer.
 func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.EmptyMessage, error) {
 	// At this point, we mostly trust the message we get, but do some basic
 	// sanity checks and generate missing metadata.
@@ -145,7 +145,6 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	return &fspb.EmptyMessage{}, nil
 }
 
-// StoreFile implements sgrpc.AdminServer.
 func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (*fspb.EmptyMessage, error) {
 	if req.ServiceName == "" || req.FileName == "" {
 		return nil, errors.New("file must have service_name and file_name")
@@ -156,12 +155,10 @@ func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (
 	return &fspb.EmptyMessage{}, nil
 }
 
-// KeepAlive implements sgrpc.AdminServer.
 func (s adminServer) KeepAlive(ctx context.Context, _ *fspb.EmptyMessage) (*fspb.EmptyMessage, error) {
 	return &fspb.EmptyMessage{}, nil
 }
 
-// BlacklistClient implements sgrpc.BlacklistClient.
 func (s adminServer) BlacklistClient(ctx context.Context, req *spb.BlacklistClientRequest) (*fspb.EmptyMessage, error) {
 	id, err := common.BytesToClientID(req.ClientId)
 	if err != nil {
