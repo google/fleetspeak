@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
@@ -177,7 +178,8 @@ func TestBlacklist(t *testing.T) {
 				ServiceName: "testService",
 				ClientId:    id.Bytes(),
 			},
-			MessageType: "TestMessage",
+			MessageType:  "TestMessage",
+			CreationTime: db.NowProto(),
 		}}, ""); err != nil {
 		t.Fatalf("Unable to store message: %v", err)
 	}
