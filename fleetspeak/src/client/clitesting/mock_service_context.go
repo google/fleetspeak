@@ -46,7 +46,7 @@ func (sc *MockServiceContext) Send(ctx context.Context, m service.AckMessage) er
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-time.After(MockCommTimeout):
-		return fmt.Errorf("Timed out while waiting for the test to pick up output: %q", m)
+		return fmt.Errorf("Timed out while waiting for the test to pick up output: %+v", m)
 	case sc.OutChan <- m.M:
 		if m.Ack != nil {
 			m.Ack()

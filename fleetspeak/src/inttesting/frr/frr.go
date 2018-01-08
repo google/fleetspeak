@@ -251,7 +251,7 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 		// Zero the data field - save bandwidth and cpu communicating with master.
 		rd.Data = nil
 		if _, err := s.m.RecordTrafficResponse(ctx, &fpb.MessageInfo{ClientId: m.Source.ClientId, Data: &rd}); err != nil {
-			return service.TemporaryError{fmt.Errorf("failed to reach FRR master server: %v", err)}
+			return service.TemporaryError{E: fmt.Errorf("failed to reach FRR master server: %v", err)}
 		}
 	case "FileResponse":
 		var rd fpb.FileResponseData
@@ -259,7 +259,7 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 			log.Fatalf("unable to parse data as FileResponseData: %v", err)
 		}
 		if _, err := s.m.RecordFileResponse(ctx, &fpb.FileResponseInfo{ClientId: m.Source.ClientId, Data: &rd}); err != nil {
-			return service.TemporaryError{fmt.Errorf("failed to reach FRR master server: %v", err)}
+			return service.TemporaryError{E: fmt.Errorf("failed to reach FRR master server: %v", err)}
 		}
 	default:
 		log.Fatalf("unknown message type: [%v]", m.MessageType)

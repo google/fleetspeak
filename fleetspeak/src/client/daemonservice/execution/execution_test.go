@@ -272,7 +272,7 @@ func TestStats(t *testing.T) {
 			break
 		}
 		if ru.MeanResidentMemory <= 0.0 {
-			t.Errorf("ResourceUsage.MeanResidentMemory should be >0, got: %d", ru.MeanResidentMemory)
+			t.Errorf("ResourceUsage.MeanResidentMemory should be >0, got: %.2f", ru.MeanResidentMemory)
 			break
 		}
 		cnt++
