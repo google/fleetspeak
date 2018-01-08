@@ -131,6 +131,7 @@ func TestSystemServiceMessageAck(t *testing.T) {
 			Destination: &fspb.Address{
 				ClientId:    cid.Bytes(),
 				ServiceName: "TestService"},
+			CreationTime: db.NowProto(),
 		}}, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -198,6 +199,7 @@ func TestSystemServiceMessageError(t *testing.T) {
 			Destination: &fspb.Address{
 				ClientId:    cid.Bytes(),
 				ServiceName: "TestService"},
+			CreationTime: db.NowProto(),
 		}}, ""); err != nil {
 		t.Fatal(err)
 	}

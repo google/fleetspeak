@@ -178,7 +178,8 @@ func (c commsContext) MakeBlacklistMessage(ctx context.Context, info *comms.Clie
 			ServiceName: "system",
 			ClientId:    info.ID.Bytes(),
 		},
-		MessageType: "RekeyRequest",
+		MessageType:  "RekeyRequest",
+		CreationTime: db.NowProto(),
 	}
 	if err = c.s.dataStore.StoreMessages(ctx, []*fspb.Message{msg}, contactID); err != nil {
 		return nil, fmt.Errorf("unable to store RekeyRequest: %v", err)
