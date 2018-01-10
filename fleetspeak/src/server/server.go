@@ -26,6 +26,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/broadcasts"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
@@ -54,6 +55,7 @@ type Server struct {
 	broadcastManager *broadcasts.Manager
 	statsCollector   stats.Collector
 	authorizer       authorizer.Authorizer
+	clientCache      *cache.Clients
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -76,6 +78,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		comms:          sc.Communicators,
 		statsCollector: sc.Stats,
 		authorizer:     sc.Authorizer,
+		clientCache:    cache.NewClients(),
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats)
@@ -128,4 +131,5 @@ func (s *Server) Stop() {
 	if err := s.dataStore.Close(); err != nil {
 		log.Errorf("Error closing datastore: %v", err)
 	}
+	s.clientCache.Stop()
 }

@@ -49,13 +49,23 @@ type commsContext struct {
 // GetClientInfo loads basic information about a client. Returns nil if the client does
 // not exist in the datastore.
 func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*comms.ClientInfo, error) {
-	cld, err := c.s.dataStore.GetClientData(ctx, id)
-	if err != nil {
-		if c.s.dataStore.IsNotFound(err) {
-			return nil, nil
+	var cld *db.ClientData
+	var err error
+	var cacheHit bool
+
+	if cld = c.s.clientCache.Get(id); cld != nil {
+		cacheHit = true
+	} else {
+		cld, err = c.s.dataStore.GetClientData(ctx, id)
+		if err != nil {
+			if c.s.dataStore.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
+		c.s.clientCache.Update(id, cld)
 	}
+
 	k, err := x509.ParsePKIXPublicKey(cld.Key)
 	if err != nil {
 		return nil, err
@@ -64,7 +74,8 @@ func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*c
 		ID:          id,
 		Key:         k,
 		Labels:      cld.Labels,
-		Blacklisted: cld.Blacklisted}, nil
+		Blacklisted: cld.Blacklisted,
+		Cached:      cacheHit}, nil
 }
 
 // AddClient adds a new client to the system.
@@ -139,11 +150,17 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
 
-	bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.ID, info.Labels)
-	if err != nil {
-		return nil, err
+	// If the client recently contacted us, the broadcast situation is unlikely to
+	// have changed, so we skip checking for broadcasts. This could delay broacast
+	// distribution, but client cache records only live 30 seconds, so the delay
+	// should be small.
+	if !info.Cached {
+		bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.ID, info.Labels)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, bms...)
 	}
-	msgs = append(msgs, bms...)
 
 	if len(msgs) == 0 {
 		return msgs, nil
