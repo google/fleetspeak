@@ -1,0 +1,13 @@
+# Generated when installing the Python lib.
+fleetspeak.egg-info/
+
+# Binaries created by fleetspeak/build.sh
+fleetspeak/src/admin/fleetspeak_admin
+fleetspeak/src/client/daemonservice/testclient/testclient
+fleetspeak/src/client/socketservice/testclient/testclient
+fleetspeak/src/demo/admin_cli/admin_cli
+fleetspeak/src/demo/certgen/certgen
+fleetspeak/src/demo/configurator/configurator
+fleetspeak/src/demo/miniclient/miniclient
+fleetspeak/src/demo/miniserver/miniserver
+fleetspeak/src/server/grpcservice/client/testing/tester
