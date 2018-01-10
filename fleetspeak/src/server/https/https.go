@@ -328,6 +328,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		clientInfo.New = true
 	} else {
 		clientInfo.Labels = info.Labels
+		pi.CacheHit = info.Cached
 	}
 	if !s.fs.Authorizer().Allow3(addr, contactInfo, clientInfo) {
 		pi.Status = http.StatusServiceUnavailable
