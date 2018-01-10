@@ -81,7 +81,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		clientCache:    cache.NewClients(),
 	}
 
-	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats)
+	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
 
 	for _, pc := range c.Services {
 		if err := s.serviceConfig.Install(pc); err != nil {

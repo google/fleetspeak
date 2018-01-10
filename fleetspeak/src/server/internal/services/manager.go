@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
@@ -46,7 +47,7 @@ type Manager struct {
 }
 
 // NewManager creates a new manager using the provided components. Initially it only contains the 'system' service.
-func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, stats stats.Collector) *Manager {
+func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, stats stats.Collector, clientCache *cache.Clients) *Manager {
 	m := Manager{
 		services:        make(map[string]*liveService),
 		dataStore:       dataStore,
@@ -60,7 +61,12 @@ func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, 
 		maxParallelism: 100,
 		pLogLimiter:    rate.NewLimiter(rate.Every(10*time.Second), 1),
 	}
-	ss := systemService{sctx: &ssd, stats: stats, datastore: dataStore}
+	ss := systemService{
+		sctx:      &ssd,
+		stats:     stats,
+		datastore: dataStore,
+		cc:        clientCache,
+	}
 	ssd.service = &ss
 	m.services["system"] = &ssd
 	ss.Start(&ssd)

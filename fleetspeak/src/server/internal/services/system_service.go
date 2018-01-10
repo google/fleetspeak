@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
@@ -45,6 +46,7 @@ type systemService struct {
 	stats     stats.Collector
 	datastore db.Store
 	w         sync.WaitGroup
+	cc        *cache.Clients
 }
 
 func (s *systemService) Start(sctx service.Context) error {
@@ -222,6 +224,10 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 			}
 		}
 	}
+	// Forget anything we know about this client. Other servers could have
+	// now-stale data, but this client is likely to stick with us due to
+	// connection reuse.
+	s.cc.Update(cid, nil)
 	return nil
 }
 
