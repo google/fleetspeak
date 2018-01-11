@@ -20,6 +20,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 )
 
+// SetClientCacheMaxAge adjusts the maximum age that cached client data is
+// considered valid for. This can be used to make tests run faster.
 func SetClientCacheMaxAge(d time.Duration) func() {
 	o := cache.MaxAge
 	cache.MaxAge = d
