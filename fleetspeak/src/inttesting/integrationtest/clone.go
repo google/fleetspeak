@@ -38,6 +38,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
+	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	dpb "github.com/golang/protobuf/ptypes/duration"
@@ -50,6 +51,9 @@ import (
 // CloneHandlingTest runs an integration test using ds in which cloned clients
 // are dealt with.
 func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
+	fin := sertesting.SetClientCacheMaxAge(time.Second)
+	defer fin()
+
 	// Create FS server certs and server communicator.
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
