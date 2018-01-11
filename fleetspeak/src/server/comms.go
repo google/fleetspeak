@@ -151,9 +151,9 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 	}
 
 	// If the client recently contacted us, the broadcast situation is unlikely to
-	// have changed, so we skip checking for broadcasts. This could delay broacast
-	// distribution, but client cache records only live 30 seconds, so the delay
-	// should be small.
+	// have changed, so we skip checking for broadcasts. To keep this from delaying
+	// broadcast distribution, the broadcast manager clears the client cache when it
+	// finds more broadcasts.
 	if !info.Cached {
 		bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.ID, info.Labels)
 		if err != nil {

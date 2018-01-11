@@ -105,8 +105,11 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	if c.BroadcastPollTime == nil {
 		c.BroadcastPollTime = &dpb.Duration{Seconds: 60}
 	}
-	bm, err := broadcasts.MakeManager(context.Background(), sc.Datastore,
-		time.Duration(c.BroadcastPollTime.Seconds)*time.Second+time.Duration(c.BroadcastPollTime.Nanos)*time.Nanosecond)
+	bm, err := broadcasts.MakeManager(
+		context.Background(),
+		sc.Datastore,
+		time.Duration(c.BroadcastPollTime.Seconds)*time.Second+time.Duration(c.BroadcastPollTime.Nanos)*time.Nanosecond,
+		s.clientCache)
 	if err != nil {
 		return nil, err
 	}
