@@ -44,6 +44,7 @@ type ClientInfo struct {
 	Key         crypto.PublicKey
 	Labels      []*fspb.Label
 	Blacklisted bool
+	Cached      bool // Whether the data was retrieved from a cache.
 }
 
 // A Context defines the view of the Fleetspeak server provided to a Communicator.

@@ -40,6 +40,9 @@ type PollInfo struct {
 
 	// Time spent reading and writing messages.
 	ReadTime, WriteTime time.Duration
+
+	// Whether the client was in the client cache.
+	CacheHit bool
 }
 
 // A Collector is a component which is notified when certain events occurred, to support
