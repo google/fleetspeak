@@ -114,5 +114,5 @@ func (cmd *Command) SetupCommsChannel() (*channel.Channel, error) {
 	cmd.AddEnvVar(fmt.Sprintf("FLEETSPEAK_COMMS_CHANNEL_INFD=%d", inFd))
 	cmd.AddEnvVar(fmt.Sprintf("FLEETSPEAK_COMMS_CHANNEL_OUTFD=%d", outFd))
 
-	return channel.New(pr, pw), nil
+	return channel.NewSystemChannel(pr, pw), nil
 }

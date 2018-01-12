@@ -22,6 +22,8 @@ import (
 	"strconv"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
+
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 )
 
 // Init initializes the library, assuming that we are in a process started by
@@ -52,5 +54,6 @@ func Init() (*channel.Channel, error) {
 
 	pw := os.NewFile(uintptr(outFd), "-")
 
-	return channel.New(pr, pw), nil
+	sd := &fcpb.StartupData{Pid: int64(os.Getpid())}
+	return channel.NewServiceChannel(pr, pw, sd), nil
 }

@@ -180,7 +180,7 @@ func (s *Service) accept() *chanInfo {
 		con, err := s.l.Accept()
 		if err == nil {
 			r := &chanInfo{
-				Channel: channel.New(con, con),
+				Channel: channel.NewSystemChannel(con, con),
 				conn:    con,
 				done:    make(chan struct{}),
 			}

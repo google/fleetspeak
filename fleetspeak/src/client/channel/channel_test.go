@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -29,8 +31,9 @@ func TestWithLoopback(t *testing.T) {
 	toLoopReader, toLoopWriter := io.Pipe()
 	fromLoopReader, fromLoopWriter := io.Pipe()
 
-	mainEnd := New(fromLoopReader, toLoopWriter)
-	loopEnd := New(toLoopReader, fromLoopWriter)
+	sd := &fcpb.StartupData{Pid: 1234}
+	mainEnd := NewSystemChannel(fromLoopReader, toLoopWriter)
+	loopEnd := NewServiceChannel(toLoopReader, fromLoopWriter, sd)
 
 	// build a simple loopback onto the loopEnd:
 	go func() {
@@ -50,6 +53,16 @@ func TestWithLoopback(t *testing.T) {
 			}
 		}
 	}()
+
+	// Read startup data from loopEnd.
+	select {
+	case sdIn := <-mainEnd.StartupDataIn:
+		if sdIn.Pid != sd.Pid {
+			t.Errorf("Unexpected pid, got [%v], want [%v]", sdIn.Pid, sd.Pid)
+		}
+  case <- time.After(5 * time.Second):
+    t.Errorf("timed out while waiting for startup data from loopEnd")
+	}
 
 	for _, m := range []*fspb.Message{
 		{
@@ -102,7 +115,7 @@ func TestDeadEnd(t *testing.T) {
 	toLoopReader, toLoopWriter := io.Pipe()
 	fromLoopReader, fromLoopWriter := io.Pipe()
 
-	mainEnd := New(fromLoopReader, toLoopWriter)
+	mainEnd := NewSystemChannel(fromLoopReader, toLoopWriter)
 	defer toLoopReader.Close()
 	defer fromLoopWriter.Close()
 
@@ -141,7 +154,7 @@ func TestBlackhole(t *testing.T) {
 	toLoopReader, toLoopWriter := io.Pipe()
 	fromLoopReader, fromLoopWriter := io.Pipe()
 
-	mainEnd := New(fromLoopReader, toLoopWriter)
+	mainEnd := NewSystemChannel(fromLoopReader, toLoopWriter)
 	go func() {
 		for {
 			buf := make([]byte, 1024)

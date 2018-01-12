@@ -19,7 +19,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 )
 
-// OpenChannel creates a channel.RelentlessChannel to a fleetspeak server
+// OpenChannel creates a channel.RelentlessChannel to a fleetspeak client
 // through an agreed upon unix domain socket.
 func OpenChannel(socketPath string) *channel.RelentlessChannel {
 	return channel.NewRelentlessChannel(

@@ -39,7 +39,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 			log.Warningf("failed to connect to [%s], will retry: %v", socketPath, err)
 		} else {
 			log.Infof("connected to [%s]", socketPath)
-			return channel.New(conn, conn), func() {
+			return channel.NewServiceChannel(conn, conn, nil), func() {
 				// Because it is a socket, this is sufficient to terminate any pending
 				// I/O operations.
 				conn.Close()

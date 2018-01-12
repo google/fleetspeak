@@ -25,7 +25,9 @@ import (
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -84,10 +86,25 @@ type Channel struct {
 
 	magicRead chan bool // signals if the first magic number read succeeds or fails
 	inProcess sync.WaitGroup
+
+	startupDataOut *fcpb.StartupData // Startup data to send to the other process. Is never nil.
+	StartupDataIn <-chan *fcpb.StartupData // Startup data sent by the other process. Data sent through here is never nil.
+	sdi chan<- *fcpb.StartupData // Other end of StartupDataIn
 }
 
-// New instantiates a Channel. pr and pw will be closed when the Channel is shutdown.
-func New(pr io.ReadCloser, pw io.WriteCloser) *Channel {
+// NewServiceChannel instantiates a Channel for a Fleetspeak-dependent service.
+// pr and pw will be closed when the Channel is shutdown.
+func NewServiceChannel(pr io.ReadCloser, pw io.WriteCloser, sdo *fcpb.StartupData) *Channel {
+	return newChannel(pr, pw, sdo)
+}
+
+// NewSystemChannel creates a Channel for Fleetspeak.
+// pr and pw will be closed when the Channel is shutdown.
+func NewSystemChannel(pr io.ReadCloser, pw io.WriteCloser) *Channel {
+	return newChannel(pr, pw, nil)
+}
+
+func newChannel(pr io.ReadCloser, pw io.WriteCloser, sdo *fcpb.StartupData) *Channel {
 	// Leave these unbuffered to minimize data loss if the other end
 	// freezes.
 	i := make(chan *fspb.Message)
@@ -95,6 +112,8 @@ func New(pr io.ReadCloser, pw io.WriteCloser) *Channel {
 
 	// Buffer the error channel, so that our cleanup won't be delayed.
 	e := make(chan error, 5)
+
+	sdi := make(chan *fcpb.StartupData, 1)
 
 	ret := &Channel{
 		In:       i,
@@ -109,6 +128,10 @@ func New(pr io.ReadCloser, pw io.WriteCloser) *Channel {
 		e:   e,
 
 		magicRead: make(chan bool, 1),
+
+		startupDataOut: sdo,
+    StartupDataIn: sdi,
+    sdi: sdi,
 	}
 
 	ret.inProcess.Add(2)
@@ -150,53 +173,83 @@ func (c *Channel) readLoop() {
 		}
 		c.inProcess.Done()
 	}()
+	// Read first message sent through the channel. If it contains startup data, write the
+	// data to c.StartupDataIn
+	initialMsg := c.readMsg(&magicRead)
+	if initialMsg == nil {
+		return // An error occurred while trying to read from the channel.
+	}
+	sdRead := false
+	if initialMsg.Destination == nil && initialMsg.MessageType == "StartupData" {
+		sd := &fcpb.StartupData{}
+    if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
+    	log.Warningf("Failed to parse startup data from initial message: %v", err)
+		} else {
+			sdRead = true
+			c.sdi <- sd
+			close(c.sdi) // No more values to send through the channel.
+		}
+	}
+  if !sdRead {
+  	// Handle the first message like any other message.
+  	c.i <- initialMsg
+	}
 	for {
-		// The magic number should always come quickly.
-		b, err := c.read(4, MagicTimeout)
-		if err != nil {
-			log.Errorf("error reading magic number: %v", err) // do not submit
-			c.e <- fmt.Errorf("error reading magic number: %v", err)
-			return
-		}
-		m := byteOrder.Uint32(b)
-		if m != magic {
-			c.e <- fmt.Errorf("read unexpected magic number, want [%x], got [%x]", magic, m)
-			return
-		}
-		if !magicRead {
-			c.magicRead <- true
-			magicRead = true
-		}
-
-		// No time limit - we wait until there is a message.
-		var size uint32
-		if err := binary.Read(c.pipeRead, byteOrder, &size); err != nil {
-			// closed pipe while waiting for the next size is a normal shutdown.
-			if !(err == io.ErrClosedPipe || err == io.EOF) {
-				c.e <- fmt.Errorf("error reading size: %v", err)
-			}
-			return
-		}
-		if size > maxSize {
-			c.e <- fmt.Errorf("read unexpected size, want less than [%x], got [%x]", maxSize, size)
-			return
-		}
-
-		// The message should come soon after the size.
-		b, err = c.read(int(size), MessageTimeout)
-		if err != nil {
-			c.e <- fmt.Errorf("error reading message: %v", err)
-			return
-		}
-
-		// The message should be a fspb.Message
-		msg := &fspb.Message{}
-		if err := proto.Unmarshal(b, msg); err != nil {
-			c.e <- fmt.Errorf("error parsing received message: %v", err)
+		msg := c.readMsg(&magicRead)
+		if msg == nil {
 			return
 		}
 		c.i <- msg
 	}
+}
+
+// readMsg blocks until a message from the other side of the channel is read into 'msg',
+// or until an error occurs. Returns nil if the read failed.
+func (c *Channel) readMsg(magicRead *bool) *fspb.Message {
+	// The magic number should always come quickly.
+	b, err := c.read(4, MagicTimeout)
+	if err != nil {
+		log.Errorf("error reading magic number: %v", err)
+		c.e <- fmt.Errorf("error reading magic number: %v", err)
+		return nil
+	}
+	m := byteOrder.Uint32(b)
+	if m != magic {
+		c.e <- fmt.Errorf("read unexpected magic number, want [%x], got [%x]", magic, m)
+		return nil
+	}
+	if !*magicRead {
+		c.magicRead <- true
+		*magicRead = true
+	}
+
+	// No time limit - we wait until there is a message.
+	var size uint32
+	if err := binary.Read(c.pipeRead, byteOrder, &size); err != nil {
+		// closed pipe while waiting for the next size is a normal shutdown.
+		if !(err == io.ErrClosedPipe || err == io.EOF) {
+			c.e <- fmt.Errorf("error reading size: %v", err)
+		}
+		return nil
+	}
+	if size > maxSize {
+		c.e <- fmt.Errorf("read unexpected size, want less than [%x], got [%x]", maxSize, size)
+		return nil
+	}
+
+	// The message should come soon after the size.
+	b, err = c.read(int(size), MessageTimeout)
+	if err != nil {
+		c.e <- fmt.Errorf("error reading message: %v", err)
+		return nil
+	}
+
+	msg := &fspb.Message{}
+	if err := proto.Unmarshal(b, msg); err != nil {
+		c.e <- fmt.Errorf("error parsing received message: %v", err)
+		return nil
+	}
+	return msg
 }
 
 func (c *Channel) writeLoop() {
@@ -211,32 +264,58 @@ func (c *Channel) writeLoop() {
 		c.e <- fmt.Errorf("error writing magic number: %v", err)
 		return
 	}
+	// Send startup data.
+	if c.startupDataOut != nil {
+		sd, err := ptypes.MarshalAny(c.startupDataOut)
+		if err != nil {
+			c.e <- fmt.Errorf("unable to marshal StartupData: %v", err)
+			return
+		}
+		// We do not set a destination for the initial message, since it is essentially metadata
+		// for the channel connection.
+		initialMsg := &fspb.Message{
+			MessageType: "StartupData",
+			Data: sd,
+		}
+		if !c.writeMsg(initialMsg) {
+			return
+		}
+	}
 	if !<-c.magicRead {
 		return
 	}
 	for msg := range c.o {
-		buf, err := proto.Marshal(msg)
-		if err != nil {
-			log.Errorf("Unable to marshal message to send: %v", err)
-			continue
-		}
-		if len(buf) > int(maxSize) {
-			log.Errorf("Overlarge message to send, want less than [%x] got [%x]", maxSize, len(buf))
-			continue
-		}
-		if err := binary.Write(c.pipeWrite, byteOrder, int32(len(buf))); err != nil {
-			c.e <- fmt.Errorf("error writing message length: %v", err)
-			return
-		}
-		if _, err := c.pipeWrite.Write(buf); err != nil {
-			c.e <- fmt.Errorf("error writing message: %v", err)
-			return
-		}
-		if err := binary.Write(c.pipeWrite, byteOrder, magic); err != nil {
-			c.e <- fmt.Errorf("error writing magic number: %v", err)
+		if !c.writeMsg(msg) {
 			return
 		}
 	}
+}
+
+// writeMsg sends a message through the channel, followed by the magic number. Returns true if no
+// serious error occurred (one that would cause us to tear down the channel).
+func (c *Channel) writeMsg(msg *fspb.Message) bool {
+	buf, err := proto.Marshal(msg)
+	if err != nil {
+		log.Errorf("Unable to marshal message to send: %v", err)
+		return true
+	}
+	if len(buf) > int(maxSize) {
+		log.Errorf("Overlarge message to send, want less than [%x] got [%x]", maxSize, len(buf))
+		return true
+	}
+	if err := binary.Write(c.pipeWrite, byteOrder, int32(len(buf))); err != nil {
+		c.e <- fmt.Errorf("error writing message length: %v", err)
+		return false
+	}
+	if _, err := c.pipeWrite.Write(buf); err != nil {
+		c.e <- fmt.Errorf("error writing message: %v", err)
+		return false
+	}
+	if err := binary.Write(c.pipeWrite, byteOrder, magic); err != nil {
+		c.e <- fmt.Errorf("error writing magic number: %v", err)
+		return false
+	}
+	return true
 }
 
 // Wait waits for all underlying threads to shutdown.
