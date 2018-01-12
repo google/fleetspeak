@@ -244,6 +244,7 @@ func (m *ResourceUsageMonitor) StatsReporterLoop() {
 					Destination: &fspb.Address{ServiceName: "system"},
 					MessageType: "ResourceUsage",
 					Data:        d,
+					Priority:    fspb.Message_LOW,
 				},
 			})
 			if !ruReported {
