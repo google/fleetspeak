@@ -248,6 +248,9 @@ func (c *Communicator) processingLoop() {
 		// Compute the time that we should next send (assuming we don't hit a send
 		// threshold). This could be MaxPollDelay after the last successful send.
 		deadline := lastPoll.Add(jitter(c.conf.MaxPollDelaySeconds))
+		if log.V(2) {
+			log.Infof("Base wait of %v", deadline.Sub(time.Now()))
+		}
 
 		// If we received something recently, we reduce it to 200ms + 1/10 of the
 		// time since we last received a message. (Instructions often lead to more
@@ -256,6 +259,9 @@ func (c *Communicator) processingLoop() {
 			fpd := lastPoll.Add(200*time.Millisecond + time.Since(lastActive)/10)
 			if fpd.Before(deadline) {
 				deadline = fpd
+				if log.V(2) {
+					log.Infof("Last active %v ago, reduced wait to %v.", time.Since(lastActive), deadline.Sub(time.Now()))
+				}
 			}
 		}
 
@@ -270,6 +276,7 @@ func (c *Communicator) processingLoop() {
 
 		now := time.Now()
 		if now.After(deadline) || toSendSize > sendBytesThreshold || len(toSend) >= sendCountThreshold {
+			log.V(1).Info("Polling without delay.")
 			poll()
 			if c.ctx.Err() != nil {
 				return
@@ -285,6 +292,7 @@ func (c *Communicator) processingLoop() {
 			// any idle connection now.
 			c.hc.Transport.(*http.Transport).CloseIdleConnections()
 		}
+		log.V(1).Infof("Waiting %v for next poll.", delay)
 
 		select {
 		case <-c.ctx.Done():
@@ -317,6 +325,9 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 	for _, m := range toSend {
 		msgs = append(msgs, m.M)
 		if m.M.Priority != fspb.Message_LOW {
+			if !sent && bool(log.V(2)) {
+				log.Infof("Activity: %s - %s", m.M.Destination.ServiceName, m.M.MessageType)
+			}
 			sent = true
 		}
 	}
