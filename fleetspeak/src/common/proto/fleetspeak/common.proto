@@ -108,6 +108,10 @@ message ContactData {
   // the next contact.
   uint64 sequencing_nonce = 1;
   repeated Message messages = 2;
+
+  // Records the client's current time setting, as of the creation of this
+  // ContactData. Only set by the client.
+   google.protobuf.Timestamp client_clock = 3;
 }
 
 // An empty message, typically used as a trivial RPC response.
