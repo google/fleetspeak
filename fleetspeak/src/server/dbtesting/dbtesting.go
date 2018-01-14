@@ -265,7 +265,11 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 	if err := ms.AddClient(ctx, clientID3, &db.ClientData{Key: []byte("test key")}); err != nil {
 		t.Fatalf("AddClient [%v] failed: %v", clientID3, err)
 	}
-	contact, err := ms.RecordClientContact(ctx, clientID3, 42, 43, "127.0.0.1")
+	contact, err := ms.RecordClientContact(ctx, db.ContactData{
+		ClientID:      clientID3,
+		NonceSent:     42,
+		NonceReceived: 43,
+		Addr:          "127.0.0.1"})
 	if err != nil {
 		t.Fatalf("RecordClientContact failed: %v", err)
 	}
@@ -579,7 +583,11 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		}
 	}
 	longAddr := "[ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.123.123]:65535"
-	contactID, err := ds.RecordClientContact(ctx, clientID, 42, 54, longAddr)
+	contactID, err := ds.RecordClientContact(ctx, db.ContactData{
+		ClientID:      clientID,
+		NonceSent:     42,
+		NonceReceived: 54,
+		Addr:          longAddr})
 	if err != nil {
 		t.Errorf("unexpected error for RecordClientContact: %v", err)
 	}

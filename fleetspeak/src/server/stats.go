@@ -137,9 +137,9 @@ func (d MonitoredDatastore) BlacklistClient(ctx context.Context, id common.Clien
 	return err
 }
 
-func (d MonitoredDatastore) RecordClientContact(ctx context.Context, id common.ClientID, nonceSent, nonceReceived uint64, addr string) (db.ContactID, error) {
+func (d MonitoredDatastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
 	s := ftime.Now()
-	res, err := d.D.RecordClientContact(ctx, id, nonceSent, nonceReceived, addr)
+	res, err := d.D.RecordClientContact(ctx, data)
 	d.C.DatastoreOperation(s, ftime.Now(), "RecordClientContact", err)
 	return res, err
 }

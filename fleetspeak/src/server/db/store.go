@@ -37,6 +37,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -148,6 +149,13 @@ type MessageProcessor interface {
 	ProcessMessages(msgs []*fspb.Message)
 }
 
+type ContactData struct {
+	ClientID                 common.ClientID
+	NonceSent, NonceReceived uint64
+	Addr                     string
+	ClientClock              *tpb.Timestamp
+}
+
 // ClientStore provides methods to store and retrieve information about clients.
 type ClientStore interface {
 	// ListClients returns basic information about clients. If ids is empty, it
@@ -174,7 +182,7 @@ type ClientStore interface {
 	// RecordClientContact records an authenticated contact with a
 	// client. On success provides a contact id - an opaque string which can
 	// be used to link messages to a contact.
-	RecordClientContact(ctx context.Context, id common.ClientID, nonceSent, nonceReceived uint64, addr string) (ContactID, error)
+	RecordClientContact(ctx context.Context, data ContactData) (ContactID, error)
 
 	// ListClientContacts lists all of the contacts in the database for a given
 	// client.

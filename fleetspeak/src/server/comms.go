@@ -116,9 +116,15 @@ func (c commsContext) HandleClientContact(ctx context.Context, info *comms.Clien
 	if len(cd.Messages) > maxMessagesPerContact {
 		return nil, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
-
 	toSend := fspb.ContactData{SequencingNonce: uint64(rand.Int63())}
-	ct, err := c.RecordClientContact(ctx, info, toSend.SequencingNonce, cd.SequencingNonce, addr.String())
+	ct, err := c.s.dataStore.RecordClientContact(ctx,
+		db.ContactData{
+			ClientID:      info.ID,
+			NonceSent:     toSend.SequencingNonce,
+			NonceReceived: cd.SequencingNonce,
+			Addr:          addr.String(),
+			ClientClock:   cd.ClientClock,
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -222,12 +228,6 @@ func (c commsContext) validateMessageFromClient(id common.ClientID, m *fspb.Mess
 	m.ValidationInfo = validationInfo
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
 	return nil
-}
-
-// RecordClientContact records that a contact occurred. The resulting
-// ContactID is guaranteed to be unique.
-func (c commsContext) RecordClientContact(ctx context.Context, info *comms.ClientInfo, sentNonce, receivedNonce uint64, addr string) (db.ContactID, error) {
-	return c.s.dataStore.RecordClientContact(ctx, info.ID, sentNonce, receivedNonce, addr)
 }
 
 // handleMessagesFromClient processes a block of messages from a particular

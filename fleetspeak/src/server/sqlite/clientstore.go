@@ -196,14 +196,15 @@ func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) err
 	return err
 }
 
-func (d *Datastore) RecordClientContact(ctx context.Context, cid common.ClientID, nonceSent, nonceReceived uint64, addr string) (db.ContactID, error) {
+func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
+
 	var res db.ContactID
 	err := d.runInTx(func(tx *sql.Tx) error {
 		n := db.Now().UnixNano()
 		r, err := tx.ExecContext(ctx, "INSERT INTO client_contacts(client_id, time, sent_nonce, received_nonce, address) VALUES(?, ?, ?, ?, ?)",
-			cid.String(), n, nonceSent, nonceReceived, addr)
+			data.ClientID.String(), n, data.NonceSent, data.NonceReceived, data.Addr)
 		if err != nil {
 			return err
 		}
@@ -211,7 +212,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, cid common.ClientID
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ? WHERE client_id = ?", n, addr, cid.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ? WHERE client_id = ?", n, data.Addr, data.ClientID.String()); err != nil {
 			return err
 		}
 		res = db.ContactID(strconv.FormatUint(uint64(id), 16))
