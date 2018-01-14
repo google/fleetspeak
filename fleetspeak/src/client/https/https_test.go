@@ -194,6 +194,7 @@ func TestCommunicator(t *testing.T) {
 					{Destination: &fspb.Address{ServiceName: "DummyService"}},
 				},
 			}
+			cb.ClientClock = nil
 			if !proto.Equal(cb, want) {
 				t.Errorf("Unexpected ContactData: want [%v], got [%v]", want, cb)
 			}
