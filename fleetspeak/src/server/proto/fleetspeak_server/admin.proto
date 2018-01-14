@@ -35,6 +35,7 @@ message Client {
   repeated Label labels = 2;
   google.protobuf.Timestamp last_contact_time = 3;
   string last_contact_address = 4;
+  google.protobuf.Timestamp last_clock = 5;
 }
 
 message GetMessageStatusRequest {
