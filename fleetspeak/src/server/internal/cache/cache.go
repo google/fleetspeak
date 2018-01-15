@@ -94,7 +94,7 @@ func (c *Clients) Clear() {
 	c.m = make(map[common.ClientID]*clientEntry)
 }
 
-// Stop releases the resources required for background cache maintenence. The
+// Stop releases the resources required for background cache maintenance. The
 // cache should not be used once Stop has been called.
 func (c *Clients) Stop() {
 	close(c.stop)

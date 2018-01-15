@@ -144,7 +144,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
 			Communicator:     &chttps.Communicator{},
 		})
 	if err != nil {
-		t.Fatalf("Unable to start intial client: %v", err)
+		t.Fatalf("Unable to start initial client: %v", err)
 	}
 	cl.Stop()
 

@@ -158,7 +158,7 @@ func TestRekey(t *testing.T) {
 	start := time.Now()
 	var nid common.ClientID
 	defer tk.Stop()
-	for _ = range tk.C {
+	for range tk.C {
 		nid = cl.config.ClientID()
 		if nid != oid {
 			break
