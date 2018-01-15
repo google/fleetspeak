@@ -56,7 +56,7 @@ type Summary struct {
 	IPCount     int       // Number of distinct IPs observed.
 	Splits      int       // Number of excess references to nonces.
 	SplitPoints int       // Number of distinct nonces with more than 1 reference.
-	Skips       int       // Number of points which reference a nonce other than the immediatly previous contact.
+	Skips       int       // Number of points which reference a nonce other than the immediately previous contact.
 }
 
 type contactSlice []*spb.ClientContact
@@ -121,7 +121,7 @@ func validate(contacts []*spb.ClientContact) error {
 		}
 		times[ts] = true
 
-		// The sent nonce is a 64 bit number that should have been choosen by the
+		// The sent nonce is a 64 bit number that should have been chosen by the
 		// server for each contact using a strong RNG. If we see a duplicate it is a
 		// data error that might confuse other analysis.
 		if nonces[c.SentNonce] {
@@ -140,7 +140,7 @@ func validateTime(nm map[uint64]*spb.ClientContact) error {
 		}
 		if p := nm[i.ReceivedNonce]; p != nil {
 			if !tsLess(p.Timestamp, i.Timestamp) {
-				// The nonce recieved from a client cannot reference a nonce produced by
+				// The nonce received from a client cannot reference a nonce produced by
 				// the server in the future. If this seems to have happened, it is a
 				// data error that could confuse other analysis.
 				return fmt.Errorf("nonce at [%v] references future time [%v]", i.Timestamp, p.Timestamp)

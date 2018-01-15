@@ -125,7 +125,7 @@ type MessageStore interface {
 	// GetMessages retrieves specific messages.
 	GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error)
 
-	// GetMessageStatus retrieves the current status of a message.
+	// GetMessageResult retrieves the current status of a message.
 	GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error)
 
 	// RegisterMessageProcessor installs a MessageProcessor which will be
