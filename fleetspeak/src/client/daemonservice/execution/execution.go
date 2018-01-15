@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -60,8 +61,11 @@ var (
 	// is no longer accepting messages.
 	ErrShuttingDown = errors.New("shutting down")
 
+	dirForward = flag.String("dir_forward", "",
+		"If set, redirects the dependent service's std{in,out} to files in the given directory. Meant for testing individual daemonservice integrations.")
+
 	stdForward = flag.Bool("std_forward", false,
-		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
+		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations. Mutually exclusive with --dir_forward.")
 )
 
 // An Execution represents a specific execution of a daemonservice.
@@ -115,7 +119,22 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 	ret.Out = ret.channel.Out
 
-	if *stdForward {
+	if *dirForward != "" {
+		t := time.Now().UTC().UnixNano()
+		prefix := fmt.Sprintf("fleetspeak.%s.%d", daemonServiceName, t)
+
+		fo, err := os.Create(path.Join(*dirForward, prefix + ".stdout.log"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to open the stdout file for --dir_forward: %v", err)
+		}
+		ret.cmd.Stdout = fo
+
+		fe, err := os.Create(path.Join(*dirForward, prefix + ".stderr.log"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to open the stderr file for --dir_forward: %v", err)
+		}
+		ret.cmd.Stderr = fe
+	} else if *stdForward {
 		log.Warningf("std_forward is set, connecting std... to %s", cfg.Argv[0])
 		ret.cmd.Stdin = os.Stdin
 		ret.cmd.Stdout = os.Stdout
