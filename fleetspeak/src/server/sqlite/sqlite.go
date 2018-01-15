@@ -93,6 +93,7 @@ func initDB(db *sql.DB) error {
 
 func initSchema(db *sql.DB) error {
 	for _, s := range []string{
+		`PRAGMA journal_mode = WAL`,
 		`CREATE TABLE IF NOT EXISTS clients(
 client_id TEXT(16) PRIMARY KEY,
 client_key BLOB,
