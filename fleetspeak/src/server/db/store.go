@@ -149,11 +149,13 @@ type MessageProcessor interface {
 	ProcessMessages(msgs []*fspb.Message)
 }
 
+// ContactData provides basic information about a client's contact with a FS
+// server.
 type ContactData struct {
-	ClientID                 common.ClientID
-	NonceSent, NonceReceived uint64
-	Addr                     string
-	ClientClock              *tpb.Timestamp
+	ClientID                 common.ClientID // ID of the client.
+	NonceSent, NonceReceived uint64          // Nonce sent to the client and received from the client.
+	Addr                     string          // Observed client network address.
+	ClientClock              *tpb.Timestamp  // Client's report of its current clock setting.
 }
 
 // ClientStore provides methods to store and retrieve information about clients.
