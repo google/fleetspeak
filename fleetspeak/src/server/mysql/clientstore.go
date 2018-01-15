@@ -50,7 +50,8 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 			var sid string
 			var timeNS int64
 			var addr sql.NullString
-			if err := rows.Scan(&sid, &timeNS, &addr); err != nil {
+			var clockSecs, clockNanos sql.NullInt64
+			if err := rows.Scan(&sid, &timeNS, &addr, &clockSecs, &clockNanos); err != nil {
 				return err
 			}
 
@@ -68,10 +69,18 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 				addr.String = ""
 			}
 
+			var lastClock *tspb.Timestamp
+			if clockSecs.Valid && clockNanos.Valid {
+				lastClock = &tspb.Timestamp{
+					Seconds: clockSecs.Int64,
+					Nanos:   int32(clockNanos.Int64),
+				}
+			}
 			retm[sid] = &spb.Client{
 				ClientId:           id.Bytes(),
 				LastContactTime:    ts,
 				LastContactAddress: addr.String,
+				LastClock:          lastClock,
 			}
 		}
 		return rows.Err()
@@ -79,12 +88,12 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		if len(ids) == 0 {
-			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address FROM clients")); err != nil {
+			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos FROM clients")); err != nil {
 				return err
 			}
 		} else {
 			for _, id := range ids {
-				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address FROM clients WHERE client_id = ?", id.String())); err != nil {
+				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos FROM clients WHERE client_id = ?", id.String())); err != nil {
 					return err
 				}
 			}
@@ -198,7 +207,12 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ? WHERE client_id = ?", n, data.Addr, data.ClientID.String()); err != nil {
+		var lcs, lcn sql.NullInt64
+		if data.ClientClock != nil {
+			lcs.Int64, lcs.Valid = data.ClientClock.Seconds, true
+			lcn.Int64, lcn.Valid = int64(data.ClientClock.Nanos), true
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ?, last_clock_seconds = ?, last_clock_nanos = ? WHERE client_id = ?", n, data.Addr, lcs, lcn, data.ClientID.String()); err != nil {
 			return err
 		}
 		res = db.ContactID(strconv.FormatUint(uint64(id), 16))
