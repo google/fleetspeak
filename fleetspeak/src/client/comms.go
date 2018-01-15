@@ -22,6 +22,7 @@ import (
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -44,6 +45,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedCont
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
 		Messages:        toSend,
+		ClientClock:     ptypes.TimestampNow(),
 	}
 	b, err := proto.Marshal(&cd)
 	if err != nil {
