@@ -587,7 +587,9 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		ClientID:      clientID,
 		NonceSent:     42,
 		NonceReceived: 54,
-		Addr:          longAddr})
+		Addr:          longAddr,
+		ClientClock:   &tpb.Timestamp{Seconds: 21},
+	})
 	if err != nil {
 		t.Errorf("unexpected error for RecordClientContact: %v", err)
 	}
@@ -655,6 +657,7 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		},
 		LastContactTime:    &tpb.Timestamp{Seconds: 84},
 		LastContactAddress: longAddr,
+		LastClock:          &tpb.Timestamp{Seconds: 21},
 	}
 
 	labelSorter{got.Labels}.Sort()
