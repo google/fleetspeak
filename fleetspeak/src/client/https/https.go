@@ -324,7 +324,9 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 	msgs := make([]*fspb.Message, 0, len(toSend))
 	for _, m := range toSend {
 		msgs = append(msgs, m.M)
-		if m.M.Priority != fspb.Message_LOW {
+		// TODO: Remove the priority condition once all client services use
+		// Background.
+		if !(m.M.Priority == fspb.Message_LOW || m.M.Background) {
 			if !sent && bool(log.V(2)) {
 				log.Infof("Activity: %s - %s", m.M.Destination.ServiceName, m.M.MessageType)
 			}
