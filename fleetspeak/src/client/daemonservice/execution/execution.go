@@ -123,13 +123,13 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		t := time.Now().UTC().UnixNano()
 		prefix := fmt.Sprintf("fleetspeak.%s.%d", daemonServiceName, t)
 
-		fo, err := os.Create(path.Join(*dirForward, prefix + ".stdout.log"))
+		fo, err := os.Create(path.Join(*dirForward, prefix+".stdout.log"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to open the stdout file for --dir_forward: %v", err)
 		}
 		ret.cmd.Stdout = fo
 
-		fe, err := os.Create(path.Join(*dirForward, prefix + ".stderr.log"))
+		fe, err := os.Create(path.Join(*dirForward, prefix+".stderr.log"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to open the stderr file for --dir_forward: %v", err)
 		}
@@ -421,6 +421,7 @@ func (e *Execution) sendStats(ctx context.Context, aggRU *mpb.AggregatedResource
 				MessageType: "ResourceUsage",
 				Data:        d,
 				Priority:    fspb.Message_LOW,
+				Background:  true,
 			},
 		})
 	}

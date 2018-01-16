@@ -106,13 +106,14 @@ func TestAckMsg(t *testing.T) {
 		},
 		MessageType: "MessageAck",
 		Priority:    fspb.Message_HIGH,
+		Background:  true,
 	}
 	wantMessage.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{MessageIds: [][]byte{id.Bytes()}})
 	if err != nil {
 		t.Errorf("Unable to marshal MessageAckData: %v", err)
 	}
 	if !proto.Equal(&res, &wantMessage) {
-		t.Errorf("got %v for ack result, want %v", res, wantMessage)
+		t.Errorf("got %+v for ack result, want %+v", res, wantMessage)
 	}
 }
 
@@ -134,13 +135,14 @@ func TestErrorMsg(t *testing.T) {
 		},
 		MessageType: "MessageError",
 		Priority:    fspb.Message_HIGH,
+		Background:  true,
 	}
 	wantMessage.Data, err = ptypes.MarshalAny(&ed)
 	if err != nil {
 		t.Errorf("Unable to marshal MessageErrData: %v", err)
 	}
 	if !proto.Equal(&res, &wantMessage) {
-		t.Errorf("got %v for err result, want %v", res, wantMessage)
+		t.Errorf("got %+v for err result, want %+v", res, wantMessage)
 	}
 }
 

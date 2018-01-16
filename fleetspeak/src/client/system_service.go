@@ -125,6 +125,7 @@ func (s *systemService) ackLoop() {
 					MessageType: "MessageAck",
 					Priority:    fspb.Message_HIGH,
 					Data:        d,
+					Background:  true,
 				},
 			}); err != nil {
 				log.Errorf("error acknowledging message: %v", err)
@@ -152,6 +153,7 @@ func (s *systemService) errLoop() {
 					MessageType: "MessageError",
 					Priority:    fspb.Message_HIGH,
 					Data:        d,
+					Background:  true,
 				},
 			}); err != nil {
 				log.Errorf("error reporting message error: %v", err)
