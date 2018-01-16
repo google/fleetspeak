@@ -61,6 +61,11 @@ message Message {
     HIGH = 2;
   }
   Priority priority = 10;
+
+  // A background message does not count as activity when deciding how fast to
+  // poll the server. This flag should be set on messages which are unlikely to
+  // trigger additional activity.
+  bool background = 11;
 }
 
 message MessageResult {

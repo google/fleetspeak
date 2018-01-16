@@ -35,7 +35,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/common/proto/fleetspeak/common.proto',
   package='fleetspeak',
   syntax='proto3',
-  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"\x93\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x17\n\x0fvalidation_info\x18\x08 \x01(\t\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x01(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\x80\x01\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
+  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"\xa7\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x17\n\x0fvalidation_info\x18\x08 \x01(\t\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\x12\x12\n\nbackground\x18\x0b \x01(\x08\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x01(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\x80\x01\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -62,8 +62,8 @@ _MESSAGE_PRIORITY = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=542,
-  serialized_end=583,
+  serialized_start=562,
+  serialized_end=603,
 )
 _sym_db.RegisterEnumDescriptor(_MESSAGE_PRIORITY)
 
@@ -183,6 +183,13 @@ _MESSAGE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='background', full_name='fleetspeak.Message.background', index=10,
+      number=11, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -197,7 +204,7 @@ _MESSAGE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=180,
-  serialized_end=583,
+  serialized_end=603,
 )
 
 
@@ -241,8 +248,8 @@ _MESSAGERESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=585,
-  serialized_end=691,
+  serialized_start=605,
+  serialized_end=711,
 )
 
 
@@ -279,8 +286,8 @@ _LABEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=693,
-  serialized_end=737,
+  serialized_start=713,
+  serialized_end=757,
 )
 
 
@@ -324,8 +331,8 @@ _SIGNATURE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=739,
-  serialized_end=809,
+  serialized_start=759,
+  serialized_end=829,
 )
 
 
@@ -369,8 +376,8 @@ _WRAPPEDCONTACTDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=811,
-  serialized_end=919,
+  serialized_start=831,
+  serialized_end=939,
 )
 
 
@@ -414,8 +421,8 @@ _CONTACTDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=922,
-  serialized_end=1050,
+  serialized_start=942,
+  serialized_end=1070,
 )
 
 
@@ -438,8 +445,8 @@ _EMPTYMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1052,
-  serialized_end=1066,
+  serialized_start=1072,
+  serialized_end=1086,
 )
 
 _MESSAGE.fields_by_name['source'].message_type = _ADDRESS
