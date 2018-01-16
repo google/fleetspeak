@@ -245,6 +245,7 @@ func (m *ResourceUsageMonitor) StatsReporterLoop() {
 					MessageType: "ResourceUsage",
 					Data:        d,
 					Priority:    fspb.Message_LOW,
+					Background:  true,
 				},
 			})
 			if !ruReported {
