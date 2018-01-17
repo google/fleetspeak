@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
@@ -50,7 +51,7 @@ type PollInfo struct {
 type Collector interface {
 	// MessageIngested is called when a message is received from a client, or as
 	// a backlogged message from the datastore.
-	MessageIngested(service, messageType string, backlogged bool, payloadBytes int)
+	MessageIngested(backlogged bool, m *fspb.Message)
 
 	// MessageSaved is called when a message is first saved to the database.
 	MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int)

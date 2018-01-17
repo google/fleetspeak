@@ -32,7 +32,7 @@ import (
 
 type noopStatsCollector struct{}
 
-func (s noopStatsCollector) MessageIngested(service, messageType string, backlogged bool, payloadBytes int) {
+func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 }
 
 func (s noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {

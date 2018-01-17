@@ -62,8 +62,8 @@ type statsCounter struct {
 	messagesIngested, payloadBytesSaved, messagesProcessed, messagesErrored, messagesDropped, clientPolls, datastoreOperations int64
 }
 
-func (c *statsCounter) MessageIngested(service, messageType string, backlogged bool, payloadBytes int) {
-	if service == "FRR" {
+func (c *statsCounter) MessageIngested(backlogged bool, m *fspb.Message) {
+	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesIngested, 1)
 	}
 }
