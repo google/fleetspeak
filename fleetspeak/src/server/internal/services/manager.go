@@ -126,13 +126,6 @@ func (c *Manager) Stop() {
 	c.services = map[string]*liveService{}
 }
 
-func pSize(m *fspb.Message) int {
-	if m.Data == nil {
-		return 0
-	}
-	return len(m.Data.Value)
-}
-
 // ProcessMessages implements MessageProcessor and is called by the datastore on
 // backlogged messages.
 func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
@@ -145,7 +138,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 
 	for idx, msg := range msgs {
 		i, m := idx, msg
-		c.stats.MessageIngested(m.Destination.ServiceName, m.MessageType, true, pSize(m))
+		c.stats.MessageIngested(true, m)
 		go func() {
 			defer working.Done()
 			l := c.services[m.Destination.ServiceName]
@@ -235,7 +228,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 			return fmt.Errorf("HandleNewMessage called with bad Destination: %v", m.Destination)
 		}
 		m.CreationTime = now
-		c.stats.MessageIngested(m.Destination.ServiceName, m.MessageType, false, pSize(m))
+		c.stats.MessageIngested(false, m)
 	}
 
 	// Try to processes all the messages in parallel, with a 30 second timeout.

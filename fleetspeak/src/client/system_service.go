@@ -185,6 +185,7 @@ func (s *systemService) cfgLoop() {
 					MessageType: "ClientInfo",
 					Priority:    fspb.Message_HIGH,
 					Data:        d,
+					Background:  true,
 				},
 			}); err != nil {
 				log.Errorf("error reporting configuration change: %v", err)
