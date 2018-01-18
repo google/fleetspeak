@@ -152,24 +152,25 @@ func TestRespawn(t *testing.T) {
 	// less than 10 seconds.
 	seen := make(map[int64]bool)
 	late := time.After(10 * time.Second)
-	for len(seen) < 3 {
-		select {
-		case <-late:
-			t.Errorf("Expected 3 pids in 10 seconds, only saw: %d", len(seen))
-			break
-		case m := <-sc.OutChan:
-			if m.MessageType != "ResourceUsage" {
-				t.Errorf("Received unexpected message type: %s", m.MessageType)
-				continue
 
+	L:
+		for len(seen) < 3 {
+			select {
+			case <-late:
+				t.Errorf("Expected 3 pids in 10 seconds, only saw: %d", len(seen))
+				break L
+			case m := <-sc.OutChan:
+				if m.MessageType != "ResourceUsage" {
+					t.Errorf("Received unexpected message type: %s", m.MessageType)
+					continue
+				}
+				var rud mpb.ResourceUsageData
+				if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
+					t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+				}
+				seen[rud.Pid] = true
 			}
-			var rud mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
-				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
-			}
-			seen[rud.Pid] = true
 		}
-	}
 	delta := time.Since(start)
 	if delta < 2*time.Second {
 		t.Errorf("Expected to need at least 2 seconds to see 3 pids, but only needed %v", delta)
@@ -268,7 +269,6 @@ func TestInactivityTimeout(t *testing.T) {
 	if err := s.Stop(); err != nil {
 		t.Errorf("Unexpected error from DaemonService.Stop(): %v", err)
 	}
-
 }
 
 func exerciseBacklog(t *testing.T, client []string) {
@@ -298,11 +298,11 @@ func exerciseBacklog(t *testing.T, client []string) {
 
 		start := time.Now()
 		err = s.ProcessMessage(ctx, msg) // err in outer block, checked at loop end
-		c()
-		rt := time.Since(start)
 		if err == nil {
 			msgCnt++
 		}
+		c()
+		rt := time.Since(start)
 		// verify that ProcessMessage respects ctx.
 		if rt > 2*time.Second {
 			t.Errorf("ProcessMessage with 1 second timeout took %v", rt)

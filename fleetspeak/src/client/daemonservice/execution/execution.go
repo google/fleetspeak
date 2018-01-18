@@ -66,6 +66,10 @@ var (
 
 	stdForward = flag.Bool("std_forward", false,
 		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations. Mutually exclusive with --dir_forward.")
+
+	// How long to wait for the daemon service to send startup data before starting to
+	// monitor resource-usage.
+	startupDataTimeout = 10 * time.Second
 )
 
 // An Execution represents a specific execution of a daemonservice.
@@ -149,28 +153,10 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		return nil, err
 	}
 
-	ruf := monitoring.ResourceUsageFetcher{}
-	initialRU, err := ruf.ResourceUsageForPID(ret.cmd.Process.Pid)
-	if err != nil {
-		log.Errorf("Failed to get resource usage for daemon process: %v", err)
-	}
-
-	rum, err := monitoring.NewResourceUsageMonitor(
-		ret.sc, ret.daemonServiceName, ret.cmd.Process.Pid, ret.StartTime, MaxStatsSamplePeriod, StatsSampleSize, ret.Done)
-	if err != nil {
-		rum = nil
-		log.Errorf("Failed to start resource-usage monitor: %v", err)
-	}
-
 	ret.inProcess.Add(4)
 	go ret.flushLoop()
 	go ret.inLoop()
-	go func() {
-		defer ret.inProcess.Done()
-		if rum != nil {
-			rum.StatsReporterLoop()
-		}
-	}()
+	go ret.statsLoop()
 	go func() {
 		defer func() {
 			ret.Shutdown()
@@ -181,22 +167,23 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		if ret.waitResult != nil {
 			log.Warningf("subprocess ended with error: %v", ret.waitResult)
 		}
-		if rum != nil && rum.StatsSent() || initialRU == nil {
-			return
-		}
-		// Send resource-usage data to the server if the stats loop didn't get a chance to
-		// do that e.g. for short-running processes.
-		finalRU := ruf.ResourceUsageFromFinishedCmd(&ret.cmd.Cmd)
-		aggRU, err := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
+		startTime, err := ptypes.TimestampProto(ret.StartTime)
 		if err != nil {
-			log.Errorf("Aggregation of resource-usage data failed: %v", err)
+			log.Errorf("Failed to convert process start time: %v", err)
 			return
 		}
-		ctx, c := context.WithTimeout(context.Background(), time.Second)
-		ret.sendStats(ctx, aggRU)
-		c()
+		rud := &mpb.ResourceUsageData{
+			Scope:            ret.daemonServiceName,
+			Pid:              int64(ret.cmd.Process.Pid),
+			ProcessStartTime: startTime,
+			DataTimestamp:    ptypes.TimestampNow(),
+			ResourceUsage:    &mpb.AggregatedResourceUsage{},
+			ProcessTerminated: true,
+		}
+		if err := monitoring.SendResourceUsage(rud, ret.sc); err != nil {
+			log.Errorf("Failed to send final resource-usage proto: %v", err)
+		}
 	}()
-
 	return &ret, nil
 }
 
@@ -395,34 +382,30 @@ func (e *Execution) inLoop() {
 	}
 }
 
-// sendStats attempts to send an mpb.ResourceUsageData proto to the server.
-func (e *Execution) sendStats(ctx context.Context, aggRU *mpb.AggregatedResourceUsage) {
-	startTime, err := ptypes.TimestampProto(e.StartTime)
-	if err != nil {
-		// Well, this really should never happen, since the field is set to the return
-		// value of time.Now()
-		log.Errorf("Client start time timestamp failed validation check: %v", e.StartTime)
+// statsLoop monitors the daemon process's resource usage, sending reports to the server
+// at regular intervals.
+func (e *Execution) statsLoop() {
+	defer e.inProcess.Done()
+	pid := e.cmd.Process.Pid
+	select {
+	case sd := <- e.channel.StartupDataIn:
+		if int(sd.Pid) != pid {
+			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
+			pid = int(sd.Pid)
+		}
+	case <- time.After(startupDataTimeout):
+		log.Errorf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
+	case <- e.Done:
 		return
 	}
-	rud := mpb.ResourceUsageData{
-		Scope:            e.daemonServiceName,
-		Pid:              int64(e.cmd.Process.Pid),
-		ProcessStartTime: startTime,
-		DataTimestamp:    ptypes.TimestampNow(),
-		ResourceUsage:    aggRU,
-	}
-	d, err := ptypes.MarshalAny(&rud)
+
+	rum, err := monitoring.NewResourceUsageMonitor(
+		e.sc, e.daemonServiceName, pid, e.StartTime, MaxStatsSamplePeriod, StatsSampleSize, e.Done)
 	if err != nil {
-		log.Errorf("unable to marshal ResourceUsageData: %v", err)
-	} else {
-		e.sc.Send(ctx, service.AckMessage{
-			M: &fspb.Message{
-				Destination: &fspb.Address{ServiceName: "system"},
-				MessageType: "ResourceUsage",
-				Data:        d,
-				Priority:    fspb.Message_LOW,
-				Background:  true,
-			},
-		})
+		log.Errorf("Failed to start resource-usage monitor: %v", err)
+		return
 	}
+
+	// This blocks until the daemon process terminates.
+	rum.Run()
 }

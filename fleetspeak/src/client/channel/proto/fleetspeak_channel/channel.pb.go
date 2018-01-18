@@ -27,8 +27,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// First message sent through a channel when it is created. It is meant to
-// contain info about the process that the other end of the channel might
+// Optional first message sent through a channel when it is created. It is meant
+// to contain info about the process that the other end of the channel might
 // find useful.
 type StartupData struct {
 	// Self-reported PID.
