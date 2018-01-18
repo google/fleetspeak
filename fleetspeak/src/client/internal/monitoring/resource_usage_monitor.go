@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sync/atomic"
 	"time"
 
 	log "github.com/golang/glog"
@@ -162,8 +161,6 @@ type ResourceUsageMonitor struct {
 	ruf      resourceUsageFetcherI
 	errChan  chan<- error
 	doneChan chan struct{}
-
-	statsSent atomic.Value // whether the StatsReportLoop has sent at least one resource-usage report
 }
 
 // NewResourceUsageMonitor creates a new ResourceUsageMonitor and starts it in a separate goroutine.
@@ -209,11 +206,6 @@ func newResourceUsageMonitor(sc service.Context, ruf resourceUsageFetcherI, scop
 	return &m, nil
 }
 
-// StatsSent returns whether or not the StatsReportLoop has sent at least one resource-usage report.
-func (m *ResourceUsageMonitor) StatsSent() bool {
-	return m.statsSent.Load() != nil
-}
-
 // Run is the business method of the resource-usage monitor. It blocks until doneChan is closed.
 func (m *ResourceUsageMonitor) Run() {
 	min := func(a, b time.Duration) time.Duration {
@@ -239,7 +231,6 @@ func (m *ResourceUsageMonitor) Run() {
 		initialSample = false
 	}
 
-	ruReported := false
 	for {
 		select {
 		case <-m.doneChan:
@@ -288,10 +279,6 @@ func (m *ResourceUsageMonitor) Run() {
 				if err := SendResourceUsage(rud, m.sc); err != nil {
 					m.errorf("failed to send resource-usage data to the server: %v", err)
 					continue
-				}
-				if !ruReported {
-					ruReported = true
-					m.statsSent.Store(true)
 				}
 				resetSamples()
 			}
