@@ -173,11 +173,11 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 			return
 		}
 		rud := &mpb.ResourceUsageData{
-			Scope:            ret.daemonServiceName,
-			Pid:              int64(ret.cmd.Process.Pid),
-			ProcessStartTime: startTime,
-			DataTimestamp:    ptypes.TimestampNow(),
-			ResourceUsage:    &mpb.AggregatedResourceUsage{},
+			Scope:             ret.daemonServiceName,
+			Pid:               int64(ret.cmd.Process.Pid),
+			ProcessStartTime:  startTime,
+			DataTimestamp:     ptypes.TimestampNow(),
+			ResourceUsage:     &mpb.AggregatedResourceUsage{},
 			ProcessTerminated: true,
 		}
 		if err := monitoring.SendResourceUsage(rud, ret.sc); err != nil {
@@ -388,14 +388,14 @@ func (e *Execution) statsLoop() {
 	defer e.inProcess.Done()
 	pid := e.cmd.Process.Pid
 	select {
-	case sd := <- e.channel.StartupDataIn:
+	case sd := <-e.channel.StartupDataIn:
 		if int(sd.Pid) != pid {
 			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
 			pid = int(sd.Pid)
 		}
-	case <- time.After(startupDataTimeout):
+	case <-time.After(startupDataTimeout):
 		log.Errorf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
-	case <- e.Done:
+	case <-e.Done:
 		return
 	}
 

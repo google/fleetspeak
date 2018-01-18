@@ -153,24 +153,24 @@ func TestRespawn(t *testing.T) {
 	seen := make(map[int64]bool)
 	late := time.After(10 * time.Second)
 
-	L:
-		for len(seen) < 3 {
-			select {
-			case <-late:
-				t.Errorf("Expected 3 pids in 10 seconds, only saw: %d", len(seen))
-				break L
-			case m := <-sc.OutChan:
-				if m.MessageType != "ResourceUsage" {
-					t.Errorf("Received unexpected message type: %s", m.MessageType)
-					continue
-				}
-				var rud mpb.ResourceUsageData
-				if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
-					t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
-				}
-				seen[rud.Pid] = true
+L:
+	for len(seen) < 3 {
+		select {
+		case <-late:
+			t.Errorf("Expected 3 pids in 10 seconds, only saw: %d", len(seen))
+			break L
+		case m := <-sc.OutChan:
+			if m.MessageType != "ResourceUsage" {
+				t.Errorf("Received unexpected message type: %s", m.MessageType)
+				continue
 			}
+			var rud mpb.ResourceUsageData
+			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
+				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+			}
+			seen[rud.Pid] = true
 		}
+	}
 	delta := time.Since(start)
 	if delta < 2*time.Second {
 		t.Errorf("Expected to need at least 2 seconds to see 3 pids, but only needed %v", delta)

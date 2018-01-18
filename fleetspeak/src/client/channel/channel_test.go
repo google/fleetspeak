@@ -60,8 +60,8 @@ func TestWithLoopback(t *testing.T) {
 		if sdIn.Pid != sd.Pid {
 			t.Errorf("Unexpected pid, got [%v], want [%v]", sdIn.Pid, sd.Pid)
 		}
-  case <- time.After(5 * time.Second):
-    t.Errorf("timed out while waiting for startup data from loopEnd")
+	case <-time.After(5 * time.Second):
+		t.Errorf("timed out while waiting for startup data from loopEnd")
 	}
 
 	for _, m := range []*fspb.Message{

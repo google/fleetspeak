@@ -150,7 +150,7 @@ type resourceUsageFetcherI interface {
 // ResourceUsageMonitor computes resource-usage metrics for a process and delivers them periodically
 // via a channel.
 type ResourceUsageMonitor struct {
-	sc      service.Context
+	sc service.Context
 
 	scope             string
 	pid               int
@@ -192,7 +192,7 @@ func newResourceUsageMonitor(sc service.Context, ruf resourceUsageFetcherI, scop
 	initialSampleSize := sampleSize + backoffSize
 
 	m := ResourceUsageMonitor{
-		sc:      sc,
+		sc: sc,
 
 		scope:             scope,
 		pid:               pid,
@@ -203,7 +203,7 @@ func newResourceUsageMonitor(sc service.Context, ruf resourceUsageFetcherI, scop
 
 		ruf:      ruf,
 		doneChan: doneChan,
-		errChan: errChan,
+		errChan:  errChan,
 	}
 
 	return &m, nil

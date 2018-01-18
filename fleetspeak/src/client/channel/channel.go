@@ -87,9 +87,9 @@ type Channel struct {
 	magicRead chan bool // signals if the first magic number read succeeds or fails
 	inProcess sync.WaitGroup
 
-	startupDataOut *fcpb.StartupData // Startup data to send to the other process. Is never nil.
-	StartupDataIn <-chan *fcpb.StartupData // Startup data sent by the other process. Data sent through here is never nil.
-	sdi chan<- *fcpb.StartupData // Other end of StartupDataIn
+	startupDataOut *fcpb.StartupData        // Startup data to send to the other process. Is never nil.
+	StartupDataIn  <-chan *fcpb.StartupData // Startup data sent by the other process. Data sent through here is never nil.
+	sdi            chan<- *fcpb.StartupData // Other end of StartupDataIn
 }
 
 // NewServiceChannel instantiates a Channel for a Fleetspeak-dependent service.
@@ -130,8 +130,8 @@ func newChannel(pr io.ReadCloser, pw io.WriteCloser, sdo *fcpb.StartupData) *Cha
 		magicRead: make(chan bool, 1),
 
 		startupDataOut: sdo,
-    StartupDataIn: sdi,
-    sdi: sdi,
+		StartupDataIn:  sdi,
+		sdi:            sdi,
 	}
 
 	ret.inProcess.Add(2)
@@ -182,17 +182,17 @@ func (c *Channel) readLoop() {
 	sdRead := false
 	if initialMsg.Destination == nil && initialMsg.MessageType == "StartupData" {
 		sd := &fcpb.StartupData{}
-    if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
-    	log.Warningf("Failed to parse startup data from initial message: %v", err)
+		if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
+			log.Warningf("Failed to parse startup data from initial message: %v", err)
 		} else {
 			sdRead = true
 			c.sdi <- sd
 			close(c.sdi) // No more values to send through the channel.
 		}
 	}
-  if !sdRead {
-  	// Handle the first message like any other message.
-  	c.i <- initialMsg
+	if !sdRead {
+		// Handle the first message like any other message.
+		c.i <- initialMsg
 	}
 	for {
 		msg := c.readMsg(&magicRead)
@@ -275,7 +275,7 @@ func (c *Channel) writeLoop() {
 		// for the channel connection.
 		initialMsg := &fspb.Message{
 			MessageType: "StartupData",
-			Data: sd,
+			Data:        sd,
 		}
 		if !c.writeMsg(initialMsg) {
 			return
