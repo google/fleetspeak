@@ -308,7 +308,7 @@ func (m *ResourceUsageMonitor) errorf(format string, a ...interface{}) {
 	}
 }
 
-// Packages up resource-usage data and sends it to the server.
+// SendResourceUsage packages up resource-usage data and sends it to the server.
 func SendResourceUsage(rud *mpb.ResourceUsageData, sc service.Context) error {
 	d, err := ptypes.MarshalAny(rud)
 	if err != nil {
