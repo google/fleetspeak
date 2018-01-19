@@ -19,7 +19,7 @@ matrix:
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
-        - golint ./... | grep -v 'should have comment or be unexported'
+        # - golint ./... | grep -v 'should have comment or be unexported'
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/build.sh && fleetspeak/test.sh
