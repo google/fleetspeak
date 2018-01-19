@@ -87,8 +87,8 @@ type Channel struct {
 	magicRead chan bool // signals if the first magic number read succeeds or fails
 	inProcess sync.WaitGroup
 
-	startupDataOut *fcpb.StartupData        // Startup data to send to the other process. Is never nil.
-	StartupDataIn  <-chan *fcpb.StartupData // Startup data sent by the other process. Data sent through here is never nil.
+	startupDataOut *fcpb.StartupData        // Startup data to send to the other process.
+	StartupDataIn  <-chan *fcpb.StartupData // Startup data sent by the other process.
 	sdi            chan<- *fcpb.StartupData // Other end of StartupDataIn
 }
 
@@ -203,7 +203,7 @@ func (c *Channel) readLoop() {
 	}
 }
 
-// readMsg blocks until a message from the other side of the channel is read into 'msg',
+// readMsg blocks until a new message from the other side of the channel is read,
 // or until an error occurs. Returns nil if the read failed.
 func (c *Channel) readMsg(magicRead *bool) *fspb.Message {
 	// The magic number should always come quickly.
@@ -271,8 +271,8 @@ func (c *Channel) writeLoop() {
 			c.e <- fmt.Errorf("unable to marshal StartupData: %v", err)
 			return
 		}
-		// We do not set a destination for the initial message, since it is essentially metadata
-		// for the channel connection.
+		// We do not set a destination for the initial message, since it is not meant for delivery
+		// to any particular component (other than the channel implementation).
 		initialMsg := &fspb.Message{
 			MessageType: "StartupData",
 			Data:        sd,
