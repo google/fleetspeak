@@ -93,7 +93,8 @@ func TestResourceUsageMonitor(t *testing.T) {
 	}
 	go rum.Run()
 
-	timeout := time.After(100 * time.Millisecond)
+	timeout := 100 * time.Millisecond
+	timeoutWhen := time.After(timeout)
 
 	for protosReceived := 0; protosReceived < 2; protosReceived++ {
 		select {
@@ -133,7 +134,7 @@ func TestResourceUsageMonitor(t *testing.T) {
 			}
 		case err := <-errChan:
 			t.Error(err)
-		case <-timeout:
+		case <-timeoutWhen:
 			t.Fatalf("Received %d resource-usage protos after %v. Wanted 2.", protosReceived, timeout)
 		}
 	}

@@ -26,7 +26,6 @@ import struct
 from fleetspeak.src.client.channel.proto.fleetspeak_channel import channel_pb2
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 
-
 _WINDOWS = (platform.system() == "Windows")
 if _WINDOWS:
   import msvcrt  # pylint: disable=g-import-not-at-top

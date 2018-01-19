@@ -271,6 +271,6 @@ func TestStats(t *testing.T) {
 	// We expect floor(2800 / 500) regular resource-usage reports, plus the last one sent after
 	// the process terminates.
 	if ruCnt != 6 {
-		t.Errorf("Unexpected number of resource-usage reports received. Got %d. Want 5.", ruCnt)
+		t.Errorf("Unexpected number of resource-usage reports received. Got %d. Want 6.", ruCnt)
 	}
 }

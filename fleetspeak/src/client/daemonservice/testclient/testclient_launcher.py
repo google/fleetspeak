@@ -15,8 +15,9 @@
 
 """Script that launches testclient.Loopback in another process."""
 
-from google.apputils import app
 import multiprocessing
+
+from google.apputils import app
 
 from fleetspeak.src.client.daemonservice.testclient import testclient
 

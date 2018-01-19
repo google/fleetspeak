@@ -402,7 +402,7 @@ func (e *Execution) statsLoop() {
 	rum, err := monitoring.NewResourceUsageMonitor(
 		e.sc, e.daemonServiceName, pid, e.StartTime, MaxStatsSamplePeriod, StatsSampleSize, e.Done)
 	if err != nil {
-		log.Errorf("Failed to start resource-usage monitor: %v", err)
+		log.Errorf("Failed to create resource-usage monitor: %v", err)
 		return
 	}
 
