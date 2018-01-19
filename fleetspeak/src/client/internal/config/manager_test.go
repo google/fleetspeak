@@ -19,12 +19,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"io/ioutil"
 	"testing"
 
-	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -55,14 +54,11 @@ func TestRekey(t *testing.T) {
 }
 
 func TestWriteback(t *testing.T) {
-	d, err := ioutil.TempDir("", "TestWriteback_")
-	if err != nil {
-		t.Fatalf("unable to create temp directory: %v", err)
-	}
-	log.Infof("Create temp directory: %v", d)
+	tmpPath, fin := comtesting.GetTempDirOrRegKey("TestWriteback")
+	defer fin()
 
 	m1, err := StartManager(&config.Configuration{
-		ConfigurationPath: d,
+		ConfigurationPath: tmpPath,
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)
@@ -75,7 +71,7 @@ func TestWriteback(t *testing.T) {
 	m1.Stop()
 
 	m2, err := StartManager(&config.Configuration{
-		ConfigurationPath: d,
+		ConfigurationPath: tmpPath,
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("Unable to create new config manager: %v", err)

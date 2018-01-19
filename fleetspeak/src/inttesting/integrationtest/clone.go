@@ -17,10 +17,10 @@ package integrationtest
 import (
 	"context"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -50,7 +50,7 @@ import (
 
 // CloneHandlingTest runs an integration test using ds in which cloned clients
 // are dealt with.
-func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
+func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 	fin := sertesting.SetClientCacheMaxAge(time.Second)
 	defer fin()
 
@@ -114,9 +114,11 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
 	admin := sgrpc.NewAdminClient(conn)
 
 	// Prepare a general client config.
-	configPath := path.Join(tmpDir, "client_1")
-	if err := os.Mkdir(configPath, 0777); err != nil {
-		t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
+	configPath := filepath.Join(tmpConfPath, "client_1")
+	if runtime.GOOS != "windows" {
+		if err := os.Mkdir(configPath, 0777); err != nil {
+			t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
+		}
 	}
 
 	conf := config.Configuration{
@@ -148,16 +150,18 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
 	}
 	cl.Stop()
 
-	wb, err := ioutil.ReadFile(path.Join(configPath, "writeback"))
+	wb, err := readFile(configPath, "writeback")
 	if err != nil {
 		t.Fatalf("Unable to read example writeback file: %v", err)
 	}
 	for _, pc := range []string{"client_2", "client_3", "client_4", "client_5"} {
-		configPath := path.Join(tmpDir, pc)
-		if err := os.Mkdir(configPath, 0777); err != nil {
-			t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
+		configPath := filepath.Join(tmpConfPath, pc)
+		if runtime.GOOS != "windows" {
+			if err := os.Mkdir(configPath, 0777); err != nil {
+				t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
+			}
 		}
-		ioutil.WriteFile(path.Join(configPath, "writeback"), wb, 0644)
+		writeFile(configPath, "writeback", wb)
 	}
 
 	// We have 5 config dirs with the same key. Start a client running against
@@ -165,7 +169,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpDir string) {
 
 	for i, pc := range []string{"client_1", "client_2", "client_3", "client_4", "client_5"} {
 		conf := config.Configuration{
-			ConfigurationPath: path.Join(tmpDir, pc),
+			ConfigurationPath: filepath.Join(tmpConfPath, pc),
 			TrustedCerts:      x509.NewCertPool(),
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: "clone_test"},

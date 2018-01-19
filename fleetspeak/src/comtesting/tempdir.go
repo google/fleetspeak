@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"runtime"
 
 	log "github.com/golang/glog"
 )
@@ -34,7 +33,7 @@ var tempDir string
 // can be returned as the temp dir, and gets cluttered quickly.
 func GetTempDir(testName string) (string, func()) {
 	if tempDir != "" {
-		return tempDir, cleanup
+		return tempDir, cleanupTempDir
 	}
 
 	tempDir = os.Getenv("TEST_TMPDIR")
@@ -47,18 +46,10 @@ func GetTempDir(testName string) (string, func()) {
 		tempDir = d
 	}
 	log.Infof("Created temp directory: %s", tempDir)
-	return tempDir, cleanup
+	return tempDir, cleanupTempDir
 }
 
-func cleanup() {
-	if runtime.GOOS != "windows" || tempDir == "" {
-		return
-	}
-
-	if err := os.RemoveAll(tempDir); err != nil {
-		log.Errorf("Failed to cleanup temp dir; os.RemoveAll(%q): %v", tempDir, err)
-		return
-	}
-
-	tempDir = ""
+// GetTempDir creates and returns the name of a temporary registry key on Windows or a temporary directory on other platforms.
+func GetTempDirOrRegKey(testName string) (string, func()) {
+	return getTempDirOrRegKey(testName)
 }

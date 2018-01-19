@@ -41,6 +41,8 @@ func TestFRRIntegration(t *testing.T) {
 }
 
 func TestCloneHandling(t *testing.T) {
+	tmpConfPath, tmpConfPathCleanup := comtesting.GetTempDirOrRegKey("sqlite_clone_handling")
+	defer tmpConfPathCleanup()
 	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_clone_handling")
 	defer tmpDirCleanup()
 	// Create an sqlite datastore.
@@ -52,5 +54,5 @@ func TestCloneHandling(t *testing.T) {
 	log.Infof("Created database: %s", p)
 	defer ds.Close()
 
-	integrationtest.CloneHandlingTest(t, ds, tmpDir)
+	integrationtest.CloneHandlingTest(t, ds, tmpConfPath)
 }
