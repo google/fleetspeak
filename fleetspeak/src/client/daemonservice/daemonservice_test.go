@@ -253,7 +253,6 @@ func TestInactivityTimeout(t *testing.T) {
 			if m.MessageType != "ResourceUsage" {
 				t.Errorf("Received unexpected message type: %s", m.MessageType)
 				continue
-
 			}
 			var rud mpb.ResourceUsageData
 			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
