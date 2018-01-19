@@ -26,6 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
@@ -49,6 +50,14 @@ func testClientPY() []string {
 	}
 
 	return []string{"testclient/testclient.py"}
+}
+
+func testClientLauncherPY() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"python", `testclient\testclient_launcher.py`}
+	}
+
+	return []string{"testclient/testclient_launcher.py"}
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context) *Service {
@@ -122,6 +131,85 @@ func exerciseLoopback(t *testing.T, client []string) {
 func TestLoopback(t *testing.T) {
 	for _, client := range [][]string{testClient(), testClientPY()} {
 		exerciseLoopback(t, client)
+	}
+}
+
+// Tests that Fleetspeak uses self-reported PIDs for monitoring resource-usage of
+// daemon services.
+func TestSelfReportedPIDs(t *testing.T) {
+	prevSamplePeriod := execution.MaxStatsSamplePeriod
+	prevSampleSize := execution.StatsSampleSize
+	execution.MaxStatsSamplePeriod = time.Second
+	execution.StatsSampleSize = 2
+	defer func() {
+		execution.MaxStatsSamplePeriod = prevSamplePeriod
+		execution.StatsSampleSize = prevSampleSize
+	}()
+
+	sc := clitesting.MockServiceContext{
+		OutChan: make(chan *fspb.Message),
+	}
+	s := startTestClient(t, testClientLauncherPY(), "loopback", &sc)
+
+	var ruMsgs []*mpb.ResourceUsageData
+	var lastRUMsg *mpb.ResourceUsageData
+
+	defer func() {
+		if len(ruMsgs) == 0 {
+			t.Fatal("No resource-usage reports received for testclient process.")
+		}
+		if lastRUMsg == nil {
+			t.Fatal("No final resource-usage report received for testclient_launcher process.")
+		}
+		for _, ruMsg := range ruMsgs {
+			if ruMsg.Pid != ruMsgs[0].Pid {
+				t.Fatalf("PID for testclient process changed (respawn?). Got %d. Want %d.", ruMsg.Pid, ruMsgs[0].Pid)
+			}
+		}
+		if lastRUMsg.Pid == ruMsgs[0].Pid {
+			t.Fatalf("PID for testclient_launcher process is the same as that of the testclient process (%d).", lastRUMsg.Pid)
+		}
+	}()
+
+	serviceStopped := false
+	stopService := func() {
+		if !serviceStopped {
+			go func() {
+				if err := s.Stop(); err != nil {
+					t.Errorf("Unable to stop daemon service: %v", err)
+				}
+			}()
+			serviceStopped = true
+		}
+	}
+
+	// Collect all resource-usage reports until the daemon service terminates, or
+	// until timeout.
+	timeout := 10 * time.Second
+	timeoutWhen := time.After(timeout)
+	for {
+		select {
+		case <-timeoutWhen:
+			t.Errorf("%v timeout exceeded.", timeout)
+			stopService()
+			return
+		case m := <-sc.OutChan:
+			if m.MessageType != "ResourceUsage" {
+				continue
+			}
+			rud := &mpb.ResourceUsageData{}
+			if err := ptypes.UnmarshalAny(m.Data, rud); err != nil {
+				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+			}
+			t.Logf("Received resource-usage message (PID %d).", rud.Pid)
+			if rud.ProcessTerminated {
+				lastRUMsg = rud
+				return
+			}
+			ruMsgs = append(ruMsgs, rud)
+			// Only one resource-usage report for the testclient process is needed.
+			stopService()
+		}
 	}
 }
 

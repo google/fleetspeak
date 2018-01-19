@@ -28,7 +28,11 @@ import fleetspeak.src.client.daemonservice.client.client as clib
 
 FLAGS = gflags.FLAGS
 gflags.DEFINE_string("mode", "loopback",
-                    "Mode of operation. Options are: loopback")
+                     "Mode of operation. Options are: loopback")
+
+
+class FatalError(Exception):
+  pass
 
 
 def Loopback():
@@ -47,7 +51,7 @@ def main(argv=None):
   if FLAGS.mode == "loopback":
     Loopback()
     return
-  logging.fatal("Unknown mode: %s", FLAGS.mode)
+  raise FatalError("Unknown mode: %s", FLAGS.mode)
 
 
 if __name__ == "__main__":

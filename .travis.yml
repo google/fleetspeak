@@ -42,5 +42,4 @@ matrix:
         - go get -v -t ./... # Install dependencies needed for tests.
       script:
         - source "${HOME}/FSENV/bin/activate"
-        # TODO: Run tests after flakiness on OSX is addressed.
-        - fleetspeak/build.sh
+        - fleetspeak/build.sh && fleetspeak/test.sh

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2018 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,3 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Script that launches testclient.Loopback in another process."""
+
+from google.apputils import app
+import multiprocessing
+
+from fleetspeak.src.client.daemonservice.testclient import testclient
+
+def main(argv=None):
+  del argv
+  p = multiprocessing.Process(target=testclient.Loopback)
+  p.start()
+  p.join()
+
+
+if __name__ == "__main__":
+  app.run()

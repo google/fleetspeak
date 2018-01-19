@@ -77,7 +77,7 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		return nil
 	}
 
-	return aggregateMemoryResourceUsage(prevRU, currRU, numRUCalls, aggRU)
+	return aggregateMemoryResourceUsage(currRU, numRUCalls, aggRU)
 }
 
 func aggregateTimeResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
@@ -106,7 +106,7 @@ func aggregateTimeResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, nu
 	return nil
 }
 
-func aggregateMemoryResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
+func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
 	// Note that since rates are computed between two consecutive data-points, their
 	// average uses a sample size of n - 1, where n is the number of resource-usage queries.
 	aggRU.MeanResidentMemory += float64(currRU.ResidentMemory) / float64(numRUCalls)
