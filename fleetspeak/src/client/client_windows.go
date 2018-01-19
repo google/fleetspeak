@@ -29,7 +29,7 @@ func readServices(configurationPath string) ([]serviceBytes, error) {
 	const prefix = `HKEY_LOCAL_MACHINE\`
 
 	if !strings.HasPrefix(configurationPath, prefix) {
-		return nil, fmt.Errorf("Invalid config path [%s], only registry paths starting with %s are supported", configurationPath, prefix)
+		return nil, fmt.Errorf("invalid config path [%s], only registry paths starting with %s are supported", configurationPath, prefix)
 	}
 
 	fullPath := configurationPath + `\services`
@@ -37,13 +37,13 @@ func readServices(configurationPath string) ([]serviceBytes, error) {
 
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open services key path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to open services key path [%s]: %v", p, err)
 	}
 	defer k.Close()
 
 	vs, err := k.ReadValueNames(0)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to list values in services key path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to list values in services key path [%s]: %v", p, err)
 	}
 
 	ret := make([]serviceBytes, 0)

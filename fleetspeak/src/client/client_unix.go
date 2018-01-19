@@ -30,21 +30,21 @@ func readServices(configurationPath string) ([]serviceBytes, error) {
 	p := path.Join(configurationPath, "services")
 	i, err := os.Stat(configurationPath)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to stat services path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to stat services path [%s]: %v", p, err)
 	}
 	if !i.Mode().IsDir() {
-		return nil, fmt.Errorf("Services path [%s] is not a directory.", p)
+		return nil, fmt.Errorf("services path [%s] is not a directory.", p)
 	}
 
 	d, err := os.Open(p)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open services path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to open services path [%s]: %v", p, err)
 	}
 	defer d.Close()
 
 	fs, err := d.Readdirnames(0)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to list files in services path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to list files in services path [%s]: %v", p, err)
 	}
 
 	ret := make([]serviceBytes, 0)
