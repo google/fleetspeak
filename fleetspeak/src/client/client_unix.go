@@ -33,7 +33,7 @@ func readServices(configurationPath string) ([]serviceBytes, error) {
 		return nil, fmt.Errorf("unable to stat services path [%s]: %v", p, err)
 	}
 	if !i.Mode().IsDir() {
-		return nil, fmt.Errorf("services path [%s] is not a directory.", p)
+		return nil, fmt.Errorf("services path [%s] is not a directory", p)
 	}
 
 	d, err := os.Open(p)
