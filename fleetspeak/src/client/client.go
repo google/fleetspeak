@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -253,48 +251,32 @@ func (c *Client) Stop() {
 	}
 }
 
+type serviceBytes struct {
+	// Used for pretty logging only.
+	path  string
+
+	bytes []byte
+}
+
 func (c *Client) loadServices() {
 	if c.cfg.ConfigurationPath == "" {
 		return
 	}
-	p := path.Join(c.cfg.ConfigurationPath, "services")
-	i, err := os.Stat(c.cfg.ConfigurationPath)
+
+	ss, err := readServices(c.cfg.ConfigurationPath)
 	if err != nil {
-		log.Warningf("Unable to stat services path [%s], not loading services: %v", p, err)
-		return
-	}
-	if !i.Mode().IsDir() {
-		log.Warningf("Services path [%s] is not a directory, not loading services.", p)
+		log.Warningf("Unable to load services: %v", err)
 		return
 	}
 
-	d, err := os.Open(p)
-	if err != nil {
-		log.Warningf("Unable to open services path [%s], not loading services: %v", p, err)
-		return
-	}
-	defer d.Close()
-
-	fs, err := d.Readdirnames(0)
-	if err != nil {
-		log.Warningf("Unable to list files in services path [%s], not loading services: %v", p, err)
-		return
-	}
-
-	for _, f := range fs {
-		fp := path.Join(p, f)
-		b, err := ioutil.ReadFile(fp)
-		if err != nil {
-			log.Warningf("Unable to read service file [%s], ignoring: %v", fp, err)
-			continue
-		}
+	for _, sb := range ss {
 		var s fspb.SignedClientServiceConfig
-		if err := proto.Unmarshal(b, &s); err != nil {
-			log.Warningf("Unable to parse service file [%s], ingoring: %v", fp, err)
+		if err := proto.Unmarshal(sb.bytes, &s); err != nil {
+			log.Warningf("Unable to parse service file [%s], ignoring: %v", sb.path, err)
 			continue
 		}
 		if err := c.sc.InstallSignedService(&s); err != nil {
-			log.Warningf("Unable in install service file [%s], ignoring: %v", fp, err)
+			log.Warningf("Unable in install service file [%s], ignoring: %v", sb.path, err)
 		}
 	}
 }
