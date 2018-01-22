@@ -426,7 +426,7 @@ func (e *Execution) statsLoop() {
 			pid = int(sd.Pid)
 		}
 	case <-time.After(startupDataTimeout):
-		log.Errorf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
+		log.Warningf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
 	case <-e.Done:
 		return
 	}
