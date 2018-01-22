@@ -173,7 +173,9 @@ class FleetspeakConnection(object):
     self.write_file.flush()
 
   def _WriteStartupData(self):
-    startup_msg = common_pb2.Message(message_type="StartupData")
+    startup_msg = common_pb2.Message(
+        message_type="StartupData",
+        destination=common_pb2.Address(service_name="system"))
     startup_msg.data.Pack(channel_pb2.StartupData(pid=os.getpid()))
     self.Send(startup_msg)
 

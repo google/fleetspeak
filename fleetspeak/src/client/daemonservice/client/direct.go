@@ -63,6 +63,7 @@ func Init() (*channel.Channel, error) {
 	}
 	c.Out <- &fspb.Message{
 		MessageType: "StartupData",
+		Destination: &fspb.Address{ServiceName: "system"},
 		Data:        sd,
 	}
 	return c, nil

@@ -373,7 +373,7 @@ func (e *Execution) inLoop() {
 		return
 	}
 
-	if initialMsg.Destination == nil && initialMsg.MessageType == "StartupData" {
+	if initialMsg.Destination != nil && initialMsg.Destination.ServiceName == "system" && initialMsg.MessageType == "StartupData" {
 		sd := &fcpb.StartupData{}
 		if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
 			log.Warningf("Failed to parse startup data from initial message: %v", err)
