@@ -58,7 +58,7 @@ func readServices(configurationPath string) ([]serviceBytes, error) {
 		}
 
 		ret = append(ret, serviceBytes{
-			path: prettyPath,
+			path:  prettyPath,
 			bytes: b,
 		})
 	}
