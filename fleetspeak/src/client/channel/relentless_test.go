@@ -38,11 +38,11 @@ func TestRelentlessLoop(t *testing.T) {
 		toLoopReader, toLoopWriter := io.Pipe()
 		fromLoopReader, fromLoopWriter := io.Pipe()
 
-		mainEnd = NewServiceChannel(fromLoopReader, toLoopWriter, nil)
+		mainEnd = New(fromLoopReader, toLoopWriter)
 
 		r <- struct{}{}
 
-		return NewSystemChannel(toLoopReader, fromLoopWriter), func() {
+		return New(toLoopReader, fromLoopWriter), func() {
 			log.Info("shutting down channel")
 			toLoopReader.Close()
 			toLoopWriter.Close()

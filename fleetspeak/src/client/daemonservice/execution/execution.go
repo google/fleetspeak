@@ -36,6 +36,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -94,7 +95,8 @@ type Execution struct {
 	dead       chan struct{} // closed when the underlying process has died.
 	waitResult error         // result of Wait call - should only be read after dead is closed
 
-	inProcess sync.WaitGroup // count of active goroutines
+	inProcess   sync.WaitGroup         // count of active goroutines
+	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -113,7 +115,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		outData: &dspb.StdOutputData{},
 		lastOut: time.Now(),
 
-		dead: make(chan struct{}),
+		dead:        make(chan struct{}),
+		startupData: make(chan *fcpb.StartupData, 1),
 	}
 
 	var err error
@@ -365,20 +368,49 @@ func (e *Execution) inLoop() {
 		e.Shutdown()
 		e.inProcess.Done()
 	}()
+	initialMsg := e.readMsg()
+	if initialMsg == nil {
+		return
+	}
+
+	if initialMsg.Destination == nil && initialMsg.MessageType == "StartupData" {
+		sd := &fcpb.StartupData{}
+		if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
+			log.Warningf("Failed to parse startup data from initial message: %v", err)
+		} else {
+			e.startupData <- sd
+			close(e.startupData) // No more values to send through the channel.
+		}
+	} else {
+		// Handle initial message like we would any other.
+		e.setLastActive(time.Now())
+		if err := e.sc.Send(context.Background(), service.AckMessage{M: initialMsg}); err != nil {
+			log.Errorf("error sending message to server: %v", err)
+		}
+	}
 	for {
-		select {
-		case m, ok := <-e.channel.In:
-			if !ok {
-				return
-			}
-			e.setLastActive(time.Now())
-			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
-				log.Errorf("error sending message to server: %v", err)
-			}
-		case err := <-e.channel.Err:
-			log.Errorf("channel produced error: %v", err)
+		m := e.readMsg()
+		if m == nil {
 			return
 		}
+		e.setLastActive(time.Now())
+		if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
+			log.Errorf("error sending message to server: %v", err)
+		}
+	}
+}
+
+// readMsg blocks until a message is available from the channel.
+func (e *Execution) readMsg() *fspb.Message {
+	select {
+	case m, ok := <-e.channel.In:
+		if !ok {
+			return nil
+		}
+		return m
+	case err := <-e.channel.Err:
+		log.Errorf("channel produced error: %v", err)
+		return nil
 	}
 }
 
@@ -388,7 +420,7 @@ func (e *Execution) statsLoop() {
 	defer e.inProcess.Done()
 	pid := e.cmd.Process.Pid
 	select {
-	case sd := <-e.channel.StartupDataIn:
+	case sd := <-e.startupData:
 		if int(sd.Pid) != pid {
 			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
 			pid = int(sd.Pid)

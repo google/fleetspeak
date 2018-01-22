@@ -65,7 +65,7 @@ func TestResourceUsageMonitor(t *testing.T) {
 	}
 	pid := 1234
 	fakeStart := int64(1234567890)
-	samplePeriod := 10 * time.Millisecond
+	samplePeriod := 100 * time.Millisecond
 	sampleSize := 2
 	doneChan := make(chan struct{})
 	errChan := make(chan error)
@@ -93,7 +93,7 @@ func TestResourceUsageMonitor(t *testing.T) {
 	}
 	go rum.Run()
 
-	timeout := 100 * time.Millisecond
+	timeout := 500 * time.Millisecond
 	timeoutWhen := time.After(timeout)
 
 	for protosReceived := 0; protosReceived < 2; protosReceived++ {
@@ -120,7 +120,7 @@ func TestResourceUsageMonitor(t *testing.T) {
 			}
 			if !proto.Equal(&got, &want) {
 				t.Errorf(
-					"Resource-usage proto %d received is not what we expect; got:\n%q\nwant:\n%q", protosReceived, got, want)
+					"Resource-usage proto %d received is not what we expect; got:\n%v\nwant:\n%v", protosReceived, got, want)
 			}
 
 			timestamp, err := ptypes.Timestamp(got.DataTimestamp)
