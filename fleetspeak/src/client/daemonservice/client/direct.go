@@ -21,7 +21,12 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
+
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 // Init initializes the library, assuming that we are in a process started by
@@ -51,6 +56,15 @@ func Init() (*channel.Channel, error) {
 	}
 
 	pw := os.NewFile(uintptr(outFd), "-")
-
-	return channel.New(pr, pw), nil
+	c := channel.New(pr, pw)
+	sd, err := ptypes.MarshalAny(&fcpb.StartupData{Pid: int64(os.Getpid())})
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal StartupData: %v", err)
+	}
+	c.Out <- &fspb.Message{
+		MessageType: "StartupData",
+		Destination: &fspb.Address{ServiceName: "system"},
+		Data:        sd,
+	}
+	return c, nil
 }

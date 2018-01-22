@@ -23,6 +23,7 @@ import os
 import platform
 import struct
 
+from fleetspeak.src.client.channel.proto.fleetspeak_channel import channel_pb2
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 
 _WINDOWS = (platform.system() == "Windows")
@@ -75,7 +76,7 @@ class FleetspeakConnection(object):
 
   It is safe to call Send() and Recv() from the resulting connection
   simultaniously, but the class is not fully thread safe. In particular, making
-  multiple simultanious calls to either Send or Recv is not supported.
+  multiple simultaneous calls to either Send or Recv is not supported.
   """
 
   def __init__(self, read_file=None, write_file=None):
@@ -113,6 +114,8 @@ class FleetspeakConnection(object):
     # write the magic number quickly enough. (Currently though, the other end is
     # the go implementation, which reads and writes in parallel.)
     self._WriteMagic()
+
+    self._WriteStartupData()
     self._ReadMagic()
 
   def Send(self, message):
@@ -168,6 +171,13 @@ class FleetspeakConnection(object):
     buf = struct.pack(_STRUCT_FMT, _MAGIC)
     self.write_file.write(buf)
     self.write_file.flush()
+
+  def _WriteStartupData(self):
+    startup_msg = common_pb2.Message(
+        message_type="StartupData",
+        destination=common_pb2.Address(service_name="system"))
+    startup_msg.data.Pack(channel_pb2.StartupData(pid=os.getpid()))
+    self.Send(startup_msg)
 
   def _ReadN(self, n):
     """Reads n characters from the input stream, or until EOF.

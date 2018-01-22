@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package fleetspeak.channel;
+
+// Optional first message sent through a channel when it is created. It is meant
+// to contain info about the process that the other end of the channel might
+// find useful.
+message StartupData {
+  // Self-reported PID.
+  int64 pid = 1;
+}

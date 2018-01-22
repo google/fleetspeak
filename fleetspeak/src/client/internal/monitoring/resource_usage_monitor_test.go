@@ -15,19 +15,17 @@
 package monitoring
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
@@ -60,29 +58,17 @@ func (f *fakeResourceUsageFetcher) setDebugStatusStrings(statusList []string) {
 	f.statusList = statusList
 }
 
-type fakeServiceContext struct {
-	service.Context
-}
-
-func (sc fakeServiceContext) Send(ctx context.Context, m service.AckMessage) error {
-	// No-Op
-	return nil
-}
-
-func (sc fakeServiceContext) GetFileIfModified(_ context.Context, name string, _ time.Time) (data io.ReadCloser, mod time.Time, err error) {
-	// No-Op
-	return nil, time.Time{}, nil
-}
-
-func TestNewResourceUsageMonitor(t *testing.T) {
+func TestResourceUsageMonitor(t *testing.T) {
 	start := time.Now()
-	sc := fakeServiceContext{}
+	sc := clitesting.MockServiceContext{
+		OutChan: make(chan *fspb.Message),
+	}
 	pid := 1234
 	fakeStart := int64(1234567890)
-	samplePeriod := 10 * time.Millisecond
+	samplePeriod := 100 * time.Millisecond
 	sampleSize := 2
-	timeout := 100 * time.Millisecond
 	doneChan := make(chan struct{})
+	errChan := make(chan error)
 
 	fakeRU0 := ResourceUsage{
 		Timestamp:       start,
@@ -101,19 +87,21 @@ func TestNewResourceUsageMonitor(t *testing.T) {
 	ruf.setDebugStatusStrings([]string{"Fake Debug Status 0", "Fake Debug Status 1"})
 
 	rum, err := newResourceUsageMonitor(
-		sc, &ruf, "test-scope", pid, time.Unix(fakeStart, 0), samplePeriod, sampleSize, doneChan)
+		&sc, &ruf, "test-scope", pid, time.Unix(fakeStart, 0), samplePeriod, sampleSize, doneChan, errChan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	timeoutTicker := time.NewTicker(timeout)
-	defer timeoutTicker.Stop()
+	go rum.Run()
 
-	protosReceived := 0
-	for {
+	timeout := 500 * time.Millisecond
+	timeoutWhen := time.After(timeout)
+
+	for protosReceived := 0; protosReceived < 2; protosReceived++ {
 		select {
-		case got := <-rum.RChan:
-			if err != nil {
-				t.Fatal(err)
+		case m := <-sc.OutChan:
+			var got mpb.ResourceUsageData
+			if err := ptypes.UnmarshalAny(m.Data, &got); err != nil {
+				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
 			want := mpb.ResourceUsageData{
 				Scope:            "test-scope",
@@ -132,7 +120,7 @@ func TestNewResourceUsageMonitor(t *testing.T) {
 			}
 			if !proto.Equal(&got, &want) {
 				t.Errorf(
-					"Resource-usage proto %d received is not what we expect; got:\n%q\nwant:\n%q", protosReceived, got, want)
+					"Resource-usage proto %d received is not what we expect; got:\n%v\nwant:\n%v", protosReceived, got, want)
 			}
 
 			timestamp, err := ptypes.Timestamp(got.DataTimestamp)
@@ -144,62 +132,10 @@ func TestNewResourceUsageMonitor(t *testing.T) {
 					"Timestamp for resource-usage proto %d [%v] is expected to be after %v",
 					protosReceived, timestamp, start)
 			}
-			protosReceived++
-			if protosReceived >= 2 {
-				return
-			}
-		case err := <-rum.ErrChan:
+		case err := <-errChan:
 			t.Error(err)
-			return
-		case <-timeoutTicker.C:
-			t.Errorf("Received %d resource-usage protos after %v. Wanted 2.", protosReceived, timeout)
-			return
+		case <-timeoutWhen:
+			t.Fatalf("Received %d resource-usage protos after %v. Wanted 2.", protosReceived, timeout)
 		}
-	}
-}
-
-func TestStatsReporterLoop(t *testing.T) {
-	var wg sync.WaitGroup
-
-	sc := fakeServiceContext{}
-	start := time.Now()
-	pid := 1234
-	fakeStart := int64(1234567890)
-	samplePeriod := 100 * time.Millisecond
-	sampleSize := 2
-	doneChan := make(chan struct{})
-
-	fakeRU0 := ResourceUsage{
-		Timestamp:       start,
-		UserCPUMillis:   13.0,
-		SystemCPUMillis: 5.0,
-		ResidentMemory:  10000,
-	}
-	fakeRU1 := ResourceUsage{
-		Timestamp:       start.Add(10 * time.Millisecond),
-		UserCPUMillis:   27.0,
-		SystemCPUMillis: 9.0,
-		ResidentMemory:  30000,
-	}
-
-	ruf := fakeResourceUsageFetcher{}
-	ruf.setResourceUsageData([]ResourceUsage{fakeRU0, fakeRU1})
-	ruf.setDebugStatusStrings([]string{"Fake Debug Status 0", "Fake Debug Status 1"})
-
-	rum, err := newResourceUsageMonitor(
-		sc, &ruf, "test-scope", pid, time.Unix(fakeStart, 0), samplePeriod, sampleSize, doneChan)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		rum.StatsReporterLoop()
-	}()
-	time.Sleep(250 * time.Millisecond)
-	close(doneChan)
-	wg.Wait()
-	if !rum.StatsSent() {
-		t.Error("stats were not sent")
 	}
 }

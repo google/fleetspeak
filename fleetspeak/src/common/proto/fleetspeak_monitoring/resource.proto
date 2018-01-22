@@ -37,4 +37,8 @@ message ResourceUsageData {
 
   // Optional debug info for the process.
   string debug_status = 6;
+
+  // If true, indicates that the process has terminated, and that this is
+  // the final resource-usage report for that process.
+  bool process_terminated = 7;
 }

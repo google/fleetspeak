@@ -17,7 +17,9 @@ matrix:
         - source "${HOME}/FSENV/bin/activate" && pip install -e .
         - go get -v -t ./... # Install dependencies needed for tests.
       script:
-        - golint ./...
+        # We want to address all golint warnings, except for
+        # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
+        # - golint ./... | grep -v 'should have comment or be unexported'
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/build.sh && fleetspeak/test.sh
@@ -40,5 +42,4 @@ matrix:
         - go get -v -t ./... # Install dependencies needed for tests.
       script:
         - source "${HOME}/FSENV/bin/activate"
-        # TODO: Run tests after flakiness on OSX is addressed.
-        - fleetspeak/build.sh
+        - fleetspeak/build.sh && fleetspeak/test.sh

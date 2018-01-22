@@ -69,7 +69,7 @@ func (s *systemService) Start(sc service.Context) error {
 	go func() {
 		defer s.wait.Done()
 		if rum != nil {
-			rum.StatsReporterLoop()
+			rum.Run()
 		}
 	}()
 	return nil
