@@ -253,7 +253,7 @@ func (c *Client) Stop() {
 
 type serviceBytes struct {
 	// Used for pretty logging only.
-	path  string
+	path string
 
 	bytes []byte
 }
