@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -76,5 +77,5 @@ type Collector interface {
 	DatastoreOperation(start, end time.Time, operation string, result error)
 
 	// ResourceUsageDataReceived is called every time a client-resource-usage proto is received.
-	ResourceUsageDataReceived(rud mpb.ResourceUsageData)
+	ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData)
 }
