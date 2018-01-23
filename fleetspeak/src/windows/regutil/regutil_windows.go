@@ -14,6 +14,7 @@
 
 // +build windows
 
+// Package regutil contains utility functions for Windows registry handling.
 package regutil
 
 import (

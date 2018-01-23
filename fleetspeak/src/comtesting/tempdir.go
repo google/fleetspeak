@@ -49,7 +49,7 @@ func GetTempDir(testName string) (string, func()) {
 	return tempDir, cleanupTempDir
 }
 
-// GetTempDir creates and returns the name of a temporary registry key on Windows or a temporary directory on other platforms.
+// GetTempDirOrRegKey creates and returns the name of a temporary registry key on Windows or a temporary directory on other platforms.
 func GetTempDirOrRegKey(testName string) (string, func()) {
 	return getTempDirOrRegKey(testName)
 }
