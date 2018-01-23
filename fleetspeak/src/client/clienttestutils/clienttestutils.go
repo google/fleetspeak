@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package clienttestutils contains utility functions for the client test, in part platform-specific.
 package clienttestutils
 
 import (
