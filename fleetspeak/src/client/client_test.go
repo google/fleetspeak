@@ -22,15 +22,16 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/fleetspeak/fleetspeak/src/client/clienttestutils"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -217,7 +218,7 @@ func TestMessageValidation(t *testing.T) {
 }
 
 func TestServiceValidation(t *testing.T) {
-	tmpDir, fin := comtesting.GetTempDir("client_service_validation")
+	tmpPath, fin := comtesting.GetTempDirOrRegKey("client_service_validation")
 	defer fin()
 
 	k, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -226,9 +227,11 @@ func TestServiceValidation(t *testing.T) {
 	}
 	pk := *(k.Public().(*rsa.PublicKey))
 
-	sp := path.Join(tmpDir, "services")
-	if err := os.Mkdir(sp, 0777); err != nil {
-		t.Fatalf("Unable to create services path [%s]: %v", sp, err)
+	sp := filepath.Join(tmpPath, "services")
+	if runtime.GOOS != "windows" {
+		if err := os.Mkdir(sp, 0777); err != nil {
+			t.Fatalf("Unable to create services path [%s]: %v", sp, err)
+		}
 	}
 
 	msgs := make(chan *fspb.Message, 1)
@@ -249,7 +252,9 @@ func TestServiceValidation(t *testing.T) {
 		Factory:        "FakeService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "linux"}},
 	})
-	writeServiceConfig(t, path.Join(sp, "FakeService.signed"), cfg)
+	if err := clienttestutils.WriteServiceConfig(sp, "FakeService.signed", cfg); err != nil {
+		t.Fatal(err)
+	}
 
 	// A service signed with the wrong key - should not be started.
 	bk, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -257,7 +262,9 @@ func TestServiceValidation(t *testing.T) {
 		t.Fatalf("Unable to generate bad deployment key: %v", err)
 	}
 	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{Name: "FailingServiceBadSig", Factory: "FailingService"})
-	writeServiceConfig(t, path.Join(sp, "FailingServiceBadSig.signed"), cfg)
+	if err := clienttestutils.WriteServiceConfig(sp, "FailingServiceBadSig.signed", cfg); err != nil {
+		t.Fatal(err)
+	}
 
 	// A service signed with the right key, but requiring the wrong label.
 	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{
@@ -265,13 +272,15 @@ func TestServiceValidation(t *testing.T) {
 		Factory:        "FailingService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "windows"}},
 	})
-	writeServiceConfig(t, path.Join(sp, "FailingServiceBadLabel.signed"), cfg)
+	if err := clienttestutils.WriteServiceConfig(sp, "FailingServiceBadLabel.signed", cfg); err != nil {
+		t.Fatal(err)
+	}
 
 	cl, err := New(
 		config.Configuration{
 			DeploymentPublicKeys: []rsa.PublicKey{pk},
 			Ephemeral:            true,
-			ConfigurationPath:    tmpDir,
+			ConfigurationPath:    tmpPath,
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: "TestClient"},
 				{ServiceName: "client", Label: "linux"}},
@@ -323,14 +332,4 @@ func signServiceConfig(t *testing.T, k *rsa.PrivateKey, cfg *fspb.ClientServiceC
 		t.Fatalf("Unable to sign service config: %v", err)
 	}
 	return &fspb.SignedClientServiceConfig{ServiceConfig: b, Signature: sig}
-}
-
-func writeServiceConfig(t *testing.T, path string, cfg *fspb.SignedClientServiceConfig) {
-	b, err := proto.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("Unable to serialize signed service config: %v", err)
-	}
-	if err := ioutil.WriteFile(path, b, 0644); err != nil {
-		t.Fatalf("Unable to write signed service config[%s]: %v", path, err)
-	}
 }

@@ -26,9 +26,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -60,6 +58,11 @@ type Manager struct {
 	configChanges chan<- *fspb.ClientInfoData
 	done          chan bool
 }
+
+const (
+	communicatorFilename = "communicator.txt"
+	writebackFilename    = "writeback"
+)
 
 // StartManager attempts to create a Manager from the provided client
 // configuration.
@@ -102,14 +105,10 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	}
 
 	if !cfg.Ephemeral {
-		i, err := os.Stat(cfg.ConfigurationPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to stat config directory [%v]: %v", cfg.ConfigurationPath, err)
+		if err := verifyConfigurationPath(cfg.ConfigurationPath); err != nil {
+			return nil, err
 		}
-		if !i.Mode().IsDir() {
-			return nil, fmt.Errorf("config directory path [%v] is not a directory", cfg.ConfigurationPath)
-		}
-		r.writebackPath = path.Join(cfg.ConfigurationPath, "writeback")
+		r.writebackPath = cfg.ConfigurationPath
 		if err := r.readWriteback(); err != nil {
 			log.Errorf("initial load of writeback failed (continuing): %v", err)
 			r.state = &clpb.ClientState{}
@@ -139,7 +138,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	if !r.cfg.Ephemeral {
 		r.dirty = true
 		if err := r.Sync(); err != nil {
-			return nil, fmt.Errorf("unable to write initial Writeback[%v]: %v", r.writebackPath, err)
+			return nil, fmt.Errorf("unable to write initial Writeback[%v -> %s]: %v", r.writebackPath, writebackFilename, err)
 		}
 		r.syncTicker = time.NewTicker(time.Minute)
 		r.done = make(chan bool)
@@ -190,32 +189,29 @@ func (m *Manager) Sync() error {
 		return nil
 	}
 
-	tmp := p + ".new"
-	os.RemoveAll(tmp)
-
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
 	bytes, err := proto.Marshal(m.state)
 	if err != nil {
 		log.Fatalf("Unable to serialize writeback: %v", err)
 	}
-	if err := ioutil.WriteFile(tmp, bytes, 0600); err != nil {
-		return fmt.Errorf("unable to write new configuration: %v", err)
+
+	if err := syncImpl(p, bytes); err != nil {
+		return err
 	}
-	if err := os.Rename(tmp, p); err != nil {
-		return fmt.Errorf("unable to rename new confguration: %v", err)
-	}
+
 	m.dirty = false
 	return nil
 }
 
 func (m *Manager) readWriteback() error {
-	b, err := ioutil.ReadFile(m.writebackPath)
+	b, err := readWritebackImpl(m.writebackPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return err
+	}
+	if b == nil {
+		return nil
 	}
 
 	m.state = &clpb.ClientState{}
@@ -232,18 +228,17 @@ func (m *Manager) readCommunicatorConfig() {
 	if m.cfg.ConfigurationPath == "" {
 		return
 	}
-	p := path.Join(m.cfg.ConfigurationPath, "communicator.txt")
-	b, err := ioutil.ReadFile(p)
+	b, err := readCommunicatorConfigImpl(m.cfg.ConfigurationPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Errorf("Error reading communicator config [%s], ignoring: %v", p, err)
+			log.Errorf("Error reading communicator config [%s -> %s], ignoring: %v", m.cfg.ConfigurationPath, communicatorFilename, err)
 		}
 		return
 	}
 
 	var cc clpb.CommunicatorConfig
 	if err := proto.UnmarshalText(string(b), &cc); err != nil {
-		log.Errorf("Error parsing communicator config [%s], ignoring: %v", p, err)
+		log.Errorf("Error parsing communicator config [%s -> %s], ignoring: %v", m.cfg.ConfigurationPath, communicatorFilename, err)
 		return
 	}
 	m.cc = &cc
