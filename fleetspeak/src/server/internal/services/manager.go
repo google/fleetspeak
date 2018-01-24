@@ -44,6 +44,7 @@ type Manager struct {
 	dataStore       db.Store
 	serviceRegistry map[string]service.Factory // Used to look up the correct factory when configuring services.
 	stats           stats.Collector
+	cc              *cache.Clients
 }
 
 // NewManager creates a new manager using the provided components. Initially it only contains the 'system' service.
@@ -53,6 +54,7 @@ func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, 
 		dataStore:       dataStore,
 		serviceRegistry: serviceRegistry,
 		stats:           stats,
+		cc:              clientCache,
 	}
 
 	ssd := liveService{
@@ -304,5 +306,14 @@ func (s *liveService) Send(ctx context.Context, m *fspb.Message) error {
 
 // GetClientData implements service.Context.
 func (s *liveService) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
-	return s.manager.dataStore.GetClientData(ctx, id)
+	cd := s.manager.cc.Get(id)
+	if cd == nil {
+		var err error
+		cd, err = s.manager.dataStore.GetClientData(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		s.manager.cc.Update(id, cd)
+	}
+	return cd, nil
 }

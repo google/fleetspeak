@@ -237,7 +237,12 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if err := ptypes.UnmarshalAny(d, &rud); err != nil {
 		return fmt.Errorf("unable to unmarshal data as ResourceUsageData: %v", err)
 	}
-	s.stats.ResourceUsageDataReceived(rud)
+
+	cd, err := s.sctx.GetClientData(ctx, cid)
+	if err != nil {
+		log.Errorf("Failed to get client data for %v: %v", cid, err)
+	}
+	s.stats.ResourceUsageDataReceived(cd, rud)
 	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
 		err = fmt.Errorf("failed to write resource-usage data: %v", err)
 		return err
