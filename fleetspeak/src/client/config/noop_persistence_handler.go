@@ -52,6 +52,11 @@ func (*NoopPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClientService
 	return nil, nil
 }
 
+// ReadServices implements PersistenceHandler.
+func (*NoopPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, error) {
+	return nil, nil
+}
+
 // SaveSignedService implements PersistenceHandler.
 func (*NoopPersistenceHandler) SaveSignedService(*fspb.SignedClientServiceConfig) error {
 	return errors.New("Not implemented.")

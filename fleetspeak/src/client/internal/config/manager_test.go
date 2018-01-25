@@ -31,7 +31,7 @@ import (
 func TestRekey(t *testing.T) {
 
 	m, err := StartManager(&config.Configuration{
-		FixedServices:      make([]*fspb.ClientServiceConfig, 0),
+		FixedServices: make([]*fspb.ClientServiceConfig, 0),
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)

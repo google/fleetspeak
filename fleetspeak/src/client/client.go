@@ -170,6 +170,16 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		}
 	}
 
+	if ss, err := ret.cfg.PersistenceHandler.ReadServices(); err != nil {
+		log.Errorf("Unable to read services; continuing: %v", err)
+	} else {
+		for _, s := range ss {
+			if err := ret.sc.InstallService(s, nil); err != nil {
+				log.Warningf("Unable to install service, ignoring: %v", err)
+			}
+		}
+	}
+
 	if ret.com != nil {
 		if err := ret.com.Setup(commsContext{ret}); err != nil {
 			ssd.stop()

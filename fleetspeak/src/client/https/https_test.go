@@ -41,8 +41,8 @@ import (
 func TestCreate(t *testing.T) {
 	var c Communicator
 	conf := config.Configuration{
-		Servers:            []string{"localhost"},
-		FixedServices:      []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		Servers:       []string{"localhost"},
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 	}
 
 	cl, err := client.New(
@@ -144,9 +144,9 @@ func TestCommunicator(t *testing.T) {
 	// Create a communicator, configured to talk to the local server.
 	var c Communicator
 	conf := config.Configuration{
-		TrustedCerts:       x509.NewCertPool(),
-		Servers:            []string{addr},
-		FixedServices:      []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		TrustedCerts:  x509.NewCertPool(),
+		Servers:       []string{addr},
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
@@ -327,9 +327,9 @@ func TestErrorDelay(t *testing.T) {
 	// Create a communicator, configured to talk to the local server.
 	var c Communicator
 	conf := config.Configuration{
-		Servers:            []string{addr},
-		TrustedCerts:       x509.NewCertPool(),
-		FixedServices:      []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		Servers:       []string{addr},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
@@ -445,9 +445,9 @@ func TestCertificateRevoked(t *testing.T) {
 	// Create a communicator, configured to talk to the local server.
 	var c Communicator
 	conf := config.Configuration{
-		Servers:            []string{addr},
-		TrustedCerts:       x509.NewCertPool(),
-		FixedServices:      []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		Servers:       []string{addr},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,

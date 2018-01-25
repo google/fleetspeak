@@ -69,7 +69,7 @@ func TestMessageDelivery(t *testing.T) {
 
 	cl, err := New(
 		config.Configuration{
-			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -119,7 +119,7 @@ func TestMessageDelivery(t *testing.T) {
 func TestRekey(t *testing.T) {
 	cl, err := New(
 		config.Configuration{
-			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -178,7 +178,7 @@ func TestMessageValidation(t *testing.T) {
 
 	cl, err := New(
 		config.Configuration{
-			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -246,7 +246,7 @@ func TestServiceValidation(t *testing.T) {
 		Factory:        "FakeService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "linux"}},
 	})
-	if err := clienttestutils.WriteServiceConfig(sp, "FakeService.signed", cfg); err != nil {
+	if err := clienttestutils.WriteSignedServiceConfig(sp, "FakeService.signed", cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -256,7 +256,7 @@ func TestServiceValidation(t *testing.T) {
 		t.Fatalf("Unable to generate bad deployment key: %v", err)
 	}
 	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{Name: "FailingServiceBadSig", Factory: "FailingService"})
-	if err := clienttestutils.WriteServiceConfig(sp, "FailingServiceBadSig.signed", cfg); err != nil {
+	if err := clienttestutils.WriteSignedServiceConfig(sp, "FailingServiceBadSig.signed", cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -266,7 +266,7 @@ func TestServiceValidation(t *testing.T) {
 		Factory:        "FailingService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "windows"}},
 	})
-	if err := clienttestutils.WriteServiceConfig(sp, "FailingServiceBadLabel.signed", cfg); err != nil {
+	if err := clienttestutils.WriteSignedServiceConfig(sp, "FailingServiceBadLabel.signed", cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -296,6 +296,77 @@ func TestServiceValidation(t *testing.T) {
 	defer cl.Stop()
 
 	// Check that the good service started by passing a message through it.
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "FakeService"},
+				Destination: &fspb.Address{
+					ClientId:    cl.config.ClientID().Bytes(),
+					ServiceName: "FakeService"},
+			}}); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	m := <-msgs
+
+	if !bytes.Equal(m.MessageId, mid.Bytes()) {
+		t.Errorf("Expected message with id: %v, got: %v", mid, m)
+	}
+}
+
+func TestTextServiceConfig(t *testing.T) {
+	tmpPath, fin := comtesting.GetTempDir("TestTextServiceConfig")
+	defer fin()
+
+	tsp := filepath.Join(tmpPath, "textservices")
+	if err := os.Mkdir(tsp, 0777); err != nil {
+		t.Fatalf("Unable to create services path [%s]: %v", tsp, err)
+	}
+
+	msgs := make(chan *fspb.Message, 1)
+	fakeServiceFactory := func(*fspb.ClientServiceConfig) (service.Service, error) {
+		return &fakeService{c: msgs}, nil
+	}
+
+	// A text service.
+	cfg := &fspb.ClientServiceConfig{
+		Name:           "FakeService",
+		Factory:        "FakeService",
+		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "linux"}},
+	}
+	if err := clienttestutils.WriteServiceConfig(tsp, "FakeService.txt", cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cl, err := New(
+		config.Configuration{
+			PersistenceHandler: ph,
+			ClientLabels: []*fspb.Label{
+				{ServiceName: "client", Label: "TestClient"},
+				{ServiceName: "client", Label: "linux"}},
+		},
+		Components{
+			ServiceFactories: map[string]service.Factory{
+				"NOOP":        service.NOOPFactory,
+				"FakeService": fakeServiceFactory,
+			},
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Check that the service started by passing a message through it.
 	mid, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatalf("unable to create message id: %v", err)
