@@ -12,19 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux darwin
-
-package integrationtest
+package regutil
 
 import (
-	"io/ioutil"
-	"path/filepath"
+	"testing"
 )
 
-func readFile(dirpath, filename string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(dirpath, filename))
-}
-
-func writeFile(dirpath, filename string, content []byte) error {
-	return ioutil.WriteFile(filepath.Join(dirpath, filename), content, 0644)
-}
+func TestNoop(t *testing.T) {}

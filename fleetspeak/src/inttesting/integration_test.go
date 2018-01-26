@@ -41,7 +41,7 @@ func TestFRRIntegration(t *testing.T) {
 }
 
 func TestCloneHandling(t *testing.T) {
-	tmpConfPath, tmpConfPathCleanup := comtesting.GetTempDirOrRegKey("sqlite_clone_handling")
+	tmpConfPath, tmpConfPathCleanup := comtesting.GetTempDir("sqlite_clone_handling")
 	defer tmpConfPathCleanup()
 	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_clone_handling")
 	defer tmpDirCleanup()

@@ -54,28 +54,9 @@ type Configuration struct {
 	// presented to the server as an initial set of labels for this client.
 	ClientLabels []*fspb.Label
 
-	// ConfigurationPath is the location to look for additional configuration
-	// files. Possible files include:
-	//
-	// /communicator.txt    - A text format clpb.CommunicatorConfig, used to tweak communicator behavior.
-	// /writeback           - Used to maintain state across restarts, ignored if Ephemeral is set.
-	// /services/<service>  - A binary format SignedClientServiceConfig. One file for each configured service.
-	//
-	// All of these files are optional, though Fleetspeak will not be particularly
-	// useful without at least one configured service.
-	//
-	// ConfigurationPath is required unless both Ephemeral and FixedServices are
-	// set.
-	ConfigurationPath string
-
-	// Ephemeral indicates that this client should not attempt to maintain state
-	// across restarts. If set, every executation will identify itself as a new
-	// client. If not, the client will attempt to read from and write to
-	// <ConfigurationPath>/writeback, in order to preserve client identity.
-	//
-	// Intended for testing and specialized applications - should be hardcoded
-	// false in normal deployements.
-	Ephemeral bool
+	// PersistenceHandler defines the configuration storage strategy to be used.
+	// Typically it's files on Unix and registry keys on Windows.
+	PersistenceHandler PersistenceHandler
 
 	// FixedServices are installed and started during client startup without
 	// checking the deployment key.
@@ -92,6 +73,33 @@ type Configuration struct {
 
 	// RevokedCertSerials is a list of certificate serial numbers which have been
 	// revoked. Revoked serial numbers can also be provided by the server and will
-	// stored to the writeback file, when Ephemeral is not set.
+	// stored to the writeback location, if NoopPersistenceHandler is not used.
 	RevokedCertSerials [][]byte
+}
+
+const (
+	communicatorFilename  = "communicator.txt"
+	signedServicesDirname = "services"
+	writebackFilename     = "writeback"
+)
+
+// PersistenceHandler manages client's configuration storage.
+type PersistenceHandler interface {
+	ReadState() (*clpb.ClientState, error)
+	WriteState(*clpb.ClientState) error
+	ReadCommunicatorConfig() (*clpb.CommunicatorConfig, error)
+
+	ReadSignedServices() ([]*fspb.SignedClientServiceConfig, error)
+	SaveSignedService(*fspb.SignedClientServiceConfig) error
+}
+
+// NewDefaultPersistenceHandler returns the default persistence handler for the current platform.
+//
+// On Non-Windows platforms -- FilesystemPersistenceHandler.
+// fleetspeak/src/client/config/filesystem_persistence_handler.go
+//
+// On Windows -- WindowsRegistryPersistenceHandler
+// fleetspeak/src/client/config/windows_registry_persistence_handler.go
+func NewDefaultPersistenceHandler(configurationPath string, readonly bool) (PersistenceHandler, error) {
+	return newDefaultPersistenceHandler(configurationPath, readonly)
 }

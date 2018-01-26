@@ -224,8 +224,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 
 	// Prepare a general client config.
 	conf := config.Configuration{
-		Ephemeral:    true,
-		TrustedCerts: x509.NewCertPool(),
+		TrustedCerts:       x509.NewCertPool(),
 		ClientLabels: []*fspb.Label{
 			{ServiceName: "client", Label: "integration_test"},
 		},

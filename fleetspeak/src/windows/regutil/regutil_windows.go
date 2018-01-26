@@ -44,6 +44,27 @@ func stripHKey(keypath string) (string, error) {
 	return filepath.Clean(keypath[len(hkeyPrefix):]), nil
 }
 
+// WriteBinaryValue writes a REG_BINARY value to the given registry path.
+func WriteBinaryValue(keypath, valuename string, content []byte) error {
+	p, err := stripHKey(keypath)
+	if err != nil {
+		return err
+	}
+
+	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
+	}
+	defer k.Close()
+
+	err = k.SetBinaryValue(valuename, content)
+	if err != nil {
+		return fmt.Errorf("unable to write binary (REG_BINARY) registry value [%s -> %s]: %v", keypath, valuename, err)
+	}
+
+	return nil
+}
+
 // ReadBinaryValue reads a REG_BINARY value from the given registry path.
 func ReadBinaryValue(keypath, valuename string) ([]byte, error) {
 	p, err := stripHKey(keypath)
@@ -63,6 +84,27 @@ func ReadBinaryValue(keypath, valuename string) ([]byte, error) {
 	}
 
 	return s, nil
+}
+
+// WriteStringValue writes a REG_SZ value to the given registry path.
+func WriteStringValue(keypath, valuename string, content string) error {
+	p, err := stripHKey(keypath)
+	if err != nil {
+		return err
+	}
+
+	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
+	}
+	defer k.Close()
+
+	err = k.SetStringValue(valuename, content)
+	if err != nil {
+		return fmt.Errorf("unable to write string (REG_SZ) registry value [%s -> %s]: %v", keypath, valuename, err)
+	}
+
+	return nil
 }
 
 // ReadStringValue reads a REG_SZ value from the given registry path.
@@ -86,27 +128,6 @@ func ReadStringValue(keypath, valuename string) (string, error) {
 	return s, nil
 }
 
-// WriteBinaryValue writes a REG_BINARY value to the given registry path.
-func WriteBinaryValue(keypath, valuename string, content []byte) error {
-	p, err := stripHKey(keypath)
-	if err != nil {
-		return err
-	}
-
-	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
-	if err != nil {
-		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
-	}
-	defer k.Close()
-
-	err = k.SetBinaryValue(valuename, content)
-	if err != nil {
-		return fmt.Errorf("unable to write binary (REG_BINARY) registry value [%s -> %s]: %v", keypath, valuename, err)
-	}
-
-	return nil
-}
-
 // DeleteKey deletes a key from the given registry path.
 func DeleteKey(keypath string) error {
 	p, err := stripHKey(keypath)
@@ -115,4 +136,25 @@ func DeleteKey(keypath string) error {
 	}
 
 	return registry.DeleteKey(registry.LOCAL_MACHINE, p)
+}
+
+// Ls lists the given registry key path.
+func Ls(keypath string) ([]string, error) {
+	p, err := stripHKey(keypath)
+	if err != nil {
+		return nil, err
+	}
+
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open services key path [%s]: %v", p, err)
+	}
+	defer k.Close()
+
+	vs, err := k.ReadValueNames(0)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list values in services key path [%s]: %v", p, err)
+	}
+
+	return vs, nil
 }

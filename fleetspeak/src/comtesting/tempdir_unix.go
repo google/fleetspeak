@@ -16,10 +16,6 @@
 
 package comtesting
 
-func getTempDirOrRegKey(testName string) (string, func()) {
-	return GetTempDir(testName)
-}
-
 func cleanupTempDir() {
 	tempDir = ""
 }

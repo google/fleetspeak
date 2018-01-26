@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -59,11 +58,6 @@ type Manager struct {
 	done          chan bool
 }
 
-const (
-	communicatorFilename = "communicator.txt"
-	writebackFilename    = "writeback"
-)
-
 // StartManager attempts to create a Manager from the provided client
 // configuration.
 //
@@ -74,18 +68,14 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		return nil, errors.New("configuration must be provided")
 	}
 
+	if cfg.PersistenceHandler == nil {
+		log.Warning("PersistenceHandler not provided. Using NoopPersistenceHandler.")
+		cfg.PersistenceHandler = config.NewNoopPersistenceHandler()
+	}
+
 	for _, l := range cfg.ClientLabels {
 		if l.ServiceName != "client" || l.Label == "" {
 			return nil, fmt.Errorf("invalid client label: %v", l)
-		}
-	}
-
-	if cfg.ConfigurationPath == "" {
-		if !cfg.Ephemeral {
-			return nil, errors.New("no configuration path provided, but Ephemeral=false")
-		}
-		if cfg.FixedServices == nil {
-			return nil, errors.New("no configuration path provided, but FixedServices=nil")
 		}
 	}
 
@@ -95,6 +85,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 
 		state:           &clpb.ClientState{},
 		revokedSerials:  make(map[string]bool),
+		dirty:           true,
 		runningServices: make(map[string][]byte),
 
 		configChanges: configChanges,
@@ -104,17 +95,12 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		r.cc = &clpb.CommunicatorConfig{}
 	}
 
-	if !cfg.Ephemeral {
-		if err := verifyConfigurationPath(cfg.ConfigurationPath); err != nil {
-			return nil, err
-		}
-		r.writebackPath = cfg.ConfigurationPath
-		if err := r.readWriteback(); err != nil {
-			log.Errorf("initial load of writeback failed (continuing): %v", err)
-			r.state = &clpb.ClientState{}
-		}
+	var err error
+	if r.state, err = cfg.PersistenceHandler.ReadState(); err != nil {
+		log.Errorf("initial load of writeback failed (continuing): %v", err)
+		r.state = &clpb.ClientState{}
 	}
-
+	r.AddRevokedSerials(r.state.RevokedCertSerials)
 	r.AddRevokedSerials(cfg.RevokedCertSerials)
 
 	if r.state.ClientKey == nil {
@@ -133,17 +119,21 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		log.Infof("Using client id: %v (Escaped: %q, Octal: %o)", r.id, r.id.Bytes(), r.id.Bytes())
 	}
 
-	r.readCommunicatorConfig()
-
-	if !r.cfg.Ephemeral {
-		r.dirty = true
-		if err := r.Sync(); err != nil {
-			return nil, fmt.Errorf("unable to write initial Writeback[%v -> %s]: %v", r.writebackPath, writebackFilename, err)
+	if cc, err := cfg.PersistenceHandler.ReadCommunicatorConfig(); err == nil {
+		if cc != nil {
+			r.cc = cc
 		}
-		r.syncTicker = time.NewTicker(time.Minute)
-		r.done = make(chan bool)
-		go r.syncLoop()
+	} else {
+		log.Errorf("Error reading communicator config, ignoring: %v", err)
 	}
+
+	if err := r.Sync(); err != nil {
+		return nil, fmt.Errorf("unable to write initial writeback: %v", err)
+	}
+	r.syncTicker = time.NewTicker(time.Minute)
+	r.done = make(chan bool)
+	go r.syncLoop()
+
 	return &r, nil
 }
 
@@ -173,75 +163,24 @@ func (m *Manager) Rekey() error {
 	return nil
 }
 
-// Sync writes the current dynamic state to the writeback file. This saves the
-// current state, so changing data (e.g. the deduplication nonces) is persisted
-// across restarts.
+// Sync writes the current dynamic state to the writeback location. This saves the current state, so changing data (e.g. the deduplication nonces) is persisted across restarts.
 func (m *Manager) Sync() error {
-	if m.cfg.Ephemeral {
-		return nil
-	}
 	m.lock.RLock()
-	p := m.writebackPath
 	d := m.dirty
 	m.lock.RUnlock()
-
-	if p == "" || !d {
+	if !d {
 		return nil
 	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	bytes, err := proto.Marshal(m.state)
-	if err != nil {
-		log.Fatalf("Unable to serialize writeback: %v", err)
-	}
-
-	if err := syncImpl(p, bytes); err != nil {
-		return err
+	if err := m.cfg.PersistenceHandler.WriteState(m.state); err != nil {
+		return fmt.Errorf("Failed to sync state to writeback: %v", err)
 	}
 
 	m.dirty = false
 	return nil
-}
-
-func (m *Manager) readWriteback() error {
-	b, err := readWritebackImpl(m.writebackPath)
-	if err != nil {
-		return err
-	}
-	if b == nil {
-		return nil
-	}
-
-	m.state = &clpb.ClientState{}
-	if err := proto.Unmarshal(b, m.state); err != nil {
-		m.state = nil
-		return fmt.Errorf("unable to parse writeback file: %v", err)
-	}
-	m.AddRevokedSerials(m.state.RevokedCertSerials)
-
-	return nil
-}
-
-func (m *Manager) readCommunicatorConfig() {
-	if m.cfg.ConfigurationPath == "" {
-		return
-	}
-	b, err := readCommunicatorConfigImpl(m.cfg.ConfigurationPath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Errorf("Error reading communicator config [%s -> %s], ignoring: %v", m.cfg.ConfigurationPath, communicatorFilename, err)
-		}
-		return
-	}
-
-	var cc clpb.CommunicatorConfig
-	if err := proto.UnmarshalText(string(b), &cc); err != nil {
-		log.Errorf("Error parsing communicator config [%s -> %s], ignoring: %v", m.cfg.ConfigurationPath, communicatorFilename, err)
-		return
-	}
-	m.cc = &cc
 }
 
 // AddRevokedSerials takes a list of revoked certificate serial numbers and adds
