@@ -17,6 +17,7 @@
 package cache
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -67,7 +68,24 @@ func (c *Clients) Get(id common.ClientID) *db.ClientData {
 	if e == nil || db.Now().Sub(e.u) > MaxAge {
 		return nil
 	}
-	return e.d
+	return e.d.Clone()
+}
+
+// GetOrRead returns the cached client data, if there is sufficiently fresh data
+// in the cache.  Otherwise it attempts to read the data from the provided
+// datastore. It returns data if it finds any, hit if it was found in the cache.
+func (c *Clients) GetOrRead(ctx context.Context, id common.ClientID, db db.ClientStore) (data *db.ClientData, hit bool, err error) {
+	ret := c.Get(id)
+	if ret != nil {
+		// cloned by Get
+		return ret, true, nil
+	}
+
+	if ret, err = db.GetClientData(ctx, id); err != nil {
+		return nil, false, err
+	}
+	c.Update(id, ret)
+	return ret, false, nil
 }
 
 // Update updates or sets the cached data for a particular client. If data is
@@ -81,7 +99,7 @@ func (c *Clients) Update(id common.ClientID, data *db.ClientData) {
 	} else {
 		c.m[id] = &clientEntry{
 			u: db.Now(),
-			d: data,
+			d: data.Clone(),
 		}
 	}
 }

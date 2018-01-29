@@ -49,21 +49,12 @@ type commsContext struct {
 // GetClientInfo loads basic information about a client. Returns nil if the client does
 // not exist in the datastore.
 func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*comms.ClientInfo, error) {
-	var cld *db.ClientData
-	var err error
-	var cacheHit bool
-
-	if cld = c.s.clientCache.Get(id); cld != nil {
-		cacheHit = true
-	} else {
-		cld, err = c.s.dataStore.GetClientData(ctx, id)
-		if err != nil {
-			if c.s.dataStore.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
+	cld, cacheHit, err := c.s.clientCache.GetOrRead(ctx, id, c.s.dataStore)
+	if err != nil {
+		if c.s.dataStore.IsNotFound(err) {
+			return nil, nil
 		}
-		c.s.clientCache.Update(id, cld)
+		return nil, err
 	}
 
 	k, err := x509.ParsePKIXPublicKey(cld.Key)
