@@ -306,14 +306,9 @@ func (s *liveService) Send(ctx context.Context, m *fspb.Message) error {
 
 // GetClientData implements service.Context.
 func (s *liveService) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
-	cd := s.manager.cc.Get(id)
-	if cd == nil {
-		var err error
-		cd, err = s.manager.dataStore.GetClientData(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		s.manager.cc.Update(id, cd)
+	cd, _, err := s.manager.cc.GetOrRead(ctx, id, s.manager.dataStore)
+	if err != nil {
+		return nil, err
 	}
 	return cd, nil
 }

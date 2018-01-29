@@ -37,6 +37,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
+	"github.com/golang/protobuf/proto"
+
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -69,6 +71,20 @@ type ClientData struct {
 	// Whether the client_id has been blacklisted. Once blacklisted any contact
 	// from this client_id will result in an rekey request.
 	Blacklisted bool
+}
+
+// Clone returns a deep copy.
+func (d *ClientData) Clone() *ClientData {
+	ret := &ClientData{
+		Blacklisted: d.Blacklisted,
+	}
+	ret.Key = append(ret.Key, d.Key...)
+
+	ret.Labels = make([]*fspb.Label, 0, len(d.Labels))
+	for _, l := range d.Labels {
+		ret.Labels = append(ret.Labels, proto.Clone(l).(*fspb.Label))
+	}
+	return ret
 }
 
 // A ContactID identifies a communication with a client. The form is determined
