@@ -89,7 +89,7 @@ func ListClients(c sgrpc.AdminClient, args ...string) {
 		os.Exit(1)
 	}
 	ctx := context.Background()
-	res, err := c.ListClients(ctx, &spb.ListClientsRequest{})
+	res, err := c.ListClients(ctx, &spb.ListClientsRequest{}, grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
 		log.Exitf("ListClients RPC failed: %v", err)
 	}
@@ -149,7 +149,7 @@ func ListContacts(c sgrpc.AdminClient, args ...string) {
 	}
 
 	ctx := context.Background()
-	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()})
+	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()}, grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
 		log.Exitf("ListClientContacts RPC failed: %v", err)
 	}
@@ -198,7 +198,7 @@ func AnalyseHistory(c sgrpc.AdminClient, args ...string) {
 		log.Exitf("Unable to parse %s as client id: %v", args[0], err)
 	}
 	ctx := context.Background()
-	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()})
+	res, err := c.ListClientContacts(ctx, &spb.ListClientContactsRequest{ClientId: id.Bytes()}, grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
 		log.Exitf("ListClientContacts RPC failed: %v", err)
 	}
