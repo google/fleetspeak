@@ -17,6 +17,8 @@ package clienttestutils
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
 
@@ -30,5 +32,10 @@ func WriteServiceConfig(dirpath, filename string, cfg *fspb.SignedClientServiceC
 		return fmt.Errorf("unable to serialize signed service config: %v", err)
 	}
 
-	return writeServiceConfigImpl(b, dirpath, filename, cfg)
+	configPath := filepath.Join(dirpath, filename)
+	if err := ioutil.WriteFile(configPath, b, 0644); err != nil {
+		return fmt.Errorf("unable to write signed service config[%s]: %v", configPath, err)
+	}
+
+	return nil
 }

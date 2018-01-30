@@ -25,7 +25,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -161,7 +160,15 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		}
 	}
 
-	ret.loadServices()
+	if ss, err := ret.cfg.PersistenceHandler.ReadSignedServices(); err != nil {
+		log.Errorf("Unable to read signed services; continuing: %v", err)
+	} else {
+		for _, s := range ss {
+			if err := ret.sc.InstallSignedService(s); err != nil {
+				log.Warningf("Unable to install signed service, ignoring: %v", err)
+			}
+		}
+	}
 
 	if ret.com != nil {
 		if err := ret.com.Setup(commsContext{ret}); err != nil {
@@ -247,36 +254,6 @@ func (c *Client) Stop() {
 			c.retryLoopsDone.Wait()
 			close(c.outUnsorted)
 			return
-		}
-	}
-}
-
-type serviceBytes struct {
-	// Used for pretty logging only.
-	path string
-
-	bytes []byte
-}
-
-func (c *Client) loadServices() {
-	if c.cfg.ConfigurationPath == "" {
-		return
-	}
-
-	ss, err := readServices(c.cfg.ConfigurationPath)
-	if err != nil {
-		log.Warningf("Unable to load services: %v", err)
-		return
-	}
-
-	for _, sb := range ss {
-		var s fspb.SignedClientServiceConfig
-		if err := proto.Unmarshal(sb.bytes, &s); err != nil {
-			log.Warningf("Unable to parse service file [%s], ignoring: %v", sb.path, err)
-			continue
-		}
-		if err := c.sc.InstallSignedService(&s); err != nil {
-			log.Warningf("Unable in install service file [%s], ignoring: %v", sb.path, err)
 		}
 	}
 }

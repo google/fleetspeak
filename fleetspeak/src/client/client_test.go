@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -70,8 +69,7 @@ func TestMessageDelivery(t *testing.T) {
 
 	cl, err := New(
 		config.Configuration{
-			Ephemeral:     true,
-			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -121,8 +119,7 @@ func TestMessageDelivery(t *testing.T) {
 func TestRekey(t *testing.T) {
 	cl, err := New(
 		config.Configuration{
-			Ephemeral:     true,
-			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -181,8 +178,7 @@ func TestMessageValidation(t *testing.T) {
 
 	cl, err := New(
 		config.Configuration{
-			Ephemeral:     true,
-			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+			FixedServices:      []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
 		},
 		Components{
 			ServiceFactories: map[string]service.Factory{
@@ -218,7 +214,7 @@ func TestMessageValidation(t *testing.T) {
 }
 
 func TestServiceValidation(t *testing.T) {
-	tmpPath, fin := comtesting.GetTempDirOrRegKey("client_service_validation")
+	tmpPath, fin := comtesting.GetTempDir("client_service_validation")
 	defer fin()
 
 	k, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -228,10 +224,8 @@ func TestServiceValidation(t *testing.T) {
 	pk := *(k.Public().(*rsa.PublicKey))
 
 	sp := filepath.Join(tmpPath, "services")
-	if runtime.GOOS != "windows" {
-		if err := os.Mkdir(sp, 0777); err != nil {
-			t.Fatalf("Unable to create services path [%s]: %v", sp, err)
-		}
+	if err := os.Mkdir(sp, 0777); err != nil {
+		t.Fatalf("Unable to create services path [%s]: %v", sp, err)
 	}
 
 	msgs := make(chan *fspb.Message, 1)
@@ -276,11 +270,15 @@ func TestServiceValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	cl, err := New(
 		config.Configuration{
 			DeploymentPublicKeys: []rsa.PublicKey{pk},
-			Ephemeral:            true,
-			ConfigurationPath:    tmpPath,
+			PersistenceHandler:   ph,
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: "TestClient"},
 				{ServiceName: "client", Label: "linux"}},

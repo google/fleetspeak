@@ -55,6 +55,11 @@ var (
 func main() {
 	flag.Parse()
 
+	ph, err := config.NewFilesystemPersistenceHandler(*configPath, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cl, err := client.New(
 		config.Configuration{
 			TrustedCerts:         readTrustedCerts(),
@@ -65,7 +70,7 @@ func main() {
 				{ServiceName: "client", Label: runtime.GOOS},
 				{ServiceName: "client", Label: "miniclient"},
 			},
-			ConfigurationPath: *configPath,
+			PersistenceHandler: ph,
 		},
 		client.Components{
 			ServiceFactories: map[string]service.Factory{

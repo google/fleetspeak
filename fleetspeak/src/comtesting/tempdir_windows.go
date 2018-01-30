@@ -18,42 +18,9 @@ package comtesting
 
 import (
 	"os"
-	"path/filepath"
 
 	log "github.com/golang/glog"
-	"github.com/google/fleetspeak/fleetspeak/src/windows/regutil"
 )
-
-const tempRegPrefix = `HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakDevelopment`
-
-var tempReg = ""
-
-// GetTempRegKey returns the name of a temporary registry key.  It uses the name of the test that is being run as part of the name of the key.
-//
-// The second returned value is a cleanup function.
-func GetTempRegKey(testName string) (string, func()) {
-	tempReg = filepath.Join(tempRegPrefix, testName+"_")
-	log.Infof("Using temp registry path: %s", tempReg)
-	return tempReg, cleanupTempReg
-}
-
-func cleanupTempReg() {
-	if tempReg == "" {
-		return
-	}
-
-	err := regutil.DeleteKey(tempRegPrefix)
-	if err != nil {
-		log.Errorf("Failed to cleanup temp registry [%s]: %v", tempRegPrefix, err)
-		return
-	}
-
-	tempReg = ""
-}
-
-func getTempDirOrRegKey(testName string) (string, func()) {
-	return GetTempRegKey(testName)
-}
 
 func cleanupTempDir() {
 	if tempDir == "" {

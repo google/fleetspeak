@@ -14,20 +14,8 @@
 
 // +build linux darwin
 
-package clienttestutils
+package config
 
-import (
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
-
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-)
-
-func writeServiceConfigImpl(content []byte, dirpath, filename string, cfg *fspb.SignedClientServiceConfig) error {
-	if err := ioutil.WriteFile(filepath.Join(dirpath, filename), content, 0644); err != nil {
-		return fmt.Errorf("unable to write signed service config[%s -> %s]: %v", dirpath, filename, err)
-	}
-
-	return nil
+func newDefaultPersistenceHandler(configurationPath string, readonly bool) (PersistenceHandler, error) {
+	return NewFilesystemPersistenceHandler(configurationPath, readonly)
 }

@@ -17,10 +17,10 @@ package integrationtest
 import (
 	"context"
 	"crypto/x509"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -115,15 +115,18 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 
 	// Prepare a general client config.
 	configPath := filepath.Join(tmpConfPath, "client_1")
-	if runtime.GOOS != "windows" {
-		if err := os.Mkdir(configPath, 0777); err != nil {
-			t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
-		}
+	if err := os.Mkdir(configPath, 0777); err != nil {
+		t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
+	}
+
+	ph, err := config.NewFilesystemPersistenceHandler(configPath, false)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	conf := config.Configuration{
-		ConfigurationPath: configPath,
-		TrustedCerts:      x509.NewCertPool(),
+		PersistenceHandler: ph,
+		TrustedCerts:       x509.NewCertPool(),
 		ClientLabels: []*fspb.Label{
 			{ServiceName: "client", Label: "clone_test"},
 		},
@@ -150,27 +153,31 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 	}
 	cl.Stop()
 
-	wb, err := readFile(configPath, "writeback")
+	wb, err := ioutil.ReadFile(filepath.Join(configPath, "writeback"))
 	if err != nil {
 		t.Fatalf("Unable to read example writeback file: %v", err)
 	}
 	for _, pc := range []string{"client_2", "client_3", "client_4", "client_5"} {
 		configPath := filepath.Join(tmpConfPath, pc)
-		if runtime.GOOS != "windows" {
-			if err := os.Mkdir(configPath, 0777); err != nil {
-				t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
-			}
+		if err := os.Mkdir(configPath, 0777); err != nil {
+			t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
 		}
-		writeFile(configPath, "writeback", wb)
+		ioutil.WriteFile(filepath.Join(configPath, "writeback"), wb, 0644)
 	}
 
 	// We have 5 config dirs with the same key. Start a client running against
 	// each of them.
 
 	for i, pc := range []string{"client_1", "client_2", "client_3", "client_4", "client_5"} {
+		pcConfigPath := filepath.Join(tmpConfPath, pc)
+		ph, err := config.NewFilesystemPersistenceHandler(pcConfigPath, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		conf := config.Configuration{
-			ConfigurationPath: filepath.Join(tmpConfPath, pc),
-			TrustedCerts:      x509.NewCertPool(),
+			PersistenceHandler: ph,
+			TrustedCerts:       x509.NewCertPool(),
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: "clone_test"},
 			},

@@ -14,16 +14,8 @@
 
 // +build windows
 
-package integrationtest
+package config
 
-import (
-	"github.com/google/fleetspeak/fleetspeak/src/windows/regutil"
-)
-
-func readFile(dirpath, filename string) ([]byte, error) {
-	return regutil.ReadBinaryValue(dirpath, filename)
-}
-
-func writeFile(dirpath, filename string, content []byte) error {
-	return regutil.WriteBinaryValue(dirpath, filename, content)
+func newDefaultPersistenceHandler(configurationPath string, readonly bool) (PersistenceHandler, error) {
+	return NewWindowsRegistryPersistenceHandler(configurationPath, readonly)
 }

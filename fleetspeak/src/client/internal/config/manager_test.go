@@ -31,8 +31,7 @@ import (
 func TestRekey(t *testing.T) {
 
 	m, err := StartManager(&config.Configuration{
-		Ephemeral:     true,
-		FixedServices: make([]*fspb.ClientServiceConfig, 0),
+		FixedServices:      make([]*fspb.ClientServiceConfig, 0),
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)
@@ -54,11 +53,16 @@ func TestRekey(t *testing.T) {
 }
 
 func TestWriteback(t *testing.T) {
-	tmpPath, fin := comtesting.GetTempDirOrRegKey("TestWriteback")
+	tmpPath, fin := comtesting.GetTempDir("TestWriteback")
 	defer fin()
 
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	m1, err := StartManager(&config.Configuration{
-		ConfigurationPath: tmpPath,
+		PersistenceHandler: ph,
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)
@@ -70,8 +74,13 @@ func TestWriteback(t *testing.T) {
 	}
 	m1.Stop()
 
+	ph, err = config.NewFilesystemPersistenceHandler(tmpPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	m2, err := StartManager(&config.Configuration{
-		ConfigurationPath: tmpPath,
+		PersistenceHandler: ph,
 	}, make(chan *fspb.ClientInfoData))
 	if err != nil {
 		t.Errorf("Unable to create new config manager: %v", err)
@@ -100,7 +109,6 @@ func TestValidateServiceConfig(t *testing.T) {
 	m, err := StartManager(
 		&config.Configuration{
 			DeploymentPublicKeys: []rsa.PublicKey{k1.PublicKey, k2.PublicKey},
-			Ephemeral:            true,
 			FixedServices:        make([]*fspb.ClientServiceConfig, 0),
 		}, make(chan *fspb.ClientInfoData))
 

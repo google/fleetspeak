@@ -48,8 +48,3 @@ func GetTempDir(testName string) (string, func()) {
 	log.Infof("Created temp directory: %s", tempDir)
 	return tempDir, cleanupTempDir
 }
-
-// GetTempDirOrRegKey creates and returns the name of a temporary registry key on Windows or a temporary directory on other platforms.
-func GetTempDirOrRegKey(testName string) (string, func()) {
-	return getTempDirOrRegKey(testName)
-}
