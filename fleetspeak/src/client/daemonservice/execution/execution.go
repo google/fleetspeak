@@ -234,8 +234,10 @@ func (e *Execution) flushOut() {
 	} else {
 		e.sc.Send(context.Background(), service.AckMessage{
 			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "system"},
 				MessageType: "StdOutput",
 				Data:        d,
+				Background:  true,
 			}})
 	}
 	e.outData = &dspb.StdOutputData{
