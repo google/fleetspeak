@@ -128,15 +128,9 @@ func (h *FilesystemPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClien
 		return nil, fmt.Errorf("invalid signed services directory path: %v", err)
 	}
 
-	d, err := os.Open(p)
+	fs, err := ls(p)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open signed services path [%s]: %v", p, err)
-	}
-	defer d.Close()
-
-	fs, err := d.Readdirnames(0)
-	if err != nil {
-		return nil, fmt.Errorf("unable to list files in signed services path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to list signed services directory [%s]: %v", p, err)
 	}
 
 	ret := make([]*fspb.SignedClientServiceConfig, 0)
@@ -152,6 +146,40 @@ func (h *FilesystemPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClien
 		s := &fspb.SignedClientServiceConfig{}
 		if err := proto.Unmarshal(b, s); err != nil {
 			log.Errorf("Unable to parse signed service file [%s], ignoring: %v", fp, err)
+			continue
+		}
+
+		ret = append(ret, s)
+	}
+
+	return ret, nil
+}
+
+// ReadServices implements PersistenceHandler.
+func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, error) {
+	p := filepath.Join(h.configurationPath, servicesDirname)
+	if err := verifyDirectoryPath(p); err != nil {
+		return nil, fmt.Errorf("invalid services directory path: %v", err)
+	}
+
+	fs, err := ls(p)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list services directory [%s]: %v", p, err)
+	}
+
+	ret := make([]*fspb.ClientServiceConfig, 0)
+
+	for _, f := range fs {
+		fp := filepath.Join(p, f)
+		b, err := ioutil.ReadFile(fp)
+		if err != nil {
+			log.Errorf("Unable to read service file [%s], ignoring: %v", fp, err)
+			continue
+		}
+
+		s := &fspb.ClientServiceConfig{}
+		if err := proto.UnmarshalText(string(b), s); err != nil {
+			log.Errorf("Unable to parse service file [%s], ignoring: %v", fp, err)
 			continue
 		}
 
@@ -184,4 +212,20 @@ func verifyDirectoryPath(dirPath string) error {
 	}
 
 	return nil
+}
+
+// ls lists the given directory.
+func ls(dirpath string) ([]string, error) {
+	d, err := os.Open(dirpath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open services path [%s]: %v", dirpath, err)
+	}
+	defer d.Close()
+
+	fs, err := d.Readdirnames(0)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list files in services path [%s]: %v", dirpath, err)
+	}
+
+	return fs, nil
 }

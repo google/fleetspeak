@@ -147,6 +147,39 @@ func (h *WindowsRegistryPersistenceHandler) ReadSignedServices() ([]*fspb.Signed
 	return ret, nil
 }
 
+// ReadServices implements PersistenceHandler.
+func (h *WindowsRegistryPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, error) {
+	keyPath := filepath.Join(h.configurationPath, servicesDirname)
+	if err := regutil.VerifyPath(keyPath); err != nil {
+		return nil, fmt.Errorf("invalid services directory path: %v", err)
+	}
+
+	vs, err := regutil.Ls(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list values in services key path [%s]: %v", keyPath, err)
+	}
+
+	ret := make([]*fspb.ClientServiceConfig, 0)
+
+	for _, v := range vs {
+		sv, err := regutil.ReadStringValue(keyPath, v)
+		if err != nil {
+			log.Errorf("Unable to read service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+			continue
+		}
+
+		s := &fspb.ClientServiceConfig{}
+		if err := proto.UnmarshalText(sv, s); err != nil {
+			log.Errorf("Unable to parse service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+			continue
+		}
+
+		ret = append(ret, s)
+	}
+
+	return ret, nil
+}
+
 // SaveSignedService implements PersistenceHandler.
 func (h *WindowsRegistryPersistenceHandler) SaveSignedService(*fspb.SignedClientServiceConfig) error {
 	if h.readonly {

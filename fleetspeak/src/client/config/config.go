@@ -60,9 +60,6 @@ type Configuration struct {
 
 	// FixedServices are installed and started during client startup without
 	// checking the deployment key.
-	//
-	// Intended for testing and specialized applications - should be hardcoded nil
-	// in normal deployments.
 	FixedServices []*fspb.ClientServiceConfig
 
 	// CommunicatorConfig sets default communication parameters, and is meant to
@@ -74,12 +71,15 @@ type Configuration struct {
 	// RevokedCertSerials is a list of certificate serial numbers which have been
 	// revoked. Revoked serial numbers can also be provided by the server and will
 	// stored to the writeback location, if NoopPersistenceHandler is not used.
+	// Intended for testing and specialized applications - should be hardcoded nil
+	// in normal deployments.
 	RevokedCertSerials [][]byte
 }
 
 const (
 	communicatorFilename  = "communicator.txt"
 	signedServicesDirname = "services"
+	servicesDirname       = "textservices"
 	writebackFilename     = "writeback"
 )
 
@@ -90,6 +90,7 @@ type PersistenceHandler interface {
 	ReadCommunicatorConfig() (*clpb.CommunicatorConfig, error)
 
 	ReadSignedServices() ([]*fspb.SignedClientServiceConfig, error)
+	ReadServices() ([]*fspb.ClientServiceConfig, error)
 	SaveSignedService(*fspb.SignedClientServiceConfig) error
 }
 

@@ -25,8 +25,8 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-// WriteServiceConfig saves the given config to a test location.
-func WriteServiceConfig(dirpath, filename string, cfg *fspb.SignedClientServiceConfig) error {
+// WriteSignedServiceConfig saves the given signed config to a test location.
+func WriteSignedServiceConfig(dirpath, filename string, cfg *fspb.SignedClientServiceConfig) error {
 	b, err := proto.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("unable to serialize signed service config: %v", err)
@@ -35,6 +35,18 @@ func WriteServiceConfig(dirpath, filename string, cfg *fspb.SignedClientServiceC
 	configPath := filepath.Join(dirpath, filename)
 	if err := ioutil.WriteFile(configPath, b, 0644); err != nil {
 		return fmt.Errorf("unable to write signed service config[%s]: %v", configPath, err)
+	}
+
+	return nil
+}
+
+// WriteServiceConfig saves the given config to a test location.
+func WriteServiceConfig(dirpath, filename string, cfg *fspb.ClientServiceConfig) error {
+	s := proto.MarshalTextString(cfg)
+
+	configPath := filepath.Join(dirpath, filename)
+	if err := ioutil.WriteFile(configPath, []byte(s), 0644); err != nil {
+		return fmt.Errorf("unable to write service config[%s]: %v", configPath, err)
 	}
 
 	return nil
