@@ -54,7 +54,8 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 			var timeNS int64
 			var addr sql.NullString
 			var clockSecs, clockNanos sql.NullInt64
-			if err := rows.Scan(&sid, &timeNS, &addr, &clockSecs, &clockNanos); err != nil {
+			var blacklisted bool
+			if err := rows.Scan(&sid, &timeNS, &addr, &clockSecs, &clockNanos, &blacklisted); err != nil {
 				return err
 			}
 
@@ -84,6 +85,7 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 				LastContactTime:    ts,
 				LastContactAddress: addr.String,
 				LastClock:          lastClock,
+				Blacklisted:        blacklisted,
 			}
 		}
 		return rows.Err()
@@ -91,12 +93,12 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 
 	err := d.runInTx(func(tx *sql.Tx) error {
 		if len(ids) == 0 {
-			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos FROM clients")); err != nil {
+			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
 				return err
 			}
 		} else {
 			for _, id := range ids {
-				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos FROM clients WHERE client_id = ?", id.String())); err != nil {
+				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients WHERE client_id = ?", id.String())); err != nil {
 					return err
 				}
 			}
