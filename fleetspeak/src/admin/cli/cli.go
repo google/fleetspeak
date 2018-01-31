@@ -113,7 +113,11 @@ func ListClients(c sgrpc.AdminClient, args ...string) {
 		if err != nil {
 			log.Errorf("Unable to parse last contact time for %v: %v", id, err)
 		}
-		fmt.Printf("%v %v [%v]\n", id, ts.Format(dateFmt), strings.Join(ls, ","))
+		tag := ""
+		if cl.Blacklisted {
+			tag = " *blacklisted*"
+		}
+		fmt.Printf("%v %v [%v]%s\n", id, ts.Format(dateFmt), strings.Join(ls, ","), tag)
 	}
 }
 
