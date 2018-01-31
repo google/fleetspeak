@@ -28,6 +28,7 @@ import (
 // Intended for testing and specialized applications.
 type NoopPersistenceHandler struct{}
 
+// NewNoopPersistenceHandler instantiates a NoopPersistenceHandler.
 func NewNoopPersistenceHandler() *NoopPersistenceHandler {
 	return &NoopPersistenceHandler{}
 }
@@ -59,5 +60,5 @@ func (*NoopPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, erro
 
 // SaveSignedService implements PersistenceHandler.
 func (*NoopPersistenceHandler) SaveSignedService(*fspb.SignedClientServiceConfig) error {
-	return errors.New("Not implemented.")
+	return errors.New("not implemented")
 }

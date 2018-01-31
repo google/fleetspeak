@@ -195,7 +195,7 @@ func (h *FilesystemPersistenceHandler) SaveSignedService(*fspb.SignedClientServi
 		return nil
 	}
 
-	return errors.New("Not yet implemented.")
+	return errors.New("not yet implemented")
 }
 
 func verifyDirectoryPath(dirPath string) error {
