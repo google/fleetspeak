@@ -36,6 +36,7 @@ message Client {
   google.protobuf.Timestamp last_contact_time = 3;
   string last_contact_address = 4;
   google.protobuf.Timestamp last_clock = 5;
+  bool blacklisted = 6;
 }
 
 message GetMessageStatusRequest {

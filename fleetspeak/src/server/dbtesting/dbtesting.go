@@ -960,23 +960,30 @@ func BroadcastStoreTest(t *testing.T, ds db.Store) {
 
 func listClientsTest(t *testing.T, ds db.Store) {
 	ctx := context.Background()
+	if err := ds.BlacklistClient(ctx, clientID3); err != nil {
+		t.Errorf("Unable to blacklist client: %v", err)
+	}
 Cases:
 	for _, tc := range []struct {
-		name string
-		ids  []common.ClientID
-		want map[common.ClientID]bool
+		name            string
+		ids             []common.ClientID
+		want            map[common.ClientID]bool
+		wantBlacklisted map[common.ClientID]bool
 	}{
 		{
-			ids:  nil,
-			want: map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
+			ids:             nil,
+			want:            map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
+			wantBlacklisted: map[common.ClientID]bool{clientID3: true},
 		},
 		{
-			ids:  []common.ClientID{clientID},
-			want: map[common.ClientID]bool{clientID: true},
+			ids:             []common.ClientID{clientID},
+			want:            map[common.ClientID]bool{clientID: true},
+			wantBlacklisted: map[common.ClientID]bool{},
 		},
 		{
-			ids:  []common.ClientID{clientID, clientID2},
-			want: map[common.ClientID]bool{clientID: true, clientID2: true},
+			ids:             []common.ClientID{clientID, clientID2},
+			want:            map[common.ClientID]bool{clientID: true, clientID2: true},
+			wantBlacklisted: map[common.ClientID]bool{},
 		},
 	} {
 		clients, err := ds.ListClients(ctx, tc.ids)
@@ -985,6 +992,7 @@ Cases:
 			continue Cases
 		}
 		got := make(map[common.ClientID]bool)
+		gotBlacklisted := make(map[common.ClientID]bool)
 		for _, c := range clients {
 			id, err := common.BytesToClientID(c.ClientId)
 			if err != nil {
@@ -994,9 +1002,15 @@ Cases:
 				t.Errorf("ListClients(%v) returned nil LastContactTime.", tc.ids)
 			}
 			got[id] = true
+			if c.Blacklisted {
+				gotBlacklisted[id] = true
+			}
 		}
 		if !reflect.DeepEqual(tc.want, got) {
 			t.Errorf("ListClients(%v) returned unexpected set of clients, want [%v], got[%v]", tc.ids, tc.want, got)
+		}
+		if !reflect.DeepEqual(tc.wantBlacklisted, gotBlacklisted) {
+			t.Errorf("ListClients(%v) returned unexpected set of blacklisted clients, want [%v], got[%v]", tc.ids, tc.wantBlacklisted, gotBlacklisted)
 		}
 	}
 }
