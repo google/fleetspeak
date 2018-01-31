@@ -186,5 +186,5 @@ func (h *WindowsRegistryPersistenceHandler) SaveSignedService(*fspb.SignedClient
 		return nil
 	}
 
-	return errors.New("Not yet implemented.")
+	return errors.New("not yet implemented")
 }
