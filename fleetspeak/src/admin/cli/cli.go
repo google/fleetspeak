@@ -121,8 +121,7 @@ func ListClients(c sgrpc.AdminClient, args ...string) {
 	}
 }
 
-// byContactTime adapts []*spb.Client for use by sort.Sort. Places most recent
-// contacts first.
+// byContactTime adapts []*spb.Client for use by sort.Sort.
 type byContactTime []*spb.Client
 
 func (b byContactTime) Len() int           { return len(b) }
@@ -180,7 +179,8 @@ func ListContacts(c sgrpc.AdminClient, args ...string) {
 	}
 }
 
-// byTimestamp adapts []*spb.ClientContact for use by sort.Sort.
+// byTimestamp adapts []*spb.ClientContact for use by sort.Sort. Places most
+// recent contacts first.
 type byTimestamp []*spb.ClientContact
 
 func (b byTimestamp) Len() int           { return len(b) }
