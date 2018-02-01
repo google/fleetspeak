@@ -19,6 +19,23 @@ import (
 	"testing"
 )
 
+type netErr struct {
+	msg        string
+	temp, time bool
+}
+
+func (e netErr) Error() string {
+	return e.msg
+}
+
+func (e netErr) Temporary() bool {
+	return e.temp
+}
+
+func (e netErr) Timeout() bool {
+	return e.time
+}
+
 func TestIsTemporary(t *testing.T) {
 	for _, tc := range []struct {
 		e    error
@@ -33,7 +50,19 @@ func TestIsTemporary(t *testing.T) {
 			want: true,
 		},
 		{
-			e:    &TemporaryError{errors.New("another temporary error")},
+			e:    &TemporaryError{errors.New("a referenced temporary error")},
+			want: true,
+		},
+		{
+			e:    netErr{msg: "A generic net.Error"},
+			want: false,
+		},
+		{
+			e:    netErr{msg: "A temporary net.Error", temp: true},
+			want: true,
+		},
+		{
+			e:    netErr{msg: "A timeout net.Error", time: true},
 			want: true,
 		},
 	} {
