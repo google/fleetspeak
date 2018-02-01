@@ -136,6 +136,7 @@ func (c commsContext) HandleClientContact(ctx context.Context, info *comms.Clien
 // reserves them for processing.
 func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, maxMessages int) ([]*fspb.Message, error) {
 	if info.Blacklisted {
+		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.ID)
 		m, err := c.MakeBlacklistMessage(ctx, info, contactID)
 		return []*fspb.Message{m}, err
 	}
