@@ -22,6 +22,7 @@ package service
 
 import (
 	"context"
+	"net"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -37,9 +38,10 @@ type Service interface {
 	// calls into ServiceContext until Wait is called.
 	Start(sctx Context) error
 
-	// ProcessMessage requests that the service process a message. If it returns
-	// a TemporaryError, it will be retried according the ServerRetryPolicy. Otherwise
-	// the error will be assumed to be permanent.
+	// ProcessMessage requests that the service process a message. If it returns a
+	// net.Error which reports as a timeout or temporary error, the message will
+	// be retried according the ServerRetryPolicy. Otherwise the error will be
+	// assumed to be permanent.
 	ProcessMessage(context.Context, *fspb.Message) error
 
 	// Stop initiates and waits for an orderly shut down. It will only be
@@ -84,14 +86,19 @@ func (e TemporaryError) Error() string {
 	return e.E.Error()
 }
 
-// IsTemporary determines if e is a TemporaryError.
-func IsTemporary(e error) bool {
-	switch e.(type) {
-	case TemporaryError:
-		return true
-	case *TemporaryError:
-		return true
-	default:
-		return false
-	}
+// Temporary implements net.Error.
+func (e TemporaryError) Temporary() bool {
+	return true
+}
+
+// Timeout implements net.Error.
+func (e TemporaryError) Timeout() bool {
+	return true
+}
+
+// IsTemporary determines if an error should be retried by the fleetspeak
+// system.
+func IsTemporary(err error) bool {
+	e, ok := err.(net.Error)
+	return ok && (e.Temporary() || e.Timeout())
 }
