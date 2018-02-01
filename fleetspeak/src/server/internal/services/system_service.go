@@ -120,12 +120,16 @@ func (s *systemService) processMessageAck(ctx context.Context, mid common.Messag
 				log.Errorf("%v: retrieved message[%v] with bad client id[%v]: %v", mid, mmid, msg.Destination.ClientId, err)
 				continue
 			}
-			// RekeyRequests are special - they are acked by the new client ID. Since
-			// the mcid is a random number, we'll assume that this client really did
-			// receive the RekeyRequest under its previous id.
-			if cid != mcid && !(msg.Source != nil && msg.Source.ServiceName == "system" && msg.MessageType == "RekeyRequest") {
-				log.Errorf("%v: attempt by client [%v] to ack a message meant for client [%v]", mid, cid, mcid)
-				continue
+			if cid != mcid {
+				if msg.Source != nil && msg.Source.ServiceName == "system" && msg.MessageType == "RekeyRequest" {
+					// RekeyRequests are special - they are acked by the new client ID. Since
+					// the mcid is a random number, we'll assume that this client really did
+					// receive the RekeyRequest under its previous id.
+					log.Infof("%v: client [%v] acked RekeyRequest sent to [%v] - rekey complete.", mid, cid, mcid)
+				} else {
+					log.Errorf("%v: attempt by client [%v] to ack a message meant for client [%v]", mid, cid, mcid)
+					continue
+				}
 			}
 			if err := s.datastore.StoreMessages(ctx, []*fspb.Message{
 				{MessageId: mmid.Bytes(),
