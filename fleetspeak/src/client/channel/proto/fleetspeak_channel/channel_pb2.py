@@ -33,7 +33,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/client/channel/proto/fleetspeak_channel/channel.proto',
   package='fleetspeak.channel',
   syntax='proto3',
-  serialized_pb=_b('\nDfleetspeak/src/client/channel/proto/fleetspeak_channel/channel.proto\x12\x12\x66leetspeak.channel\"\x1a\n\x0bStartupData\x12\x0b\n\x03pid\x18\x01 \x01(\x03\x62\x06proto3')
+  serialized_pb=_b('\nDfleetspeak/src/client/channel/proto/fleetspeak_channel/channel.proto\x12\x12\x66leetspeak.channel\"+\n\x0bStartupData\x12\x0b\n\x03pid\x18\x01 \x01(\x03\x12\x0f\n\x07version\x18\x02 \x01(\tb\x06proto3')
 )
 
 
@@ -53,6 +53,13 @@ _STARTUPDATA = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='version', full_name='fleetspeak.channel.StartupData.version', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -66,7 +73,7 @@ _STARTUPDATA = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=92,
-  serialized_end=118,
+  serialized_end=135,
 )
 
 DESCRIPTOR.message_types_by_name['StartupData'] = _STARTUPDATA
