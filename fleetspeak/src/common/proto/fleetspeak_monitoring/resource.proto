@@ -33,7 +33,7 @@ message ResourceUsageData {
   string version = 3;
 
   // Time when the process was started by Fleetspeak.
-  google.protobuf.Timestamp process_start_time = 3;
+  google.protobuf.Timestamp process_start_time = 8;
 
   // Corresponds to when computation of the resource-usage data was finalized.
   google.protobuf.Timestamp data_timestamp = 4;
