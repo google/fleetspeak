@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"flag"
+
 	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -56,7 +57,7 @@ func main() {
 
 func openChannel() *channel.RelentlessChannel {
 	log.Infof("opening relentless channel to %s", *socketPath)
-	return client.OpenChannel(*socketPath)
+	return client.OpenChannel(*socketPath, "0.5")
 }
 
 func loopback() {
