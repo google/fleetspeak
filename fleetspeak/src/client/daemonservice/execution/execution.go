@@ -419,11 +419,13 @@ func (e *Execution) readMsg() *fspb.Message {
 func (e *Execution) statsLoop() {
 	defer e.inProcess.Done()
 	pid := e.cmd.Process.Pid
+	var version string
 	select {
 	case sd := <-e.startupData:
 		if int(sd.Pid) != pid {
 			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
 			pid = int(sd.Pid)
+			version = sd.Version
 		}
 	case <-time.After(startupDataTimeout):
 		log.Warningf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
@@ -435,6 +437,7 @@ func (e *Execution) statsLoop() {
 		Scope:            e.daemonServiceName,
 		Pid:              pid,
 		ProcessStartTime: e.StartTime,
+		Version:          version,
 		MaxSamplePeriod:  MaxStatsSamplePeriod,
 		SampleSize:       StatsSampleSize,
 		Done:             e.Done,

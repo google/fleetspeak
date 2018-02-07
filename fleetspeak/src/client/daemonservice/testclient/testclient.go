@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"flag"
+
 	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/client"
@@ -60,7 +61,7 @@ func main() {
 func loopback() {
 	log.Info("starting loopback")
 
-	ch, err := client.Init()
+	ch, err := client.Init("0.5")
 	if err != nil {
 		log.Exitf("Unable to initialize client: %v", err)
 	}
@@ -116,7 +117,7 @@ func freeze(hard bool) {
 
 // stdSpam sets up the interface, but then just writes ~5mb of set text to stdout and ~5mb to stderr.
 func stdSpam() {
-	_, err := client.Init()
+	_, err := client.Init("0.5")
 	if err != nil {
 		log.Exitf("Unable to initialize client: %v", err)
 	}
@@ -131,7 +132,7 @@ func stdSpam() {
 func subprocess() {
 	log.Info("starting subprocess")
 
-	_, err := client.Init()
+	_, err := client.Init("0.5")
 	if err != nil {
 		log.Exitf("Unable to initialize client: %v", err)
 	}

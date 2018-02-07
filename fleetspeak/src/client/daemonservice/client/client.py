@@ -79,7 +79,7 @@ class FleetspeakConnection(object):
   multiple simultaneous calls to either Send or Recv is not supported.
   """
 
-  def __init__(self, read_file=None, write_file=None):
+  def __init__(self, version=None, read_file=None, write_file=None):
     """Connect to Fleetspeak.
 
     Connects to and begins an initial exchange of magic numbers with the
@@ -87,6 +87,9 @@ class FleetspeakConnection(object):
     be created using the environment variables set by daemonservice.
 
     Args:
+
+      version: A string identifying the version of the service being run. Will
+        be included in resource reports for this service.
 
       read_file: A python file object, or similar, used to read bytes from
         Fleetspeak. If None, will be created based on the execution environment
@@ -115,7 +118,7 @@ class FleetspeakConnection(object):
     # the go implementation, which reads and writes in parallel.)
     self._WriteMagic()
 
-    self._WriteStartupData()
+    self._WriteStartupData(version)
     self._ReadMagic()
 
   def Send(self, message):
@@ -172,11 +175,12 @@ class FleetspeakConnection(object):
     self.write_file.write(buf)
     self.write_file.flush()
 
-  def _WriteStartupData(self):
+  def _WriteStartupData(self, version):
     startup_msg = common_pb2.Message(
         message_type="StartupData",
         destination=common_pb2.Address(service_name="system"))
-    startup_msg.data.Pack(channel_pb2.StartupData(pid=os.getpid()))
+    startup_msg.data.Pack(channel_pb2.StartupData(pid=os.getpid(),
+                                                  version=version))
     self.Send(startup_msg)
 
   def _ReadN(self, n):

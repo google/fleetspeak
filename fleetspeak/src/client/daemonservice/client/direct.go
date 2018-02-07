@@ -32,7 +32,7 @@ import (
 // Init initializes the library, assuming that we are in a process started by
 // fleetspeak. If successful, it returns a channel.Channel which should be used
 // to communicate with the fleetspeak system.
-func Init() (*channel.Channel, error) {
+func Init(version string) (*channel.Channel, error) {
 	strInFd := os.Getenv("FLEETSPEAK_COMMS_CHANNEL_INFD")
 	if strInFd == "" {
 		return nil, errors.New("environment variable FLEETSPEAK_COMMS_CHANNEL_INFD not set")
@@ -57,7 +57,10 @@ func Init() (*channel.Channel, error) {
 
 	pw := os.NewFile(uintptr(outFd), "-")
 	c := channel.New(pr, pw)
-	sd, err := ptypes.MarshalAny(&fcpb.StartupData{Pid: int64(os.Getpid())})
+	sd, err := ptypes.MarshalAny(&fcpb.StartupData{
+		Pid:     int64(os.Getpid()),
+		Version: version,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal StartupData: %v", err)
 	}

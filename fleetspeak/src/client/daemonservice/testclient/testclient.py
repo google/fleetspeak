@@ -37,7 +37,7 @@ class FatalError(Exception):
 
 def Loopback():
   logging.info("starting loopback")
-  con = clib.FleetspeakConnection()
+  con = clib.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   while True:
     msg, _ = con.Recv()
