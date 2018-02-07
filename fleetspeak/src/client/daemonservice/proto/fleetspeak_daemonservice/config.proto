@@ -17,7 +17,15 @@ message Config {
   // Forced to true when inactivity timeout is set.
   bool lazy_start = 3;
 
-  // By default, daemon services report resource usage every minute. This
+  // By default, daemon services report resource usage every 10 minutes. This
   // flag disables this if set.
   bool disable_resource_monitoring = 4;
+
+  // How many samples to aggregate into a report when monitoring resource usage.
+  // If unset, defaults to 20.
+  int32 resource_monitoring_sample_size = 5;
+
+  // How long to wait between resource monitoring samples. If unset, defaults to
+  // 30.
+  int32 resource_monitoring_sample_period_seconds = 6;
 }
