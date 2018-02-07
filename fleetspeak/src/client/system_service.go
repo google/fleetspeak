@@ -55,8 +55,14 @@ type systemService struct {
 func (s *systemService) Start(sc service.Context) error {
 	s.sc = sc
 	s.done = make(chan struct{})
-	rum, err := monitoring.NewResourceUsageMonitor(
-		s.sc, "system", s.client.pid, s.client.startTime, StatsSamplePeriod, StatsSampleSize, s.done)
+	rum, err := monitoring.New(s.sc, monitoring.ResourceUsageMonitorParams{
+		Scope:            "system",
+		Pid:              s.client.pid,
+		ProcessStartTime: s.client.startTime,
+		MaxSamplePeriod:  StatsSamplePeriod,
+		SampleSize:       StatsSampleSize,
+		Done:             s.done,
+	})
 	if err != nil {
 		rum = nil
 		log.Errorf("Failed to start resource-usage monitor: %v", err)

@@ -153,6 +153,7 @@ type ResourceUsageMonitor struct {
 
 	scope             string
 	pid               int
+	version           string
 	processStartTime  *tspb.Timestamp
 	maxSamplePeriod   time.Duration
 	initialSampleSize int
@@ -160,25 +161,57 @@ type ResourceUsageMonitor struct {
 
 	ruf      resourceUsageFetcherI
 	errChan  chan<- error
-	doneChan chan struct{}
+	doneChan <-chan struct{}
 }
 
-// NewResourceUsageMonitor creates a new ResourceUsageMonitor and starts it in a separate goroutine.
-func NewResourceUsageMonitor(sc service.Context, scope string, pid int, processStartTime time.Time, maxSamplePeriod time.Duration, sampleSize int, doneChan chan struct{}) (*ResourceUsageMonitor, error) {
-	return newResourceUsageMonitor(sc, ResourceUsageFetcher{}, scope, pid, processStartTime, maxSamplePeriod, sampleSize, doneChan, nil)
+type ResourceUsageMonitorParams struct {
+	// What we are monitoring. Typicaly a service name, or 'system' for the
+	// Fleetspeak client itself.
+	Scope string
+
+	// The version string of the service that we are monitoring, if known.
+	Version string
+
+	// The process id that we are monitoring.
+	Pid int
+
+	// The time that the processes was started (if known).
+	ProcessStartTime time.Time
+
+	// The longest time to wait between samples.
+	MaxSamplePeriod time.Duration
+
+	// The number of resource-usage query results that get aggregated into
+	// a single resource-usage report sent to Fleetspeak servers.
+	SampleSize int
+
+	// The resource monitor will shut down when this channel is closed.
+	Done <-chan struct{}
+
+	// If set, the resource monitor will report errors on this channel. If unset,
+	// errors will be logged.
+	Err chan<- error
+
+	// If set, stubs out the actual resource fetching. Meant for use only in unit tests.
+	ruf resourceUsageFetcherI
 }
 
-func newResourceUsageMonitor(sc service.Context, ruf resourceUsageFetcherI, scope string, pid int, processStartTime time.Time, maxSamplePeriod time.Duration, sampleSize int, doneChan chan struct{}, errChan chan<- error) (*ResourceUsageMonitor, error) {
-	startTimeProto, err := ptypes.TimestampProto(processStartTime)
-	if err != nil {
-		return nil, fmt.Errorf("process start time is invalid: %v", err)
+func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageMonitor, error) {
+	var startTimeProto *tspb.Timestamp
+	var err error
+
+	if !params.ProcessStartTime.IsZero() {
+		startTimeProto, err = ptypes.TimestampProto(params.ProcessStartTime)
+		if err != nil {
+			return nil, fmt.Errorf("process start time is invalid: %v", err)
+		}
 	}
 
-	if sampleSize < 2 {
-		return nil, fmt.Errorf("sample size %d invalid - must be at least 2 (for rate computation)", sampleSize)
+	if params.SampleSize < 2 {
+		return nil, fmt.Errorf("sample size %d invalid - must be at least 2 (for rate computation)", params.SampleSize)
 	}
 
-	maxSamplePeriodSecs := int(maxSamplePeriod / time.Second)
+	maxSamplePeriodSecs := int(params.MaxSamplePeriod / time.Second)
 	var backoffSize int
 	if maxSamplePeriodSecs == 0 {
 		backoffSize = 0
@@ -186,21 +219,26 @@ func newResourceUsageMonitor(sc service.Context, ruf resourceUsageFetcherI, scop
 		backoffSize = int(math.Log2(float64(maxSamplePeriodSecs)))
 	}
 	// First sample is bigger because of the backoff.
-	initialSampleSize := sampleSize + backoffSize
+	initialSampleSize := params.SampleSize + backoffSize
+
+	if params.ruf == nil {
+		params.ruf = ResourceUsageFetcher{}
+	}
 
 	m := ResourceUsageMonitor{
 		sc: sc,
 
-		scope:             scope,
-		pid:               pid,
+		scope:             params.Scope,
+		pid:               params.Pid,
+		version:           params.Version,
 		processStartTime:  startTimeProto,
-		maxSamplePeriod:   maxSamplePeriod,
+		maxSamplePeriod:   params.MaxSamplePeriod,
 		initialSampleSize: initialSampleSize,
-		sampleSize:        sampleSize,
+		sampleSize:        params.SampleSize,
 
-		ruf:      ruf,
-		doneChan: doneChan,
-		errChan:  errChan,
+		ruf:      params.ruf,
+		doneChan: params.Done,
+		errChan:  params.Err,
 	}
 
 	return &m, nil
@@ -272,6 +310,7 @@ func (m *ResourceUsageMonitor) Run() {
 					Scope:            m.scope,
 					Pid:              int64(m.pid),
 					ProcessStartTime: m.processStartTime,
+					Version:          m.version,
 					DataTimestamp:    ptypes.TimestampNow(),
 					ResourceUsage:    &aggRU,
 					DebugStatus:      debugStatus,
