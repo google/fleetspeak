@@ -130,6 +130,9 @@ L:
 				return
 			}
 			if m.M.Destination != nil && m.M.Destination.ServiceName == "system" && m.M.MessageType == "StartupData" {
+				if s.cfg.DisableResourceMonitoring {
+					continue L
+				}
 				sd := &fcpb.StartupData{}
 				if err := ptypes.UnmarshalAny(m.M.Data, sd); err != nil {
 					log.Warningf("Failed to parse startup data from initial message: %v", err)
