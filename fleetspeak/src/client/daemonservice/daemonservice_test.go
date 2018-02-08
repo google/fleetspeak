@@ -158,6 +158,9 @@ func TestSelfReportedPIDs(t *testing.T) {
 			if ruMsg.Pid != ruMsgs[0].Pid {
 				t.Fatalf("PID for testclient process changed (respawn?). Got %d. Want %d.", ruMsg.Pid, ruMsgs[0].Pid)
 			}
+			if ruMsg.Version != "0.5" {
+				t.Errorf("Version reported by testclient process was \"%s\", but expected \"0.5\"", ruMsg.Version)
+			}
 		}
 		if lastRUMsg.Pid == ruMsgs[0].Pid {
 			t.Fatalf("PID for testclient_launcher process is the same as that of the testclient process (%d).", lastRUMsg.Pid)
