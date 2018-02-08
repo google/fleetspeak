@@ -49,15 +49,6 @@ const (
 )
 
 var (
-	// MaxStatsSamplePeriod is the period with which resource-usage data for the
-	// Fleetspeak process will be fetched from the OS (but the first few samples
-	// are collected more often, see resource_usage_monitor.go).
-	MaxStatsSamplePeriod = 30 * time.Second
-
-	// StatsSampleSize is the number of resource-usage query results that get aggregated into
-	// a single resource-usage report sent to Fleetspeak servers.
-	StatsSampleSize = 20
-
 	// ErrShuttingDown is returned once an execution has started shutting down and
 	// is no longer accepting messages.
 	ErrShuttingDown = errors.New("shutting down")
@@ -76,6 +67,8 @@ var (
 // An Execution represents a specific execution of a daemonservice.
 type Execution struct {
 	daemonServiceName string
+	samplePeriod      time.Duration
+	sampleSize        int
 
 	Done chan struct{}        // Closed when this execution is dead or dying - essentially when Shutdown has been called.
 	Out  chan<- *fspb.Message // Messages to send to the process go here. User should close when finished.
@@ -105,6 +98,8 @@ type Execution struct {
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
+		sampleSize:        int(cfg.ResourceMonitoringSampleSize),
+		samplePeriod:      time.Duration(cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second,
 
 		Done: make(chan struct{}),
 
@@ -156,10 +151,13 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		return nil, err
 	}
 
-	ret.inProcess.Add(4)
+	ret.inProcess.Add(3)
 	go ret.flushLoop()
 	go ret.inLoop()
-	go ret.statsLoop()
+	if !cfg.DisableResourceMonitoring {
+		ret.inProcess.Add(1)
+		go ret.statsLoop()
+	}
 	go func() {
 		defer func() {
 			ret.Shutdown()
@@ -175,16 +173,18 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 			log.Errorf("Failed to convert process start time: %v", err)
 			return
 		}
-		rud := &mpb.ResourceUsageData{
-			Scope:             ret.daemonServiceName,
-			Pid:               int64(ret.cmd.Process.Pid),
-			ProcessStartTime:  startTime,
-			DataTimestamp:     ptypes.TimestampNow(),
-			ResourceUsage:     &mpb.AggregatedResourceUsage{},
-			ProcessTerminated: true,
-		}
-		if err := monitoring.SendResourceUsage(rud, ret.sc); err != nil {
-			log.Errorf("Failed to send final resource-usage proto: %v", err)
+		if !cfg.DisableResourceMonitoring {
+			rud := &mpb.ResourceUsageData{
+				Scope:             ret.daemonServiceName,
+				Pid:               int64(ret.cmd.Process.Pid),
+				ProcessStartTime:  startTime,
+				DataTimestamp:     ptypes.TimestampNow(),
+				ResourceUsage:     &mpb.AggregatedResourceUsage{},
+				ProcessTerminated: true,
+			}
+			if err := monitoring.SendResourceUsage(rud, ret.sc); err != nil {
+				log.Errorf("Failed to send final resource-usage proto: %v", err)
+			}
 		}
 	}()
 	return &ret, nil
@@ -438,8 +438,8 @@ func (e *Execution) statsLoop() {
 		Pid:              pid,
 		ProcessStartTime: e.StartTime,
 		Version:          version,
-		MaxSamplePeriod:  MaxStatsSamplePeriod,
-		SampleSize:       StatsSampleSize,
+		MaxSamplePeriod:  e.samplePeriod,
+		SampleSize:       e.sampleSize,
 		Done:             e.Done,
 	})
 	if err != nil {

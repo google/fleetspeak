@@ -33,7 +33,9 @@ import (
 )
 
 const (
-	epsilon float64 = 1e-4
+	epsilon             float64 = 1e-4
+	defaultSampleSize           = 20
+	defaultSamplePeriod         = 30 * time.Second
 )
 
 // AggregateResourceUsage is a helper function for aggregating resource-usage data across multiple
@@ -207,6 +209,12 @@ func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageM
 		}
 	}
 
+	if params.SampleSize == 0 {
+		params.SampleSize = defaultSampleSize
+	}
+	if params.MaxSamplePeriod == 0 {
+		params.MaxSamplePeriod = defaultSamplePeriod
+	}
 	if params.SampleSize < 2 {
 		return nil, fmt.Errorf("sample size %d invalid - must be at least 2 (for rate computation)", params.SampleSize)
 	}

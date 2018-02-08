@@ -139,7 +139,10 @@ L:
 				go func() {
 					defer s.routines.Done()
 					rum, err := monitoring.New(s.sc, monitoring.ResourceUsageMonitorParams{
-						Scope:   s.name,
+						Scope:           s.name,
+						SampleSize:      int(s.cfg.ResourceMonitoringSampleSize),
+						MaxSamplePeriod: time.Duration(s.cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second,
+
 						Pid:     int(sd.Pid),
 						Version: sd.Version,
 						Done:    ch.done,
