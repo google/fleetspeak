@@ -16,10 +16,9 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"sync"
-
-	"flag"
 
 	log "github.com/golang/glog"
 

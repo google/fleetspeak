@@ -16,6 +16,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"os"
@@ -23,8 +24,6 @@ import (
 	"os/signal"
 	"strconv"
 	"time"
-
-	"flag"
 
 	log "github.com/golang/glog"
 
