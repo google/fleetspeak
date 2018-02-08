@@ -166,6 +166,8 @@ type ResourceUsageMonitor struct {
 	doneChan <-chan struct{}
 }
 
+// ResourceUsageMonitorParams contains parameters that might be set when
+// creating a ResourceUsageMonitor.
 type ResourceUsageMonitorParams struct {
 	// What we are monitoring. Typicaly a service name, or 'system' for the
 	// Fleetspeak client itself.
@@ -198,6 +200,8 @@ type ResourceUsageMonitorParams struct {
 	ruf resourceUsageFetcherI
 }
 
+// New returns a new ResourceUsageMonitor, once created it must be started with
+// Run() and stopped by closing params.Done.
 func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageMonitor, error) {
 	var startTimeProto *tspb.Timestamp
 	var err error
