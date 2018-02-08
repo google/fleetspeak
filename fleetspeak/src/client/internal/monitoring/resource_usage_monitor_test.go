@@ -86,8 +86,16 @@ func TestResourceUsageMonitor(t *testing.T) {
 	ruf.setResourceUsageData([]ResourceUsage{fakeRU0, fakeRU1})
 	ruf.setDebugStatusStrings([]string{"Fake Debug Status 0", "Fake Debug Status 1"})
 
-	rum, err := newResourceUsageMonitor(
-		&sc, &ruf, "test-scope", pid, time.Unix(fakeStart, 0), samplePeriod, sampleSize, doneChan, errChan)
+	rum, err := New(&sc, ResourceUsageMonitorParams{
+		Scope:            "test-scope",
+		Pid:              pid,
+		ProcessStartTime: time.Unix(fakeStart, 0),
+		MaxSamplePeriod:  samplePeriod,
+		SampleSize:       sampleSize,
+		Done:             doneChan,
+		Err:              errChan,
+		ruf:              &ruf,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

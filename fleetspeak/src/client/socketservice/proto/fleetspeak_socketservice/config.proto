@@ -14,5 +14,17 @@ message Config {
   // Side note: FS requires the proxy's parent directory's perms to be 0700.
   // If the parent directory doesn't exist, FS will mkdir -p it with perms set
   // to 0700.
-  string api_proxy_path = 5;
+  string api_proxy_path = 1;
+
+  // By default, socket services report resource usage every 10 minutes. This
+  // flag disables this if set.
+  bool disable_resource_monitoring = 2;
+
+  // How many samples to aggregate into a report when monitoring resource usage.
+  // If unset, defaults to 20.
+  int32 resource_monitoring_sample_size = 3;
+
+  // How long to wait between resource monitoring samples. If unset, defaults to
+  // 30 seconds.
+  int32 resource_monitoring_sample_period_seconds = 4;
 }

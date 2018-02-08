@@ -26,7 +26,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
-	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
@@ -61,7 +60,10 @@ func testClientLauncherPY() []string {
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context) *Service {
-	dsc := dspb.Config{}
+	dsc := dspb.Config{
+		ResourceMonitoringSampleSize:          2,
+		ResourceMonitoringSamplePeriodSeconds: 1,
+	}
 	dsc.Argv = append(dsc.Argv, client...)
 	dsc.Argv = append(dsc.Argv, "--mode="+mode)
 
@@ -137,15 +139,6 @@ func TestLoopback(t *testing.T) {
 // Tests that Fleetspeak uses self-reported PIDs for monitoring resource-usage of
 // daemon services.
 func TestSelfReportedPIDs(t *testing.T) {
-	prevSamplePeriod := execution.MaxStatsSamplePeriod
-	prevSampleSize := execution.StatsSampleSize
-	execution.MaxStatsSamplePeriod = time.Second
-	execution.StatsSampleSize = 2
-	defer func() {
-		execution.MaxStatsSamplePeriod = prevSamplePeriod
-		execution.StatsSampleSize = prevSampleSize
-	}()
-
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
@@ -164,6 +157,9 @@ func TestSelfReportedPIDs(t *testing.T) {
 		for _, ruMsg := range ruMsgs {
 			if ruMsg.Pid != ruMsgs[0].Pid {
 				t.Fatalf("PID for testclient process changed (respawn?). Got %d. Want %d.", ruMsg.Pid, ruMsgs[0].Pid)
+			}
+			if ruMsg.Version != "0.5" {
+				t.Errorf("Version reported by testclient process was \"%s\", but expected \"0.5\"", ruMsg.Version)
 			}
 		}
 		if lastRUMsg.Pid == ruMsgs[0].Pid {

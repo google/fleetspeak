@@ -16,14 +16,43 @@
 package client
 
 import (
+	"os"
+
+	log "github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
+
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 // OpenChannel creates a channel.RelentlessChannel to a fleetspeak client
 // through an agreed upon unix domain socket.
-func OpenChannel(socketPath string) *channel.RelentlessChannel {
+func OpenChannel(socketPath string, version string) *channel.RelentlessChannel {
 	return channel.NewRelentlessChannel(
 		func() (*channel.Channel, func()) {
-			return buildChannel(socketPath)
+			sd, err := ptypes.MarshalAny(&fcpb.StartupData{Pid: int64(os.Getpid()), Version: version})
+			if err != nil {
+				log.Fatalf("unable to marshal StartupData: %v", err)
+			}
+			m := &fspb.Message{
+				MessageType: "StartupData",
+				Destination: &fspb.Address{ServiceName: "system"},
+				Data:        sd,
+			}
+		L:
+			for {
+				ch, fin := buildChannel(socketPath)
+				if ch == nil {
+					return ch, fin
+				}
+				select {
+				case e := <-ch.Err:
+					log.Errorf("Channel failed with error: %v", e)
+					continue L
+				case ch.Out <- m:
+					return ch, fin
+				}
+			}
 		})
 }

@@ -19,6 +19,8 @@ message AggregatedResourceUsage {
 // A fleetspeak.Message with message type "ResourceUsage" is sent regularly by
 // the system and daemon services to the server, to report the performance of
 // processes.
+//
+// Next tag: 9
 message ResourceUsageData {
   // Name of the client service that resource usage is charged/attributed to
   // e.g 'system' for the system Fleetspeak service, or the name of a daemon
@@ -26,6 +28,9 @@ message ResourceUsageData {
   string scope = 1;
 
   int64 pid = 2;
+
+  // The self reported service/service binary version.
+  string version = 8;
 
   // Time when the process was started by Fleetspeak.
   google.protobuf.Timestamp process_start_time = 3;

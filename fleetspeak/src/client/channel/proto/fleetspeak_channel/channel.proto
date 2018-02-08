@@ -8,4 +8,7 @@ package fleetspeak.channel;
 message StartupData {
   // Self-reported PID.
   int64 pid = 1;
+
+  // Self-reported service version string.
+  string version = 2;
 }
