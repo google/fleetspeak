@@ -425,8 +425,8 @@ func (e *Execution) statsLoop() {
 		if int(sd.Pid) != pid {
 			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
 			pid = int(sd.Pid)
-			version = sd.Version
 		}
+		version = sd.Version
 	case <-time.After(startupDataTimeout):
 		log.Warningf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
 	case <-e.Done:

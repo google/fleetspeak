@@ -203,11 +203,11 @@ func TestStats(t *testing.T) {
 		t.Fatalf("execution.New returned error: %v", err)
 	}
 
-	// Run TestService for 2.8 seconds. We expect a resource-usage
-	// report to be sent every 500 milliseconds (samplePeriod * sampleSize).
+	// Run TestService for 4.2 seconds. We expect a resource-usage
+	// report to be sent every 2000 milliseconds (samplePeriod * sampleSize).
 	done := make(chan struct{})
 	go func() {
-		for i := 0; i < 32; i++ {
+		for i := 0; i < 42; i++ {
 			time.Sleep(100 * time.Millisecond)
 			m := fspb.Message{
 				MessageId:   []byte{byte(i)},
@@ -261,9 +261,9 @@ func TestStats(t *testing.T) {
 		t.Error("Last resource-usage report from finished process was not received.")
 	}
 
-	// We expect floor(3200 / 1000) regular resource-usage reports, plus the last one sent after
+	// We expect floor(4200 / 2000) regular resource-usage reports, plus the last one sent after
 	// the process terminates.
-	if ruCnt != 4 {
-		t.Errorf("Unexpected number of resource-usage reports received. Got %d. Want 6.", ruCnt)
+	if ruCnt != 3 {
+		t.Errorf("Unexpected number of resource-usage reports received. Got %d. Want 3.", ruCnt)
 	}
 }

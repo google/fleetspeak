@@ -30,10 +30,10 @@ message ResourceUsageData {
   int64 pid = 2;
 
   // The self reported service/service binary version.
-  string version = 3;
+  string version = 8;
 
   // Time when the process was started by Fleetspeak.
-  google.protobuf.Timestamp process_start_time = 8;
+  google.protobuf.Timestamp process_start_time = 3;
 
   // Corresponds to when computation of the resource-usage data was finalized.
   google.protobuf.Timestamp data_timestamp = 4;
