@@ -221,7 +221,7 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 			ServiceName: "TestServiceName",
 		},
 		CreationTime:   db.NowProto(),
-		ValidationInfo: "Valid",
+		ValidationInfo: &fspb.ValidationInfo{Tags: map[string]string{"result": "Valid"}},
 	}
 	err := ms.StoreMessages(ctx, []*fspb.Message{&stored}, "")
 	if err != nil {

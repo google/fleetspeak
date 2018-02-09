@@ -95,7 +95,7 @@ type Authorizer interface {
 	// they will be saved and processed. When accept=false,
 	// processing will end, nothing will be saved, and the client
 	// will receive an http 503 or equivalent error code.
-	Allow4(net.Addr, ContactInfo, ClientInfo, []SignatureInfo) (accept bool, validationInfo string)
+	Allow4(net.Addr, ContactInfo, ClientInfo, []SignatureInfo) (accept bool, vi *fspb.ValidationInfo)
 }
 
 // PermissiveAuthorizer is a trival Authorizer which permits all operations.
@@ -111,6 +111,6 @@ func (PermissiveAuthorizer) Allow2(net.Addr, ContactInfo) bool { return true }
 func (PermissiveAuthorizer) Allow3(net.Addr, ContactInfo, ClientInfo) bool { return true }
 
 // Allow4 implements Authorizer.
-func (PermissiveAuthorizer) Allow4(net.Addr, ContactInfo, ClientInfo, []SignatureInfo) (bool, string) {
-	return true, ""
+func (PermissiveAuthorizer) Allow4(net.Addr, ContactInfo, ClientInfo, []SignatureInfo) (bool, *fspb.ValidationInfo) {
+	return true, nil
 }
