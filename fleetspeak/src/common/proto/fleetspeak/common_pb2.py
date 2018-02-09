@@ -35,7 +35,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/common/proto/fleetspeak/common.proto',
   package='fleetspeak',
   syntax='proto3',
-  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"\xa7\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x17\n\x0fvalidation_info\x18\x08 \x01(\t\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\x12\x12\n\nbackground\x18\x0b \x01(\x08\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x01(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\x80\x01\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
+  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"q\n\x0eValidationInfo\x12\x32\n\x04tags\x18\x01 \x03(\x0b\x32$.fleetspeak.ValidationInfo.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc3\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x33\n\x0fvalidation_info\x18\x08 \x01(\x0b\x32\x1a.fleetspeak.ValidationInfo\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\x12\x12\n\nbackground\x18\x0b \x01(\x08\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x01(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\x80\x01\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -62,8 +62,8 @@ _MESSAGE_PRIORITY = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=562,
-  serialized_end=603,
+  serialized_start=705,
+  serialized_end=746,
 )
 _sym_db.RegisterEnumDescriptor(_MESSAGE_PRIORITY)
 
@@ -103,6 +103,74 @@ _ADDRESS = _descriptor.Descriptor(
   ],
   serialized_start=127,
   serialized_end=177,
+)
+
+
+_VALIDATIONINFO_TAGSENTRY = _descriptor.Descriptor(
+  name='TagsEntry',
+  full_name='fleetspeak.ValidationInfo.TagsEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='fleetspeak.ValidationInfo.TagsEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='fleetspeak.ValidationInfo.TagsEntry.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=249,
+  serialized_end=292,
+)
+
+_VALIDATIONINFO = _descriptor.Descriptor(
+  name='ValidationInfo',
+  full_name='fleetspeak.ValidationInfo',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='fleetspeak.ValidationInfo.tags', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[_VALIDATIONINFO_TAGSENTRY, ],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=179,
+  serialized_end=292,
 )
 
 
@@ -164,8 +232,8 @@ _MESSAGE = _descriptor.Descriptor(
       options=None),
     _descriptor.FieldDescriptor(
       name='validation_info', full_name='fleetspeak.Message.validation_info', index=7,
-      number=8, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
+      number=8, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -203,8 +271,8 @@ _MESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=180,
-  serialized_end=603,
+  serialized_start=295,
+  serialized_end=746,
 )
 
 
@@ -248,8 +316,8 @@ _MESSAGERESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=605,
-  serialized_end=711,
+  serialized_start=748,
+  serialized_end=854,
 )
 
 
@@ -286,8 +354,8 @@ _LABEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=713,
-  serialized_end=757,
+  serialized_start=856,
+  serialized_end=900,
 )
 
 
@@ -331,8 +399,8 @@ _SIGNATURE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=759,
-  serialized_end=829,
+  serialized_start=902,
+  serialized_end=972,
 )
 
 
@@ -376,8 +444,8 @@ _WRAPPEDCONTACTDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=831,
-  serialized_end=939,
+  serialized_start=974,
+  serialized_end=1082,
 )
 
 
@@ -421,8 +489,8 @@ _CONTACTDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=942,
-  serialized_end=1070,
+  serialized_start=1085,
+  serialized_end=1213,
 )
 
 
@@ -445,14 +513,17 @@ _EMPTYMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1072,
-  serialized_end=1086,
+  serialized_start=1215,
+  serialized_end=1229,
 )
 
+_VALIDATIONINFO_TAGSENTRY.containing_type = _VALIDATIONINFO
+_VALIDATIONINFO.fields_by_name['tags'].message_type = _VALIDATIONINFO_TAGSENTRY
 _MESSAGE.fields_by_name['source'].message_type = _ADDRESS
 _MESSAGE.fields_by_name['destination'].message_type = _ADDRESS
 _MESSAGE.fields_by_name['creation_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _MESSAGE.fields_by_name['data'].message_type = google_dot_protobuf_dot_any__pb2._ANY
+_MESSAGE.fields_by_name['validation_info'].message_type = _VALIDATIONINFO
 _MESSAGE.fields_by_name['result'].message_type = _MESSAGERESULT
 _MESSAGE.fields_by_name['priority'].enum_type = _MESSAGE_PRIORITY
 _MESSAGE_PRIORITY.containing_type = _MESSAGE
@@ -461,6 +532,7 @@ _WRAPPEDCONTACTDATA.fields_by_name['signatures'].message_type = _SIGNATURE
 _CONTACTDATA.fields_by_name['messages'].message_type = _MESSAGE
 _CONTACTDATA.fields_by_name['client_clock'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 DESCRIPTOR.message_types_by_name['Address'] = _ADDRESS
+DESCRIPTOR.message_types_by_name['ValidationInfo'] = _VALIDATIONINFO
 DESCRIPTOR.message_types_by_name['Message'] = _MESSAGE
 DESCRIPTOR.message_types_by_name['MessageResult'] = _MESSAGERESULT
 DESCRIPTOR.message_types_by_name['Label'] = _LABEL
@@ -476,6 +548,21 @@ Address = _reflection.GeneratedProtocolMessageType('Address', (_message.Message,
   # @@protoc_insertion_point(class_scope:fleetspeak.Address)
   ))
 _sym_db.RegisterMessage(Address)
+
+ValidationInfo = _reflection.GeneratedProtocolMessageType('ValidationInfo', (_message.Message,), dict(
+
+  TagsEntry = _reflection.GeneratedProtocolMessageType('TagsEntry', (_message.Message,), dict(
+    DESCRIPTOR = _VALIDATIONINFO_TAGSENTRY,
+    __module__ = 'fleetspeak.src.common.proto.fleetspeak.common_pb2'
+    # @@protoc_insertion_point(class_scope:fleetspeak.ValidationInfo.TagsEntry)
+    ))
+  ,
+  DESCRIPTOR = _VALIDATIONINFO,
+  __module__ = 'fleetspeak.src.common.proto.fleetspeak.common_pb2'
+  # @@protoc_insertion_point(class_scope:fleetspeak.ValidationInfo)
+  ))
+_sym_db.RegisterMessage(ValidationInfo)
+_sym_db.RegisterMessage(ValidationInfo.TagsEntry)
 
 Message = _reflection.GeneratedProtocolMessageType('Message', (_message.Message,), dict(
   DESCRIPTOR = _MESSAGE,
@@ -527,4 +614,6 @@ EmptyMessage = _reflection.GeneratedProtocolMessageType('EmptyMessage', (_messag
 _sym_db.RegisterMessage(EmptyMessage)
 
 
+_VALIDATIONINFO_TAGSENTRY.has_options = True
+_VALIDATIONINFO_TAGSENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 # @@protoc_insertion_point(module_scope)

@@ -43,7 +43,7 @@ type testAuthorizer struct {
 	expectType  map[int64]x509.SignatureAlgorithm
 }
 
-func (a *testAuthorizer) Allow4(_ net.Addr, _ authorizer.ContactInfo, _ authorizer.ClientInfo, sigs []authorizer.SignatureInfo) (accept bool, validationInfo string) {
+func (a *testAuthorizer) Allow4(_ net.Addr, _ authorizer.ContactInfo, _ authorizer.ClientInfo, sigs []authorizer.SignatureInfo) (accept bool, validationInfo *fspb.ValidationInfo) {
 	atomic.AddInt64(&a.authCount, 1)
 	if len(sigs) != a.expectCount {
 		a.t.Errorf("expected %d sigs, got %d", a.expectCount, len(sigs))
@@ -57,7 +57,7 @@ func (a *testAuthorizer) Allow4(_ net.Addr, _ authorizer.ContactInfo, _ authoriz
 			a.t.Errorf("Expected %v to have valid=%t got valid=%t", serial, a.expectValid[serial], s.Valid)
 		}
 	}
-	return true, "Authorized!"
+	return true, &fspb.ValidationInfo{Tags: map[string]string{"result": "Valid"}}
 }
 
 type testSigner struct {

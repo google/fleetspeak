@@ -202,7 +202,7 @@ func (c commsContext) MakeBlacklistMessage(ctx context.Context, info *comms.Clie
 	return msg, nil
 }
 
-func (c commsContext) validateMessageFromClient(id common.ClientID, m *fspb.Message, validationInfo string) error {
+func (c commsContext) validateMessageFromClient(id common.ClientID, m *fspb.Message, validationInfo *fspb.ValidationInfo) error {
 	if m.Destination == nil {
 		return fmt.Errorf("message must have Destination")
 	}
@@ -225,7 +225,7 @@ func (c commsContext) validateMessageFromClient(id common.ClientID, m *fspb.Mess
 // handleMessagesFromClient processes a block of messages from a particular
 // client. It saves them to the database, associates them with the contact
 // identified by contactTime, and processes them.
-func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, received *fspb.ContactData, validationInfo string) error {
+func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, received *fspb.ContactData, validationInfo *fspb.ValidationInfo) error {
 	msgs := make([]*fspb.Message, 0, len(received.Messages))
 	for _, m := range received.Messages {
 		err := c.validateMessageFromClient(info.ID, m, validationInfo)

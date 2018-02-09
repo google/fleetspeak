@@ -29,6 +29,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
+	"github.com/golang/protobuf/proto"
 	apb "github.com/golang/protobuf/ptypes/any"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -48,7 +49,7 @@ type dbMessage struct {
 	creationTimeNanos      int32
 	processedTimeSeconds   sql.NullInt64
 	processedTimeNanos     sql.NullInt64
-	validationInfo         sql.NullString
+	validationInfo         []byte
 	failed                 sql.NullBool
 	failedReason           sql.NullString
 	retryCount             uint32
@@ -148,8 +149,12 @@ func fromMessageProto(m *fspb.Message) (*dbMessage, error) {
 		dbm.dataTypeURL = sql.NullString{String: m.Data.TypeUrl, Valid: true}
 		dbm.dataValue = m.Data.Value
 	}
-	if m.ValidationInfo != "" {
-		dbm.validationInfo = sql.NullString{String: m.ValidationInfo, Valid: true}
+	if m.ValidationInfo != nil {
+		b, err := proto.Marshal(m.ValidationInfo)
+		if err != nil {
+			return nil, err
+		}
+		dbm.validationInfo = b
 	}
 	return dbm, nil
 }
@@ -205,8 +210,12 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 			Value:   m.dataValue,
 		}
 	}
-	if m.validationInfo.Valid {
-		pm.ValidationInfo = m.validationInfo.String
+	if len(m.validationInfo) > 0 {
+		v := &fspb.ValidationInfo{}
+		if err := proto.Unmarshal(m.validationInfo, v); err != nil {
+			return nil, err
+		}
+		pm.ValidationInfo = v
 	}
 	return pm, nil
 }
