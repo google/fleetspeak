@@ -1,6 +1,7 @@
 # Fleetspeak
 
 [<img src="https://travis-ci.org/google/fleetspeak.svg?branch=master" />](https://travis-ci.org/google/fleetspeak)
+[![Go Report Card](https://goreportcard.com/badge/github.com/google/fleetspeak)](https://goreportcard.com/report/github.com/google/fleetspeak)
 
 Fleetspeak is a framework for communicating with a fleet of machines, with a
 focus on security monitoring and basic administrative use cases.  It is a
