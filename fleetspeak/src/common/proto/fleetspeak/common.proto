@@ -16,6 +16,10 @@ message Address {
   string service_name = 2;
 }
 
+message ValidationInfo {
+  map<string, string> tags = 1;
+}
+
 message Message {
   // A hash based on origin and origin_message_id. It is set by the fleetspeak
   // system on message intake and may be used for deduplication.
@@ -48,7 +52,7 @@ message Message {
 
   // Additional validation information, set by on the server by the (optional)
   // authorizer component based on WrappedContactData.validators, etc.
-  string validation_info = 8;
+  ValidationInfo validation_info = 8;
 
   // The result of processing the message. Set once processing has finished.
   MessageResult result = 9;
