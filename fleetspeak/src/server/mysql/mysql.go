@@ -57,7 +57,7 @@ func (d *Datastore) Close() error {
 }
 
 // runOnce runs f, passing it a transaction. The transaction will be committed
-// if f returns an error, otherwise rolled back.
+// if f returns nil, otherwise rolled back.
 func (d *Datastore) runOnce(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
 	// TODO: Pass along the readOnly flag, once some mysql driver supports it.
 	tx, err := d.db.BeginTx(ctx, nil)
