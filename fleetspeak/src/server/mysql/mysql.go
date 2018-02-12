@@ -30,6 +30,10 @@ import (
 
 const maxRetries = 50
 
+const mysql_ER_LOCK_WAIT_TIMEOUT = 1205
+const mysql_ER_LOCK_DEADLOCK = 1213
+const mysql_ER_TOO_MANY_CONCURRENT_TRXS = 1637
+
 // Datastore wraps a mysql backed sql.DB and implements db.Store.
 type Datastore struct {
 	db     *sql.DB
@@ -83,7 +87,7 @@ func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) 
 			return err
 		}
 		switch e.Number {
-		case 1213, 1205, 1637: // Deadlock, lock timeout, concurrent transactions
+		case mysql_ER_LOCK_WAIT_TIMEOUT, mysql_ER_LOCK_DEADLOCK, mysql_ER_TOO_MANY_CONCURRENT_TRXS:
 			t := time.NewTimer(time.Duration(i*100) * time.Millisecond)
 			select {
 			case <-t.C:
