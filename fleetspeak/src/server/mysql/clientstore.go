@@ -39,7 +39,7 @@ const (
 
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	// Return value map, maps string client ids to the return values.
-	retm := make(map[string]*spb.Client)
+	var retm map[string]*spb.Client
 
 	h := func(rows *sql.Rows, err error) error {
 		if err != nil {
@@ -89,6 +89,7 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	}
 
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		retm = make(map[string]*spb.Client)
 		if len(ids) == 0 {
 			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
 				return err
@@ -182,18 +183,24 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 }
 
 func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
-	_, err := d.db.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", id.String(), l.ServiceName, l.Label)
-	return err
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		_, err := d.db.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", id.String(), l.ServiceName, l.Label)
+		return err
+	})
 }
 
 func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
-	_, err := d.db.ExecContext(ctx, "DELETE FROM client_labels WHERE client_id=? AND service_name=? AND label=?", id.String(), l.ServiceName, l.Label)
-	return err
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		_, err := d.db.ExecContext(ctx, "DELETE FROM client_labels WHERE client_id=? AND service_name=? AND label=?", id.String(), l.ServiceName, l.Label)
+		return err
+	})
 }
 
 func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
-	_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=TRUE WHERE client_id=?", id.String())
-	return err
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=TRUE WHERE client_id=?", id.String())
+		return err
+	})
 }
 
 func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
@@ -226,6 +233,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
 	var res []*spb.ClientContact
 	if err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		res = nil
 		rows, err := tx.QueryContext(
 			ctx,
 			"SELECT time, sent_nonce, received_nonce, address FROM client_contacts WHERE client_id = ?",
@@ -311,6 +319,7 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
 	var records []*spb.ClientResourceUsageRecord
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		records = nil
 		rows, err := tx.QueryContext(
 			ctx,
 			"SELECT "+

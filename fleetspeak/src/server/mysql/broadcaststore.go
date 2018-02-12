@@ -185,6 +185,7 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
 	var ret []*db.BroadcastInfo
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		ret = nil
 		now := db.NowProto()
 		rs, err := tx.QueryContext(ctx, "SELECT "+
 			"broadcast_id, "+
@@ -238,10 +239,10 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 		}
 		rs.Close()
 		stmt, err := tx.Prepare("SELECT service_name, label FROM broadcast_labels WHERE broadcast_id = ?")
-		defer stmt.Close()
 		if err != nil {
 			return err
 		}
+		defer stmt.Close()
 		for _, i := range ret {
 			id, err := ids.BytesToBroadcastID(i.Broadcast.BroadcastId)
 			if err != nil {
