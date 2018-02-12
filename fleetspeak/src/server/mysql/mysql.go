@@ -93,6 +93,7 @@ func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) 
 			case <-t.C:
 				continue
 			case <-ctx.Done():
+				t.Stop()
 				return err
 			}
 		default:
