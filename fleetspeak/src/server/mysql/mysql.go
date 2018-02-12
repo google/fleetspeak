@@ -76,7 +76,6 @@ func (d *Datastore) runOnce(ctx context.Context, readOnly bool, f func(*sql.Tx) 
 // error, the transaction will be retried (and f will be run again).
 func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
 	var err error
-L:
 	for i := 0; i < maxRetries; i++ {
 		err = d.runOnce(ctx, readOnly, f)
 		e, ok := err.(*mysql.MySQLError)
@@ -88,7 +87,7 @@ L:
 			t := time.NewTimer(time.Duration(i*100) * time.Millisecond)
 			select {
 			case <-t.C:
-				continue L
+				continue
 			case <-ctx.Done():
 				return err
 			}
