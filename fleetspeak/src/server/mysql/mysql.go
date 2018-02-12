@@ -22,9 +22,17 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"time"
 
+	"github.com/go-sql-driver/mysql"
 	log "github.com/golang/glog"
 )
+
+const maxRetries = 50
+
+const mysql_ER_LOCK_WAIT_TIMEOUT = 1205
+const mysql_ER_LOCK_DEADLOCK = 1213
+const mysql_ER_TOO_MANY_CONCURRENT_TRXS = 1637
 
 // Datastore wraps a mysql backed sql.DB and implements db.Store.
 type Datastore struct {
@@ -52,11 +60,10 @@ func (d *Datastore) Close() error {
 	return d.db.Close()
 }
 
-// runInTx runs f, passing it a transaction. The transaction will be committed
-// if f returns an error, otherwise rolled back.
-func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
-	// TODO: Pass along the readOnly flag, once some mysql driver
-	// supports it.
+// runOnce runs f, passing it a transaction. The transaction will be committed
+// if f returns nil, otherwise rolled back.
+func (d *Datastore) runOnce(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
+	// TODO: Pass along the readOnly flag, once some mysql driver supports it.
 	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -67,6 +74,32 @@ func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) 
 		return err
 	}
 	return tx.Commit()
+}
+
+// runInTx runs f in a transaction. If the transaction returns a retriable MySQL
+// error, the transaction will be retried (and f will be run again).
+func (d *Datastore) runInTx(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		err = d.runOnce(ctx, readOnly, f)
+		e, ok := err.(*mysql.MySQLError)
+		if !ok {
+			return err
+		}
+		switch e.Number {
+		case mysql_ER_LOCK_WAIT_TIMEOUT, mysql_ER_LOCK_DEADLOCK, mysql_ER_TOO_MANY_CONCURRENT_TRXS:
+			t := time.NewTimer(time.Duration(i*100) * time.Millisecond)
+			select {
+			case <-t.C:
+				continue
+			case <-ctx.Done():
+				return err
+			}
+		default:
+			return err
+		}
+	}
+	return err
 }
 
 // IsNotFound implements db.Store.

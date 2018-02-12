@@ -221,9 +221,8 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 }
 
 func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, contact db.ContactID) error {
-	ids := make([]string, 0, len(msgs))
-
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		ids := make([]string, 0, len(msgs))
 		for _, m := range msgs {
 			// If it is already processed, we don't want to save m.Data. This is a
 			// little bit iffy (m.Data is really owned by the caller) but FS shouldn't
