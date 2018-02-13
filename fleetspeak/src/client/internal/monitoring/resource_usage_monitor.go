@@ -169,7 +169,7 @@ type ResourceUsageMonitor struct {
 // ResourceUsageMonitorParams contains parameters that might be set when
 // creating a ResourceUsageMonitor.
 type ResourceUsageMonitorParams struct {
-	// What we are monitoring. Typicaly a service name, or 'system' for the
+	// What we are monitoring. Typically a service name, or 'system' for the
 	// Fleetspeak client itself.
 	Scope string
 
