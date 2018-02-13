@@ -43,9 +43,23 @@ type ClientInfo struct {
 // SignatureInfo provides information about a signature included with
 // the contact data.
 type SignatureInfo struct {
-	Certificate *x509.Certificate       // The certificate provided with the signature.
-	Algorithm   x509.SignatureAlgorithm // The signature algorithm used.
-	Valid       bool                    // True if the provided signature could be verified against the public key in Certificate.
+	// The certificate chain provided with the signature.
+	Certificate []*x509.Certificate
+
+	// The signature algorithm used.
+	Algorithm x509.SignatureAlgorithm
+
+	// True if the signature provided with the message could be verified against
+	// the first certificate in the chain.
+	//
+	// NOTE: The FS system only performs, and this bit only represents the result
+	// of a simple signature check against Certificate[0].  The Authorizer
+	// implementation is responsible for verifying every other aspect of chain. In
+	// particular, an Authorizer will typically want to verify that provided
+	// certificates really do chain together, that none of the certificates in it
+	// have been revoked, and that the final certificate in the chain is signed by
+	// a trusted authority.
+	Valid bool
 }
 
 // An Authorizer regulates communication with fleetspeak
