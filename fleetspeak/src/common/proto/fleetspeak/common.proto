@@ -94,10 +94,16 @@ message Label {
 }
 
 message Signature {
-  bytes certificate = 1; // An ASN.1 DER encoded x509 certificate.
-  int32 algorithm = 2; // Indicates the choice of signature
-                       // algorithm. https://golang.org/pkg/crypto/x509/#SignatureAlgorithm
-  bytes signature = 3; // A signature of the validated data.
+  // A chain of ASN.1 DER encoded x509 certificates.
+  repeated bytes certificate = 1;
+
+  // Indicates the choice of signature algorithm, a constant from
+  // https://golang.org/pkg/crypto/x509/#SignatureAlgorithm
+  int32 algorithm = 2;
+
+  // A signature of the validated data, it should be consistent with both the
+  // algorithm choice and the first element of the certificate chain.
+  bytes signature = 3;
 }
 
 // A WrappedContactData is provided by the client to the server with every

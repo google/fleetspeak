@@ -33,9 +33,13 @@ func ValidateWrappedContactData(cd *fspb.WrappedContactData) ([]authorizer.Signa
 	res := make([]authorizer.SignatureInfo, 0, len(cd.Signatures))
 
 	for _, sig := range cd.Signatures {
-		cert, err := x509.ParseCertificate(sig.Certificate)
-		if err != nil {
-			return nil, err
+		certs := make([]*x509.Certificate, len(sig.Certificate))
+		var err error
+		for i, c := range sig.Certificate {
+			certs[i], err = x509.ParseCertificate(c)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		alg := x509.UnknownSignatureAlgorithm
@@ -46,12 +50,12 @@ func ValidateWrappedContactData(cd *fspb.WrappedContactData) ([]authorizer.Signa
 
 		var valid bool
 		if alg != x509.UnknownSignatureAlgorithm {
-			err = cert.CheckSignature(alg, cd.ContactData, sig.Signature)
+			err = certs[0].CheckSignature(alg, cd.ContactData, sig.Signature)
 			valid = err == nil
 		}
 
 		res = append(res, authorizer.SignatureInfo{
-			Certificate: cert,
+			Certificate: certs,
 			Algorithm:   alg,
 			Valid:       valid,
 		})

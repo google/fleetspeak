@@ -49,7 +49,7 @@ func (a *testAuthorizer) Allow4(_ net.Addr, _ authorizer.ContactInfo, _ authoriz
 		a.t.Errorf("expected %d sigs, got %d", a.expectCount, len(sigs))
 	}
 	for _, s := range sigs {
-		serial := s.Certificate.SerialNumber.Int64()
+		serial := s.Certificate[0].SerialNumber.Int64()
 		if a.expectType[serial] != s.Algorithm {
 			a.t.Errorf("Expected %v to have signature of type %v, got %v", serial, a.expectType[serial], s.Algorithm)
 		}
@@ -77,7 +77,7 @@ func (s *testSigner) SignContact(data []byte) *fspb.Signature {
 		log.Exitf("Unable to sign hashed of length %d with (%v): %v", len(hashed), s.hash, err)
 	}
 	return &fspb.Signature{
-		Certificate: s.cert.Raw,
+		Certificate: [][]byte{s.cert.Raw},
 		Algorithm:   int32(s.alg),
 		Signature:   sig,
 	}

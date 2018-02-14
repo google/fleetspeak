@@ -23,7 +23,7 @@ type Signer interface {
 	// SignContact attempts to produce a signature of data which
 	// will be included when sending it to the server.
 	//
-	// SignContact may return nil if the intended certificate is
-	// currently unavailable.
+	// SignContact may return nil if the intended certificate is currently
+	// unavailable. Otherwise it should return a proto with all fields set.
 	SignContact(data []byte) *fleetspeak.Signature
 }
