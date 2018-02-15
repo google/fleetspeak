@@ -84,13 +84,18 @@ type Execution struct {
 	outLock sync.Mutex          // Protects outData, lastOut
 
 	shutdown   sync.Once
-	lastActive int64 // Time of the last message input or output, since epoch (UTC).
+	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
 
 	dead       chan struct{} // closed when the underlying process has died.
 	waitResult error         // result of Wait call - should only be read after dead is closed
 
 	inProcess   sync.WaitGroup         // count of active goroutines
 	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
+
+	heartbeat         int64 // Time of the last input message in seconds since epoch (UTC), atomic access only.
+	monitorHeartbeats bool  // Whether to monitor the daemon process's hearbeats and kill unresponsive processes.
+	heartbeatUnresponsiveGracePeriod time.Duration // How long to wait for initial heartbeat.
+	heartbeatUnresponsiveKillPeriod time.Duration // How long to wait for subsequent heartbeats.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -114,6 +119,10 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 
 		dead:        make(chan struct{}),
 		startupData: make(chan *fcpb.StartupData, 1),
+
+		monitorHeartbeats: cfg.MonitorHeartbeats,
+		heartbeatUnresponsiveGracePeriod: time.Duration(cfg.HeartbeatUnresponsiveGracePeriodSeconds) * time.Second,
+		heartbeatUnresponsiveKillPeriod: time.Duration(cfg.HeartbeatUnresponsiveKillPeriodSeconds) * time.Second,
 	}
 
 	var err error
@@ -154,11 +163,11 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 
 	ret.inProcess.Add(3)
-	go ret.flushLoop()
-	go ret.inLoop()
+	go ret.flushRoutine()
+	go ret.inRoutine()
 	if !cfg.DisableResourceMonitoring {
 		ret.inProcess.Add(1)
-		go ret.statsLoop()
+		go ret.statsRoutine()
 	}
 	go func() {
 		defer func() {
@@ -212,6 +221,16 @@ func (e *Execution) LastActive() time.Time {
 
 func (e *Execution) setLastActive(t time.Time) {
 	atomic.StoreInt64(&e.lastActive, t.Unix())
+}
+
+// getHeartbeat returns the last time that a message was received, to the nearest
+// second.
+func (e *Execution) getHeartbeat() time.Time {
+	return time.Unix(atomic.LoadInt64(&e.heartbeat), 0).UTC()
+}
+
+func (e *Execution) recordHeartbeat() {
+	atomic.StoreInt64(&e.heartbeat, time.Now().Unix())
 }
 
 func dataSize(o *dspb.StdOutputData) int {
@@ -290,7 +309,7 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (e *Execution) flushLoop() {
+func (e *Execution) flushRoutine() {
 	defer e.inProcess.Done()
 	t := time.NewTicker(outFlushTime)
 	defer t.Stop()
@@ -363,42 +382,43 @@ func (e *Execution) Shutdown() {
 	})
 }
 
-// inLoop reads messages from the dependent process and passes them to
+// inRoutine reads messages from the dependent process and passes them to
 // fleetspeak.
-func (e *Execution) inLoop() {
+func (e *Execution) inRoutine() {
 	defer func() {
 		e.Shutdown()
 		e.inProcess.Done()
 	}()
-	initialMsg := e.readMsg()
-	if initialMsg == nil {
-		return
-	}
 
-	if initialMsg.Destination != nil && initialMsg.Destination.ServiceName == "system" && initialMsg.MessageType == "StartupData" {
-		sd := &fcpb.StartupData{}
-		if err := ptypes.UnmarshalAny(initialMsg.Data, sd); err != nil {
-			log.Warningf("Failed to parse startup data from initial message: %v", err)
-		} else {
-			e.startupData <- sd
-			close(e.startupData) // No more values to send through the channel.
-		}
-	} else {
-		// Handle initial message like we would any other.
-		e.setLastActive(time.Now())
-		if err := e.sc.Send(context.Background(), service.AckMessage{M: initialMsg}); err != nil {
-			log.Errorf("error sending message to server: %v", err)
-		}
-	}
 	for {
 		m := e.readMsg()
 		if m == nil {
 			return
 		}
 		e.setLastActive(time.Now())
-		if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
-			log.Errorf("error sending message to server: %v", err)
+		e.recordHeartbeat()
+
+		if m.Destination != nil && m.Destination.ServiceName == "system" {
+			switch m.MessageType {
+			case "StartupData":
+				sd := &fcpb.StartupData{}
+				if err := ptypes.UnmarshalAny(m.Data, sd); err != nil {
+					log.Warningf("Failed to parse startup data from initial message: %v", err)
+				} else {
+					e.startupData <- sd
+					close(e.startupData) // No more values to send through the channel.
+				}
+			case "Heartbeat":
+				// Pass, handled above.
+			default:
+				log.Warningf("Unknown system message type: %s", m.MessageType)
+			}
+		} else {
+			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
+				log.Errorf("error sending message to server: %v", err)
+			}
 		}
+
 	}
 }
 
@@ -416,9 +436,9 @@ func (e *Execution) readMsg() *fspb.Message {
 	}
 }
 
-// statsLoop monitors the daemon process's resource usage, sending reports to the server
+// statsRoutine monitors the daemon process's resource usage, sending reports to the server
 // at regular intervals.
-func (e *Execution) statsLoop() {
+func (e *Execution) statsRoutine() {
 	defer e.inProcess.Done()
 	pid := e.cmd.Process.Pid
 	var version string
@@ -433,6 +453,11 @@ func (e *Execution) statsLoop() {
 		log.Warningf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
 	case <-e.Done:
 		return
+	}
+
+	if e.monitorHeartbeats {
+		e.inProcess.Add(1)
+		go e.heartbeatMonitorRoutine(pid)
 	}
 
 	rum, err := monitoring.New(e.sc, monitoring.ResourceUsageMonitorParams{
@@ -452,4 +477,50 @@ func (e *Execution) statsLoop() {
 
 	// This blocks until the daemon process terminates.
 	rum.Run()
+}
+
+// heartbeatMonitorRoutine monitors the daemon process's hearbeats and kills
+// unresponsive processes.
+func (e *Execution) heartbeatMonitorRoutine(pid int) {
+	defer e.inProcess.Done()
+
+	// Give the child process some time to start up. During boot it sometimes
+	// takes significantly more time than the unresponsive_kill_period to start
+	// the child so we disable checking for heartbeats for a while.
+	e.recordHeartbeat()
+	sleepTime := e.heartbeatUnresponsiveGracePeriod
+
+	for {
+		select {
+		case <-time.After(sleepTime):
+		case <-e.dead:
+			return
+		}
+
+		now := time.Now()
+		heartbeat := e.getHeartbeat()
+		sleepTime = e.heartbeatUnresponsiveKillPeriod - now.Sub(heartbeat)
+		if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod {
+			// There is a very unlikely race condition if the machine gets suspended
+			// for longer than unresponsive_kill_period seconds so we give the client
+			// some time to catch up.
+			select {
+			case <-time.After(2 * time.Second):
+			case <-e.dead:
+				return
+			}
+
+			heartbeat = e.getHeartbeat()
+			if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod {
+				// We have not received a heartbeat in a while, kill the child.
+				log.Warningf("No heartbeat received from %s (pid %d), killing.", e.daemonServiceName, pid)
+				p := os.Process{Pid: pid}
+				if err := p.Kill(); err != nil {
+					log.Errorf("Error while killing a process that doesn't heartbeat - %s (pid %d): %v", e.daemonServiceName, pid, err)
+				}
+				return
+			}
+			sleepTime = time.Second
+		}
+	}
 }

@@ -32,4 +32,15 @@ message Config {
   // If set, Fleetspeak will kill and restart the child if it exceeds this
   // memory limit, in bytes.
   int64 memory_limit = 7;
+
+  // If set, Fleetspeak will monitor child's heartbeat messages and kill
+  // unresponsive processes. The values below should be set to configure the
+  // heartbeat monitoring.
+  bool monitor_heartbeats = 8;
+
+  // How long to wait for initial heartbeat.
+  int32 heartbeat_unresponsive_grace_period_seconds = 9;
+
+  // How long to wait for subsequent heartbeats.
+  int32 heartbeat_unresponsive_kill_period_seconds = 10;
 }

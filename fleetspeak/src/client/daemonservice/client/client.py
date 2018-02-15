@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """A client library for fleetspeak daemonservices.
 
 This library is for use by a process run by the Fleetspeak daemonservice module
@@ -133,6 +132,11 @@ class FleetspeakConnection(object):
     """
     if not isinstance(message, common_pb2.Message):
       raise ValueError("Send requires a fleetspeak.Message")
+
+    if message.message_type == "system":
+      raise ValueError(
+          "Only predefined messages can have message_type \"system\"")
+
     buf = message.SerializeToString()
     if len(buf) > MAX_SIZE:
       raise ValueError(
@@ -155,8 +159,8 @@ class FleetspeakConnection(object):
     """
     size = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]
     if size > MAX_SIZE:
-      raise ProtocolError("Expected size to be at most %d, got %d" %
-                          (MAX_SIZE, size))
+      raise ProtocolError("Expected size to be at most %d, got %d" % (MAX_SIZE,
+                                                                      size))
     buf = self._ReadN(size)
     self._ReadMagic()
     res = common_pb2.Message()
@@ -164,11 +168,23 @@ class FleetspeakConnection(object):
 
     return res, len(buf)
 
+  def Heartbeat(self):
+    """Sends a heartbeat to the Fleetspeak client.
+
+    If this daemonservice is configured to use heartbeats, clients that don't
+    call this method often enough are considered faulty and are restarted by
+    Fleetspeak.
+    """
+    heartbeat_msg = common_pb2.Message(
+        message_type="Heartbeat",
+        destination=common_pb2.Address(service_name="system"))
+    self.Send(heartbeat_msg)
+
   def _ReadMagic(self):
     got = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]
     if got != _MAGIC:
-      raise ProtocolError(
-          "Expected to read magic number {}, got {}.".format(_MAGIC, got))
+      raise ProtocolError("Expected to read magic number {}, got {}.".format(
+          _MAGIC, got))
 
   def _WriteMagic(self):
     buf = struct.pack(_STRUCT_FMT, _MAGIC)
@@ -179,8 +195,8 @@ class FleetspeakConnection(object):
     startup_msg = common_pb2.Message(
         message_type="StartupData",
         destination=common_pb2.Address(service_name="system"))
-    startup_msg.data.Pack(channel_pb2.StartupData(pid=os.getpid(),
-                                                  version=version))
+    startup_msg.data.Pack(
+        channel_pb2.StartupData(pid=os.getpid(), version=version))
     self.Send(startup_msg)
 
   def _ReadN(self, n):
