@@ -28,4 +28,8 @@ message Config {
   // How long to wait between resource monitoring samples. If unset, defaults to
   // 30.
   int32 resource_monitoring_sample_period_seconds = 6;
+
+  // If set, Fleetspeak will kill and restart the child if it exceeds this
+  // memory limit, in bytes.
+  int64 memory_limit = 7;
 }

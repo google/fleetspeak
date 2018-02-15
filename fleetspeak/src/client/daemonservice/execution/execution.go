@@ -67,6 +67,7 @@ var (
 // An Execution represents a specific execution of a daemonservice.
 type Execution struct {
 	daemonServiceName string
+	memoryLimit       int64
 	samplePeriod      time.Duration
 	sampleSize        int
 
@@ -98,6 +99,7 @@ type Execution struct {
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
+		memoryLimit:       cfg.MemoryLimit,
 		sampleSize:        int(cfg.ResourceMonitoringSampleSize),
 		samplePeriod:      time.Duration(cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second,
 
@@ -436,6 +438,7 @@ func (e *Execution) statsLoop() {
 	rum, err := monitoring.New(e.sc, monitoring.ResourceUsageMonitorParams{
 		Scope:            e.daemonServiceName,
 		Pid:              pid,
+		MemoryLimit:      e.memoryLimit,
 		ProcessStartTime: e.StartTime,
 		Version:          version,
 		MaxSamplePeriod:  e.samplePeriod,
