@@ -34,7 +34,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto',
   package='fleetspeak.daemonservice',
   syntax='proto3',
-  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\xe2\x01\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x62\x06proto3')
+  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\xf8\x01\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x12\x14\n\x0cmemory_limit\x18\x07 \x01(\x03\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,])
 
@@ -90,6 +90,13 @@ _CONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='memory_limit', full_name='fleetspeak.daemonservice.Config.memory_limit', index=6,
+      number=7, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -103,7 +110,7 @@ _CONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=142,
-  serialized_end=368,
+  serialized_end=390,
 )
 
 _CONFIG.fields_by_name['inactivity_timeout'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION

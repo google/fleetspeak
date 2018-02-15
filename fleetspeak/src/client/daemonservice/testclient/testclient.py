@@ -23,6 +23,7 @@ correctly implements the protocol expected by daemonservice.
 from google.apputils import app
 import gflags
 import logging
+import time
 
 import fleetspeak.src.client.daemonservice.client.client as clib
 
@@ -45,12 +46,27 @@ def Loopback():
     con.Send(msg)
 
 
+def MemoryHog():
+  """Takes 200MB of memory, then sleeps forever."""
+  logging.info("starting memory leak")
+  con = clib.FleetspeakConnection(version="0.5")
+  logging.info("connection created")
+  buf = "a" * (1024*1024*200)
+  while True:
+    time.sleep(1)
+
+
 def main(argv=None):
   del argv  # Unused.
 
   if FLAGS.mode == "loopback":
     Loopback()
     return
+
+  if FLAGS.mode == "memoryhog":
+    MemoryHog()
+    return
+
   raise FatalError("Unknown mode: %s", FLAGS.mode)
 
 

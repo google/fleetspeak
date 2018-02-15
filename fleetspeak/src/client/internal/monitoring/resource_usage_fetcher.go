@@ -37,7 +37,7 @@ type ResourceUsage struct {
 	// Amount of CPU time scheduled for a process so far in kernel mode.
 	SystemCPUMillis float64
 
-	// Resident set size for a process.
+	// Resident set size for a process, in bytes.
 	ResidentMemory int64
 }
 

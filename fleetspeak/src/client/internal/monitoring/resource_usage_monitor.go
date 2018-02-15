@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	log "github.com/golang/glog"
@@ -155,6 +156,7 @@ type ResourceUsageMonitor struct {
 
 	scope             string
 	pid               int
+	memoryLimit       int64
 	version           string
 	processStartTime  *tspb.Timestamp
 	maxSamplePeriod   time.Duration
@@ -178,6 +180,10 @@ type ResourceUsageMonitorParams struct {
 
 	// The process id that we are monitoring.
 	Pid int
+
+	// If nonzero, the monitored process should be killed if it exceeds this
+	// memory limit, in bytes.
+	MemoryLimit int64
 
 	// The time that the processes was started (if known).
 	ProcessStartTime time.Time
@@ -242,6 +248,7 @@ func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageM
 
 		scope:             params.Scope,
 		pid:               params.Pid,
+		memoryLimit:       params.MemoryLimit,
 		version:           params.Version,
 		processStartTime:  startTimeProto,
 		maxSamplePeriod:   params.MaxSamplePeriod,
@@ -294,6 +301,17 @@ func (m *ResourceUsageMonitor) Run() {
 				m.errorf("failed to get resource usage for process[%d]: %v", m.pid, err)
 				resetSamples()
 				continue
+			}
+
+			if m.memoryLimit > 0 {
+				if currRU.ResidentMemory > m.memoryLimit {
+					// m.scope is the service name here.
+					log.Warningf("Memory limit (%d bytes) exceeded for %s; pid %d, killing.", m.scope, m.pid)
+					p := os.Process{Pid: m.pid}
+					if err := p.Kill(); err != nil {
+						log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.scope, m.pid, err)
+					}
+				}
 			}
 
 			var ss int
