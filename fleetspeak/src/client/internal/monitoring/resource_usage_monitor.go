@@ -306,10 +306,10 @@ func (m *ResourceUsageMonitor) Run() {
 			if m.memoryLimit > 0 {
 				if currRU.ResidentMemory > m.memoryLimit {
 					// m.scope is the service name here.
-					log.Warningf("Memory limit (%d bytes) exceeded for %s; pid %d, killing.", m.scope, m.pid)
+					log.Warningf("Memory limit (%d bytes) exceeded for %s; pid %d, killing.", m.memoryLimit, m.scope, m.pid)
 					p := os.Process{Pid: m.pid}
 					if err := p.Kill(); err != nil {
-						log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.scope, m.pid, err)
+						log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.memoryLimit, m.scope, m.pid, err)
 					}
 				}
 			}
