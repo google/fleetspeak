@@ -47,13 +47,32 @@ def Loopback():
 
 
 def MemoryHog():
-  """Takes 200MB of memory, then sleeps forever."""
+  """Takes 20MB of memory, then sleeps forever."""
   logging.info("starting memory leak")
   con = clib.FleetspeakConnection(version="0.5")
   logging.info("connection created")
-  buf = "a" * (1024*1024*200)
+  buf = "a" * (1024*1024*20)
   while True:
     time.sleep(1)
+
+
+def Freezed():
+  """Connects to Fleetspeak, then sleeps indefinitely."""
+  logging.info("starting freezed")
+  con = clib.FleetspeakConnection(version="0.5")
+  logging.info("connection created")
+  while True:
+    time.sleep(1)
+
+
+def Heartbeat():
+  """Sends a heartbeat every second, indefinitely."""
+  logging.info("starting heartbeat")
+  con = clib.FleetspeakConnection(version="0.5")
+  logging.info("connection created")
+  while True:
+    time.sleep(1)
+    con.Heartbeat()
 
 
 def main(argv=None):
@@ -65,6 +84,14 @@ def main(argv=None):
 
   if FLAGS.mode == "memoryhog":
     MemoryHog()
+    return
+
+  if FLAGS.mode == "freezed":
+    Freezed()
+    return
+
+  if FLAGS.mode == "heartbeat":
+    Heartbeat()
     return
 
   raise FatalError("Unknown mode: %s", FLAGS.mode)

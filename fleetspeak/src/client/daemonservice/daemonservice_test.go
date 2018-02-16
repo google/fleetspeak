@@ -59,12 +59,9 @@ func testClientLauncherPY() []string {
 	return []string{"testclient/testclient_launcher.py"}
 }
 
-func startTestClient(t *testing.T, client []string, mode string, sc service.Context) *Service {
-	dsc := dspb.Config{
-		ResourceMonitoringSampleSize:          2,
-		ResourceMonitoringSamplePeriodSeconds: 1,
-		MemoryLimit:                           1024*1024*100, // 100MB
-	}
+func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {
+	dsc.ResourceMonitoringSampleSize = 2
+	dsc.ResourceMonitoringSamplePeriodSeconds = 1
 	dsc.Argv = append(dsc.Argv, client...)
 	dsc.Argv = append(dsc.Argv, "--mode="+mode)
 
@@ -95,7 +92,7 @@ func exerciseLoopback(t *testing.T, client []string) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, client, "loopback", &sc)
+	s := startTestClient(t, client, "loopback", &sc, dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -143,7 +140,7 @@ func TestSelfReportedPIDs(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientLauncherPY(), "loopback", &sc)
+	s := startTestClient(t, testClientLauncherPY(), "loopback", &sc, dspb.Config{})
 
 	var ruMsgs []*mpb.ResourceUsageData
 	var lastRUMsg *mpb.ResourceUsageData
@@ -220,7 +217,7 @@ func TestRespawn(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
 	}
-	s := startTestClient(t, testClient(), "die", &sc)
+	s := startTestClient(t, testClient(), "die", &sc, dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -360,7 +357,7 @@ func exerciseBacklog(t *testing.T, client []string) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, client, "loopback", &sc)
+	s := startTestClient(t, client, "loopback", &sc, dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -422,7 +419,9 @@ func TestMemoryLimit(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "memoryhog", &sc)
+	s := startTestClient(t, testClientPY(), "memoryhog", &sc, dspb.Config{
+		MemoryLimit: 1024*1024*10, // 10MB
+	})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -451,6 +450,117 @@ func TestMemoryLimit(t *testing.T) {
 
 		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
 			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+		}
+	}
+}
+
+// Tests that Fleetspeak restarts daemonservices that don't heartbeat, if
+// configured to use heartbeats.
+func TestNoHeartbeats(t *testing.T) {
+	var ord time.Duration
+	RespawnDelay, ord = time.Second, RespawnDelay
+	defer func() {
+		RespawnDelay = ord
+	}()
+
+	sc := clitesting.MockServiceContext{
+		OutChan: make(chan *fspb.Message),
+	}
+	s := startTestClient(t, testClientPY(), "freezed", &sc, dspb.Config{
+		MonitorHeartbeats: true,
+		HeartbeatUnresponsiveGracePeriodSeconds: 0,
+		HeartbeatUnresponsiveKillPeriodSeconds: 1,
+	})
+	defer func() {
+		// Drain the channel
+		go func() {
+			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {}
+		}()
+
+		if err := s.Stop(); err != nil {
+			t.Errorf("Unable to stop service: %v", err)
+		}
+	}()
+
+	// Get messages until a ResourceUsage message appears.
+	m := <-sc.OutChan
+	for m.MessageType != "ResourceUsage" {
+		m = <-sc.OutChan
+	}
+
+	var rud0, rud1 mpb.ResourceUsageData
+	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
+		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+	}
+
+	rud1 = rud0
+	// Wait for the process to be restarted.
+	for rud0.Pid == rud1.Pid {
+		// Get messages until a ResourceUsage message appears.
+		m = <-sc.OutChan
+		for m.MessageType != "ResourceUsage" {
+			m = <-sc.OutChan
+		}
+
+		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
+			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+		}
+	}
+}
+
+// Tests that Fleetspeak doesn't kill daemonservices that heartbeat, when
+// configured to use heartbeats.
+func TestHeartbeat(t *testing.T) {
+	var ord time.Duration
+	RespawnDelay, ord = time.Second, RespawnDelay
+	defer func() {
+		RespawnDelay = ord
+	}()
+
+	sc := clitesting.MockServiceContext{
+		OutChan: make(chan *fspb.Message),
+	}
+	s := startTestClient(t, testClientPY(), "heartbeat", &sc, dspb.Config{
+		MonitorHeartbeats: true,
+		HeartbeatUnresponsiveGracePeriodSeconds: 0,
+		HeartbeatUnresponsiveKillPeriodSeconds: 1,
+	})
+	defer func() {
+		// Drain the channel.
+		go func() {
+			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {}
+		}()
+
+		if err := s.Stop(); err != nil {
+			t.Errorf("Unable to stop service: %v", err)
+		}
+	}()
+
+	// Get messages until a ResourceUsage message appears.
+	m := <-sc.OutChan
+	for m.MessageType != "ResourceUsage" {
+		m = <-sc.OutChan
+	}
+
+	var rud0, rud1 mpb.ResourceUsageData
+	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
+		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+	}
+
+	// Ensure the process is not restarted in 2 seconds - the PID should not change.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		m = <-sc.OutChan
+		if m.MessageType != "ResourceUsage" {
+			continue
+		}
+
+		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
+			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+		}
+
+		if rud0.Pid != rud1.Pid {
+			t.Error("The service has been restarted.")
 		}
 	}
 }

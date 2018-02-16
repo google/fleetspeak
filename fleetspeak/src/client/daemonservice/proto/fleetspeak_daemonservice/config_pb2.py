@@ -34,7 +34,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto',
   package='fleetspeak.daemonservice',
   syntax='proto3',
-  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\xf8\x01\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x12\x14\n\x0cmemory_limit\x18\x07 \x01(\x03\x62\x06proto3')
+  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\xfd\x02\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x12\x14\n\x0cmemory_limit\x18\x07 \x01(\x03\x12\x1a\n\x12monitor_heartbeats\x18\x08 \x01(\x08\x12\x33\n+heartbeat_unresponsive_grace_period_seconds\x18\t \x01(\x05\x12\x32\n*heartbeat_unresponsive_kill_period_seconds\x18\n \x01(\x05\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,])
 
@@ -97,6 +97,27 @@ _CONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='monitor_heartbeats', full_name='fleetspeak.daemonservice.Config.monitor_heartbeats', index=7,
+      number=8, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='heartbeat_unresponsive_grace_period_seconds', full_name='fleetspeak.daemonservice.Config.heartbeat_unresponsive_grace_period_seconds', index=8,
+      number=9, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='heartbeat_unresponsive_kill_period_seconds', full_name='fleetspeak.daemonservice.Config.heartbeat_unresponsive_kill_period_seconds', index=9,
+      number=10, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -110,7 +131,7 @@ _CONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=142,
-  serialized_end=390,
+  serialized_end=523,
 )
 
 _CONFIG.fields_by_name['inactivity_timeout'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
