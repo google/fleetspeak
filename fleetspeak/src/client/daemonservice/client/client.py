@@ -136,9 +136,15 @@ class FleetspeakConnection(object):
     if not isinstance(message, common_pb2.Message):
       raise ValueError("Send requires a fleetspeak.Message")
 
-    if message.message_type == "system":
+    if message.destination.service_name == "system":
       raise ValueError(
-          "Only predefined messages can have message_type \"system\"")
+          "Only predefined messages can have destination.service_name == \"system\"")
+
+    self._SendImpl(message)
+
+  def _SendImpl(self, message):
+    if not isinstance(message, common_pb2.Message):
+      raise ValueError("Send requires a fleetspeak.Message")
 
     buf = message.SerializeToString()
     if len(buf) > MAX_SIZE:
@@ -184,7 +190,7 @@ class FleetspeakConnection(object):
     heartbeat_msg = common_pb2.Message(
         message_type="Heartbeat",
         destination=common_pb2.Address(service_name="system"))
-    self.Send(heartbeat_msg)
+    self._SendImpl(heartbeat_msg)
 
   def _ReadMagic(self):
     got = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]
@@ -203,7 +209,7 @@ class FleetspeakConnection(object):
         destination=common_pb2.Address(service_name="system"))
     startup_msg.data.Pack(
         channel_pb2.StartupData(pid=os.getpid(), version=version))
-    self.Send(startup_msg)
+    self._SendImpl(startup_msg)
 
   def _ReadN(self, n):
     """Reads n characters from the input stream, or until EOF.
