@@ -21,6 +21,7 @@ daemonservice/channel/channel.go.
 import os
 import platform
 import struct
+import threading
 
 from fleetspeak.src.client.channel.proto.fleetspeak_channel import channel_pb2
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
@@ -73,9 +74,7 @@ def _EnvOpen(var, mode):
 class FleetspeakConnection(object):
   """A connection to the Fleetspeak system.
 
-  It is safe to call Send() and Recv() from the resulting connection
-  simultaniously, but the class is not fully thread safe. In particular, making
-  multiple simultaneous calls to either Send or Recv is not supported.
+  It's safe to call methods of this class in parallel.
   """
 
   def __init__(self, version=None, read_file=None, write_file=None):
@@ -103,13 +102,17 @@ class FleetspeakConnection(object):
         corresponding environment variables are not set.
       ProtocolError: If we receive unexpected data from Fleetspeak.
     """
-    self.read_file = read_file
-    if not self.read_file:
-      self.read_file = _EnvOpen(_INFD_VAR, "r")
+    self._read_file = read_file
+    if not self._read_file:
+      self._read_file = _EnvOpen(_INFD_VAR, "r")
 
-    self.write_file = write_file
-    if not self.write_file:
-      self.write_file = _EnvOpen(_OUTFD_VAR, "w")
+    self._read_lock = threading.Lock()
+
+    self._write_file = write_file
+    if not self._write_file:
+      self._write_file = _EnvOpen(_OUTFD_VAR, "w")
+
+    self._write_lock = threading.Lock()
 
     # It is safer to send the magic number before reading it, in case the other
     # end does the same. Also, we'll be killed as unresponsive if we don't
@@ -143,9 +146,10 @@ class FleetspeakConnection(object):
           "Serialized message too large, size must be at most %d, got %d" %
           (MAX_SIZE, len(buf)))
 
-    self.write_file.write(struct.pack(_STRUCT_FMT, len(buf)))
-    self.write_file.write(buf)
-    self._WriteMagic()
+    with self._write_lock:
+      self._write_file.write(struct.pack(_STRUCT_FMT, len(buf)))
+      self._write_file.write(buf)
+      self._WriteMagic()
 
     return len(buf)
 
@@ -161,8 +165,10 @@ class FleetspeakConnection(object):
     if size > MAX_SIZE:
       raise ProtocolError("Expected size to be at most %d, got %d" % (MAX_SIZE,
                                                                       size))
-    buf = self._ReadN(size)
-    self._ReadMagic()
+    with self._read_lock:
+      buf = self._ReadN(size)
+      self._ReadMagic()
+
     res = common_pb2.Message()
     res.ParseFromString(buf)
 
@@ -188,8 +194,8 @@ class FleetspeakConnection(object):
 
   def _WriteMagic(self):
     buf = struct.pack(_STRUCT_FMT, _MAGIC)
-    self.write_file.write(buf)
-    self.write_file.flush()
+    self._write_file.write(buf)
+    self._write_file.flush()
 
   def _WriteStartupData(self, version):
     startup_msg = common_pb2.Message(
@@ -213,7 +219,7 @@ class FleetspeakConnection(object):
     """
     ret = ""
     while True:
-      chunk = self.read_file.read(n - len(ret))
+      chunk = self._read_file.read(n - len(ret))
       ret += chunk
 
       if len(ret) == n or not chunk:
