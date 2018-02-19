@@ -515,6 +515,8 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 		now := time.Now()
 		var heartbeat time.Time
 		if atomic.LoadInt32(&e.sending) != 0 {
+			// We are blocked waiting for Send to complete, e.g. because there is no
+			// network connection.  Treat this as if we got a heartbeat 'now'.
 			heartbeat = now
 		} else {
 			heartbeat = e.getHeartbeat()
