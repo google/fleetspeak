@@ -96,6 +96,7 @@ type Execution struct {
 	monitorHeartbeats                bool          // Whether to monitor the daemon process's hearbeats and kill unresponsive processes.
 	heartbeatUnresponsiveGracePeriod time.Duration // How long to wait for initial heartbeat.
 	heartbeatUnresponsiveKillPeriod  time.Duration // How long to wait for subsequent heartbeats.
+	sending                          int32         // Non-zero when we are sending a messaging into FS. atomic access only.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -422,9 +423,11 @@ func (e *Execution) inRoutine() {
 				log.Warningf("Unknown system message type: %s", m.MessageType)
 			}
 		} else {
+			atomic.StoreInt32(&e.sending, 1)
 			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
 				log.Errorf("error sending message to server: %v", err)
 			}
+			atomic.StoreInt32(&e.sending, 0)
 		}
 
 	}
@@ -506,7 +509,12 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 		}
 
 		now := time.Now()
-		heartbeat := e.getHeartbeat()
+		var heartbeat time.Time
+		if atomic.LoadInt32(&e.sending) != 0 {
+			heartbeat = now
+		} else {
+			heartbeat = e.getHeartbeat()
+		}
 		sleepTime = e.heartbeatUnresponsiveKillPeriod - now.Sub(heartbeat)
 		if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod {
 			// There is a very unlikely race condition if the machine gets suspended
@@ -519,7 +527,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			}
 
 			heartbeat = e.getHeartbeat()
-			if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod {
+			if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod && atomic.LoadInt32(&e.sending) == 0 {
 				// We have not received a heartbeat in a while, kill the child.
 				log.Warningf("No heartbeat received from %s (pid %d), killing.", e.daemonServiceName, pid)
 				p := os.Process{Pid: pid}
@@ -528,7 +536,6 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				}
 				return
 			}
-			sleepTime = time.Second
 		}
 	}
 }
