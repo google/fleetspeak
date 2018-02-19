@@ -92,10 +92,10 @@ type Execution struct {
 	inProcess   sync.WaitGroup         // count of active goroutines
 	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
 
-	heartbeat         int64 // Time of the last input message in seconds since epoch (UTC), atomic access only.
-	monitorHeartbeats bool  // Whether to monitor the daemon process's hearbeats and kill unresponsive processes.
+	heartbeat                        int64         // Time of the last input message in seconds since epoch (UTC), atomic access only.
+	monitorHeartbeats                bool          // Whether to monitor the daemon process's hearbeats and kill unresponsive processes.
 	heartbeatUnresponsiveGracePeriod time.Duration // How long to wait for initial heartbeat.
-	heartbeatUnresponsiveKillPeriod time.Duration // How long to wait for subsequent heartbeats.
+	heartbeatUnresponsiveKillPeriod  time.Duration // How long to wait for subsequent heartbeats.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -120,9 +120,9 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		dead:        make(chan struct{}),
 		startupData: make(chan *fcpb.StartupData, 1),
 
-		monitorHeartbeats: cfg.MonitorHeartbeats,
+		monitorHeartbeats:                cfg.MonitorHeartbeats,
 		heartbeatUnresponsiveGracePeriod: time.Duration(cfg.HeartbeatUnresponsiveGracePeriodSeconds) * time.Second,
-		heartbeatUnresponsiveKillPeriod: time.Duration(cfg.HeartbeatUnresponsiveKillPeriodSeconds) * time.Second,
+		heartbeatUnresponsiveKillPeriod:  time.Duration(cfg.HeartbeatUnresponsiveKillPeriodSeconds) * time.Second,
 	}
 
 	var err error
@@ -390,6 +390,8 @@ func (e *Execution) inRoutine() {
 		e.inProcess.Done()
 	}()
 
+	var startupDone bool
+
 	for {
 		m := e.readMsg()
 		if m == nil {
@@ -401,13 +403,19 @@ func (e *Execution) inRoutine() {
 		if m.Destination != nil && m.Destination.ServiceName == "system" {
 			switch m.MessageType {
 			case "StartupData":
+				if startupDone {
+					log.Warning("Received spurious startup message, ignoring.")
+					break
+				}
+				startupDone = true
+
 				sd := &fcpb.StartupData{}
 				if err := ptypes.UnmarshalAny(m.Data, sd); err != nil {
 					log.Warningf("Failed to parse startup data from initial message: %v", err)
 				} else {
 					e.startupData <- sd
-					close(e.startupData) // No more values to send through the channel.
 				}
+				close(e.startupData) // No more values to send through the channel.
 			case "Heartbeat":
 				// Pass, handled above.
 			default:
