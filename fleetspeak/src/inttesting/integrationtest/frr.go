@@ -100,7 +100,7 @@ func (c *statsCounter) DatastoreOperation(start, end time.Time, operation string
 	atomic.AddInt64(&c.datastoreOperations, 1)
 }
 
-func (c *statsCounter) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData) {
+func (c *statsCounter) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
