@@ -454,14 +454,18 @@ func (e *Execution) statsRoutine() {
 	pid := e.cmd.Process.Pid
 	var version string
 	select {
-	case sd := <-e.startupData:
-		if int(sd.Pid) != pid {
-			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
-			pid = int(sd.Pid)
+	case sd, ok := <-e.startupData:
+		if ok {
+			if int(sd.Pid) != pid {
+				log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
+				pid = int(sd.Pid)
+			}
+			version = sd.Version
+		} else {
+			log.Warningf("%s startup data not received", e.daemonServiceName)
 		}
-		version = sd.Version
 	case <-time.After(startupDataTimeout):
-		log.Warningf("%s failed to send startup data after %v", e.daemonServiceName, startupDataTimeout)
+		log.Warningf("%s startup data not received after %v", e.daemonServiceName, startupDataTimeout)
 	case <-e.Done:
 		return
 	}
