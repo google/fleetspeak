@@ -77,5 +77,5 @@ type Collector interface {
 	DatastoreOperation(start, end time.Time, operation string, result error)
 
 	// ResourceUsageDataReceived is called every time a client-resource-usage proto is received.
-	ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData)
+	ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo)
 }

@@ -53,7 +53,7 @@ func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {
 func (s noopStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 }
 
-func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData) {
+func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
