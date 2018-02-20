@@ -140,7 +140,7 @@ class FleetspeakConnection(object):
       raise ValueError(
           "Only predefined messages can have destination.service_name == \"system\"")
 
-    self._SendImpl(message)
+    return self._SendImpl(message)
 
   def _SendImpl(self, message):
     if not isinstance(message, common_pb2.Message):
