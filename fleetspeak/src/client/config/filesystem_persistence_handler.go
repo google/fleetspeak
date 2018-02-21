@@ -54,8 +54,7 @@ func NewFilesystemPersistenceHandler(configurationPath, stateFile string) (*File
 	}
 	if stateFile != "" {
 		if err := verifyDirectoryPath(path.Dir(stateFile)); err != nil {
-			log.Warningf("Could not state statefile location [%v], continuing as an ephemeral client: %v", path.Dir(stateFile), err)
-			stateFile = ""
+			return nil, fmt.Errorf("invalid state file directory [%v]: %v", path.Dir(stateFile), err)
 		}
 	}
 
