@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 		t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
 	}
 
-	ph, err := config.NewFilesystemPersistenceHandler(configPath, false)
+	ph, err := config.NewFilesystemPersistenceHandler(configPath, filepath.Join(configPath, "writeback"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 
 	for i, pc := range []string{"client_1", "client_2", "client_3", "client_4", "client_5"} {
 		pcConfigPath := filepath.Join(tmpConfPath, pc)
-		ph, err := config.NewFilesystemPersistenceHandler(pcConfigPath, false)
+		ph, err := config.NewFilesystemPersistenceHandler(pcConfigPath, path.Join(pcConfigPath, "writeback"))
 		if err != nil {
 			t.Fatal(err)
 		}

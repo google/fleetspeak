@@ -179,12 +179,3 @@ func (h *WindowsRegistryPersistenceHandler) ReadServices() ([]*fspb.ClientServic
 
 	return ret, nil
 }
-
-// SaveSignedService implements PersistenceHandler.
-func (h *WindowsRegistryPersistenceHandler) SaveSignedService(*fspb.SignedClientServiceConfig) error {
-	if h.readonly {
-		return nil
-	}
-
-	return errors.New("not yet implemented")
-}

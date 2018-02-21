@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -56,7 +57,7 @@ func TestWriteback(t *testing.T) {
 	tmpPath, fin := comtesting.GetTempDir("TestWriteback")
 	defer fin()
 
-	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, false)
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, filepath.Join(tmpPath, "writeback"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestWriteback(t *testing.T) {
 	}
 	m1.Stop()
 
-	ph, err = config.NewFilesystemPersistenceHandler(tmpPath, false)
+	ph, err = config.NewFilesystemPersistenceHandler(tmpPath, filepath.Join(tmpPath, "writeback"))
 	if err != nil {
 		t.Fatal(err)
 	}

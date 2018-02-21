@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 
 	log "github.com/golang/glog"
@@ -31,7 +32,7 @@ import (
 // FilesystemPersistenceHandler defines the filesystem configuration storage strategy.
 type FilesystemPersistenceHandler struct {
 	configurationPath string
-	readonly          bool
+	stateFile         string
 }
 
 // NewFilesystemPersistenceHandler instantiates a FilesystemPersistenceHandler.
@@ -40,39 +41,44 @@ type FilesystemPersistenceHandler struct {
 // files. Possible files include:
 //
 // /communicator.txt    - A text format clpb.CommunicatorConfig, used to tweak communicator behavior.
-// /writeback           - Used to maintain state across restarts,
 // /services/<service>  - A binary format SignedClientServiceConfig. One file for each configured service.
 //
 // All of these files are optional, though Fleetspeak will not be particularly
 // useful without at least one configured service.
 //
-// If readonly is true, the client will not attempt to write to
-// <ConfigurationPath>/writeback, in order to preserve client identity.
-//
-// readonly is intended for testing and specialized applications - should be
-// hardcoded false in normal deployments.
-func NewFilesystemPersistenceHandler(configurationPath string, readonly bool) (*FilesystemPersistenceHandler, error) {
+// If stateFile is nonempty, the client will attempt to write persistent state
+// to it, in order to preserve identity across restarts.
+func NewFilesystemPersistenceHandler(configurationPath, stateFile string) (*FilesystemPersistenceHandler, error) {
 	if err := verifyDirectoryPath(configurationPath); err != nil {
 		return nil, fmt.Errorf("invalid configuration path: %v", err)
+	}
+	if stateFile != "" {
+		if err := verifyDirectoryPath(path.Dir(stateFile)); err != nil {
+			log.Warningf("Could not state statefile location [%v], continuing as an ephemeral client: %v", path.Dir(stateFile), err)
+			stateFile = ""
+		}
 	}
 
 	return &FilesystemPersistenceHandler{
 		configurationPath: configurationPath,
-		readonly:          readonly,
+		stateFile:         stateFile,
 	}, nil
 }
 
 // ReadState implements PersistenceHandler.
 func (h *FilesystemPersistenceHandler) ReadState() (*clpb.ClientState, error) {
-	p := filepath.Join(h.configurationPath, writebackFilename)
-	b, err := ioutil.ReadFile(p)
+	if h.stateFile == "" {
+		return &clpb.ClientState{}, nil
+	}
+
+	b, err := ioutil.ReadFile(h.stateFile)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := &clpb.ClientState{}
 	if err := proto.Unmarshal(b, ret); err != nil {
-		return nil, fmt.Errorf("unable to parse writeback file: %v", err)
+		return nil, fmt.Errorf("unable to parse state file [%s]: %v", h.stateFile, err)
 	}
 
 	return ret, nil
@@ -80,23 +86,22 @@ func (h *FilesystemPersistenceHandler) ReadState() (*clpb.ClientState, error) {
 
 // WriteState implements PersistenceHandler.
 func (h *FilesystemPersistenceHandler) WriteState(s *clpb.ClientState) error {
-	if h.readonly {
+	if h.stateFile == "" {
 		return nil
 	}
 
 	b, err := proto.Marshal(s)
 	if err != nil {
-		log.Fatalf("Unable to serialize writeback: %v", err)
+		log.Fatalf("Unable to serialize state: %v", err)
 	}
 
-	p := filepath.Join(h.configurationPath, writebackFilename)
-	tmp := p + ".new"
+	tmp := h.stateFile + ".new"
 	os.RemoveAll(tmp) // Deliberately ignoring errors.
 	if err := ioutil.WriteFile(tmp, b, 0600); err != nil {
-		return fmt.Errorf("unable to write new configuration: %v", err)
+		return fmt.Errorf("unable to write new configuration [%s]: %v", tmp, err)
 	}
-	if err := os.Rename(tmp, p); err != nil {
-		return fmt.Errorf("unable to rename new confguration: %v", err)
+	if err := os.Rename(tmp, h.stateFile); err != nil {
+		return fmt.Errorf("unable to rename new confguration [%s]: %v", h.stateFile, err)
 	}
 
 	return nil
@@ -187,15 +192,6 @@ func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConf
 	}
 
 	return ret, nil
-}
-
-// SaveSignedService implements PersistenceHandler.
-func (h *FilesystemPersistenceHandler) SaveSignedService(*fspb.SignedClientServiceConfig) error {
-	if h.readonly {
-		return nil
-	}
-
-	return errors.New("not yet implemented")
 }
 
 func verifyDirectoryPath(dirPath string) error {

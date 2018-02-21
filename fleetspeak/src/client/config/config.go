@@ -91,16 +91,4 @@ type PersistenceHandler interface {
 
 	ReadSignedServices() ([]*fspb.SignedClientServiceConfig, error)
 	ReadServices() ([]*fspb.ClientServiceConfig, error)
-	SaveSignedService(*fspb.SignedClientServiceConfig) error
-}
-
-// NewDefaultPersistenceHandler returns the default persistence handler for the current platform.
-//
-// On Non-Windows platforms -- FilesystemPersistenceHandler.
-// fleetspeak/src/client/config/filesystem_persistence_handler.go
-//
-// On Windows -- WindowsRegistryPersistenceHandler
-// fleetspeak/src/client/config/windows_registry_persistence_handler.go
-func NewDefaultPersistenceHandler(configurationPath string, readonly bool) (PersistenceHandler, error) {
-	return newDefaultPersistenceHandler(configurationPath, readonly)
 }

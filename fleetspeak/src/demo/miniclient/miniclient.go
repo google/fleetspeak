@@ -30,9 +30,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 
 	"flag"
+
 	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -55,7 +57,7 @@ var (
 func main() {
 	flag.Parse()
 
-	ph, err := config.NewFilesystemPersistenceHandler(*configPath, false)
+	ph, err := config.NewFilesystemPersistenceHandler(*configPath, filepath.Join(*configPath, "writeback"))
 	if err != nil {
 		log.Fatal(err)
 	}
