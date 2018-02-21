@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	log "github.com/golang/glog"
@@ -53,8 +52,8 @@ func NewFilesystemPersistenceHandler(configurationPath, stateFile string) (*File
 		return nil, fmt.Errorf("invalid configuration path: %v", err)
 	}
 	if stateFile != "" {
-		if err := verifyDirectoryPath(path.Dir(stateFile)); err != nil {
-			return nil, fmt.Errorf("invalid state file directory [%v]: %v", path.Dir(stateFile), err)
+		if err := verifyDirectoryPath(filepath.Dir(stateFile)); err != nil {
+			return nil, fmt.Errorf("invalid state file directory [%v]: %v", filepath.Dir(stateFile), err)
 		}
 	}
 
