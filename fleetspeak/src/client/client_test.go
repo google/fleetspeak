@@ -270,7 +270,7 @@ func TestServiceValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, true)
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestTextServiceConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, true)
+	ph, err := config.NewFilesystemPersistenceHandler(tmpPath, "")
 	if err != nil {
 		t.Fatal(err)
 	}
