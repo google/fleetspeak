@@ -43,8 +43,8 @@ import (
 
 // We flush the output when either of these thresholds are met.
 const (
-	outFlushSize = 1 << 20 // 1MB
-	outFlushTime = 5 * time.Second
+	maxFlushBytes           = 1 << 20 // 1MB
+	defaultFlushTimeSeconds = int32(60)
 )
 
 var (
@@ -75,9 +75,11 @@ type Execution struct {
 	cmd       *command.Command
 	StartTime time.Time
 
-	outData *dspb.StdOutputData // The next output data to send, once full.
-	lastOut time.Time           // Time of most recent output of outData.
-	outLock sync.Mutex          // Protects outData, lastOut
+	outData        *dspb.StdOutputData // The next output data to send, once full.
+	lastOut        time.Time           // Time of most recent output of outData.
+	outLock        sync.Mutex          // Protects outData, lastOut
+	outFlushBytes  int                 // How many bytes trigger an output. Constant.
+	outServiceName string              // The service to send StdOutput messages to. Constant.
 
 	shutdown   sync.Once
 	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
@@ -129,14 +131,30 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 	ret.Out = ret.channel.Out
 
+	if cfg.StdParams != nil && cfg.StdParams.ServiceName == "" {
+		log.Errorf("std_params is set, but service_name is empty. Ignoring std_params: %v", cfg.StdParams)
+		cfg.StdParams = nil
+	}
+
 	if *stdForward {
 		log.Warningf("std_forward is set, connecting std... to %s", cfg.Argv[0])
 		ret.cmd.Stdin = os.Stdin
 		ret.cmd.Stdout = os.Stdout
 		ret.cmd.Stderr = os.Stderr
-	} else {
+	} else if cfg.StdParams != nil {
+		if cfg.StdParams.FlushBytes <= 0 || cfg.StdParams.FlushBytes > maxFlushBytes {
+			cfg.StdParams.FlushBytes = maxFlushBytes
+		}
+		if cfg.StdParams.FlushTimeSeconds <= 0 {
+			cfg.StdParams.FlushTimeSeconds = defaultFlushTimeSeconds
+		}
+		ret.outServiceName = cfg.StdParams.ServiceName
+		ret.outFlushBytes = int(cfg.StdParams.FlushBytes)
 		ret.cmd.Stdout = stdoutWriter{&ret}
 		ret.cmd.Stderr = stderrWriter{&ret}
+	} else {
+		ret.cmd.Stdout = nil
+		ret.cmd.Stderr = nil
 	}
 
 	if err := ret.cmd.Start(); err != nil {
@@ -144,8 +162,11 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		return nil, err
 	}
 
-	ret.inProcess.Add(3)
-	go ret.flushRoutine()
+	if cfg.StdParams != nil {
+		ret.inProcess.Add(1)
+		go ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+	}
+	ret.inProcess.Add(2)
 	go ret.inRoutine()
 	if !cfg.DisableResourceMonitoring {
 		ret.inProcess.Add(1)
@@ -237,6 +258,7 @@ func (e *Execution) flushOut() {
 	} else {
 		e.sc.Send(context.Background(), service.AckMessage{
 			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: e.outServiceName},
 				MessageType: "StdOutput",
 				Data:        d,
 			}})
@@ -253,7 +275,7 @@ func (e *Execution) writeToOut(p []byte, isErr bool) {
 	for {
 		currSize := dataSize(e.outData)
 		// If it all fits, write it and return.
-		if currSize+len(p) <= outFlushSize {
+		if currSize+len(p) <= e.outFlushBytes {
 			if isErr {
 				e.outData.Stderr = append(e.outData.Stderr, p...)
 			} else {
@@ -262,7 +284,7 @@ func (e *Execution) writeToOut(p []byte, isErr bool) {
 			return
 		}
 		// Write what does fit, flush, continue.
-		toWrite := outFlushSize - currSize
+		toWrite := e.outFlushBytes - currSize
 		if isErr {
 			e.outData.Stderr = append(e.outData.Stderr, p[:toWrite]...)
 		} else {
@@ -291,15 +313,15 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (e *Execution) flushRoutine() {
+func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
 	defer e.inProcess.Done()
-	t := time.NewTicker(outFlushTime)
+	t := time.NewTicker(flushTime)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			e.outLock.Lock()
-			if e.lastOut.Add(outFlushTime).Before(time.Now()) {
+			if e.lastOut.Add(flushTime).Before(time.Now()) {
 				e.flushOut()
 			}
 			e.outLock.Unlock()
