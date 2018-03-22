@@ -34,12 +34,56 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto',
   package='fleetspeak.daemonservice',
   syntax='proto3',
-  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\xfd\x02\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x12\x14\n\x0cmemory_limit\x18\x07 \x01(\x03\x12\x1a\n\x12monitor_heartbeats\x18\x08 \x01(\x08\x12\x33\n+heartbeat_unresponsive_grace_period_seconds\x18\t \x01(\x05\x12\x32\n*heartbeat_unresponsive_kill_period_seconds\x18\n \x01(\x05\x62\x06proto3')
+  serialized_pb=_b('\nOfleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto\x12\x18\x66leetspeak.daemonservice\x1a\x1egoogle/protobuf/duration.proto\"\x91\x04\n\x06\x43onfig\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\t\x12\x35\n\x12inactivity_timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nlazy_start\x18\x03 \x01(\x08\x12#\n\x1b\x64isable_resource_monitoring\x18\x04 \x01(\x08\x12\'\n\x1fresource_monitoring_sample_size\x18\x05 \x01(\x05\x12\x31\n)resource_monitoring_sample_period_seconds\x18\x06 \x01(\x05\x12\x14\n\x0cmemory_limit\x18\x07 \x01(\x03\x12\x1a\n\x12monitor_heartbeats\x18\x08 \x01(\x08\x12\x33\n+heartbeat_unresponsive_grace_period_seconds\x18\t \x01(\x05\x12\x32\n*heartbeat_unresponsive_kill_period_seconds\x18\n \x01(\x05\x12>\n\nstd_params\x18\x0b \x01(\x0b\x32*.fleetspeak.daemonservice.Config.StdParams\x1aR\n\tStdParams\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\x13\n\x0b\x66lush_bytes\x18\x02 \x01(\x05\x12\x1a\n\x12\x66lush_time_seconds\x18\x03 \x01(\x05\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,])
 
 
 
+
+_CONFIG_STDPARAMS = _descriptor.Descriptor(
+  name='StdParams',
+  full_name='fleetspeak.daemonservice.Config.StdParams',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='service_name', full_name='fleetspeak.daemonservice.Config.StdParams.service_name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='flush_bytes', full_name='fleetspeak.daemonservice.Config.StdParams.flush_bytes', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='flush_time_seconds', full_name='fleetspeak.daemonservice.Config.StdParams.flush_time_seconds', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=589,
+  serialized_end=671,
+)
 
 _CONFIG = _descriptor.Descriptor(
   name='Config',
@@ -118,10 +162,17 @@ _CONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='std_params', full_name='fleetspeak.daemonservice.Config.std_params', index=10,
+      number=11, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
-  nested_types=[],
+  nested_types=[_CONFIG_STDPARAMS, ],
   enum_types=[
   ],
   options=None,
@@ -131,19 +182,29 @@ _CONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=142,
-  serialized_end=523,
+  serialized_end=671,
 )
 
+_CONFIG_STDPARAMS.containing_type = _CONFIG
 _CONFIG.fields_by_name['inactivity_timeout'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
+_CONFIG.fields_by_name['std_params'].message_type = _CONFIG_STDPARAMS
 DESCRIPTOR.message_types_by_name['Config'] = _CONFIG
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Config = _reflection.GeneratedProtocolMessageType('Config', (_message.Message,), dict(
+
+  StdParams = _reflection.GeneratedProtocolMessageType('StdParams', (_message.Message,), dict(
+    DESCRIPTOR = _CONFIG_STDPARAMS,
+    __module__ = 'fleetspeak.src.client.daemonservice.proto.fleetspeak_daemonservice.config_pb2'
+    # @@protoc_insertion_point(class_scope:fleetspeak.daemonservice.Config.StdParams)
+    ))
+  ,
   DESCRIPTOR = _CONFIG,
   __module__ = 'fleetspeak.src.client.daemonservice.proto.fleetspeak_daemonservice.config_pb2'
   # @@protoc_insertion_point(class_scope:fleetspeak.daemonservice.Config)
   ))
 _sym_db.RegisterMessage(Config)
+_sym_db.RegisterMessage(Config.StdParams)
 
 
 # @@protoc_insertion_point(module_scope)
