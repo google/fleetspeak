@@ -28,6 +28,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -101,6 +102,8 @@ type Execution struct {
 // received from the resulting process are passed to sc, as are StdOutput and
 // ResourceUsage messages.
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
+	cfg = proto.Clone(cfg).(*dspb.Config)
+
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
 		memoryLimit:       cfg.MemoryLimit,
