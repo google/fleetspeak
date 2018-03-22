@@ -276,7 +276,7 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 	}
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		for _, id := range ids {
-			if _, err := tx.ExecContext(ctx, "INSERT INTO client_contact_messages(client_contact_id, message_id) VALUES (?, ?)", c, id.String()); err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO client_contact_messages(client_contact_id, message_id) VALUES (?, ?)", c, id.Bytes()); err != nil {
 				return err
 			}
 		}
