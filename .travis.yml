@@ -3,13 +3,14 @@ matrix:
     - os: linux
       language: go
       python: 2.7
+      sudo: required
       services:
         - mysql
       env:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
       before_install:
-        - pip install --upgrade pip virtualenv
+        - sudo pip install --upgrade pip virtualenv
         - virtualenv "${HOME}/FSENV"
         - mysql --print-defaults
         - go get -u github.com/golang/lint/golint
