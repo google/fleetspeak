@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	log "github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
@@ -44,8 +44,8 @@ import (
 
 // We flush the output when either of these thresholds are met.
 const (
-	outFlushSize = 1 << 20 // 1MB
-	outFlushTime = 5 * time.Second
+	maxFlushBytes           = 1 << 20 // 1MB
+	defaultFlushTimeSeconds = int32(60)
 )
 
 var (
@@ -53,11 +53,8 @@ var (
 	// is no longer accepting messages.
 	ErrShuttingDown = errors.New("shutting down")
 
-	dirForward = flag.String("dir_forward", "",
-		"If set, redirects the dependent service's std{in,out} to files in the given directory. Meant for testing individual daemonservice integrations.")
-
 	stdForward = flag.Bool("std_forward", false,
-		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations. Mutually exclusive with --dir_forward.")
+		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
 
 	// How long to wait for the daemon service to send startup data before starting to
 	// monitor resource-usage.
@@ -79,9 +76,11 @@ type Execution struct {
 	cmd       *command.Command
 	StartTime time.Time
 
-	outData *dspb.StdOutputData // The next output data to send, once full.
-	lastOut time.Time           // Time of most recent output of outData.
-	outLock sync.Mutex          // Protects outData, lastOut
+	outData        *dspb.StdOutputData // The next output data to send, once full.
+	lastOut        time.Time           // Time of most recent output of outData.
+	outLock        sync.Mutex          // Protects outData, lastOut
+	outFlushBytes  int                 // How many bytes trigger an output. Constant.
+	outServiceName string              // The service to send StdOutput messages to. Constant.
 
 	shutdown   sync.Once
 	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
@@ -103,6 +102,8 @@ type Execution struct {
 // received from the resulting process are passed to sc, as are StdOutput and
 // ResourceUsage messages.
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
+	cfg = proto.Clone(cfg).(*dspb.Config)
+
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
 		memoryLimit:       cfg.MemoryLimit,
@@ -133,29 +134,30 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 	ret.Out = ret.channel.Out
 
-	if *dirForward != "" {
-		t := time.Now().UTC().UnixNano()
-		prefix := fmt.Sprintf("fleetspeak.%s.%d", daemonServiceName, t)
+	if cfg.StdParams != nil && cfg.StdParams.ServiceName == "" {
+		log.Errorf("std_params is set, but service_name is empty. Ignoring std_params: %v", cfg.StdParams)
+		cfg.StdParams = nil
+	}
 
-		fo, err := os.Create(path.Join(*dirForward, prefix+".stdout.log"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to open the stdout file for --dir_forward: %v", err)
-		}
-		ret.cmd.Stdout = fo
-
-		fe, err := os.Create(path.Join(*dirForward, prefix+".stderr.log"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to open the stderr file for --dir_forward: %v", err)
-		}
-		ret.cmd.Stderr = fe
-	} else if *stdForward {
+	if *stdForward {
 		log.Warningf("std_forward is set, connecting std... to %s", cfg.Argv[0])
 		ret.cmd.Stdin = os.Stdin
 		ret.cmd.Stdout = os.Stdout
 		ret.cmd.Stderr = os.Stderr
-	} else {
+	} else if cfg.StdParams != nil {
+		if cfg.StdParams.FlushBytes <= 0 || cfg.StdParams.FlushBytes > maxFlushBytes {
+			cfg.StdParams.FlushBytes = maxFlushBytes
+		}
+		if cfg.StdParams.FlushTimeSeconds <= 0 {
+			cfg.StdParams.FlushTimeSeconds = defaultFlushTimeSeconds
+		}
+		ret.outServiceName = cfg.StdParams.ServiceName
+		ret.outFlushBytes = int(cfg.StdParams.FlushBytes)
 		ret.cmd.Stdout = stdoutWriter{&ret}
 		ret.cmd.Stderr = stderrWriter{&ret}
+	} else {
+		ret.cmd.Stdout = nil
+		ret.cmd.Stderr = nil
 	}
 
 	if err := ret.cmd.Start(); err != nil {
@@ -163,8 +165,11 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		return nil, err
 	}
 
-	ret.inProcess.Add(3)
-	go ret.flushRoutine()
+	if cfg.StdParams != nil {
+		ret.inProcess.Add(1)
+		go ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+	}
+	ret.inProcess.Add(2)
 	go ret.inRoutine()
 	if !cfg.DisableResourceMonitoring {
 		ret.inProcess.Add(1)
@@ -256,6 +261,7 @@ func (e *Execution) flushOut() {
 	} else {
 		e.sc.Send(context.Background(), service.AckMessage{
 			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: e.outServiceName},
 				MessageType: "StdOutput",
 				Data:        d,
 			}})
@@ -272,7 +278,7 @@ func (e *Execution) writeToOut(p []byte, isErr bool) {
 	for {
 		currSize := dataSize(e.outData)
 		// If it all fits, write it and return.
-		if currSize+len(p) <= outFlushSize {
+		if currSize+len(p) <= e.outFlushBytes {
 			if isErr {
 				e.outData.Stderr = append(e.outData.Stderr, p...)
 			} else {
@@ -281,7 +287,7 @@ func (e *Execution) writeToOut(p []byte, isErr bool) {
 			return
 		}
 		// Write what does fit, flush, continue.
-		toWrite := outFlushSize - currSize
+		toWrite := e.outFlushBytes - currSize
 		if isErr {
 			e.outData.Stderr = append(e.outData.Stderr, p[:toWrite]...)
 		} else {
@@ -310,15 +316,15 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (e *Execution) flushRoutine() {
+func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
 	defer e.inProcess.Done()
-	t := time.NewTicker(outFlushTime)
+	t := time.NewTicker(flushTime)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			e.outLock.Lock()
-			if e.lastOut.Add(outFlushTime).Before(time.Now()) {
+			if e.lastOut.Add(flushTime).Before(time.Now()) {
 				e.flushOut()
 			}
 			e.outLock.Unlock()

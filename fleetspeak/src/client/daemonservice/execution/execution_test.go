@@ -131,6 +131,10 @@ func TestStd(t *testing.T) {
 	}
 	dsc := &dspb.Config{
 		Argv: []string{testClient(), "--mode=stdSpam"},
+		StdParams: &dspb.Config_StdParams{
+			ServiceName:      "TestService",
+			FlushTimeSeconds: 5,
+		},
 	}
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
@@ -172,10 +176,11 @@ func TestStd(t *testing.T) {
 	}
 
 	// Flushes should happen when the buffer is full. The last flush might take up
-	// to outFlushTime to occur, the rest should occur quickly.
+	// to 5 seconds occur, the rest should occur quickly.
 	runtime := time.Since(start)
-	if runtime > 2*outFlushTime {
-		t.Errorf("took %v to receive std data, should be less than %v", runtime, 2*outFlushTime)
+	deadline := 10 * time.Second
+	if runtime > deadline {
+		t.Errorf("took %v to receive std data, should be less than %v", runtime, deadline)
 	}
 
 	if !bytes.Equal(bufIn.Bytes(), wantIn) {

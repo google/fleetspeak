@@ -43,4 +43,18 @@ message Config {
 
   // How long to wait for subsequent heartbeats.
   int32 heartbeat_unresponsive_kill_period_seconds = 10;
+
+  // If set, we forward stderr and stdout data to the server as messages with:
+  //
+  // message_type="StdOutput"
+  // data=<fleetspeak.daemonservice.StdOutputData>
+  message StdParams {
+    string service_name = 1; // Service on the server to forward to. Required.
+
+    // A message will be sent when we have flush_bytes queued, or when we
+    // have bytes flush_time_seconds old.
+    int32 flush_bytes = 2; // Default and maximum value is 1MB.
+    int32 flush_time_seconds = 3; // Default is 60.
+  }
+  StdParams std_params = 11;
 }
