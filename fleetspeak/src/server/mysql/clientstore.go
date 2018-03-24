@@ -38,8 +38,8 @@ const (
 )
 
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
-	// Return value map, maps string client ids to the return values.
-	var retm map[string]*spb.Client
+	// Return value map, maps uint64 client ids to the return values.
+	var retm map[uint64]*spb.Client
 
 	h := func(rows *sql.Rows, err error) error {
 		if err != nil {
@@ -47,19 +47,16 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var sid string
+			var iid uint64
 			var timeNS int64
 			var addr sql.NullString
 			var clockSecs, clockNanos sql.NullInt64
 			var blacklisted bool
-			if err := rows.Scan(&sid, &timeNS, &addr, &clockSecs, &clockNanos, &blacklisted); err != nil {
+			if err := rows.Scan(&iid, &timeNS, &addr, &clockSecs, &clockNanos, &blacklisted); err != nil {
 				return err
 			}
 
-			id, err := common.StringToClientID(sid)
-			if err != nil {
-				return err
-			}
+			id := toClientID(iid)
 
 			ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
 			if err != nil {
@@ -77,7 +74,7 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 					Nanos:   int32(clockNanos.Int64),
 				}
 			}
-			retm[sid] = &spb.Client{
+			retm[iid] = &spb.Client{
 				ClientId:           id.Bytes(),
 				LastContactTime:    ts,
 				LastContactAddress: addr.String,
@@ -89,14 +86,14 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	}
 
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
-		retm = make(map[string]*spb.Client)
+		retm = make(map[uint64]*spb.Client)
 		if len(ids) == 0 {
 			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
 				return err
 			}
 		} else {
 			for _, id := range ids {
-				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients WHERE client_id = ?", id.String())); err != nil {
+				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients WHERE client_id = ?", fromClientID(id))); err != nil {
 					return err
 				}
 			}
@@ -113,13 +110,13 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		defer labRows.Close()
 
 		for labRows.Next() {
-			var sid string
+			var iid uint64
 			l := &fspb.Label{}
-			if err := labRows.Scan(&sid, &l.ServiceName, &l.Label); err != nil {
+			if err := labRows.Scan(&iid, &l.ServiceName, &l.Label); err != nil {
 				return err
 			}
 
-			retm[sid].Labels = append(retm[sid].Labels, l)
+			retm[iid].Labels = append(retm[iid].Labels, l)
 		}
 		return nil
 	})
@@ -135,9 +132,9 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	var cd *db.ClientData
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
-		sid := id.String()
+		iid := fromClientID(id)
 
-		r := tx.QueryRowContext(ctx, "SELECT client_key, blacklisted FROM clients WHERE client_id=?", sid)
+		r := tx.QueryRowContext(ctx, "SELECT client_key, blacklisted FROM clients WHERE client_id=?", iid)
 		var c db.ClientData
 
 		err := r.Scan(&c.Key, &c.Blacklisted)
@@ -145,7 +142,7 @@ func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.
 			return err
 		}
 
-		rs, err := tx.QueryContext(ctx, "SELECT service_name, label FROM client_labels WHERE client_id=?", sid)
+		rs, err := tx.QueryContext(ctx, "SELECT service_name, label FROM client_labels WHERE client_id=?", iid)
 		if err != nil {
 			return err
 		}
@@ -169,12 +166,12 @@ func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.
 
 func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.ClientData) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		sid := id.String()
-		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, 'FALSE', ?)", sid, data.Key, db.Now().UnixNano()); err != nil {
+		iid := fromClientID(id)
+		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, 'FALSE', ?)", iid, data.Key, db.Now().UnixNano()); err != nil {
 			return err
 		}
 		for _, l := range data.Labels {
-			if _, err := tx.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", sid, l.ServiceName, l.Label); err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", iid, l.ServiceName, l.Label); err != nil {
 				return err
 			}
 		}
@@ -184,21 +181,21 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 
 func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		_, err := d.db.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", id.String(), l.ServiceName, l.Label)
+		_, err := d.db.ExecContext(ctx, "INSERT INTO client_labels(client_id, service_name, label) VALUES(?, ?, ?)", fromClientID(id), l.ServiceName, l.Label)
 		return err
 	})
 }
 
 func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		_, err := d.db.ExecContext(ctx, "DELETE FROM client_labels WHERE client_id=? AND service_name=? AND label=?", id.String(), l.ServiceName, l.Label)
+		_, err := d.db.ExecContext(ctx, "DELETE FROM client_labels WHERE client_id=? AND service_name=? AND label=?", fromClientID(id), l.ServiceName, l.Label)
 		return err
 	})
 }
 
 func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=TRUE WHERE client_id=?", id.String())
+		_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=TRUE WHERE client_id=?", fromClientID(id))
 		return err
 	})
 }
@@ -208,7 +205,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 	err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		n := db.Now().UnixNano()
 		r, err := tx.ExecContext(ctx, "INSERT INTO client_contacts(client_id, time, sent_nonce, received_nonce, address) VALUES(?, ?, ?, ?, ?)",
-			data.ClientID.String(), n, data.NonceSent, data.NonceReceived, data.Addr)
+			fromClientID(data.ClientID), n, data.NonceSent, data.NonceReceived, data.Addr)
 		if err != nil {
 			return err
 		}
@@ -221,7 +218,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 			lcs.Int64, lcs.Valid = data.ClientClock.Seconds, true
 			lcn.Int64, lcn.Valid = int64(data.ClientClock.Nanos), true
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ?, last_clock_seconds = ?, last_clock_nanos = ? WHERE client_id = ?", n, data.Addr, lcs, lcn, data.ClientID.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ?, last_clock_seconds = ?, last_clock_nanos = ? WHERE client_id = ?", n, data.Addr, lcs, lcn, fromClientID(data.ClientID)); err != nil {
 			return err
 		}
 		res = db.ContactID(strconv.FormatUint(uint64(id), 16))
@@ -237,7 +234,7 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 		rows, err := tx.QueryContext(
 			ctx,
 			"SELECT time, sent_nonce, received_nonce, address FROM client_contacts WHERE client_id = ?",
-			id.String())
+			fromClientID(id))
 		if err != nil {
 			return err
 		}
@@ -300,7 +297,7 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 		_, err := tx.ExecContext(
 			ctx,
 			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			id.String(),
+			fromClientID(id),
 			rud.Scope,
 			rud.Pid,
 			processStartTime.UnixNano(),
@@ -327,7 +324,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 				"mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
 				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
-			id.String(),
+			fromClientID(id),
 			limit)
 
 		if err != nil {
