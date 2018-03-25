@@ -18,15 +18,22 @@ package signatures
 
 import (
 	"crypto/x509"
+	"time"
 
+	log "github.com/golang/glog"
+	"golang.org/x/time/rate"
+
+	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+var logLimiter = rate.NewLimiter(rate.Every(30*time.Second), 50)
+
 // ValidateWrappedContactData examines the extra signatures included
 // in WrappedContactData and attempts to validate them.
-func ValidateWrappedContactData(cd *fspb.WrappedContactData) ([]authorizer.SignatureInfo, error) {
+func ValidateWrappedContactData(id common.ClientID, cd *fspb.WrappedContactData) ([]authorizer.SignatureInfo, error) {
 	if len(cd.Signatures) == 0 {
 		return nil, nil
 	}
@@ -46,11 +53,18 @@ func ValidateWrappedContactData(cd *fspb.WrappedContactData) ([]authorizer.Signa
 		if int(sig.Algorithm) > int(x509.UnknownSignatureAlgorithm) &&
 			int(sig.Algorithm) <= int(x509.SHA512WithRSAPSS) {
 			alg = x509.SignatureAlgorithm(sig.Algorithm)
+		} else {
+			if logLimiter.Allow() {
+				log.Warningf("Client [%v] provided signature with unknown algorithm enum: %d", id, sig.Algorithm)
+			}
 		}
 
 		var valid bool
 		if alg != x509.UnknownSignatureAlgorithm {
-			err = certs[0].CheckSignature(alg, cd.ContactData, sig.Signature)
+			err := certs[0].CheckSignature(alg, cd.ContactData, sig.Signature)
+			if err != nil && logLimiter.Allow() {
+				log.Warning("Client [%v] provided signature that could not be validated: %v", id, err)
+			}
 			valid = err == nil
 		}
 
