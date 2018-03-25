@@ -28,7 +28,7 @@ import (
 var (
 	// MaxAge defines how long client data should be considered valid
 	// for. Variable to support unit testing.
-	MaxAge = 30 * time.Second
+	MaxAge = 45 * time.Second
 
 	// We occasionally expunge old client data records, to be tidy
 	// with RAM and prevent what would effectively be a slow memory leak as
