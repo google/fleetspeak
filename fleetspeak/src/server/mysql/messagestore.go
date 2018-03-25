@@ -39,10 +39,10 @@ import (
 // pending_messages table.
 type dbMessage struct {
 	messageID              []byte
-	sourceClientID         uint64
+	sourceClientID         []byte
 	sourceServiceName      string
 	sourceMessageID        string
-	destinationClientID    uint64
+	destinationClientID    []byte
 	destinationServiceName string
 	messageType            string
 	creationTimeSeconds    int64
@@ -101,19 +101,11 @@ func fromMessageProto(m *fspb.Message) (*dbMessage, error) {
 		messageType: m.MessageType,
 	}
 	if m.Source != nil {
-		cid, err := common.BytesToClientID(m.Source.ClientId)
-		if err != nil {
-			return nil, err
-		}
-		dbm.sourceClientID = fromClientID(cid)
+		dbm.sourceClientID = m.Source.ClientId
 		dbm.sourceServiceName = m.Source.ServiceName
 	}
 	if m.Destination != nil {
-		cid, err := common.BytesToClientID(m.Destination.ClientId)
-		if err != nil {
-			return nil, err
-		}
-		dbm.destinationClientID = fromClientID(cid)
+		dbm.destinationClientID = m.Destination.ClientId
 		dbm.destinationServiceName = m.Destination.ServiceName
 	}
 	if len(m.SourceMessageId) != 0 {
@@ -178,12 +170,12 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 	pm := &fspb.Message{
 		MessageId: mid.Bytes(),
 		Source: &fspb.Address{
-			ClientId:    toClientID(m.sourceClientID).Bytes(),
+			ClientId:    m.sourceClientID,
 			ServiceName: m.sourceServiceName,
 		},
 		SourceMessageId: bsmid,
 		Destination: &fspb.Address{
-			ClientId:    toClientID(m.destinationClientID).Bytes(),
+			ClientId:    m.destinationClientID,
 			ServiceName: m.destinationServiceName,
 		},
 		MessageType: m.messageType,
@@ -325,7 +317,7 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 	inserted := cnt == 1
 	if inserted && !dbm.processedTimeSeconds.Valid {
 		var due int64
-		if dbm.destinationClientID == 0 {
+		if dbm.destinationClientID == nil {
 			due = toMicro(db.ServerRetryTime(0))
 		} else {
 			// If this is being created in response to a broadcast, then we about to
@@ -339,7 +331,7 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 			}
 		}
 		fs := 0
-		if dbm.destinationClientID == 0 {
+		if dbm.destinationClientID == nil {
 			fs = 1
 		}
 		_, err = tx.ExecContext(ctx, "INSERT INTO pending_messages("+
@@ -497,7 +489,7 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			"FROM messages AS m, pending_messages AS pm "+
 			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? "+
 			"LIMIT ? FOR UPDATE",
-			fromClientID(id), toMicro(db.Now()), lim)
+			id.Bytes(), toMicro(db.Now()), lim)
 		if err != nil {
 			return err
 		}
