@@ -22,12 +22,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 	log "github.com/golang/glog"
-	"github.com/google/fleetspeak/fleetspeak/src/common"
 )
 
 const maxRetries = 50
@@ -60,29 +58,6 @@ func MakeDatastore(db *sql.DB) (*Datastore, error) {
 // Close closes the underlying database resources.
 func (d *Datastore) Close() error {
 	return d.db.Close()
-}
-
-// toClientID converts a uint64 into a ClientID.
-func toClientID(id uint64) common.ClientID {
-	if id == 0 {
-		return common.ClientID{}
-	}
-	d := [8]byte{}
-	binary.LittleEndian.PutUint64(d[:], id)
-	r, err := common.BytesToClientID(d[:])
-	if err != nil {
-		// Should never happen, since d is hardcoded to the right length.
-		log.Fatalf("Unable to parse client id [%x]: %v", err)
-	}
-	return r
-}
-
-// fromClientID converts a ClientID into a uint64.
-func fromClientID(id common.ClientID) uint64 {
-	if id.IsNil() {
-		return 0
-	}
-	return binary.LittleEndian.Uint64(id.Bytes())
 }
 
 // runOnce runs f, passing it a transaction. The transaction will be committed
@@ -142,7 +117,7 @@ func initDB(db *sql.DB) error {
 func initSchema(db *sql.DB) error {
 	for _, s := range []string{
 		`CREATE TABLE IF NOT EXISTS clients(
-client_id BIGINT UNSIGNED PRIMARY KEY,
+client_id BINARY(8) PRIMARY KEY,
 client_key BLOB,
 blacklisted BOOL NOT NULL,
 last_contact_time BIGINT NOT NULL,
@@ -150,14 +125,14 @@ last_contact_address TEXT(64),
 last_clock_seconds BIGINT UNSIGNED,
 last_clock_nanos INT UNSIGNED)`,
 		`CREATE TABLE IF NOT EXISTS client_labels(
-client_id BIGINT UNSIGNED NOT NULL,
+client_id BINARY(8) NOT NULL,
 service_name VARCHAR(128) NOT NULL,
 label VARCHAR(128) NOT NULL,
 PRIMARY KEY (client_id, service_name, label),
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS client_contacts(
 client_contact_id INTEGER NOT NULL AUTO_INCREMENT,
-client_id BIGINT UNSIGNED NOT NULL,
+client_id BINARY(8) NOT NULL,
 time BIGINT NOT NULL,
 sent_nonce VARCHAR(16) NOT NULL,
 received_nonce VARCHAR(16) NOT NULL,
@@ -165,7 +140,7 @@ address VARCHAR(64),
 PRIMARY KEY (client_contact_id),
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS client_resource_usage_records(
-client_id BIGINT UNSIGNED NOT NULL,
+client_id BINARY(8) NOT NULL,
 scope VARCHAR(128) NOT NULL,
 pid BIGINT,
 process_start_time BIGINT,
@@ -180,10 +155,10 @@ max_resident_memory_mib INT4,
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS messages(
 message_id BINARY(32) NOT NULL,
-source_client_id BIGINT UNSIGNED NOT NULL,
+source_client_id BINARY(8),
 source_service_name VARCHAR(128) NOT NULL,
 source_message_id VARCHAR(32) NOT NULL,
-destination_client_id BIGINT UNSIGNED,
+destination_client_id BINARY(8),
 destination_service_name VARCHAR(128) NOT NULL,
 message_type VARCHAR(128),
 creation_time_seconds BIGINT NOT NULL,
@@ -238,7 +213,7 @@ PRIMARY KEY (broadcast_id, allocation_id),
 FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id))`,
 		`CREATE TABLE IF NOT EXISTS broadcast_sent(
 broadcast_id VARCHAR(32) NOT NULL,
-client_id BIGINT UNSIGNED NOT NULL,
+client_id BINARY(8) NOT NULL,
 PRIMARY KEY (client_id, broadcast_id),
 FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id),
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,

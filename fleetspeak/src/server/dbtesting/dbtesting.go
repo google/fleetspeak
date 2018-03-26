@@ -208,7 +208,6 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 	stored := fspb.Message{
 		MessageId: mid2.Bytes(),
 		Source: &fspb.Address{
-			ClientId:    []byte(""),
 			ServiceName: "TestServiceName",
 		},
 		SourceMessageId: []byte("omid 2"),
