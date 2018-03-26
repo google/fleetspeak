@@ -61,6 +61,10 @@ func toMicro(t time.Time) int64 {
 	return t.UnixNano() / 1000
 }
 
+func (d *Datastore) SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error {
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error { return d.trySetMessageResult(ctx, tx, id, res) })
+}
+
 func (d *Datastore) trySetMessageResult(ctx context.Context, tx *sql.Tx, id common.MessageID, res *fspb.MessageResult) error {
 	dbm := dbMessage{
 		messageID:            id.Bytes(),
@@ -209,17 +213,28 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		ids := make([][]byte, 0, len(msgs))
 		for _, m := range msgs {
-			// If it is already processed, we don't want to save m.Data. This is a
-			// little bit iffy (m.Data is really owned by the caller) but FS shouldn't
-			// need or access Data of a completed operation during or after the save.
-			if m.Result != nil {
-				m.Data = nil
-			}
 			dbm, err := fromMessageProto(m)
 			if err != nil {
 				return err
 			}
+			// If it is already processed, we don't want to save m.Data.
+			if m.Result != nil {
+				dbm.dataTypeURL = sql.NullString{Valid: false}
+				dbm.dataValue = nil
+			}
 			ids = append(ids, dbm.messageID)
+			if m.Result != nil && !m.Result.Failed {
+				if err := d.tryStoreMessage(ctx, tx, dbm, false); err != nil {
+					return err
+				}
+				if m.Result != nil {
+					mid, _ := common.BytesToMessageID(m.MessageId)
+					if err := d.trySetMessageResult(ctx, tx, mid, m.Result); err != nil {
+						return err
+					}
+				}
+				continue
+			}
 			var processedTime sql.NullInt64
 			var failed sql.NullBool
 			e := tx.QueryRowContext(ctx, "SELECT processed_time_seconds, failed FROM messages where message_id=?", dbm.messageID).Scan(&processedTime, &failed)

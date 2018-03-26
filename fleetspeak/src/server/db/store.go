@@ -113,15 +113,9 @@ type MessageStore interface {
 	// StoreMessages records msgs. If contact is not the empty string, it attaches
 	// them to the associated contact.
 	//
-	// It is not an error for a message to already exist. In this case, the only
-	// fields examined by the method are MessageId and Result, and Result will be
-	// updated if it is a supported transition:
-	//
-	// No Result -> Success Result
-	// No Result -> Failed Result
-	// Failed Result -> Success Result
-	//
-	// All other transitions are silently ignored.
+	// It is not an error for a message to already exist. In this case a success result
+	// will overwrite any result already present, and a failed result will overwrite
+	// an empty result. Otherwise the operation is silently dropped.
 	//
 	// A message is eligible to be returned by ClientMessagesForProcessing or the
 	// registered MessageProcessor iff it does not yet have a Result. Also,
@@ -143,6 +137,9 @@ type MessageStore interface {
 
 	// GetMessageResult retrieves the current status of a message.
 	GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error)
+
+	// SetMessageResult retrieves the current status of a message.
+	SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error
 
 	// RegisterMessageProcessor installs a MessageProcessor which will be
 	// called when a message is overdue for processing.

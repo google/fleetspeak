@@ -147,11 +147,7 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 	fakeTime.SetSeconds(84)
 
 	for _, i := range idPairs {
-		if err := ms.StoreMessages(ctx, []*fspb.Message{
-			{
-				MessageId: i.mid.Bytes(),
-				Result:    &fspb.MessageResult{ProcessedTime: db.NowProto()},
-			}}, ""); err != nil {
+		if err := ms.SetMessageResult(ctx, i.mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
 			t.Errorf("Unable to mark message %v as processed: %v", i, err)
 		}
 	}
@@ -360,10 +356,9 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 			newID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
 			processedID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 42, Nanos: 20000}},
+				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
 			erroredID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 52},
-			},
+				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
 		})
 }
 
@@ -429,11 +424,7 @@ func registerMessageProcessorTest(t *testing.T, ms db.MessageStore) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := ms.StoreMessages(ctx, []*fspb.Message{
-			{
-				MessageId: mid.Bytes(),
-				Result:    &fspb.MessageResult{ProcessedTime: db.NowProto()},
-			}}, ""); err != nil {
+		if err := ms.SetMessageResult(ctx, mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
 			t.Errorf("Unable to mark message as processed: %v", err)
 		}
 	}
