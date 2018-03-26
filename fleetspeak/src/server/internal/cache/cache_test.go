@@ -60,7 +60,7 @@ func TestClients(t *testing.T) {
 		Key: []byte("key 1"),
 	})
 
-	atomic.StoreInt64(&fakeTime, 20029)
+	atomic.StoreInt64(&fakeTime, 20044)
 
 	got := c.Get(id1)
 	if got == nil || !bytes.Equal(got.Key, []byte("key 1")) {
@@ -88,7 +88,7 @@ func TestClients(t *testing.T) {
 	c.Update(id2, nil)
 
 	// Advance the clock enough to expire id1, wait for expire to run.
-	atomic.StoreInt64(&fakeTime, 20031)
+	atomic.StoreInt64(&fakeTime, 20046)
 	time.Sleep(2 * time.Second)
 
 	// Everything should be nil.
