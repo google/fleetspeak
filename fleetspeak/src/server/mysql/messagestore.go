@@ -38,7 +38,7 @@ import (
 // dbMessage matches the schema of the messages table, optionally joined to the
 // pending_messages table.
 type dbMessage struct {
-	messageID              string
+	messageID              []byte
 	sourceClientID         uint64
 	sourceServiceName      string
 	sourceMessageID        string
@@ -63,7 +63,7 @@ func toMicro(t time.Time) int64 {
 
 func (d *Datastore) trySetMessageResult(ctx context.Context, tx *sql.Tx, id common.MessageID, res *fspb.MessageResult) error {
 	dbm := dbMessage{
-		messageID:            id.String(),
+		messageID:            id.Bytes(),
 		processedTimeSeconds: sql.NullInt64{Valid: true, Int64: res.ProcessedTime.Seconds},
 		processedTimeNanos:   sql.NullInt64{Valid: true, Int64: int64(res.ProcessedTime.Nanos)},
 	}
@@ -93,7 +93,7 @@ func fromMessageProto(m *fspb.Message) (*dbMessage, error) {
 		return nil, err
 	}
 	dbm := &dbMessage{
-		messageID:   id.String(),
+		messageID:   id.Bytes(),
 		messageType: m.MessageType,
 	}
 	if m.Source != nil {
@@ -163,7 +163,7 @@ func toMessageResultProto(m *dbMessage) *fspb.MessageResult {
 }
 
 func toMessageProto(m *dbMessage) (*fspb.Message, error) {
-	mid, err := common.StringToMessageID(m.messageID)
+	mid, err := common.BytesToMessageID(m.messageID)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 
 func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, contact db.ContactID) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		ids := make([]string, 0, len(msgs))
+		ids := make([][]byte, 0, len(msgs))
 		for _, m := range msgs {
 			// If it is already processed, we don't want to save m.Data. This is a
 			// little bit iffy (m.Data is really owned by the caller) but FS shouldn't
@@ -375,7 +375,7 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 			return err
 		}
 		for _, id := range ids {
-			row := stmt1.QueryRowContext(ctx, id.String())
+			row := stmt1.QueryRowContext(ctx, id.Bytes())
 			var dbm dbMessage
 			err := row.Scan(
 				&dbm.messageID,
@@ -394,7 +394,7 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 				return err
 			}
 			if wantData {
-				row := stmt2.QueryRowContext(ctx, id.String())
+				row := stmt2.QueryRowContext(ctx, id.Bytes())
 				err := row.Scan(&dbm.dataTypeURL, &dbm.dataValue)
 				if err != nil && err != sql.ErrNoRows {
 					return err
@@ -422,7 +422,7 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 			"processed_time_nanos, "+
 			"failed, "+
 			"failed_reason "+
-			"FROM messages WHERE message_id=?", id.String())
+			"FROM messages WHERE message_id=?", id.Bytes())
 
 		var dbm dbMessage
 		if err := row.Scan(
@@ -453,7 +453,7 @@ func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.C
 }
 
 type pendingUpdate struct {
-	id  string
+	id  []byte
 	nc  uint32
 	due int64
 }
