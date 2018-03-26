@@ -61,11 +61,11 @@ func toMicro(t time.Time) int64 {
 	return t.UnixNano() / 1000
 }
 
-func (d *Datastore) SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error {
-	return d.runInTx(ctx, false, func(tx *sql.Tx) error { return d.trySetMessageResult(ctx, tx, id, res) })
+func (d *Datastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error { return d.trySetMessageResult(ctx, tx, dest.IsNil(), id, res) })
 }
 
-func (d *Datastore) trySetMessageResult(ctx context.Context, tx *sql.Tx, id common.MessageID, res *fspb.MessageResult) error {
+func (d *Datastore) trySetMessageResult(ctx context.Context, tx *sql.Tx, forServer bool, id common.MessageID, res *fspb.MessageResult) error {
 	dbm := dbMessage{
 		messageID:            id.Bytes(),
 		processedTimeSeconds: sql.NullInt64{Valid: true, Int64: res.ProcessedTime.Seconds},
@@ -80,7 +80,11 @@ func (d *Datastore) trySetMessageResult(ctx context.Context, tx *sql.Tx, id comm
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, "DELETE FROM pending_messages WHERE (for_server=1 OR for_server=0) AND message_id=?", dbm.messageID)
+	var fs int
+	if forServer {
+		fs = 1
+	}
+	_, err = tx.ExecContext(ctx, "DELETE FROM pending_messages WHERE for_server=? AND message_id=?", fs, dbm.messageID)
 	return err
 }
 
@@ -221,7 +225,7 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 				}
 				if m.Result != nil {
 					mid, _ := common.BytesToMessageID(m.MessageId)
-					if err := d.trySetMessageResult(ctx, tx, mid, m.Result); err != nil {
+					if err := d.trySetMessageResult(ctx, tx, m.Destination.ClientId == nil, mid, m.Result); err != nil {
 						return err
 					}
 				}
@@ -246,7 +250,7 @@ func (d *Datastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, con
 					return err
 				}
 				// Message not previously successfully processed, but this try succeeded. Mark as processed.
-				if err := d.trySetMessageResult(ctx, tx, mid, m.Result); err != nil {
+				if err := d.trySetMessageResult(ctx, tx, m.Destination.ClientId == nil, mid, m.Result); err != nil {
 					return err
 				}
 			default:

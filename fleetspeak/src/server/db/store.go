@@ -138,8 +138,10 @@ type MessageStore interface {
 	// GetMessageResult retrieves the current status of a message.
 	GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error)
 
-	// SetMessageResult retrieves the current status of a message.
-	SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error
+	// SetMessageResult retrieves the current status of a message. The dest
+	// parameter identifies the destination client, and must be the empty id for
+	// messages addressed to the server.
+	SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error
 
 	// RegisterMessageProcessor installs a MessageProcessor which will be
 	// called when a message is overdue for processing.

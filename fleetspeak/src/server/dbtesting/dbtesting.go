@@ -147,7 +147,7 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 	fakeTime.SetSeconds(84)
 
 	for _, i := range idPairs {
-		if err := ms.SetMessageResult(ctx, i.mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
+		if err := ms.SetMessageResult(ctx, i.cid, i.mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
 			t.Errorf("Unable to mark message %v as processed: %v", i, err)
 		}
 	}
@@ -423,7 +423,7 @@ func registerMessageProcessorTest(t *testing.T, ms db.MessageStore) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := ms.SetMessageResult(ctx, mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
+		if err := ms.SetMessageResult(ctx, common.ClientID{}, mid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
 			t.Errorf("Unable to mark message as processed: %v", err)
 		}
 	}

@@ -131,7 +131,7 @@ func (s *systemService) processMessageAck(ctx context.Context, mid common.Messag
 					continue
 				}
 			}
-			if err := s.datastore.SetMessageResult(ctx, mmid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
+			if err := s.datastore.SetMessageResult(ctx, mcid, mmid, &fspb.MessageResult{ProcessedTime: db.NowProto()}); err != nil {
 				log.Errorf("%v: unable to mark message [%v] processed: %v", mid, mmid, err)
 			}
 		}
@@ -166,7 +166,7 @@ func (s *systemService) processMessageError(ctx context.Context, cid common.Clie
 	if mcid != cid {
 		return fmt.Errorf("attempt by client [%v] to ack a message meant for client [%v]", cid, mcid)
 	}
-	if err := s.datastore.SetMessageResult(ctx, id,
+	if err := s.datastore.SetMessageResult(ctx, mcid, id,
 		&fspb.MessageResult{
 			ProcessedTime: db.NowProto(),
 			Failed:        true,
