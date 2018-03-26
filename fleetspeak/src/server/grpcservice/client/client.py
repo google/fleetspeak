@@ -160,16 +160,14 @@ class OutgoingConnection(object):
 
       timeout: Retries will continue until timeout seconds have passed.
     """
-    if not timeout:
-      timeout = self.DEFAULT_TIMEOUT
+    timeout = timeout or self.DEFAULT_TIMEOUT
     deadline = time.time() + timeout
     sleep = 1
     while True:
       try:
         return func(timeout)
       except grpcs.RpcError:
-        timeout = deadline - time.time()
-        if time.time() + sleep > timeout:
+        if time.time() + sleep > deadline:
           raise
         time.sleep(sleep)
         sleep *= 2
