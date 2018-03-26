@@ -82,7 +82,7 @@ func (c commsContext) AddClient(ctx context.Context, id common.ClientID, key cry
 }
 
 func (c commsContext) HandleClientContact(ctx context.Context, info *comms.ClientInfo, addr net.Addr, wcd *fspb.WrappedContactData) (*fspb.ContactData, error) {
-	sigs, err := signatures.ValidateWrappedContactData(wcd)
+	sigs, err := signatures.ValidateWrappedContactData(info.ID, wcd)
 	if err != nil {
 		return nil, err
 	}
