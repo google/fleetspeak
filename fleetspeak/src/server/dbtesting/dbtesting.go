@@ -278,10 +278,10 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 		{
 			MessageId: newID.Bytes(),
 			Source: &fspb.Address{
+				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			Destination: &fspb.Address{
-				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
@@ -293,10 +293,10 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 		{
 			MessageId: processedID.Bytes(),
 			Source: &fspb.Address{
+				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			Destination: &fspb.Address{
-				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
@@ -309,10 +309,10 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 		{
 			MessageId: erroredID.Bytes(),
 			Source: &fspb.Address{
+				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			Destination: &fspb.Address{
-				ClientId:    clientID3.Bytes(),
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
@@ -339,8 +339,8 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 			},
 		})
 
-	// Now run StoreMessagesFromClient again, modeling that they were all resent,
-	// and that this time all processing completed.
+	// StoreMessages again, modeling that they were all resent, and that this time
+	// all processing completed.
 	for _, m := range msgs {
 		m.CreationTime = &tpb.Timestamp{Seconds: 52}
 		m.Result = &fspb.MessageResult{ProcessedTime: &tpb.Timestamp{Seconds: 52}}
