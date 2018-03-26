@@ -63,7 +63,7 @@ func ValidateWrappedContactData(id common.ClientID, cd *fspb.WrappedContactData)
 		if alg != x509.UnknownSignatureAlgorithm {
 			err := certs[0].CheckSignature(alg, cd.ContactData, sig.Signature)
 			if err != nil && logLimiter.Allow() {
-				log.Warning("Client [%v] provided signature that could not be validated: %v", id, err)
+				log.Warningf("Client [%v] provided signature that could not be validated: %v", id, err)
 			}
 			valid = err == nil
 		}
