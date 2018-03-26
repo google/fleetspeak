@@ -101,6 +101,11 @@ class Sender(object):
 
   This wrapper around a grpc channel makes calls to a Fleetspeak administrative
   interface to send messages to a fleetspeak service.
+
+  Attributes:
+
+    stub: The underlying grcp AdminStub, which can be used to make direct
+       requests of the Fleetspeak server.
   """
 
   SEND_TIMEOUT = 30  # seconds
@@ -115,9 +120,9 @@ class Sender(object):
         unit tests.
     """
     if stub:
-      self._stub = stub
+      self.stub = stub
     else:
-      self._stub = admin_pb2_grpc.AdminStub(channel)
+      self.stub = admin_pb2_grpc.AdminStub(channel)
 
     self._service_name = service_name
 
@@ -137,7 +142,7 @@ class Sender(object):
           if self._shutdown:
             return
         try:
-          self._stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
+          self.stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
         except grpc.RpcError as e:
           logging.warning("KeepAlive rpc failed: %s", e)
     except Exception as e:  # pylint: disable=broad-except
@@ -174,7 +179,7 @@ class Sender(object):
     sleep = 1
     while True:
       try:
-        self._stub.InsertMessage(message, timeout=timeout)
+        self.stub.InsertMessage(message, timeout=timeout)
         return
       except grpc.RpcError:
         timeout = deadline - time.time()
@@ -230,6 +235,12 @@ class InsecureGRPCServiceClient(ServiceClient):
 
   This class implements ServiceClient by creating insecure grpc connections.  It
   is meant primarily for integration testing.
+
+  Attributes:
+
+    stub: The underlying grcp AdminStub, which can be used to make direct
+       requests of the Fleetspeak server. Present only when configured for
+       writing.
   """
 
   def __init__(self,
@@ -281,11 +292,13 @@ class InsecureGRPCServiceClient(ServiceClient):
           "fleetspeak_server is unset, not creating outbound connection to "
           "fleetspeak.")
       self._sender = None
+      self.stub = None
     else:
       channel = grpc.insecure_channel(fleetspeak_server)
       self._sender = Sender(channel, service_name)
       logging.info("Fleetspeak GRPCService client connected to %s",
                    fleetspeak_server)
+      self.stub = self._sender.stub
 
   def Send(self, message):
     if self._sender is None:
