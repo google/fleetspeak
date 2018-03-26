@@ -96,19 +96,20 @@ class NotConfigured(Exception):
   """Exception indicating that the requested operation is not configured."""
 
 
-class Sender(object):
-  """A wrapper to send messages to a Fleetspeak server using grpc calls.
+class OutgoingConnection(object):
+  """An outgoing connection to Fleetspeak over grpc.
 
-  This wrapper around a grpc channel makes calls to a Fleetspeak administrative
-  interface to send messages to a fleetspeak service.
+  This wraps an admin_pb2_grpc.AdminStub, providing the same interface but
+  adding retry support and some sanity checks.
 
-  Attributes:
-
-    stub: The underlying grcp AdminStub, which can be used to make direct
-       requests of the Fleetspeak server.
+  See the definition of the Admin grpc service in
+  server/proto/fleetspeak_server/admin.proto for full interface documentation.
   """
 
-  SEND_TIMEOUT = 30  # seconds
+  # TODO: Remove retry logic when possible. I.e. when grpc supports it
+  # natively - https://github.com/grpc/proposal/blob/master/A6-client-retries.md
+
+  DEFAULT_TIMEOUT = 30  # seconds
 
   def __init__(self, channel, service_name, stub=None):
     """Create a Sender.
@@ -120,9 +121,9 @@ class Sender(object):
         unit tests.
     """
     if stub:
-      self.stub = stub
+      self._stub = stub
     else:
-      self.stub = admin_pb2_grpc.AdminStub(channel)
+      self._stub = admin_pb2_grpc.AdminStub(channel)
 
     self._service_name = service_name
 
@@ -142,18 +143,48 @@ class Sender(object):
           if self._shutdown:
             return
         try:
-          self.stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
+          self._stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
         except grpc.RpcError as e:
           logging.warning("KeepAlive rpc failed: %s", e)
     except Exception as e:  # pylint: disable=broad-except
       logging.error("Exception in KeepAlive: %s", e)
 
-  def Send(self, message):
-    """Sends a message to the Fleetspeak server.
+  def _RetryLoop(self, func, timeout=None):
+    """Retries an operation until success or deadline.
+
+    Args:
+
+      func: The function to run. Must take a timeout, in seconds, as a single
+        parameter. If it raises grpc.RpcError and deadline has not be reached,
+        it will be run again.
+
+      timeout: Retries will continue until timeout seconds have passed.
+    """
+    if not timeout:
+      timeout = self.DEFAULT_TIMEOUT
+    deadline = time.time() + timeout
+    sleep = 1
+    while True:
+      try:
+        return func(timeout)
+      except grpcs.RpcError:
+        timeout = deadline - time.time()
+        if time.time() + sleep > timeout:
+          raise
+        time.sleep(sleep)
+        sleep *= 2
+        timeout = deadline - time.time()
+
+  def InsertMessage(self, message, timeout=None):
+    """Inserts a message into the Fleetspeak server.
+
+    Sets message.source, if unset.
 
     Args:
       message: common_pb2.Message
         The message to send.
+
+      timeout: How many seconds to try for.
 
     Raises:
       grpc.RpcError: if the RPC fails.
@@ -163,31 +194,29 @@ class Sender(object):
       raise InvalidArgument("Attempt to send unexpected message type: %s" %
                             message.__class__.__name__)
 
-    message.source.service_name = self._service_name
-    message.source.ClearField("client_id")
+    if not message.source:
+      message.source.service_name = self._service_name
 
-    # TODO: Remove retry logic when possible.
-    #
     # Sometimes GRPC reports failure, even though the call succeeded. To prevent
     # retry logic from creating duplicate messages we fix the message_id.
-
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    deadline = time.time() + self.SEND_TIMEOUT
-    timeout = self.SEND_TIMEOUT
-    sleep = 1
-    while True:
-      try:
-        self.stub.InsertMessage(message, timeout=timeout)
-        return
-      except grpc.RpcError:
-        timeout = deadline - time.time()
-        if time.time() + sleep > timeout:
-          raise
-        sleep *= 2
-        time.sleep(sleep)
-        timeout = deadline - time.time()
+    return self._RetryLoop(
+        lambda t: self._stub.InsertMessage(message, timeout=t))
+
+  def ListClients(self, request, timeout=None):
+    """Provides basic information about Fleetspeak clients.
+
+    Args:
+      request: fleetspeak.admin.ListClientsRequest
+
+      timeout: How many seconds to try for.
+
+    Returns: fleetspeak.admin.ListClientsResponse
+    """
+    return self._RetryLoop(
+        lambda t: self._stub.ListClients(request, timeout=t))
 
   def Shutdown(self):
     with self._shutdown_cv:
@@ -238,9 +267,8 @@ class InsecureGRPCServiceClient(ServiceClient):
 
   Attributes:
 
-    stub: The underlying grcp AdminStub, which can be used to make direct
-       requests of the Fleetspeak server. Present only when configured for
-       writing.
+    outgoing: The underlying OutgoingConnection object. Present when configured
+       for writing.
   """
 
   def __init__(self,
@@ -291,19 +319,22 @@ class InsecureGRPCServiceClient(ServiceClient):
       logging.info(
           "fleetspeak_server is unset, not creating outbound connection to "
           "fleetspeak.")
-      self._sender = None
-      self.stub = None
+      self.outgoing = None
     else:
       channel = grpc.insecure_channel(fleetspeak_server)
-      self._sender = Sender(channel, service_name)
+      self.outgoing = OutgoingConnection(channel, service_name)
       logging.info("Fleetspeak GRPCService client connected to %s",
                    fleetspeak_server)
-      self.stub = self._sender.stub
 
   def Send(self, message):
-    if self._sender is None:
+    """Send one message.
+
+    Deprecated, users should migrate to call self.outgoing.InsertMessage
+    directly.
+    """
+    if not self.outgoing:
       raise NotConfigured("Send address not provided.")
-    self._sender.Send(message)
+    self.outgoing.InsertMessage(message)
 
   def Listen(self, process):
     if self._listen_address is None:
