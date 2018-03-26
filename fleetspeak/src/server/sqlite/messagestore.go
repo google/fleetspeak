@@ -60,7 +60,7 @@ func toMicro(t time.Time) int64 {
 	return t.UnixNano() / 1000
 }
 
-func (d *Datastore) SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error {
+func (d *Datastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
 	return d.runInTx(func(tx *sql.Tx) error { return d.trySetMessageResult(ctx, tx, id, res) })
 }
 

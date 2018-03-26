@@ -84,9 +84,9 @@ func (d MonitoredDatastore) GetMessages(ctx context.Context, ids []common.Messag
 	return res, err
 }
 
-func (d MonitoredDatastore) SetMessageResult(ctx context.Context, id common.MessageID, res *fspb.MessageResult) error {
+func (d MonitoredDatastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
 	s := ftime.Now()
-	err := d.D.SetMessageResult(ctx, id, res)
+	err := d.D.SetMessageResult(ctx, dest, id, res)
 	d.C.DatastoreOperation(s, ftime.Now(), "SetMessageResult", err)
 	return err
 }
