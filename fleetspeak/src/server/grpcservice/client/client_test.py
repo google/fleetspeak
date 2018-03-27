@@ -35,7 +35,7 @@ class ClientTest(unittest.TestCase):
 
   def testKeepAlive(self):
     t = FakeStub()
-    s = client.Sender(None, 'test', t)
+    s = client.OutgoingConnection(None, 'test', t)
     self.assertTrue(t.event.wait(10))
     s.Shutdown()
 
