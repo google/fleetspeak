@@ -15,20 +15,35 @@
 """Tests for grpcservice.client.client."""
 
 import threading
-
 import unittest
+
+import grpc
+
 from fleetspeak.src.server.grpcservice.client import client
+from fleetspeak.src.common.proto.fleetspeak import common_pb2
 
 
+# More of a mock than a fake.
+# TODO: migrate to use a mock library.
 class FakeStub(object):
 
   def __init__(self):
     self.event = threading.Event()
+    self.insert_done = False
+    self.insert_errors = 1
 
   def KeepAlive(self, unused, timeout=None):
     del unused
     del timeout
     self.event.set()
+
+  def InsertMessage(self, message, timeout=None):
+    del message
+    del timeout
+    if self.insert_errors:
+      self.insert_errors -= 1
+      raise grpc.RpcError("insert_errors is positive, try again")
+    self.insert_done = True
 
 
 class ClientTest(unittest.TestCase):
@@ -39,6 +54,12 @@ class ClientTest(unittest.TestCase):
     self.assertTrue(t.event.wait(10))
     s.Shutdown()
 
+  def testInsertMessage(self):
+    t = FakeStub()
+    s = client.OutgoingConnection(None, 'test', t)
+    s.InsertMessage(common_pb2.Message())
+    self.assertTrue(t.insert_done)
+    self.assertFalse(t.insert_errors)
 
 if __name__ == '__main__':
   unittest.main()

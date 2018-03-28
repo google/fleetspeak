@@ -166,7 +166,7 @@ class OutgoingConnection(object):
     while True:
       try:
         return func(timeout)
-      except grpcs.RpcError:
+      except grpc.RpcError:
         if time.time() + sleep > deadline:
           raise
         time.sleep(sleep)
