@@ -38,12 +38,12 @@ class FakeStub(object):
     self.event.set()
 
   def InsertMessage(self, message, timeout=None):
-    del message
     del timeout
     if self.insert_errors:
       self.insert_errors -= 1
       raise grpc.RpcError("insert_errors is positive, try again")
     self.insert_done = True
+    self.message = message
 
 
 class ClientTest(unittest.TestCase):
@@ -60,6 +60,7 @@ class ClientTest(unittest.TestCase):
     s.InsertMessage(common_pb2.Message())
     self.assertTrue(t.insert_done)
     self.assertFalse(t.insert_errors)
+    self.assertEqual(t.message.source.service_name, 'test')
 
 if __name__ == '__main__':
   unittest.main()

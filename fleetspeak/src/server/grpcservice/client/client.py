@@ -192,7 +192,7 @@ class OutgoingConnection(object):
       raise InvalidArgument("Attempt to send unexpected message type: %s" %
                             message.__class__.__name__)
 
-    if not message.source:
+    if not message.HasField("source"):
       message.source.service_name = self._service_name
 
     # Sometimes GRPC reports failure, even though the call succeeded. To prevent
