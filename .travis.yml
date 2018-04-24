@@ -13,7 +13,7 @@ matrix:
         - sudo pip install --upgrade pip virtualenv
         - virtualenv "${HOME}/FSENV"
         - mysql --print-defaults
-        - go get -u github.com/golang/lint/golint
+        #- go get -u github.com/golang/lint/golint
       install:
         - source "${HOME}/FSENV/bin/activate" && pip install -e .
         - go get -v -t ./... # Install dependencies needed for tests.
