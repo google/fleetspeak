@@ -226,6 +226,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	ctx, fin := context.WithTimeout(req.Context(), 5*time.Minute)
 
 	pi := stats.PollInfo{
+		CTX:    req.Context(),
 		Start:  db.Now(),
 		Status: http.StatusTeapot, // Should never actually be returned
 	}
