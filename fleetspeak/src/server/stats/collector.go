@@ -17,6 +17,7 @@
 package stats
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -28,6 +29,9 @@ import (
 
 // A PollInfo describes a client poll operation which has occurred.
 type PollInfo struct {
+	// A Context associated with the poll operation, if available.
+	CTX context.Context
+
 	// The ClientID of the polling client, if available.
 	ID common.ClientID
 
