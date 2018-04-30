@@ -47,21 +47,33 @@ type ClientInfo struct {
 	Cached      bool // Whether the data was retrieved from a cache.
 }
 
+// A ConnectionInfo is the static information that the FS system gathers about a
+// particular connection to a client.
+type ConnectionInfo struct {
+	Addr                     net.Addr
+	Client                   ClientInfo
+	ContactID                db.ContactID
+	NonceSent, NonceReceived uint64
+}
+
 // A Context defines the view of the Fleetspeak server provided to a Communicator.
 type Context interface {
 
-	// GetClientInfo loads basic information about a client. Returns nil if the client does
-	// not exist in the datastore.
-	GetClientInfo(ctx context.Context, id common.ClientID) (*ClientInfo, error)
+	// InitializeConnection attempts to validate and configure a client
+	// connection. Note that the messages provided in initialData are not
+	// processed, but the metadata contained in it may be used to help validate
+	// the client.
+	InitializeConnection(ctx context.Context, addr net.Addr, id common.ClientID, initialData *fspb.WrappedContactData) (*ConnectionInfo, error)
 
-	// AddClient adds a new client to the system.
-	AddClient(ctx context.Context, id common.ClientID, key crypto.PublicKey) (*ClientInfo, error)
-
-	// HandleContactData processes a ContactData received from a client.
+	// HandleContactData processes a WrappedContactData received from the client.
 	// It is the callers responsibility to ensure that the data is really from
 	// the client described by ClientInfo. It returns a ContactData appropriate to
 	// send back to the client.
-	HandleClientContact(ctx context.Context, info *ClientInfo, addr net.Addr, wcd *fspb.WrappedContactData) (*fspb.ContactData, error)
+	HandleClientData(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
+
+	// GetMessagesForClient finds unprocessed messages for a given client and
+	// reserves them for processing.
+	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (*fspb.ContactData, error)
 
 	// ReadFile returns the data and modification time of file. Caller is
 	// responsible for closing data.
