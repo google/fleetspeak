@@ -56,8 +56,9 @@ func TestCommsContext(t *testing.T) {
 	// For each client/key we go through a basic lifecyle - add the client
 	// to the system, check for messages for the client, etc.
 	for _, tc := range []struct {
-		name string
-		pub  crypto.PublicKey
+		name      string
+		pub       crypto.PublicKey
+		streaming bool
 	}{
 		{
 			name: "rsa",
@@ -65,6 +66,14 @@ func TestCommsContext(t *testing.T) {
 		{
 			name: "ecdsa",
 			pub:  privateKey2.Public()},
+		{
+			name:      "rsa-streaming",
+			pub:       privateKey1.Public(),
+			streaming: true},
+		{
+			name:      "ecdsa-streaming",
+			pub:       privateKey2.Public(),
+			streaming: true},
 	} {
 		ci, cd, err := ts.CC.InitializeConnection(
 			ctx,
@@ -119,12 +128,28 @@ func TestCommsContext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Unable to marshal contact data: %v", tc.name, err)
 		}
-		if ci, cd, err = ts.CC.InitializeConnection(
-			ctx,
-			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
-			tc.pub,
-			&fspb.WrappedContactData{ContactData: bcd}); err != nil {
-			t.Fatal(err)
+		if tc.streaming {
+			if err := ts.CC.HandleMessagesFromClient(
+				ctx,
+				ci,
+				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
+				t.Fatal(err)
+			}
+			cd, err := ts.CC.GetMessagesForClient(ctx, ci)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cd != nil {
+				t.Errorf("%s: Expected nil ContactData, got: %v", tc.name, cd)
+			}
+		} else {
+			if ci, cd, err = ts.CC.InitializeConnection(
+				ctx,
+				&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+				tc.pub,
+				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		fakeTime.SetSeconds(3000)
 
