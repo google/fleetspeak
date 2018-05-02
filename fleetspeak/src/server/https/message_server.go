@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
-	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
+	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
@@ -158,48 +158,14 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	addr := addrFromString(req.RemoteAddr)
 
-	contactInfo := authorizer.ContactInfo{
-		ID:           id,
-		ContactSize:  len(wcd.ContactData),
-		ClientLabels: wcd.ClientLabels,
-	}
-	if !s.fs.Authorizer().Allow2(addr, contactInfo) {
+	_, toSend, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd)
+	if err == comms.NotAuthorizedError {
 		pi.Status = http.StatusServiceUnavailable
 		http.Error(res, "not authorized", pi.Status)
 		return
 	}
-	info, err := s.fs.GetClientInfo(ctx, id)
 	if err != nil {
-		log.Errorf("InternalServerError: GetClientInfo returned error: %v", err)
-		pi.Status = http.StatusInternalServerError
-		http.Error(res, fmt.Sprintf("internal error getting client info: %v", err), pi.Status)
-		return
-	}
-	var clientInfo authorizer.ClientInfo
-	if info == nil {
-		clientInfo.New = true
-	} else {
-		clientInfo.Labels = info.Labels
-		pi.CacheHit = info.Cached
-	}
-	if !s.fs.Authorizer().Allow3(addr, contactInfo, clientInfo) {
-		pi.Status = http.StatusServiceUnavailable
-		http.Error(res, "not authorized", pi.Status)
-		return
-	}
-	if info == nil {
-		info, err = s.fs.AddClient(ctx, id, cert.PublicKey)
-		if err != nil {
-			log.Errorf("InternalServerError: AddClient returned error: %v", err)
-			pi.Status = http.StatusInternalServerError
-			http.Error(res, fmt.Sprintf("internal error adding client info: %v", err), pi.Status)
-			return
-		}
-	}
-
-	toSend, err := s.fs.HandleClientContact(ctx, info, addr, &wcd)
-	if err != nil {
-		log.Errorf("InternalServerError: HandleClientContact returned error: %v", err)
+		log.Errorf("InternalServiceError: error processing contact: %v", err)
 		pi.Status = http.StatusInternalServerError
 		http.Error(res, fmt.Sprintf("error processing contact: %v", err), pi.Status)
 		return

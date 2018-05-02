@@ -18,6 +18,7 @@ package comms
 
 import (
 	"crypto"
+	"errors"
 	"net"
 	"time"
 
@@ -54,25 +55,36 @@ type ConnectionInfo struct {
 	Client                   ClientInfo
 	ContactID                db.ContactID
 	NonceSent, NonceReceived uint64
+	AuthClientInfo           authorizer.ClientInfo
 }
+
+// NotAuthorizedError is returned by certain methods to indicate that the client
+// is not authorized to communicate with this server.
+var NotAuthorizedError = errors.New("not authorized")
 
 // A Context defines the view of the Fleetspeak server provided to a Communicator.
 type Context interface {
 
 	// InitializeConnection attempts to validate and configure a client
-	// connection. Note that the messages provided in initialData are not
-	// processed, but the metadata contained in it may be used to help validate
-	// the client.
-	InitializeConnection(ctx context.Context, addr net.Addr, id common.ClientID, initialData *fspb.WrappedContactData) (*ConnectionInfo, error)
+	// connection, and performs an initial exchange of messages.
+	//
+	// On success this effectively calls both HandleMessagesFromClient
+	// and GetMessagesForClient.
+	//
+	// The returned ContactData should be sent back to the client unconditionally,
+	// in order to update the client's de-duplication nonce.
+	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*ConnectionInfo, *fspb.ContactData, error)
 
-	// HandleContactData processes a WrappedContactData received from the client.
-	// It is the callers responsibility to ensure that the data is really from
-	// the client described by ClientInfo. It returns a ContactData appropriate to
-	// send back to the client.
-	HandleClientData(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
+	// HandleContactData processes the messags contined in a WrappedContactData
+	// received from the client.  The ConnectionInfo parameter should have been created by
+	// an InitializeConnection call made for this connection.
+	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
 
 	// GetMessagesForClient finds unprocessed messages for a given client and
-	// reserves them for processing.
+	// reserves them for processing. The ConnectionInfo parameter should have been
+	// created by an InitializeConnection call made for this connection.
+	//
+	// Returns nil, nil when there are no outstanding messages for the client.
 	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (*fspb.ContactData, error)
 
 	// ReadFile returns the data and modification time of file. Caller is
