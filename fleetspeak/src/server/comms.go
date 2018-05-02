@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -111,7 +110,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.AuthClientInfo,
 		sigs)
 	if !accept {
-		return nil, nil, errors.New("contact not authorized")
+		return nil, nil, comms.NotAuthorizedError
 	}
 
 	var cd fspb.ContactData
@@ -189,7 +188,7 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 		info.AuthClientInfo,
 		sigs)
 	if !accept {
-		return errors.New("contact not authorized")
+		return comms.NotAuthorizedError
 	}
 
 	var cd fspb.ContactData
