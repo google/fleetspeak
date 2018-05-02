@@ -99,7 +99,6 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 			res.Client.Labels = append(res.Client.Labels, cl)
 		}
 		res.AuthClientInfo.Labels = res.Client.Labels
-		// TODO populate res.ClientInfo.Labels, res.AuthClientInfo.Labels DO NOT SUBMIT
 	}
 
 	sigs, err := signatures.ValidateWrappedContactData(id, wcd)
