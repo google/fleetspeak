@@ -48,8 +48,7 @@ type commsContext struct {
 
 func randUint64() uint64 {
 	var b [8]byte
-	_, err := rand.Read(b[:])
-	if err != nil {
+	if _, err := rand.Read(b[:]); err != nil {
 		// Random numbers are required for the correct operation of a FS server.
 		panic(fmt.Errorf("unable to read random bytes: %v", err))
 	}
