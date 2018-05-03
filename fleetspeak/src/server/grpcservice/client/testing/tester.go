@@ -93,9 +93,13 @@ func main() {
 	}
 	serveAdminInterface(s, ds)
 
-	id, err := ts.AddClient()
+	k, err := ts.AddClient()
 	if err != nil {
 		log.Exitf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(k)
+	if err != nil {
+		log.Exitf("Unable to make ClientID: %v", err)
 	}
 
 	m := &fspb.Message{
@@ -116,13 +120,13 @@ func main() {
 	// Because of grpc retry logic and the possibility of getting an error when
 	// the message was successfully sent, the message might pass through the
 	// loopback during the first SimulateContact call.
-	msgs, err := ts.SimulateContactFromClient(ctx, id, []*fspb.Message{m})
+	msgs, err := ts.SimulateContactFromClient(ctx, k, []*fspb.Message{m})
 	if err != nil {
 		log.Exitf("Error putting message into system: %v", err)
 	}
 	var resp *fspb.Message
 	for len(msgs) == 0 {
-		msgs, err = ts.SimulateContactFromClient(ctx, id, nil)
+		msgs, err = ts.SimulateContactFromClient(ctx, k, nil)
 		if err != nil {
 			log.Exitf("Error while waiting for loopback: %v", err)
 		}

@@ -26,13 +26,12 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -57,8 +56,9 @@ func TestCommsContext(t *testing.T) {
 	// For each client/key we go through a basic lifecyle - add the client
 	// to the system, check for messages for the client, etc.
 	for _, tc := range []struct {
-		name string
-		pub  crypto.PublicKey
+		name      string
+		pub       crypto.PublicKey
+		streaming bool
 	}{
 		{
 			name: "rsa",
@@ -66,28 +66,41 @@ func TestCommsContext(t *testing.T) {
 		{
 			name: "ecdsa",
 			pub:  privateKey2.Public()},
+		{
+			name:      "rsa-streaming",
+			pub:       privateKey1.Public(),
+			streaming: true},
+		{
+			name:      "ecdsa-streaming",
+			pub:       privateKey2.Public(),
+			streaming: true},
 	} {
+		ci, cd, err := ts.CC.InitializeConnection(
+			ctx,
+			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+			tc.pub,
+			&fspb.WrappedContactData{})
+		if err != nil {
+			t.Fatal(err)
+		}
 		id, err := common.MakeClientID(tc.pub)
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = ts.CC.AddClient(ctx, id, tc.pub)
-		if err != nil {
-			t.Fatal(err)
+		if ci.Addr.Network() != "tcp" || ci.Addr.String() != "127.0.0.1:123" {
+			t.Errorf("%s: InitializeConnection returned ci.Addr of [%s,%v], but expected [tcp,127.0.0.1:123]", tc.name, ci.Addr.Network(), ci.Addr)
 		}
-
-		info, err := ts.CC.GetClientInfo(ctx, id)
-		if err != nil {
-			t.Fatal(err)
+		if ci.Client.ID != id {
+			t.Errorf("%s: InitializeConnection returned client ID of %v, but expected %v", tc.name, ci.Client.ID, id)
 		}
-		if info.ID != id {
-			t.Fatalf("%s: Expected id=info.ID, got %v = %v", tc.name, id, info.ID)
+		if ci.Client.Key == nil {
+			t.Errorf("%s: InitializeConnection returned empty ci.Client.Key", tc.name)
 		}
-		cd, err := ts.CC.HandleClientContact(ctx, info,
-			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
-			&fspb.WrappedContactData{})
-		if err != nil {
-			t.Fatal(err)
+		if ci.ContactID == "" {
+			t.Errorf("%s: InitializeConnection returned empty ci.ContactID", tc.name)
+		}
+		if ci.NonceSent == 0 {
+			t.Errorf("%s: InitializeConnection returned 0 NonceSent", tc.name)
 		}
 		if len(cd.Messages) != 0 {
 			t.Fatalf("%s: Expected no messages, got: %v", tc.name, cd.Messages)
@@ -115,10 +128,28 @@ func TestCommsContext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Unable to marshal contact data: %v", tc.name, err)
 		}
-		if _, err = ts.CC.HandleClientContact(ctx, info,
-			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
-			&fspb.WrappedContactData{ContactData: bcd}); err != nil {
-			t.Fatal(err)
+		if tc.streaming {
+			if err := ts.CC.HandleMessagesFromClient(
+				ctx,
+				ci,
+				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
+				t.Fatal(err)
+			}
+			cd, err := ts.CC.GetMessagesForClient(ctx, ci)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cd != nil {
+				t.Errorf("%s: Expected nil ContactData, got: %v", tc.name, cd)
+			}
+		} else {
+			if ci, cd, err = ts.CC.InitializeConnection(
+				ctx,
+				&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+				tc.pub,
+				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		fakeTime.SetSeconds(3000)
 
@@ -148,7 +179,7 @@ func TestCommsContext(t *testing.T) {
 		}
 		msgs[0].Result = nil
 		if !proto.Equal(msgs[0], want) {
-			t.Errorf("%s: GetMessages(%v)=%v, but want %v", tc.name, id, msgs[0], want)
+			t.Errorf("%s: InitializeConnection(%v)=%v, but want %v", tc.name, id, msgs[0], want)
 		}
 	}
 }
@@ -158,7 +189,11 @@ func TestBlacklist(t *testing.T) {
 	defer ts.S.Stop()
 	ctx := context.Background()
 
-	id, err := ts.AddClient()
+	k, err := ts.AddClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := common.MakeClientID(k)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +224,7 @@ func TestBlacklist(t *testing.T) {
 		t.Fatalf("BlacklistClient returned error: %v", err)
 	}
 
-	msgs, err := ts.SimulateContactFromClient(ctx, id, nil)
+	msgs, err := ts.SimulateContactFromClient(ctx, k, nil)
 	if err != nil {
 		t.Error(err)
 	}

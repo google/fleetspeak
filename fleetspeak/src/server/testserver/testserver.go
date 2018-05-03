@@ -19,6 +19,7 @@ package testserver
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"net"
@@ -101,24 +102,25 @@ func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) S
 }
 
 // AddClient adds a new client with a random id to a server.
-func (s Server) AddClient() (common.ClientID, error) {
+func (s Server) AddClient() (crypto.PublicKey, error) {
 	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return common.ClientID{}, err
 	}
-	id, err := common.MakeClientID(k.Public())
-	if err != nil {
-		return common.ClientID{}, err
+	if _, _, err := s.CC.InitializeConnection(
+		context.Background(),
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		k.Public(),
+		&fspb.WrappedContactData{},
+	); err != nil {
+		return nil, err
 	}
-	if _, err := s.CC.AddClient(context.Background(), id, k.Public()); err != nil {
-		return common.ClientID{}, err
-	}
-	return id, err
+	return &k.PublicKey, nil
 }
 
 // ProcessMessageFromClient delivers a message to a server, simulating that it was
 // provided by a client. It then waits up to 30 seconds for it to be processed.
-func (s Server) ProcessMessageFromClient(id common.ClientID, msg *fspb.Message) error {
+func (s Server) ProcessMessageFromClient(k crypto.PublicKey, msg *fspb.Message) error {
 	ctx := context.Background()
 
 	mid, err := common.BytesToMessageID(msg.MessageId)
@@ -126,7 +128,7 @@ func (s Server) ProcessMessageFromClient(id common.ClientID, msg *fspb.Message) 
 		return err
 	}
 
-	if _, err := s.SimulateContactFromClient(ctx, id, []*fspb.Message{msg}); err != nil {
+	if _, err := s.SimulateContactFromClient(ctx, k, []*fspb.Message{msg}); err != nil {
 		return err
 	}
 
@@ -146,19 +148,16 @@ func (s Server) ProcessMessageFromClient(id common.ClientID, msg *fspb.Message) 
 
 // SimulateContactFromClient accepts zero or more messages as if they came from
 // a client, and returns any messages pending for delivery to the client.
-func (s Server) SimulateContactFromClient(ctx context.Context, id common.ClientID, msgs []*fspb.Message) ([]*fspb.Message, error) {
-	info, err := s.CC.GetClientInfo(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
+func (s Server) SimulateContactFromClient(ctx context.Context, key crypto.PublicKey, msgs []*fspb.Message) ([]*fspb.Message, error) {
 	cd := fspb.ContactData{Messages: msgs}
 	cdb, err := proto.Marshal(&cd)
 	if err != nil {
 		return nil, err
 	}
-	rcd, err := s.CC.HandleClientContact(ctx, info,
+	_, rcd, err := s.CC.InitializeConnection(
+		ctx,
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		key,
 		&fspb.WrappedContactData{ContactData: cdb})
 	if err != nil {
 		return nil, err

@@ -21,13 +21,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
-
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 func TestSystemServiceClientInfo(t *testing.T) {
@@ -36,10 +34,14 @@ func TestSystemServiceClientInfo(t *testing.T) {
 	ts := testserver.Make(t, "server", "SystemServiceClientInfo", nil)
 	defer ts.S.Stop()
 
-	id, err := ts.AddClient()
+	k, err := ts.AddClient()
 	if err != nil {
 		t.Error(err)
 		return
+	}
+	id, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	m := fspb.Message{
@@ -66,7 +68,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ts.ProcessMessageFromClient(id, &m); err != nil {
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,7 +93,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ts.ProcessMessageFromClient(id, &m); err != nil {
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
 	cd, err = ts.DS.GetClientData(ctx, id)
@@ -113,11 +115,16 @@ func TestSystemServiceMessageAck(t *testing.T) {
 
 	ts := testserver.Make(t, "server", "SystemServiceMessageAck", nil)
 
-	cid, err := ts.AddClient()
+	k, err := ts.AddClient()
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	cid, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	mid, err := common.StringToMessageID("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +166,7 @@ func TestSystemServiceMessageAck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ts.ProcessMessageFromClient(cid, &m); err != nil {
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
 
@@ -167,7 +174,6 @@ func TestSystemServiceMessageAck(t *testing.T) {
 	if msg.Result == nil {
 		t.Fatal("Added message should now be processed.")
 	}
-
 }
 
 func TestSystemServiceMessageError(t *testing.T) {
@@ -181,11 +187,16 @@ func TestSystemServiceMessageError(t *testing.T) {
 	ts := testserver.Make(t, "server", "SystemServiceMessageError", nil)
 	defer ts.S.Stop()
 
-	cid, err := ts.AddClient()
+	k, err := ts.AddClient()
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	cid, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	mid, err := common.StringToMessageID("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +239,7 @@ func TestSystemServiceMessageError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ts.ProcessMessageFromClient(cid, &m); err != nil {
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
 

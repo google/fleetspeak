@@ -18,6 +18,7 @@ package comms
 
 import (
 	"crypto"
+	"errors"
 	"net"
 	"time"
 
@@ -47,21 +48,44 @@ type ClientInfo struct {
 	Cached      bool // Whether the data was retrieved from a cache.
 }
 
+// A ConnectionInfo is the static information that the FS system gathers about a
+// particular connection to a client.
+type ConnectionInfo struct {
+	Addr                     net.Addr
+	Client                   ClientInfo
+	ContactID                db.ContactID
+	NonceSent, NonceReceived uint64
+	AuthClientInfo           authorizer.ClientInfo
+}
+
+// NotAuthorizedError is returned by certain methods to indicate that the client
+// is not authorized to communicate with this server.
+var NotAuthorizedError = errors.New("not authorized")
+
 // A Context defines the view of the Fleetspeak server provided to a Communicator.
 type Context interface {
 
-	// GetClientInfo loads basic information about a client. Returns nil if the client does
-	// not exist in the datastore.
-	GetClientInfo(ctx context.Context, id common.ClientID) (*ClientInfo, error)
+	// InitializeConnection attempts to validate and configure a client
+	// connection, and performs an initial exchange of messages.
+	//
+	// On success this effectively calls both HandleMessagesFromClient
+	// and GetMessagesForClient.
+	//
+	// The returned ContactData should be sent back to the client unconditionally,
+	// in order to update the client's de-duplication nonce.
+	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*ConnectionInfo, *fspb.ContactData, error)
 
-	// AddClient adds a new client to the system.
-	AddClient(ctx context.Context, id common.ClientID, key crypto.PublicKey) (*ClientInfo, error)
+	// HandleContactData processes the messags contined in a WrappedContactData
+	// received from the client.  The ConnectionInfo parameter should have been created by
+	// an InitializeConnection call made for this connection.
+	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
 
-	// HandleContactData processes a ContactData received from a client.
-	// It is the callers responsibility to ensure that the data is really from
-	// the client described by ClientInfo. It returns a ContactData appropriate to
-	// send back to the client.
-	HandleClientContact(ctx context.Context, info *ClientInfo, addr net.Addr, wcd *fspb.WrappedContactData) (*fspb.ContactData, error)
+	// GetMessagesForClient finds unprocessed messages for a given client and
+	// reserves them for processing. The ConnectionInfo parameter should have been
+	// created by an InitializeConnection call made for this connection.
+	//
+	// Returns nil, nil when there are no outstanding messages for the client.
+	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (*fspb.ContactData, error)
 
 	// ReadFile returns the data and modification time of file. Caller is
 	// responsible for closing data.

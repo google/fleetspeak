@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -46,9 +45,113 @@ type commsContext struct {
 	s *Server
 }
 
-// GetClientInfo loads basic information about a client. Returns nil if the client does
+func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*comms.ConnectionInfo, *fspb.ContactData, error) {
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	contactInfo := authorizer.ContactInfo{
+		ID:           id,
+		ContactSize:  len(wcd.ContactData),
+		ClientLabels: wcd.ClientLabels,
+	}
+	if !c.s.authorizer.Allow2(addr, contactInfo) {
+		return nil, nil, comms.NotAuthorizedError
+	}
+
+	ci, err := c.getClientInfo(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res := comms.ConnectionInfo{
+		Addr: addr,
+	}
+	if ci == nil {
+		res.AuthClientInfo.New = true
+	} else {
+		res.Client = *ci
+		res.AuthClientInfo.Labels = ci.Labels
+	}
+
+	if !c.s.authorizer.Allow3(addr, contactInfo, res.AuthClientInfo) {
+		return nil, nil, comms.NotAuthorizedError
+	}
+
+	if ci == nil {
+		if err := c.addClient(ctx, id, key); err != nil {
+			return nil, nil, err
+		}
+		res.Client.ID = id
+		res.Client.Key = key
+		// Set initial labels for the client according to the contact data. Going
+		// forward, labels will be adjusted when the client sends a ClientInfo
+		// message (see system_service.go).
+		for _, l := range wcd.ClientLabels {
+			cl := &fspb.Label{ServiceName: "client", Label: l}
+
+			// Ignore errors - if this fails, the first ClientInfo message will try again
+			// in a context where we can retry easily.
+			c.s.dataStore.AddClientLabel(ctx, id, cl)
+
+			res.Client.Labels = append(res.Client.Labels, cl)
+		}
+		res.AuthClientInfo.Labels = res.Client.Labels
+	}
+
+	sigs, err := signatures.ValidateWrappedContactData(id, wcd)
+	if err != nil {
+		return nil, nil, err
+	}
+	accept, validationInfo := c.s.authorizer.Allow4(
+		addr,
+		contactInfo,
+		res.AuthClientInfo,
+		sigs)
+	if !accept {
+		return nil, nil, comms.NotAuthorizedError
+	}
+
+	var cd fspb.ContactData
+	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
+		return nil, nil, fmt.Errorf("unable to parse contact_data: %v", err)
+	}
+	if len(cd.Messages) > maxMessagesPerContact {
+		return nil, nil, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
+	}
+	res.NonceReceived = cd.SequencingNonce
+	toSend := fspb.ContactData{SequencingNonce: uint64(rand.Int63())}
+	res.NonceSent = toSend.SequencingNonce
+	res.ContactID, err = c.s.dataStore.RecordClientContact(ctx,
+		db.ContactData{
+			ClientID:      id,
+			NonceSent:     toSend.SequencingNonce,
+			NonceReceived: cd.SequencingNonce,
+			Addr:          addr.String(),
+			ClientClock:   cd.ClientClock,
+		})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = c.handleMessagesFromClient(ctx, &res.Client, res.ContactID, &cd, validationInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, 100)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res.AuthClientInfo.New = false
+	return &res, &toSend, nil
+}
+
+// getClientInfo loads basic information about a client. Returns nil if the client does
 // not exist in the datastore.
-func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*comms.ClientInfo, error) {
+func (c commsContext) getClientInfo(ctx context.Context, id common.ClientID) (*comms.ClientInfo, error) {
 	cld, cacheHit, err := c.s.clientCache.GetOrRead(ctx, id, c.s.dataStore)
 	if err != nil {
 		if c.s.dataStore.IsNotFound(err) {
@@ -69,67 +172,62 @@ func (c commsContext) GetClientInfo(ctx context.Context, id common.ClientID) (*c
 		Cached:      cacheHit}, nil
 }
 
-// AddClient adds a new client to the system.
-func (c commsContext) AddClient(ctx context.Context, id common.ClientID, key crypto.PublicKey) (*comms.ClientInfo, error) {
-	k, err := x509.MarshalPKIXPublicKey(key)
+func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.ConnectionInfo, wcd *fspb.WrappedContactData) error {
+	sigs, err := signatures.ValidateWrappedContactData(info.Client.ID, wcd)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k}); err != nil {
-		return nil, err
-	}
-	return &comms.ClientInfo{ID: id, Key: key}, nil
-}
 
-func (c commsContext) HandleClientContact(ctx context.Context, info *comms.ClientInfo, addr net.Addr, wcd *fspb.WrappedContactData) (*fspb.ContactData, error) {
-	sigs, err := signatures.ValidateWrappedContactData(info.ID, wcd)
-	if err != nil {
-		return nil, err
-	}
 	accept, validationInfo := c.s.authorizer.Allow4(
-		addr,
+		info.Addr,
 		authorizer.ContactInfo{
-			ID:           info.ID,
+			ID:           info.Client.ID,
 			ContactSize:  len(wcd.ContactData),
 			ClientLabels: wcd.ClientLabels,
 		},
-		authorizer.ClientInfo{
-			Labels: info.Labels,
-		},
+		info.AuthClientInfo,
 		sigs)
 	if !accept {
-		return nil, errors.New("contact not authorized")
+		return comms.NotAuthorizedError
 	}
+
 	var cd fspb.ContactData
 	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
-		return nil, fmt.Errorf("unable to parse contact_data: %v", err)
+		return fmt.Errorf("unable to parse contact_data: %v", err)
 	}
 	if len(cd.Messages) > maxMessagesPerContact {
-		return nil, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
-	}
-	toSend := fspb.ContactData{SequencingNonce: uint64(rand.Int63())}
-	ct, err := c.s.dataStore.RecordClientContact(ctx,
-		db.ContactData{
-			ClientID:      info.ID,
-			NonceSent:     toSend.SequencingNonce,
-			NonceReceived: cd.SequencingNonce,
-			Addr:          addr.String(),
-			ClientClock:   cd.ClientClock,
-		})
-	if err != nil {
-		return nil, err
+		return fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
 
-	err = c.handleMessagesFromClient(ctx, info, ct, &cd, validationInfo)
+	err = c.handleMessagesFromClient(ctx, &info.Client, info.ContactID, &cd, validationInfo)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	return nil
+}
 
-	toSend.Messages, err = c.FindMessagesForClient(ctx, info, ct, 100)
-	if err != nil {
+func (c commsContext) GetMessagesForClient(ctx context.Context, info *comms.ConnectionInfo) (*fspb.ContactData, error) {
+	toSend := fspb.ContactData{
+		SequencingNonce: info.NonceSent,
+	}
+	var err error
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, 100)
+	if err != nil || len(toSend.Messages) == 0 {
 		return nil, err
 	}
 	return &toSend, nil
+}
+
+// addClient adds a new client to the system.
+func (c commsContext) addClient(ctx context.Context, id common.ClientID, key crypto.PublicKey) error {
+	k, err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {
+		return err
+	}
+	if err := c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // FindMessagesForClient finds unprocessed messages for a given client and
