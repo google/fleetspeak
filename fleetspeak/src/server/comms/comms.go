@@ -68,16 +68,16 @@ type Context interface {
 	// InitializeConnection attempts to validate and configure a client
 	// connection, and performs an initial exchange of messages.
 	//
-	// On success this effectively calls both HandleMessagesFromClient
-	// and GetMessagesForClient.
+	// On success this effectively calls both HandleMessagesFromClient and
+	// GetMessagesForClient.
 	//
 	// The returned ContactData should be sent back to the client unconditionally,
 	// in order to update the client's de-duplication nonce.
 	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*ConnectionInfo, *fspb.ContactData, error)
 
-	// HandleContactData processes the messags contined in a WrappedContactData
-	// received from the client.  The ConnectionInfo parameter should have been created by
-	// an InitializeConnection call made for this connection.
+	// HandleContactData processes the messags contained in a WrappedContactData
+	// received from the client.  The ConnectionInfo parameter should have been
+	// created by an InitializeConnection call made for this connection.
 	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
 
 	// GetMessagesForClient finds unprocessed messages for a given client and
