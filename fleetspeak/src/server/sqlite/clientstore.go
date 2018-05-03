@@ -215,7 +215,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 	err := d.runInTx(func(tx *sql.Tx) error {
 		n := db.Now().UnixNano()
 		r, err := tx.ExecContext(ctx, "INSERT INTO client_contacts(client_id, time, sent_nonce, received_nonce, address) VALUES(?, ?, ?, ?, ?)",
-			data.ClientID.String(), n, data.NonceSent, data.NonceReceived, data.Addr)
+			data.ClientID.String(), n, strconv.FormatUint(data.NonceSent, 16), strconv.FormatUint(data.NonceReceived, 16), data.Addr)
 		if err != nil {
 			return err
 		}
@@ -251,9 +251,19 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 		for rows.Next() {
 			var addr sql.NullString
 			var timeNS int64
+			var sn, rn string
 			c := &spb.ClientContact{}
-			if err := rows.Scan(&timeNS, &c.SentNonce, &c.ReceivedNonce, &addr); err != nil {
+			if err := rows.Scan(&timeNS, &sn, &rn, &addr); err != nil {
 				return err
+			}
+
+			c.SentNonce, err = strconv.ParseUint(sn, 16, 64)
+			if err != nil {
+				return fmt.Errorf("Unable to parse sent_nonce in db: %v", err)
+			}
+			c.ReceivedNonce, err = strconv.ParseUint(rn, 16, 64)
+			if err != nil {
+				return fmt.Errorf("Unable to parse received_nonce in db: %v", err)
 			}
 
 			if addr.Valid {
