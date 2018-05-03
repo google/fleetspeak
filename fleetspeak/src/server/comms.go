@@ -18,9 +18,10 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"net"
 	"sort"
 	"time"
@@ -43,6 +44,16 @@ const processingChunkSize = 10
 
 type commsContext struct {
 	s *Server
+}
+
+func randUint64() uint64 {
+	var b [8]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		// Random numbers are required for the correct operation of a FS server.
+		panic(fmt.Errorf("unable to read random bytes: %v", err))
+	}
+	return binary.LittleEndian.Uint64(b[:])
 }
 
 func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*comms.ConnectionInfo, *fspb.ContactData, error) {
@@ -121,7 +132,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		return nil, nil, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
 	res.NonceReceived = cd.SequencingNonce
-	toSend := fspb.ContactData{SequencingNonce: uint64(rand.Int63())}
+	toSend := fspb.ContactData{SequencingNonce: randUint64()}
 	res.NonceSent = toSend.SequencingNonce
 	res.ContactID, err = c.s.dataStore.RecordClientContact(ctx,
 		db.ContactData{
