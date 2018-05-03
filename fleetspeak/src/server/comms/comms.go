@@ -58,9 +58,9 @@ type ConnectionInfo struct {
 	AuthClientInfo           authorizer.ClientInfo
 }
 
-// NotAuthorizedError is returned by certain methods to indicate that the client
+// ErrNotAuthorized is returned by certain methods to indicate that the client
 // is not authorized to communicate with this server.
-var NotAuthorizedError = errors.New("not authorized")
+var ErrNotAuthorized = errors.New("not authorized")
 
 // A Context defines the view of the Fleetspeak server provided to a Communicator.
 type Context interface {
