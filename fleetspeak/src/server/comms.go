@@ -234,10 +234,7 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 	if err != nil {
 		return err
 	}
-	if err := c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k}); err != nil {
-		return err
-	}
-	return nil
+	return c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k})
 }
 
 // FindMessagesForClient finds unprocessed messages for a given client and
