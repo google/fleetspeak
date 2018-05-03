@@ -17,6 +17,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"time"
@@ -36,6 +37,20 @@ import (
 const (
 	bytesToMIB = 1.0 / float64(1<<20)
 )
+
+func bytesToUint64(b []byte) (uint64, error) {
+	if len(b) != 8 {
+		return 0, fmt.Errorf("error converting to uint64, expected 8 bytes, got %d", len(b))
+	}
+	return binary.LittleEndian.Uint64(b), nil
+}
+
+func uint64ToBytes(i uint64) []byte {
+	var b [8]byte
+	bs := b[:]
+	binary.LittleEndian.PutUint64(bs, i)
+	return bs
+}
 
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	// Return value map, maps string client ids to the return values.
@@ -202,7 +217,7 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 	err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		n := db.Now().UnixNano()
 		r, err := tx.ExecContext(ctx, "INSERT INTO client_contacts(client_id, time, sent_nonce, received_nonce, address) VALUES(?, ?, ?, ?, ?)",
-			data.ClientID.Bytes(), n, data.NonceSent, data.NonceReceived, data.Addr)
+			data.ClientID.Bytes(), n, uint64ToBytes(data.NonceSent), uint64ToBytes(data.NonceReceived), data.Addr)
 		if err != nil {
 			return err
 		}
@@ -239,8 +254,17 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 		for rows.Next() {
 			var addr sql.NullString
 			var timeNS int64
+			var sn, rn []byte
 			c := &spb.ClientContact{}
-			if err := rows.Scan(&timeNS, &c.SentNonce, &c.ReceivedNonce, &addr); err != nil {
+			if err := rows.Scan(&timeNS, &sn, &rn, &addr); err != nil {
+				return err
+			}
+			c.SentNonce, err = bytesToUint64(sn)
+			if err != nil {
+				return err
+			}
+			c.ReceivedNonce, err = bytesToUint64(rn)
+			if err != nil {
 				return err
 			}
 
