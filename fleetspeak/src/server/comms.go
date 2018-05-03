@@ -47,12 +47,12 @@ type commsContext struct {
 }
 
 func randUint64() uint64 {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
 		// Random numbers are required for the correct operation of a FS server.
 		panic(fmt.Errorf("unable to read random bytes: %v", err))
 	}
-	return binary.LittleEndian.Uint64(b[:])
+	return binary.LittleEndian.Uint64(b)
 }
 
 func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*comms.ConnectionInfo, *fspb.ContactData, error) {

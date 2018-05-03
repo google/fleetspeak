@@ -46,10 +46,9 @@ func bytesToUint64(b []byte) (uint64, error) {
 }
 
 func uint64ToBytes(i uint64) []byte {
-	var b [8]byte
-	bs := b[:]
-	binary.LittleEndian.PutUint64(bs, i)
-	return bs
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, i)
+	return b
 }
 
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
