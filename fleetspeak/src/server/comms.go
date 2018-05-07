@@ -67,7 +67,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		ClientLabels: wcd.ClientLabels,
 	}
 	if !c.s.authorizer.Allow2(addr, contactInfo) {
-		return nil, nil, comms.NotAuthorizedError
+		return nil, nil, comms.ErrNotAuthorized
 	}
 
 	ci, err := c.getClientInfo(ctx, id)
@@ -86,7 +86,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	}
 
 	if !c.s.authorizer.Allow3(addr, contactInfo, res.AuthClientInfo) {
-		return nil, nil, comms.NotAuthorizedError
+		return nil, nil, comms.ErrNotAuthorized
 	}
 
 	if ci == nil {
@@ -120,7 +120,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.AuthClientInfo,
 		sigs)
 	if !accept {
-		return nil, nil, comms.NotAuthorizedError
+		return nil, nil, comms.ErrNotAuthorized
 	}
 
 	var cd fspb.ContactData
@@ -198,7 +198,7 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 		info.AuthClientInfo,
 		sigs)
 	if !accept {
-		return comms.NotAuthorizedError
+		return comms.ErrNotAuthorized
 	}
 
 	var cd fspb.ContactData
@@ -234,10 +234,7 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 	if err != nil {
 		return err
 	}
-	if err := c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k}); err != nil {
-		return err
-	}
-	return nil
+	return c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k})
 }
 
 // FindMessagesForClient finds unprocessed messages for a given client and
