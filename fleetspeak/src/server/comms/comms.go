@@ -75,7 +75,7 @@ type Context interface {
 	// in order to update the client's de-duplication nonce.
 	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*ConnectionInfo, *fspb.ContactData, error)
 
-	// HandleContactData processes the messags contained in a WrappedContactData
+	// HandleContactData processes the messages contained in a WrappedContactData
 	// received from the client.  The ConnectionInfo parameter should have been
 	// created by an InitializeConnection call made for this connection.
 	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
