@@ -158,7 +158,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	addr := addrFromString(req.RemoteAddr)
 
-	_, toSend, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd)
+	info, toSend, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd)
 	if err == comms.ErrNotAuthorized {
 		pi.Status = http.StatusServiceUnavailable
 		http.Error(res, "not authorized", pi.Status)
@@ -170,6 +170,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, fmt.Sprintf("error processing contact: %v", err), pi.Status)
 		return
 	}
+	pi.CacheHit = info.Client.Cached
 
 	bytes, err := proto.Marshal(toSend)
 	if err != nil {
