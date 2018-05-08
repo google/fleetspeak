@@ -76,13 +76,6 @@ type Configuration struct {
 	RevokedCertSerials [][]byte
 }
 
-const (
-	communicatorFilename  = "communicator.txt"
-	signedServicesDirname = "services"
-	servicesDirname       = "textservices"
-	writebackFilename     = "writeback"
-)
-
 // PersistenceHandler manages client's configuration storage.
 type PersistenceHandler interface {
 	ReadState() (*clpb.ClientState, error)

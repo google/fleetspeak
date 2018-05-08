@@ -28,6 +28,13 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+const (
+	communicatorFilename  = "communicator.txt"
+	signedServicesDirname = "services"
+	textServicesDirname   = "textservices"
+	writebackFilename     = "writeback"
+)
+
 // FilesystemPersistenceHandler defines the filesystem configuration storage strategy.
 type FilesystemPersistenceHandler struct {
 	configurationPath string
@@ -160,7 +167,7 @@ func (h *FilesystemPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClien
 
 // ReadServices implements PersistenceHandler.
 func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, error) {
-	p := filepath.Join(h.configurationPath, servicesDirname)
+	p := filepath.Join(h.configurationPath, textServicesDirname)
 	if err := verifyDirectoryPath(p); err != nil {
 		return nil, fmt.Errorf("invalid services directory path: %v", err)
 	}

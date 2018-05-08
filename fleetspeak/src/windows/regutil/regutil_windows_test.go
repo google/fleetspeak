@@ -19,6 +19,8 @@ package regutil
 import (
 	"bytes"
 	"testing"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 func TestVerifyPath(t *testing.T) {
@@ -35,16 +37,28 @@ func TestVerifyPath(t *testing.T) {
 	}
 }
 
-const tempRegPrefix = `HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakDevelopment\regutil_test`
+const tempRegPrefix = `HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakTest`
 
 func tearDown() {
-	DeleteKey(tempRegPrefix)
+	// Delete test key and all its subkeys.
+	registry.DeleteKey(registry.LOCAL_MACHINE, `SOFTWARE\FleetspeakTest`)
 }
 
 func TestWriteBinaryValue(t *testing.T) {
 	defer tearDown()
 
-	if err := WriteBinaryValue(tempRegPrefix, "TestWriteBinaryValue", []byte("TestWriteBinaryValue value")); err != nil {
+	valuename := "TestWriteBinaryValue"
+	value := []byte("TestReadBinaryValue value")
+
+	if err := WriteBinaryValue(tempRegPrefix, valuename, value); err != ErrKeyNotExist {
+		t.Fatalf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteBinaryValue(tempRegPrefix, valuename, value); err != nil {
 		t.Fatalf("WriteBinaryValue: %v", err)
 	}
 }
@@ -52,13 +66,26 @@ func TestWriteBinaryValue(t *testing.T) {
 func TestReadBinaryValue(t *testing.T) {
 	defer tearDown()
 
+	valuename := "TestReadBinaryValue"
 	value := []byte("TestReadBinaryValue value")
 
-	if err := WriteBinaryValue(tempRegPrefix, "TestReadBinaryValue", value); err != nil {
+	if _, err := ReadBinaryValue(tempRegPrefix, valuename); err != ErrKeyNotExist {
+		t.Errorf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReadBinaryValue(tempRegPrefix, valuename); err != ErrValueNotExist {
+		t.Errorf("Expected ErrValueNotExist, instead got: %v", err)
+	}
+
+	if err := WriteBinaryValue(tempRegPrefix, valuename, value); err != nil {
 		t.Fatalf("WriteBinaryValue: %v", err)
 	}
 
-	b, err := ReadBinaryValue(tempRegPrefix, "TestReadBinaryValue")
+	b, err := ReadBinaryValue(tempRegPrefix, valuename)
 	if err != nil {
 		t.Fatalf("ReadBinaryValue: %v", err)
 	}
@@ -71,7 +98,18 @@ func TestReadBinaryValue(t *testing.T) {
 func TestWriteStringValue(t *testing.T) {
 	defer tearDown()
 
-	if err := WriteStringValue(tempRegPrefix, "TestWriteStringValue", "TestWriteStringValue value"); err != nil {
+	valuename := "TestWriteStringValue"
+	value := "TestWriteStringValue value"
+
+	if err := WriteStringValue(tempRegPrefix, valuename, value); err != ErrKeyNotExist {
+		t.Fatalf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteStringValue(tempRegPrefix, valuename, value); err != nil {
 		t.Fatalf("WriteStringValue: %v", err)
 	}
 }
@@ -79,13 +117,26 @@ func TestWriteStringValue(t *testing.T) {
 func TestReadStringValue(t *testing.T) {
 	defer tearDown()
 
+	valuename := "TestReadStringValue"
 	value := "TestReadStringValue value"
 
-	if err := WriteStringValue(tempRegPrefix, "TestReadStringValue", value); err != nil {
+	if _, err := ReadStringValue(tempRegPrefix, valuename); err != ErrKeyNotExist {
+		t.Errorf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReadStringValue(tempRegPrefix, valuename); err != ErrValueNotExist {
+		t.Errorf("Expected ErrValueNotExist, instead got: %v", err)
+	}
+
+	if err := WriteStringValue(tempRegPrefix, valuename, value); err != nil {
 		t.Fatalf("WriteStringValue: %v", err)
 	}
 
-	s, err := ReadStringValue(tempRegPrefix, "TestReadStringValue")
+	s, err := ReadStringValue(tempRegPrefix, valuename)
 	if err != nil {
 		t.Fatalf("ReadStringValue: %v", err)
 	}
@@ -95,18 +146,16 @@ func TestReadStringValue(t *testing.T) {
 	}
 }
 
-func TestDeleteKey(t *testing.T) {
-	if err := WriteStringValue(tempRegPrefix, "TestDeleteKey", "TestDeleteKey value"); err != nil {
-		t.Fatalf("WriteStringValue: %v", err)
-	}
-
-	if err := DeleteKey(tempRegPrefix); err != nil {
-		t.Fatalf("DeleteKey: %v", err)
-	}
-}
-
 func TestLs(t *testing.T) {
 	defer tearDown()
+
+	if _, err := Ls(tempRegPrefix); err != ErrKeyNotExist {
+		t.Fatalf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
 
 	valueName := "TestLs"
 

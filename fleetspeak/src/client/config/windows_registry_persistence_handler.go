@@ -17,8 +17,8 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 
 	log "github.com/golang/glog"
@@ -29,20 +29,29 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/windows/regutil"
 )
 
+const (
+	communicatorValuename = "communicator"
+	signedServicesKeyname = "services"
+	textServicesKeyname   = "textservices"
+	writebackValuename    = "writeback"
+)
+
 // WindowsRegistryPersistenceHandler defines the Windows registry configuration storage strategy.
 type WindowsRegistryPersistenceHandler struct {
 	configurationPath string
 	readonly          bool
 }
 
-// NewWindowsRegistryPersistenceHandler instantiates a WindowsRegistryPersistenceHandler.
+// NewWindowsRegistryPersistenceHandler initializes registry keys used to store
+// state and configuration info for Fleetspeak, and instantiates a WindowsRegistryPersistenceHandler.
 //
 // configurationPath is the registry key location to look for additional
 // configuration values. Possible values include:
 //
-// /communicator.txt    - A text format clpb.CommunicatorConfig, used to tweak communicator behavior.
-// /writeback           - Used to maintain state across restarts,
-// /services/<service>  - A binary format SignedClientServiceConfig. One registry value for each configured service.
+// \communicator           - Path to a text-format clpb.CommunicatorConfig, used to tweak communicator behavior.
+// \writeback              - REG_BINARY value that is used to maintain state across restarts.
+// \services\<service>     - Path to a binary format SignedClientServiceConfig. One registry value for each configured service.
+// \textservices\<service> - Path to a text-format fspb.ClientServiceConfig. One registry value for each configured service.
 //
 // All of these values are optional, though Fleetspeak will not be particularly
 // useful without at least one configured service.
@@ -57,6 +66,15 @@ func NewWindowsRegistryPersistenceHandler(configurationPath string, readonly boo
 		return nil, fmt.Errorf("invalid configuration path: %v", err)
 	}
 
+	signedServicesKey := filepath.Join(configurationPath, signedServicesKeyname)
+	textServicesKey := filepath.Join(configurationPath, textServicesKeyname)
+	if err := regutil.CreateKeyIfNotExist(signedServicesKey); err != nil {
+		return nil, err
+	}
+	if err := regutil.CreateKeyIfNotExist(textServicesKey); err != nil {
+		return nil, err
+	}
+
 	return &WindowsRegistryPersistenceHandler{
 		configurationPath: configurationPath,
 		readonly:          readonly,
@@ -65,7 +83,7 @@ func NewWindowsRegistryPersistenceHandler(configurationPath string, readonly boo
 
 // ReadState implements PersistenceHandler.
 func (h *WindowsRegistryPersistenceHandler) ReadState() (*clpb.ClientState, error) {
-	b, err := regutil.ReadBinaryValue(h.configurationPath, writebackFilename)
+	b, err := regutil.ReadBinaryValue(h.configurationPath, writebackValuename)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading state from registry: %v", err)
 	}
@@ -89,7 +107,7 @@ func (h *WindowsRegistryPersistenceHandler) WriteState(s *clpb.ClientState) erro
 		log.Fatalf("Unable to serialize writeback: %v", err)
 	}
 
-	if err := regutil.WriteBinaryValue(h.configurationPath, writebackFilename, b); err != nil {
+	if err := regutil.WriteBinaryValue(h.configurationPath, writebackValuename, b); err != nil {
 		return fmt.Errorf("unable to write new configuration: %v", err)
 	}
 
@@ -98,17 +116,23 @@ func (h *WindowsRegistryPersistenceHandler) WriteState(s *clpb.ClientState) erro
 
 // ReadCommunicatorConfig implements PersistenceHandler.
 func (h *WindowsRegistryPersistenceHandler) ReadCommunicatorConfig() (*clpb.CommunicatorConfig, error) {
-	if h.configurationPath == "" {
-		return nil, errors.New("configuration path not provided, can't read communicator config")
-	}
-	s, err := regutil.ReadStringValue(h.configurationPath, communicatorFilename)
+	fpath, err := regutil.ReadStringValue(h.configurationPath, communicatorValuename)
 	if err != nil {
-		return nil, fmt.Errorf("can't read communicator config value [%s -> %s]: %v", h.configurationPath, communicatorFilename, err)
+		if err == regutil.ErrValueNotExist {
+			// No communicator config specified.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("can't read communicator file path [%s -> %s]: %v", h.configurationPath, communicatorValuename, err)
+	}
+
+	fbytes, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return nil, fmt.Errorf("can't read communicator config file [%s]: %v", fpath, err)
 	}
 
 	ret := &clpb.CommunicatorConfig{}
-	if err := proto.UnmarshalText(s, ret); err != nil {
-		return nil, fmt.Errorf("can't parse communicator config [%s -> %s]: %v", h.configurationPath, communicatorFilename, err)
+	if err := proto.UnmarshalText(string(fbytes), ret); err != nil {
+		return nil, fmt.Errorf("can't parse communicator config file [%s]: %v", fpath, err)
 	}
 
 	return ret, nil
@@ -116,66 +140,72 @@ func (h *WindowsRegistryPersistenceHandler) ReadCommunicatorConfig() (*clpb.Comm
 
 // ReadSignedServices implements PersistenceHandler.
 func (h *WindowsRegistryPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClientServiceConfig, error) {
-	keyPath := filepath.Join(h.configurationPath, signedServicesDirname)
-	if err := regutil.VerifyPath(keyPath); err != nil {
-		return nil, fmt.Errorf("invalid signed services directory path: %v", err)
-	}
+	keyPath := filepath.Join(h.configurationPath, signedServicesKeyname)
 
-	vs, err := regutil.Ls(keyPath)
+	regValues, err := regutil.Ls(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list values in signed services key path [%s]: %v", keyPath, err)
 	}
 
-	ret := make([]*fspb.SignedClientServiceConfig, 0)
+	services := make([]*fspb.SignedClientServiceConfig, 0)
 
-	for _, v := range vs {
-		b, err := regutil.ReadBinaryValue(keyPath, v)
+	for _, regValue := range regValues {
+		fpath, err := regutil.ReadStringValue(keyPath, regValue)
 		if err != nil {
-			log.Errorf("Unable to read signed service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+			log.Errorf("Unable to read signed service registry value [%s -> %s], ignoring: %v", keyPath, regValue, err)
 			continue
 		}
 
-		s := &fspb.SignedClientServiceConfig{}
-		if err := proto.Unmarshal(b, s); err != nil {
-			log.Errorf("Unable to parse signed service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+		fbytes, err := ioutil.ReadFile(fpath)
+		if err != nil {
+			log.Errorf("Unable to read signed service file [%s], ignoring: %v", fpath, err)
 			continue
 		}
 
-		ret = append(ret, s)
+		service := &fspb.SignedClientServiceConfig{}
+		if err := proto.Unmarshal(fbytes, service); err != nil {
+			log.Errorf("Unable to parse signed service registry file [%s], ignoring: %v", fpath, err)
+			continue
+		}
+
+		services = append(services, service)
 	}
 
-	return ret, nil
+	return services, nil
 }
 
 // ReadServices implements PersistenceHandler.
 func (h *WindowsRegistryPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConfig, error) {
-	keyPath := filepath.Join(h.configurationPath, servicesDirname)
-	if err := regutil.VerifyPath(keyPath); err != nil {
-		return nil, fmt.Errorf("invalid services directory path: %v", err)
-	}
+	keyPath := filepath.Join(h.configurationPath, textServicesKeyname)
 
-	vs, err := regutil.Ls(keyPath)
+	regValues, err := regutil.Ls(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list values in services key path [%s]: %v", keyPath, err)
 	}
 
-	ret := make([]*fspb.ClientServiceConfig, 0)
+	services := make([]*fspb.ClientServiceConfig, 0)
 
-	for _, v := range vs {
-		sv, err := regutil.ReadStringValue(keyPath, v)
+	for _, regValue := range regValues {
+		fpath, err := regutil.ReadStringValue(keyPath, regValue)
 		if err != nil {
-			log.Errorf("Unable to read service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+			log.Errorf("Unable to read service registry value [%s -> %s], ignoring: %v", keyPath, regValue, err)
 			continue
 		}
 
-		s := &fspb.ClientServiceConfig{}
-		if err := proto.UnmarshalText(sv, s); err != nil {
-			log.Errorf("Unable to parse service registry value [%s -> %s], ignoring: %v", keyPath, v, err)
+		fbytes, err := ioutil.ReadFile(fpath)
+		if err != nil {
+			log.Errorf("Unable to read service file [%s], ignoring: %v", fpath, err)
 			continue
 		}
 
-		ret = append(ret, s)
+		service := &fspb.ClientServiceConfig{}
+		if err := proto.UnmarshalText(string(fbytes), service); err != nil {
+			log.Errorf("Unable to parse service file [%s], ignoring: %v", fpath, err)
+			continue
+		}
+
+		services = append(services, service)
 	}
 
-	return ret, nil
+	return services, nil
 }

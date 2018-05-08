@@ -18,6 +18,7 @@
 package regutil
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,12 @@ import (
 )
 
 const hkeyPrefix = `HKEY_LOCAL_MACHINE\`
+
+// ErrKeyNotExist is returned if an attempt is made to access a key that does not exist.
+var ErrKeyNotExist = errors.New("regutil: registry key does not exist")
+
+// ErrValueNotExist is returned if an attempt is made to read a value that a key does not have.
+var ErrValueNotExist = errors.New("regutil: registry value does not exist")
 
 // VerifyPath performs basic verification on registry paths.
 func VerifyPath(configurationPath string) error {
@@ -44,6 +51,21 @@ func stripHKey(keypath string) (string, error) {
 	return filepath.Clean(keypath[len(hkeyPrefix):]), nil
 }
 
+// CreateKeyIfNotExist checks if a registry key exists, and if it does not, creates it (along with all its ancestors).
+func CreateKeyIfNotExist(keypath string) error {
+	p, err := stripHKey(keypath)
+	if err != nil {
+		return err
+	}
+
+	key, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+	if err != nil {
+		return err
+	}
+	defer key.Close()
+	return nil
+}
+
 // WriteBinaryValue writes a REG_BINARY value to the given registry path.
 func WriteBinaryValue(keypath, valuename string, content []byte) error {
 	p, err := stripHKey(keypath)
@@ -51,9 +73,12 @@ func WriteBinaryValue(keypath, valuename string, content []byte) error {
 		return err
 	}
 
-	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
 	if err != nil {
-		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
+		if err == registry.ErrNotExist {
+			return ErrKeyNotExist
+		}
+		return fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
 	}
 	defer k.Close()
 
@@ -74,12 +99,18 @@ func ReadBinaryValue(keypath, valuename string) ([]byte, error) {
 
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
 	if err != nil {
+		if err == registry.ErrNotExist {
+			return nil, ErrKeyNotExist
+		}
 		return nil, fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
 	}
 	defer k.Close()
 
 	s, _, err := k.GetBinaryValue(valuename)
 	if err != nil {
+		if err == registry.ErrNotExist {
+			return nil, ErrValueNotExist
+		}
 		return nil, fmt.Errorf("unable to read binary (REG_BINARY) registry value [%s -> %s]: %v", p, valuename, err)
 	}
 
@@ -93,8 +124,11 @@ func WriteStringValue(keypath, valuename string, content string) error {
 		return err
 	}
 
-	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
 	if err != nil {
+		if err == registry.ErrNotExist {
+			return ErrKeyNotExist
+		}
 		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
 	}
 	defer k.Close()
@@ -116,29 +150,25 @@ func ReadStringValue(keypath, valuename string) (string, error) {
 
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
 	if err != nil {
+		if err == registry.ErrNotExist {
+			return "", ErrKeyNotExist
+		}
 		return "", fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
 	}
 	defer k.Close()
 
 	s, _, err := k.GetStringValue(valuename)
 	if err != nil {
+		if err == registry.ErrNotExist {
+			return "", ErrValueNotExist
+		}
 		return "", fmt.Errorf("unable to read string (REG_SZ) registry value [%s -> %s]: %v", p, valuename, err)
 	}
 
 	return s, nil
 }
 
-// DeleteKey deletes a key from the given registry path.
-func DeleteKey(keypath string) error {
-	p, err := stripHKey(keypath)
-	if err != nil {
-		return err
-	}
-
-	return registry.DeleteKey(registry.LOCAL_MACHINE, p)
-}
-
-// Ls lists the given registry key path.
+// Ls returns all the value names of the given key.
 func Ls(keypath string) ([]string, error) {
 	p, err := stripHKey(keypath)
 	if err != nil {
@@ -147,13 +177,16 @@ func Ls(keypath string) ([]string, error) {
 
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open services key path [%s]: %v", p, err)
+		if err == registry.ErrNotExist {
+			return nil, ErrKeyNotExist
+		}
+		return nil, fmt.Errorf("unable to open key path [%s]: %v", p, err)
 	}
 	defer k.Close()
 
 	vs, err := k.ReadValueNames(0)
 	if err != nil {
-		return nil, fmt.Errorf("unable to list values in services key path [%s]: %v", p, err)
+		return nil, fmt.Errorf("unable to list values in key path [%s]: %v", p, err)
 	}
 
 	return vs, nil
