@@ -96,8 +96,10 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	}
 
 	var err error
-	if r.state, err = cfg.PersistenceHandler.ReadState(); err != nil {
-		log.Errorf("initial load of writeback failed (continuing): %v", err)
+	if r.state, err = cfg.PersistenceHandler.ReadState(); err != nil || r.state == nil {
+		if err != nil {
+			log.Errorf("initial load of writeback failed (continuing): %v", err)
+		}
 		r.state = &clpb.ClientState{}
 	}
 	r.AddRevokedSerials(r.state.RevokedCertSerials)

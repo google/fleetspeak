@@ -31,9 +31,9 @@ import (
 
 const (
 	communicatorValuename = "communicator"
+	writebackValuename    = "writeback"
 	signedServicesKeyname = "services"
 	textServicesKeyname   = "textservices"
-	writebackValuename    = "writeback"
 )
 
 // WindowsRegistryPersistenceHandler defines the Windows registry configuration storage strategy.
@@ -85,6 +85,10 @@ func NewWindowsRegistryPersistenceHandler(configurationPath string, readonly boo
 func (h *WindowsRegistryPersistenceHandler) ReadState() (*clpb.ClientState, error) {
 	b, err := regutil.ReadBinaryValue(h.configurationPath, writebackValuename)
 	if err != nil {
+		if err == regutil.ErrValueNotExist {
+			// Clean state, writeback regvalue doesn't exist yet.
+			return nil, nil
+		}
 		return nil, fmt.Errorf("error while reading state from registry: %v", err)
 	}
 
