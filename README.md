@@ -1,6 +1,7 @@
 # Fleetspeak
 
-[<img src="https://travis-ci.org/google/fleetspeak.svg?branch=master" />](https://travis-ci.org/google/fleetspeak)
+[![Travis Build Status](https://travis-ci.org/google/fleetspeak.svg?branch=master)](https://travis-ci.org/google/fleetspeak)
+[![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/xljdh8ka2qcy57xu?svg=true)](https://ci.appveyor.com/project/fleetspeak/fleetspeak)
 [![Go Report Card](https://goreportcard.com/badge/github.com/google/fleetspeak)](https://goreportcard.com/report/github.com/google/fleetspeak)
 
 Fleetspeak is a framework for communicating with a fleet of machines, with a
