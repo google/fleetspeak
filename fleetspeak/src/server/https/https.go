@@ -38,6 +38,7 @@ type Communicator struct {
 	hs          http.Server
 	l           net.Listener
 	fs          comms.Context
+	stopping    chan struct{}
 	running     bool
 	runningLock sync.RWMutex
 	pending     sync.WaitGroup
@@ -110,8 +111,10 @@ func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
 			WriteTimeout:      5 * time.Minute,
 			IdleTimeout:       30 * time.Second,
 		},
+		stopping: make(chan struct{}),
 	}
 	mux.Handle("/message", messageServer{&h})
+	mux.Handle("/streaming-message", streamingMessageServer{&h})
 	mux.Handle("/files/", fileServer{&h})
 
 	switch l := l.(type) {
@@ -153,6 +156,7 @@ func (c *Communicator) Stop() {
 	c.runningLock.Lock()
 	c.running = false
 	c.runningLock.Unlock()
+	close(c.stopping)
 	c.pending.Wait()
 }
 

@@ -1,0 +1,391 @@
+package https
+
+import (
+	"bufio"
+	"context"
+	"crypto"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"sync"
+	"time"
+
+	log "github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
+)
+
+const magic = uint32(0xf1ee1001)
+
+type fullResponseWriter interface {
+	http.ResponseWriter
+	http.CloseNotifier
+	http.Flusher
+}
+
+func readUint32(body *bufio.Reader) (uint32, error) {
+	b := make([]byte, 4)
+	_, err := io.ReadAtLeast(body, b, 4)
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint32(b), nil
+}
+
+func writeUint32(res fullResponseWriter, i uint32) error {
+	return binary.Write(res, binary.LittleEndian, i)
+}
+
+// messageServer wraps a Communicator in order to handle clients polls.
+type streamingMessageServer struct {
+	*Communicator
+}
+
+func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	earlyError := func(msg string, status int) {
+		log.ErrorDepth(1, fmt.Sprintf("%s: %s", http.StatusText(status), msg))
+		s.fs.StatsCollector().ClientPoll(stats.PollInfo{
+			CTX:    req.Context(),
+			Start:  db.Now(),
+			End:    db.Now(),
+			Status: status,
+		})
+	}
+
+	if !s.startProcessing() {
+		earlyError("server not ready", http.StatusInternalServerError)
+		return
+	}
+	defer s.stopProcessing()
+
+	fullRes, ok := res.(fullResponseWriter)
+	if !ok {
+		earlyError("/streaming-message requested, but not supported. ResponseWriter is not a fullResponseWriter", http.StatusNotFound)
+		return
+	}
+
+	if req.Method != http.MethodPost {
+		earlyError(fmt.Sprintf("%v not supported", req.Method), http.StatusBadRequest)
+		return
+	}
+
+	if req.TLS == nil {
+		earlyError("TLS information not found", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.TLS.PeerCertificates) != 1 {
+		earlyError(fmt.Sprintf("expected 1 client cert, received %v", len(req.TLS.PeerCertificates)), http.StatusBadRequest)
+		return
+	}
+
+	cert := req.TLS.PeerCertificates[0]
+	if cert.PublicKey == nil {
+		earlyError("public key not present in client cert", http.StatusBadRequest)
+		return
+	}
+
+	body := bufio.NewReader(req.Body)
+
+	// Set a 10 min overall maximum lifespan of the connection.
+	ctx, fin := context.WithTimeout(req.Context(), 10*time.Minute)
+	defer fin()
+
+	// Also create a way to terminate early in case of error.
+	ctx, cancel := context.WithCancel(ctx)
+
+	info, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
+	if err != nil || info == nil {
+		return
+	}
+
+	m := streamManager{
+		ctx:  ctx,
+		s:    s,
+		info: info,
+		res:  fullRes,
+		body: body,
+
+		cancel: cancel,
+	}
+	defer func() {
+		// Shutdown is a bit subtle.
+		//
+		// We get here iff m.ctx is canceled, timed out, etc.
+		//
+		// Once ctx is canceled, writeLoop will notice, close the outgoing
+		// ResponseWriter, and begin blindly draining m.out.
+		//
+		// Closing ResponseWriter will cause any pending read to error out and
+		// readLoop to return.
+		//
+		// Once the readLoop returns, we can safely close m.out and wait for
+		// writeLoop to finish.
+		m.reading.Wait()
+		close(m.out)
+		m.writing.Wait()
+	}()
+
+	m.reading.Add(1)
+	go m.readLoop()
+
+	m.writing.Add(1)
+	go m.writeLoop()
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-fullRes.CloseNotify():
+		m.cancel()
+		return
+	case <-s.stopping:
+		// Communicator is shutting down.
+		m.cancel()
+		return
+	}
+}
+
+func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, error) {
+	ctx, fin := context.WithTimeout(ctx, time.Minute)
+
+	pi := stats.PollInfo{
+		CTX:    ctx,
+		Start:  db.Now(),
+		Status: http.StatusTeapot, // Should never actually be returned
+	}
+	defer func() {
+		fin()
+		if pi.Status == http.StatusTeapot {
+			log.Errorf("Forgot to set status, PollInfo: %v", pi)
+		}
+		pi.End = db.Now()
+		s.fs.StatsCollector().ClientPoll(pi)
+	}()
+
+	makeError := func(msg string, status int) error {
+		log.ErrorDepth(1, fmt.Sprintf("%s: %s", http.StatusText(status), msg))
+		pi.Status = status
+		return errors.New(msg)
+	}
+
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("unable to create client id from public key: %v", err), http.StatusBadRequest)
+	}
+	pi.ID = id
+
+	m, err := readUint32(body)
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("error reading magic number: %v", err), http.StatusBadRequest)
+	}
+	if m != magic {
+		return nil, makeError(fmt.Sprintf("unknown magic number: got %x, expected %x", m, magic), http.StatusBadRequest)
+	}
+
+	st := time.Now()
+	size, err := binary.ReadUvarint(body)
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("error reading size: %v", err), http.StatusBadRequest)
+	}
+	if size > MaxContactSize {
+		return nil, makeError(fmt.Sprintf("initial contact size too large: got %d, expected less than %d", size, MaxContactSize), http.StatusBadRequest)
+	}
+
+	buf := make([]byte, size)
+	_, err = io.ReadFull(body, buf)
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("error reading body for initial exchange: %v", err), http.StatusBadRequest)
+	}
+	pi.ReadTime = time.Since(st)
+	pi.ReadBytes = int(size)
+
+	var wcd fspb.WrappedContactData
+	if err = proto.Unmarshal(buf, &wcd); err != nil {
+		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
+	}
+
+	info, toSend, err := s.fs.InitializeConnection(ctx, addr, key, &wcd)
+	if err == comms.ErrNotAuthorized {
+		return nil, makeError("not authorized", http.StatusServiceUnavailable)
+	}
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("error processing contact: %v", err), http.StatusInternalServerError)
+	}
+	pi.CacheHit = info.Client.Cached
+
+	out := proto.NewBuffer(make([]byte, 0, 1024))
+	// EncodeMessage prepends the size as a Varint.
+	if err := out.EncodeMessage(toSend); err != nil {
+		return nil, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
+	}
+	st = time.Now()
+	sz, err := res.Write(out.Bytes())
+	if err != nil {
+		return nil, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
+	}
+	res.Flush()
+
+	pi.WriteTime = time.Since(st)
+	pi.End = time.Now()
+	pi.WriteBytes = sz
+	pi.Status = http.StatusOK
+	return info, nil
+}
+
+type streamManager struct {
+	ctx context.Context
+	s   streamingMessageServer
+
+	info *comms.ConnectionInfo
+	res  fullResponseWriter
+	body *bufio.Reader
+
+	// The read- and writeLoop will wait for these. Separate because readloop
+	// needs to finish before writeLoop.
+	reading sync.WaitGroup
+	writing sync.WaitGroup
+
+	out chan *fspb.ContactData
+
+	cancel func() // Shuts down the stream when called.
+}
+
+func (m *streamManager) readLoop() {
+	defer m.reading.Done()
+	defer m.cancel()
+
+	cnt := uint64(0)
+
+	for {
+		pi, err := m.readOne()
+		if err != nil {
+			// If the context has been canceled, it is probably a 'normal' termination
+			// - disconnect, max connection durating, etc. But if it is still active,
+			// we are going to tear down everything because of an unexpected read
+			// error and should log/record why.
+			if m.ctx.Err() == nil && pi != nil {
+				m.s.fs.StatsCollector().ClientPoll(*pi)
+				log.Errorf("Streaming Connection to %v terminated with error: %v", m.info.Client.ID, err)
+			}
+			return
+		}
+		m.s.fs.StatsCollector().ClientPoll(*pi)
+		cnt += 1
+		m.out <- &fspb.ContactData{AckIndex: cnt}
+	}
+}
+
+func (m *streamManager) readOne() (*stats.PollInfo, error) {
+	size, err := binary.ReadUvarint(m.body)
+	if err != nil {
+		return nil, err
+	}
+	if size > MaxContactSize {
+		return nil, fmt.Errorf("streaming contact size too large: got %d, expected less than %d", size, MaxContactSize)
+	}
+
+	pi := stats.PollInfo{
+		CTX:      m.ctx,
+		ID:       m.info.Client.ID,
+		Start:    db.Now(),
+		Status:   http.StatusTeapot,
+		CacheHit: true,
+	}
+	defer func() {
+		if pi.Status == http.StatusTeapot {
+			log.Errorf("Forgot to set status.")
+		}
+		pi.End = db.Now()
+	}()
+	buf := make([]byte, size)
+	if _, err := io.ReadFull(m.body, buf); err != nil {
+		return &pi, fmt.Errorf("Error reading streamed data: %v", err)
+	}
+	pi.ReadTime = time.Since(pi.Start)
+	pi.ReadBytes = int(size)
+
+	var wcd fspb.WrappedContactData
+	if err = proto.Unmarshal(buf, &wcd); err != nil {
+		pi.Status = http.StatusBadRequest
+		return &pi, fmt.Errorf("Error parsing streamed data: %v", err)
+	}
+	if err := m.s.fs.HandleMessagesFromClient(m.ctx, m.info, &wcd); err != nil {
+		if err == comms.ErrNotAuthorized {
+			pi.Status = http.StatusServiceUnavailable
+		} else {
+			pi.Status = http.StatusInternalServerError
+			err = fmt.Errorf("Error processing streamed messages: %v", err)
+		}
+		return &pi, err
+	}
+
+	return &pi, nil
+}
+
+func (m *streamManager) writeLoop() {
+	defer m.writing.Done()
+	defer func() {
+		for range m.out {
+		}
+	}()
+
+	for {
+		select {
+		case cd := <-m.out:
+			pi, err := m.writeOne(cd)
+			if err != nil {
+				if m.ctx.Err() != nil {
+					log.Errorf("Error sending ContactData to client [%v]: %v", m.info.Client.ID, err)
+					m.cancel()
+					m.s.fs.StatsCollector().ClientPoll(pi)
+				}
+				// ctx was already canceled - more or less normal shutdown, so don't log
+				// as a poll.
+				return
+			}
+			m.s.fs.StatsCollector().ClientPoll(pi)
+		case <-m.ctx.Done():
+			return
+		}
+	}
+}
+
+func (m *streamManager) writeOne(cd *fspb.ContactData) (stats.PollInfo, error) {
+	pi := stats.PollInfo{
+		CTX:      m.ctx,
+		ID:       m.info.Client.ID,
+		Start:    db.Now(),
+		Status:   http.StatusTeapot,
+		CacheHit: true,
+	}
+	defer func() {
+		if pi.Status == http.StatusTeapot {
+			log.Errorf("Forgot to set status.")
+		}
+		pi.End = db.Now()
+	}()
+
+	buf := proto.NewBuffer(make([]byte, 0, 1024))
+	if err := buf.EncodeMessage(cd); err != nil {
+		return pi, err
+	}
+
+	sw := time.Now()
+	s, err := m.res.Write(buf.Bytes())
+	if err != nil {
+		return pi, err
+	}
+	m.res.Flush()
+	pi.WriteTime = time.Since(sw)
+	pi.WriteBytes = s
+	pi.Status = http.StatusOK
+
+	return pi, nil
+}
