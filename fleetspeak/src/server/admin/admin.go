@@ -24,6 +24,8 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -32,7 +34,10 @@ import (
 
 // NewServer returns an admin_grpc.AdminServer which performs operations using
 // the provided db.Store.
-func NewServer(s db.Store) sgrpc.AdminServer {
+func NewServer(s db.Store, n notifications.Notifier) sgrpc.AdminServer {
+	if n == nil {
+		n = internal.NoopNotifier{}
+	}
 	return adminServer{s}
 }
 

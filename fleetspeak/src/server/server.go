@@ -25,9 +25,11 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/broadcasts"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
@@ -42,6 +44,12 @@ type Components struct {
 	Communicators    []comms.Communicator       // Required to communicate with clients.
 	Stats            stats.Collector            // If set, will be notified about interesting events.
 	Authorizer       authorizer.Authorizer      // If set, will control and validate contacts from clients.
+
+	// If set, these will be used by Fleetspeak servers to pass simple
+	// notifications between themselves. Currently only important when using
+	// streaming connections with multiple servers.
+	Notifier notifications.Notifier
+	Listener notifications.Listener
 }
 
 // A Server is an active fleetspeak server instance.
@@ -70,6 +78,12 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	}
 	if sc.Authorizer == nil {
 		sc.Authorizer = authorizer.PermissiveAuthorizer{}
+	}
+	if sc.Notifier == nil {
+		sc.Notifier = internal.NoopNotifier{}
+	}
+	if sc.Listener == nil {
+		sc.Listener = internal.NoopListener{}
 	}
 	s := Server{
 		config:         c,

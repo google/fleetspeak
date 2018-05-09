@@ -93,7 +93,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 	defer server.Stop()
 
 	// Create a FS Admin interface, and start it listening.
-	as := admin.NewServer(ds)
+	as := admin.NewServer(ds, nil)
 	gas := grpc.NewServer()
 	sgrpc.RegisterAdminServer(gas, as)
 	aas, err := net.ResolveTCPAddr("tcp", "localhost:0")

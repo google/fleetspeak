@@ -30,6 +30,7 @@ import (
 	"syscall"
 
 	"flag"
+
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -147,7 +148,7 @@ func serveAdminInterface(fs *server.Server, ds db.Store) *grpc.Server {
 		return nil
 	}
 	gs := grpc.NewServer()
-	as := admin.NewServer(ds)
+	as := admin.NewServer(ds, nil)
 	sgrpc.RegisterAdminServer(gs, as)
 	addr, err := net.ResolveTCPAddr("tcp", *adminAddr)
 	if err != nil {

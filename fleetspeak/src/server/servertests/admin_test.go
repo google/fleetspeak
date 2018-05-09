@@ -39,7 +39,7 @@ func TestBroadcastsAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	bid, err := ids.BytesToBroadcastID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
 	if err != nil {
@@ -75,7 +75,7 @@ func TestMessageStatusAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	// A byte slice representing a message id, with 32 zeros.
 	bmid0 := make([]byte, 32)
@@ -128,7 +128,7 @@ func TestListClientsAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	id0 := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 	cid0, err := common.BytesToClientID(id0)
@@ -211,7 +211,7 @@ func TestInsertMessageAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	m := fspb.Message{
 		MessageId:    mid.Bytes(),
