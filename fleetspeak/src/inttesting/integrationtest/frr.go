@@ -103,6 +103,9 @@ func (c *statsCounter) DatastoreOperation(start, end time.Time, operation string
 func (c *statsCounter) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
+func (c *statsCounter) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+}
+
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
 // and exercises it.
 func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {

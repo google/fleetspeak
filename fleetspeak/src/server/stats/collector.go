@@ -82,4 +82,7 @@ type Collector interface {
 
 	// ResourceUsageDataReceived is called every time a client-resource-usage proto is received.
 	ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo)
+
+	// KillNotificationReceived is called when a kill notification is received from a client.
+	KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification)
 }

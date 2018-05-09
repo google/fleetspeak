@@ -420,7 +420,7 @@ func TestMemoryLimit(t *testing.T) {
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientPY(), "memoryhog", &sc, dspb.Config{
-		MemoryLimit: 1024*1024*10, // 10MB
+		MemoryLimit: 1024 * 1024 * 10, // 10MB
 	})
 	defer func() {
 		if err := s.Stop(); err != nil {
@@ -467,14 +467,15 @@ func TestNoHeartbeats(t *testing.T) {
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientPY(), "freezed", &sc, dspb.Config{
-		MonitorHeartbeats: true,
+		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds: 1,
+		HeartbeatUnresponsiveKillPeriodSeconds:  1,
 	})
 	defer func() {
 		// Drain the channel
 		go func() {
-			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {}
+			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {
+			}
 		}()
 
 		if err := s.Stop(); err != nil {
@@ -482,28 +483,28 @@ func TestNoHeartbeats(t *testing.T) {
 		}
 	}()
 
-	// Get messages until a ResourceUsage message appears.
+	// Get messages until a KillNotification message appears.
 	m := <-sc.OutChan
-	for m.MessageType != "ResourceUsage" {
+	for m.MessageType != "KillNotification" {
 		m = <-sc.OutChan
 	}
 
-	var rud0, rud1 mpb.ResourceUsageData
-	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
-		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+	var kn0, kn1 mpb.KillNotification
+	if err := ptypes.UnmarshalAny(m.Data, &kn0); err != nil {
+		t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 	}
 
-	rud1 = rud0
+	kn1 = kn0
 	// Wait for the process to be restarted.
-	for rud0.Pid == rud1.Pid {
-		// Get messages until a ResourceUsage message appears.
+	for kn0.Pid == kn1.Pid {
+		// Get messages until a KillNotification message appears.
 		m = <-sc.OutChan
-		for m.MessageType != "ResourceUsage" {
+		for m.MessageType != "KillNotification" {
 			m = <-sc.OutChan
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
-			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+		if err := ptypes.UnmarshalAny(m.Data, &kn1); err != nil {
+			t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 		}
 	}
 }
@@ -521,14 +522,15 @@ func TestHeartbeat(t *testing.T) {
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientPY(), "heartbeat", &sc, dspb.Config{
-		MonitorHeartbeats: true,
+		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds: 1,
+		HeartbeatUnresponsiveKillPeriodSeconds:  1,
 	})
 	defer func() {
 		// Drain the channel.
 		go func() {
-			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {}
+			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {
+			}
 		}()
 
 		if err := s.Stop(); err != nil {
