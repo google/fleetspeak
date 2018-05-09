@@ -362,12 +362,10 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool
 	kn := &mpb.KillNotification{
 		Service:          m.scope,
 		Pid:              int64(m.pid),
+		Version:          m.version,
 		ProcessStartTime: m.processStartTime,
 		KilledWhen:       ptypes.TimestampNow(),
 		Reason:           mpb.KillNotification_MEMORY_EXCEEDED,
-	}
-	if m.version != "" {
-		kn.Version = m.version
 	}
 	if err := SendProtoToServer(kn, "KillNotification", m.sc); err != nil {
 		log.Errorf("Failed to send kill notification to server: %v", err)

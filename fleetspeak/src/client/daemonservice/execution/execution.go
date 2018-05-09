@@ -569,7 +569,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				startTime, err := ptypes.TimestampProto(e.StartTime)
 				if err != nil {
 					log.Errorf("Failed to convert process start time: %v", err)
-					return
+					startTime = nil
 				}
 				kn := &mpb.KillNotification{
 					Service:          e.daemonServiceName,
