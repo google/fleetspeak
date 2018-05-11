@@ -32,8 +32,7 @@ type fullResponseWriter interface {
 
 func readUint32(body *bufio.Reader) (uint32, error) {
 	b := make([]byte, 4)
-	_, err := io.ReadAtLeast(body, b, 4)
-	if err != nil {
+	if _, err := io.ReadAtLeast(body, b, 4); err != nil {
 		return 0, err
 	}
 	return binary.LittleEndian.Uint32(b), nil
@@ -195,7 +194,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 		return nil, makeError(fmt.Sprintf("error reading size: %v", err), http.StatusBadRequest)
 	}
 	if size > MaxContactSize {
-		return nil, makeError(fmt.Sprintf("initial contact size too large: got %d, expected less than %d", size, MaxContactSize), http.StatusBadRequest)
+		return nil, makeError(fmt.Sprintf("initial contact size too large: got %d, expected at most %d", size, MaxContactSize), http.StatusBadRequest)
 	}
 
 	buf := make([]byte, size)
@@ -288,7 +287,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		return nil, err
 	}
 	if size > MaxContactSize {
-		return nil, fmt.Errorf("streaming contact size too large: got %d, expected less than %d", size, MaxContactSize)
+		return nil, fmt.Errorf("streaming contact size too large: got %d, expected at most %d", size, MaxContactSize)
 	}
 
 	pi := stats.PollInfo{
@@ -306,7 +305,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	}()
 	buf := make([]byte, size)
 	if _, err := io.ReadFull(m.body, buf); err != nil {
-		return &pi, fmt.Errorf("Error reading streamed data: %v", err)
+		return &pi, fmt.Errorf("error reading streamed data: %v", err)
 	}
 	pi.ReadTime = time.Since(pi.Start)
 	pi.ReadBytes = int(size)
@@ -314,14 +313,14 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	var wcd fspb.WrappedContactData
 	if err = proto.Unmarshal(buf, &wcd); err != nil {
 		pi.Status = http.StatusBadRequest
-		return &pi, fmt.Errorf("Error parsing streamed data: %v", err)
+		return &pi, fmt.Errorf("error parsing streamed data: %v", err)
 	}
 	if err := m.s.fs.HandleMessagesFromClient(m.ctx, m.info, &wcd); err != nil {
 		if err == comms.ErrNotAuthorized {
 			pi.Status = http.StatusServiceUnavailable
 		} else {
 			pi.Status = http.StatusInternalServerError
-			err = fmt.Errorf("Error processing streamed messages: %v", err)
+			err = fmt.Errorf("error processing streamed messages: %v", err)
 		}
 		return &pi, err
 	}
