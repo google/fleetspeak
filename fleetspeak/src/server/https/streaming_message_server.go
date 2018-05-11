@@ -1,3 +1,17 @@
+// Copyright 2018 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package https
 
 import (
@@ -99,6 +113,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	// Also create a way to terminate early in case of error.
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	info, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
 	if err != nil || info == nil {
@@ -140,14 +155,9 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	select {
 	case <-ctx.Done():
-		return
 	case <-fullRes.CloseNotify():
-		m.cancel()
-		return
 	case <-s.stopping:
 		// Communicator is shutting down.
-		m.cancel()
-		return
 	}
 }
 
@@ -276,7 +286,7 @@ func (m *streamManager) readLoop() {
 			return
 		}
 		m.s.fs.StatsCollector().ClientPoll(*pi)
-		cnt += 1
+		cnt++
 		m.out <- &fspb.ContactData{AckIndex: cnt}
 	}
 }
