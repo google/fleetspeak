@@ -55,6 +55,8 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	// Return value map, maps string client ids to the return values.
 	var retm map[string]*spb.Client
 
+	// Step one - read data from client rows. Applied to the result of one or more
+	// queries, depending on the ids parameter.
 	h := func(rows *sql.Rows, err error) error {
 		if err != nil {
 			return err
@@ -103,6 +105,26 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		return rows.Err()
 	}
 
+	// Step two - applied to result of one or more queries reading client labels.
+	j := func(rows *sql.Rows, err error) error {
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var id []byte
+			l := &fspb.Label{}
+			if err := rows.Scan(&id, &l.ServiceName, &l.Label); err != nil {
+				return err
+			}
+
+			retm[string(id)].Labels = append(retm[string(id)].Labels, l)
+		}
+		return nil
+	}
+
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		retm = make(map[string]*spb.Client)
 		if len(ids) == 0 {
@@ -120,21 +142,16 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		// Match all the labels in the database with the client ids noted in the
 		// previous step. Note that clients.client_id is a foreign key of
 		// client_labels.
-		labRows, err := tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels")
-		if err != nil {
-			return err
-		}
-
-		defer labRows.Close()
-
-		for labRows.Next() {
-			var id []byte
-			l := &fspb.Label{}
-			if err := labRows.Scan(&id, &l.ServiceName, &l.Label); err != nil {
+		if len(ids) == 0 {
+			if err := j(tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels")); err != nil {
 				return err
 			}
-
-			retm[string(id)].Labels = append(retm[string(id)].Labels, l)
+		} else {
+			for _, id := range ids {
+				if err := j(tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels WHERE client_id = ?", id.String())); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	})

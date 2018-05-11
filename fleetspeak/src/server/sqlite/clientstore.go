@@ -97,6 +97,24 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		return rows.Err()
 	}
 
+	j := func(rows *sql.Rows, err error) error {
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var sid string
+			l := &fspb.Label{}
+			if err := rows.Scan(&sid, &l.ServiceName, &l.Label); err != nil {
+				return err
+			}
+
+			retm[sid].Labels = append(retm[sid].Labels, l)
+		}
+		return nil
+	}
+
 	err := d.runInTx(func(tx *sql.Tx) error {
 		if len(ids) == 0 {
 			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_contact_streaming_to, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
@@ -113,21 +131,16 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 		// Match all the labels in the database with the client ids noted in the
 		// previous step. Note that clients.client_id is a foreign key of
 		// client_labels.
-		labRows, err := tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels")
-		if err != nil {
-			return err
-		}
-
-		defer labRows.Close()
-
-		for labRows.Next() {
-			var sid string
-			l := &fspb.Label{}
-			if err := labRows.Scan(&sid, &l.ServiceName, &l.Label); err != nil {
+		if len(ids) == 0 {
+			if err := j(tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels")); err != nil {
 				return err
 			}
-
-			retm[sid].Labels = append(retm[sid].Labels, l)
+		} else {
+			for _, id := range ids {
+				if err := j(tx.QueryContext(ctx, "SELECT client_id, service_name, label FROM client_labels WHERE client_id = ?", id.String())); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	})
