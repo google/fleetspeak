@@ -119,6 +119,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	if err != nil || info == nil {
 		return
 	}
+	defer info.Fin()
 
 	m := streamManager{
 		ctx:  ctx,
@@ -126,6 +127,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		info: info,
 		res:  fullRes,
 		body: body,
+		out:  make(chan *fspb.ContactData, 5),
 
 		cancel: cancel,
 	}
@@ -147,8 +149,9 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		m.writing.Wait()
 	}()
 
-	m.reading.Add(1)
+	m.reading.Add(2)
 	go m.readLoop()
+	go m.notifyLoop()
 
 	m.writing.Add(1)
 	go m.writeLoop()
@@ -232,11 +235,13 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	out := proto.NewBuffer(make([]byte, 0, 1024))
 	// EncodeMessage prepends the size as a Varint.
 	if err := out.EncodeMessage(toSend); err != nil {
+		info.Fin()
 		return nil, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
 	}
 	st = time.Now()
 	sz, err := res.Write(out.Bytes())
 	if err != nil {
+		info.Fin()
 		return nil, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
 	}
 	res.Flush()
@@ -336,6 +341,20 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	}
 
 	return &pi, nil
+}
+
+func (m *streamManager) notifyLoop() {
+	defer m.reading.Done()
+
+	for _ = range m.info.Notices {
+		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
+		if err != nil {
+			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
+		}
+		if len(cd.Messages) > 0 {
+			m.out <- cd
+		}
+	}
 }
 
 func (m *streamManager) writeLoop() {

@@ -56,6 +56,10 @@ type ConnectionInfo struct {
 	ContactID                db.ContactID
 	NonceSent, NonceReceived uint64
 	AuthClientInfo           authorizer.ClientInfo
+
+	// These are only set for streaming connections.
+	Notices <-chan struct{} // publishes when there may be a new message for the client
+	Fin     func()          // should be called to indicate that the streaming connection is closed.
 }
 
 // ErrNotAuthorized is returned by certain methods to indicate that the client

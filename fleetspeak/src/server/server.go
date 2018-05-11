@@ -67,6 +67,7 @@ type Server struct {
 	clientCache      *cache.Clients
 	notifier         notifications.Notifier
 	listener         notifications.Listener
+	dispatcher       *inotifications.Dispatcher
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -98,6 +99,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		clientCache:    cache.NewClients(),
 		notifier:       sc.Notifier,
 		listener:       sc.Listener,
+		dispatcher:     inotifications.NewDispatcher(),
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
@@ -164,6 +166,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) processClientNotifications(c <-chan common.ClientID) {
-	for _ = range c {
+	for id := range c {
+		s.dispatcher.Dispatch(id)
 	}
 }
