@@ -79,7 +79,7 @@ func (l listener) Accept() (net.Conn, error) {
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
 // itself using certFile and keyFile.
-func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
+func NewCommunicator(l net.Listener, cert, key []byte, streaming bool) (*Communicator, error) {
 	mux := http.NewServeMux()
 	c, err := tls.X509KeyPair(cert, key)
 	if err != nil {
@@ -114,7 +114,9 @@ func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
 		stopping: make(chan struct{}),
 	}
 	mux.Handle("/message", messageServer{&h})
-	mux.Handle("/streaming-message", streamingMessageServer{&h})
+	if streaming {
+		mux.Handle("/streaming-message", streamingMessageServer{&h})
+	}
 	mux.Handle("/files/", fileServer{&h})
 
 	switch l := l.(type) {

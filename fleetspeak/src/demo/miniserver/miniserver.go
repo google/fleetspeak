@@ -136,7 +136,7 @@ func initCommunicator() (comms.Communicator, net.Addr) {
 	if err != nil {
 		log.Exitf("Unable to listen on [%v]: %v", addr, err)
 	}
-	com, err := https.NewCommunicator(l, cert, key)
+	com, err := https.NewCommunicator(l, cert, key, false)
 	if err != nil {
 		log.Exitf("Unable to initialize https communications: %v", err)
 	}
