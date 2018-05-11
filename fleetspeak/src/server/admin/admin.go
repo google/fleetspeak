@@ -19,11 +19,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	"context"
 
+	log "github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -32,13 +37,20 @@ import (
 
 // NewServer returns an admin_grpc.AdminServer which performs operations using
 // the provided db.Store.
-func NewServer(s db.Store) sgrpc.AdminServer {
-	return adminServer{s}
+func NewServer(s db.Store, n notifications.Notifier) sgrpc.AdminServer {
+	if n == nil {
+		n = internal.NoopNotifier{}
+	}
+	return adminServer{
+		store:    s,
+		notifier: n,
+	}
 }
 
 // adminServer implements admin_grpc.AdminServer.
 type adminServer struct {
-	store db.Store
+	store    db.Store
+	notifier notifications.Notifier
 }
 
 func (s adminServer) CreateBroadcast(ctx context.Context, req *spb.CreateBroadcastRequest) (*fspb.EmptyMessage, error) {
@@ -139,9 +151,49 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	if m.CreationTime == nil {
 		m.CreationTime = db.NowProto()
 	}
+
+	// If the message is to a client, we'll want to notify any server that it is
+	// connected to. Gather the data for this now, doing the validation implicit
+	// in this before saving the message.
+	var cid common.ClientID
+	var st string
+	var lc time.Time
+	if m.Destination.ClientId != nil {
+		var err error
+		cid, err := common.BytesToClientID(m.Destination.ClientId)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing destination.client_id (%x): %v", m.Destination.ClientId, err)
+		}
+		cls, err := s.store.ListClients(ctx, []common.ClientID{cid})
+		if err != nil {
+			return nil, fmt.Errorf("error listing destination client (%x): %v", m.Destination.ClientId, err)
+		}
+		if len(cls) != 1 {
+			return nil, fmt.Errorf("expected 1 destination client result, got %d", len(cls))
+		}
+		st = cls[0].LastContactStreamingTo
+		if cls[0].LastContactTime != nil {
+			lc, err = ptypes.Timestamp(cls[0].LastContactTime)
+			if err != nil {
+				log.Errorf("Failed to convert last contact time from database: %v", err)
+				lc = time.Time{}
+			}
+		}
+	}
+
 	if err := s.store.StoreMessages(ctx, []*fspb.Message{m}, ""); err != nil {
 		return nil, err
 	}
+
+	// Notify the most recent connection to the client. Don't fail the RPC if we
+	// have trouble though, as we do have the message and it should get there
+	// eventually.
+	if st != "" && time.Since(lc) < 10*time.Minute {
+		if err := s.notifier.NewMessageForClient(ctx, st, cid); err != nil {
+			log.Warningf("Failure trying to notify of new message for client (%x): %v", m.Destination.ClientId, err)
+		}
+	}
+
 	return &fspb.EmptyMessage{}, nil
 }
 

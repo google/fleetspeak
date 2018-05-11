@@ -38,6 +38,7 @@ type Communicator struct {
 	hs          http.Server
 	l           net.Listener
 	fs          comms.Context
+	stopping    chan struct{}
 	running     bool
 	runningLock sync.RWMutex
 	pending     sync.WaitGroup
@@ -78,7 +79,7 @@ func (l listener) Accept() (net.Conn, error) {
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
 // itself using certFile and keyFile.
-func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
+func NewCommunicator(l net.Listener, cert, key []byte, streaming bool) (*Communicator, error) {
 	mux := http.NewServeMux()
 	c, err := tls.X509KeyPair(cert, key)
 	if err != nil {
@@ -110,8 +111,12 @@ func NewCommunicator(l net.Listener, cert, key []byte) (*Communicator, error) {
 			WriteTimeout:      5 * time.Minute,
 			IdleTimeout:       30 * time.Second,
 		},
+		stopping: make(chan struct{}),
 	}
 	mux.Handle("/message", messageServer{&h})
+	if streaming {
+		mux.Handle("/streaming-message", streamingMessageServer{&h})
+	}
 	mux.Handle("/files/", fileServer{&h})
 
 	switch l := l.(type) {
@@ -153,6 +158,7 @@ func (c *Communicator) Stop() {
 	c.runningLock.Lock()
 	c.running = false
 	c.runningLock.Unlock()
+	close(c.stopping)
 	c.pending.Wait()
 }
 

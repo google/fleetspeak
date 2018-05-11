@@ -22,12 +22,15 @@ import (
 
 	log "github.com/golang/glog"
 
+	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/broadcasts"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
@@ -42,6 +45,12 @@ type Components struct {
 	Communicators    []comms.Communicator       // Required to communicate with clients.
 	Stats            stats.Collector            // If set, will be notified about interesting events.
 	Authorizer       authorizer.Authorizer      // If set, will control and validate contacts from clients.
+
+	// If set, these will be used by Fleetspeak servers to pass simple
+	// notifications between themselves. Currently only important when using
+	// streaming connections with multiple servers.
+	Notifier notifications.Notifier
+	Listener notifications.Listener
 }
 
 // A Server is an active fleetspeak server instance.
@@ -56,6 +65,8 @@ type Server struct {
 	statsCollector   stats.Collector
 	authorizer       authorizer.Authorizer
 	clientCache      *cache.Clients
+	notifier         notifications.Notifier
+	listener         notifications.Listener
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -71,6 +82,12 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	if sc.Authorizer == nil {
 		sc.Authorizer = authorizer.PermissiveAuthorizer{}
 	}
+	if sc.Notifier == nil {
+		sc.Notifier = internal.NoopNotifier{}
+	}
+	if sc.Listener == nil {
+		sc.Listener = &internal.NoopListener{}
+	}
 	s := Server{
 		config:         c,
 		dataStore:      sc.Datastore,
@@ -79,9 +96,17 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		statsCollector: sc.Stats,
 		authorizer:     sc.Authorizer,
 		clientCache:    cache.NewClients(),
+		notifier:       sc.Notifier,
+		listener:       sc.Listener,
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
+
+	cn, err := s.listener.Start()
+	if err != nil {
+		return nil, err
+	}
+	go s.processClientNotifications(cn)
 
 	for _, pc := range c.Services {
 		if err := s.serviceConfig.Install(pc); err != nil {
@@ -125,6 +150,7 @@ func (s *Server) Stop() {
 	for _, c := range s.comms {
 		c.Stop()
 	}
+	s.listener.Stop()
 	close(s.done)
 	s.processing.Wait()
 	s.serviceConfig.Stop()
@@ -135,4 +161,9 @@ func (s *Server) Stop() {
 		log.Errorf("Error closing datastore: %v", err)
 	}
 	s.clientCache.Stop()
+}
+
+func (s *Server) processClientNotifications(c <-chan common.ClientID) {
+	for _ = range c {
+	}
 }

@@ -112,6 +112,7 @@ func (s Server) AddClient() (crypto.PublicKey, error) {
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 		k.Public(),
 		&fspb.WrappedContactData{},
+		false,
 	); err != nil {
 		return nil, err
 	}
@@ -158,7 +159,8 @@ func (s Server) SimulateContactFromClient(ctx context.Context, key crypto.Public
 		ctx,
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 		key,
-		&fspb.WrappedContactData{ContactData: cdb})
+		&fspb.WrappedContactData{ContactData: cdb},
+		false)
 	if err != nil {
 		return nil, err
 	}

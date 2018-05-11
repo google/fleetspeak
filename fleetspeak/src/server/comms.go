@@ -55,7 +55,7 @@ func randUint64() uint64 {
 	return binary.LittleEndian.Uint64(b)
 }
 
-func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*comms.ConnectionInfo, *fspb.ContactData, error) {
+func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (*comms.ConnectionInfo, *fspb.ContactData, error) {
 	id, err := common.MakeClientID(key)
 	if err != nil {
 		return nil, nil, err
@@ -133,6 +133,10 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	res.NonceReceived = cd.SequencingNonce
 	toSend := fspb.ContactData{SequencingNonce: randUint64()}
 	res.NonceSent = toSend.SequencingNonce
+	var streamingTo string
+	if streaming {
+		streamingTo = c.s.listener.Address()
+	}
 	res.ContactID, err = c.s.dataStore.RecordClientContact(ctx,
 		db.ContactData{
 			ClientID:      id,
@@ -140,6 +144,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 			NonceReceived: cd.SequencingNonce,
 			Addr:          addr.String(),
 			ClientClock:   cd.ClientClock,
+			StreamingTo:   streamingTo,
 		})
 	if err != nil {
 		return nil, nil, err

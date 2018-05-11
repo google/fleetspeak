@@ -127,6 +127,9 @@ message ContactData {
   // Records the client's current time setting, as of the creation of this
   // ContactData. Only set by the client.
    google.protobuf.Timestamp client_clock = 3;
+
+  // If set, used to acknowledge receipt of a streamed WrappedContactData.
+  uint64 ack_index = 4;
 }
 
 // An empty message, typically used as a trivial RPC response.

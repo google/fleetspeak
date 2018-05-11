@@ -158,7 +158,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	addr := addrFromString(req.RemoteAddr)
 
-	info, toSend, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd)
+	info, toSend, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd, false)
 	if err == comms.ErrNotAuthorized {
 		pi.Status = http.StatusServiceUnavailable
 		http.Error(res, "not authorized", pi.Status)

@@ -39,7 +39,7 @@ func TestBroadcastsAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	bid, err := ids.BytesToBroadcastID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
 	if err != nil {
@@ -75,7 +75,7 @@ func TestMessageStatusAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	// A byte slice representing a message id, with 32 zeros.
 	bmid0 := make([]byte, 32)
@@ -128,7 +128,7 @@ func TestListClientsAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	as := admin.NewServer(ts.DS, nil)
 
 	id0 := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 	cid0, err := common.BytesToClientID(id0)
@@ -198,10 +198,6 @@ func TestListClientsAPI(t *testing.T) {
 }
 
 func TestInsertMessageAPI(t *testing.T) {
-	id, err := common.StringToClientID("0000000000000042")
-	if err != nil {
-		t.Fatalf("Unable to create client id: %v", err)
-	}
 	mid, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatalf("Unable to create message id: %v", err)
@@ -211,7 +207,16 @@ func TestInsertMessageAPI(t *testing.T) {
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
 
-	as := admin.NewServer(ts.DS)
+	key, err := ts.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
+
+	as := admin.NewServer(ts.DS, nil)
 
 	m := fspb.Message{
 		MessageId:    mid.Bytes(),

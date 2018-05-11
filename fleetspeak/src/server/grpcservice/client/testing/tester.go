@@ -148,7 +148,7 @@ func main() {
 
 func serveAdminInterface(fs *server.Server, ds db.Store) *grpc.Server {
 	gs := grpc.NewServer()
-	as := admin.NewServer(ds)
+	as := admin.NewServer(ds, nil)
 	sgrpc.RegisterAdminServer(gs, as)
 	addr, err := net.ResolveTCPAddr("tcp", *adminAddr)
 	if err != nil {
