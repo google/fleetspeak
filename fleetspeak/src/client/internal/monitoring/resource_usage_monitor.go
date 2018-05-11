@@ -303,15 +303,9 @@ func (m *ResourceUsageMonitor) Run() {
 				continue
 			}
 
-			if m.memoryLimit > 0 {
-				if currRU.ResidentMemory > m.memoryLimit {
-					// m.scope is the service name here.
-					log.Warningf("Memory limit (%d bytes) exceeded for %s; pid %d, killing.", m.memoryLimit, m.scope, m.pid)
-					p := os.Process{Pid: m.pid}
-					if err := p.Kill(); err != nil {
-						log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.memoryLimit, m.scope, m.pid, err)
-					}
-				}
+			if !m.enforceMemoryLimit(currRU.ResidentMemory) {
+				resetSamples()
+				continue
 			}
 
 			var ss int
@@ -331,6 +325,7 @@ func (m *ResourceUsageMonitor) Run() {
 			prevRU = currRU
 			numSamplesCollected++
 
+			// Sample size reached.
 			if numSamplesCollected == ss {
 				debugStatus, err := m.ruf.DebugStatusForPID(m.pid)
 				if err != nil {
@@ -345,14 +340,42 @@ func (m *ResourceUsageMonitor) Run() {
 					ResourceUsage:    &aggRU,
 					DebugStatus:      debugStatus,
 				}
-				if err := SendResourceUsage(rud, m.sc); err != nil {
+				if err := SendProtoToServer(rud, "ResourceUsage", m.sc); err != nil {
 					m.errorf("failed to send resource-usage data to the server: %v", err)
-					continue
 				}
 				resetSamples()
 			}
 		}
 	}
+}
+
+// enforceMemoryLimit kills the monitored process if the given memory usage exceeds the configured limit.
+// A boolean is returned, which is true if the memory usage is below the limit.
+func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool {
+	if m.memoryLimit <= 0 || currResidentMemory < m.memoryLimit {
+		return true
+	}
+	// m.scope is the service name here.
+	log.Warningf("Memory limit (%d bytes) exceeded for %s; pid %d, killing.", m.memoryLimit, m.scope, m.pid)
+
+	// Send notification to server before killing the process (which could be the Fleetspeak process).
+	kn := &mpb.KillNotification{
+		Service:          m.scope,
+		Pid:              int64(m.pid),
+		Version:          m.version,
+		ProcessStartTime: m.processStartTime,
+		KilledWhen:       ptypes.TimestampNow(),
+		Reason:           mpb.KillNotification_MEMORY_EXCEEDED,
+	}
+	if err := SendProtoToServer(kn, "KillNotification", m.sc); err != nil {
+		log.Errorf("Failed to send kill notification to server: %v", err)
+	}
+
+	process := os.Process{Pid: m.pid}
+	if err := process.Kill(); err != nil {
+		log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.memoryLimit, m.scope, m.pid, err)
+	}
+	return false
 }
 
 func (m *ResourceUsageMonitor) errorf(format string, a ...interface{}) {
@@ -364,9 +387,9 @@ func (m *ResourceUsageMonitor) errorf(format string, a ...interface{}) {
 	}
 }
 
-// SendResourceUsage packages up resource-usage data and sends it to the server.
-func SendResourceUsage(rud *mpb.ResourceUsageData, sc service.Context) error {
-	d, err := ptypes.MarshalAny(rud)
+// SendProtoToServer wraps a proto in a fspb.Message and sends it to the server.
+func SendProtoToServer(pb proto.Message, msgType string, sc service.Context) error {
+	d, err := ptypes.MarshalAny(pb)
 	if err != nil {
 		return err
 	}
@@ -375,7 +398,7 @@ func SendResourceUsage(rud *mpb.ResourceUsageData, sc service.Context) error {
 	return sc.Send(ctx, service.AckMessage{
 		M: &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "system"},
-			MessageType: "ResourceUsage",
+			MessageType: msgType,
 			Data:        d,
 			Priority:    fspb.Message_LOW,
 			Background:  true,

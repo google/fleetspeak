@@ -56,6 +56,9 @@ func (s noopStatsCollector) DatastoreOperation(start, end time.Time, operation s
 func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
+func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+}
+
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
 // datastore operations.
 type MonitoredDatastore struct {

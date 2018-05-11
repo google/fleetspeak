@@ -19,9 +19,11 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+	"golang.org/x/time/rate"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -37,6 +39,9 @@ import (
 const (
 	clientServiceName = "client"
 )
+
+// Allow spot-checking of clients that send kill-notifications, but avoid logspam (at most one entry every 15 minutes).
+var killNotificationLogLimiter = rate.NewLimiter(rate.Every(15*time.Minute), 1)
 
 // A systemService contains references to all the components we need to
 // operate. It is populated directly by MakeServer as a special case, as the
@@ -81,6 +86,8 @@ func (s *systemService) ProcessMessage(ctx context.Context, m *fspb.Message) err
 		return s.processClientInfo(ctx, cid, m.Data)
 	case "ResourceUsage":
 		return s.processResourceUsage(ctx, cid, m.Data, m.ValidationInfo)
+	case "KillNotification":
+		return s.processKillNotification(ctx, cid, m.Data)
 	default:
 	}
 
@@ -246,5 +253,24 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 		err = fmt.Errorf("failed to write resource-usage data: %v", err)
 		return err
 	}
+	return nil
+}
+
+// processKillNotification handles kill-notifications sent by clients.
+func (s *systemService) processKillNotification(ctx context.Context, cid common.ClientID, d *apb.Any) error {
+	var kn mpb.KillNotification
+	if err := ptypes.UnmarshalAny(d, &kn); err != nil {
+		return fmt.Errorf("unable to unmarshal KillNotification: %v", err)
+	}
+
+	if killNotificationLogLimiter.Allow() {
+		log.Warningf("Received kill notification from %s: [service: %s, reason: %s]", cid, kn.Service, kn.Reason)
+	}
+
+	cd, err := s.sctx.GetClientData(ctx, cid)
+	if err != nil {
+		log.Errorf("Failed to get client data for %v: %v", cid, err)
+	}
+	s.stats.KillNotificationReceived(cd, kn)
 	return nil
 }

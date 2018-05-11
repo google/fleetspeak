@@ -21,7 +21,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -67,7 +67,7 @@ func (s *serv) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 		return err
 	}
 
-	clientDir := path.Join(s.path, cid.String())
+	clientDir := filepath.Join(s.path, cid.String())
 	if err := os.MkdirAll(clientDir, 0700); err != nil {
 		return err
 	}
@@ -76,7 +76,8 @@ func (s *serv) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	if err != nil {
 		return err
 	}
-	fileName := path.Join(clientDir, t.Format("2006.01.02_15:04:05.000_")+mid.String())
+	// Multi-platform-friendly filename.
+	fileName := filepath.Join(clientDir, t.Format("2006.01.02_150405.000_")+mid.String())
 	return ioutil.WriteFile(fileName, []byte(proto.MarshalTextString(m)), 0700)
 }
 

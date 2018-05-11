@@ -61,6 +61,23 @@ var (
 	startupDataTimeout = 10 * time.Second
 )
 
+type atomicString struct {
+	v atomic.Value
+}
+
+func (s *atomicString) Set(val string) {
+	s.v.Store(val)
+}
+
+func (s *atomicString) Get() *string {
+	stored := s.v.Load()
+	if stored == nil {
+		return nil
+	}
+	ret := stored.(string)
+	return &ret
+}
+
 // An Execution represents a specific execution of a daemonservice.
 type Execution struct {
 	daemonServiceName string
@@ -96,6 +113,7 @@ type Execution struct {
 	heartbeatUnresponsiveGracePeriod time.Duration // How long to wait for initial heartbeat.
 	heartbeatUnresponsiveKillPeriod  time.Duration // How long to wait for subsequent heartbeats.
 	sending                          int32         // Non-zero when we are sending a messaging into FS. atomic access only.
+	serviceVersion                   atomicString  // Version reported by the daemon process.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -199,7 +217,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 				ResourceUsage:     &mpb.AggregatedResourceUsage{},
 				ProcessTerminated: true,
 			}
-			if err := monitoring.SendResourceUsage(rud, ret.sc); err != nil {
+			if err := monitoring.SendProtoToServer(rud, "ResourceUsage", ret.sc); err != nil {
 				log.Errorf("Failed to send final resource-usage proto: %v", err)
 			}
 		}
@@ -420,6 +438,9 @@ func (e *Execution) inRoutine() {
 				if err := ptypes.UnmarshalAny(m.Data, sd); err != nil {
 					log.Warningf("Failed to parse startup data from initial message: %v", err)
 				} else {
+					if sd.Version != "" {
+						e.serviceVersion.Set(sd.Version)
+					}
 					e.startupData <- sd
 				}
 				close(e.startupData) // No more values to send through the channel.
@@ -542,9 +563,32 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod && atomic.LoadInt32(&e.sending) == 0 {
 				// We have not received a heartbeat in a while, kill the child.
 				log.Warningf("No heartbeat received from %s (pid %d), killing.", e.daemonServiceName, pid)
-				p := os.Process{Pid: pid}
-				if err := p.Kill(); err != nil {
+
+				// For consistency with MEMORY_EXCEEDED kills, send a notification before attempting to
+				// kill the process.
+				startTime, err := ptypes.TimestampProto(e.StartTime)
+				if err != nil {
+					log.Errorf("Failed to convert process start time: %v", err)
+					startTime = nil
+				}
+				kn := &mpb.KillNotification{
+					Service:          e.daemonServiceName,
+					Pid:              int64(pid),
+					ProcessStartTime: startTime,
+					KilledWhen:       ptypes.TimestampNow(),
+					Reason:           mpb.KillNotification_HEARTBEAT_FAILURE,
+				}
+				if version := e.serviceVersion.Get(); version != nil {
+					kn.Version = *version
+				}
+				if err := monitoring.SendProtoToServer(kn, "KillNotification", e.sc); err != nil {
+					log.Errorf("Failed to send kill notification to server: %v", err)
+				}
+
+				process := os.Process{Pid: pid}
+				if err := process.Kill(); err != nil {
 					log.Errorf("Error while killing a process that doesn't heartbeat - %s (pid %d): %v", e.daemonServiceName, pid, err)
+					continue // Keep retrying.
 				}
 				return
 			}
