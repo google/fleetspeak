@@ -198,10 +198,6 @@ func TestListClientsAPI(t *testing.T) {
 }
 
 func TestInsertMessageAPI(t *testing.T) {
-	id, err := common.StringToClientID("0000000000000042")
-	if err != nil {
-		t.Fatalf("Unable to create client id: %v", err)
-	}
 	mid, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatalf("Unable to create message id: %v", err)
@@ -210,6 +206,15 @@ func TestInsertMessageAPI(t *testing.T) {
 
 	ts := testserver.Make(t, "server", "AdminServer", nil)
 	defer ts.S.Stop()
+
+	key, err := ts.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
 
 	as := admin.NewServer(ts.DS, nil)
 

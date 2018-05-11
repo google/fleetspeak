@@ -79,7 +79,8 @@ func TestCommsContext(t *testing.T) {
 			ctx,
 			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 			tc.pub,
-			&fspb.WrappedContactData{})
+			&fspb.WrappedContactData{},
+			false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +148,8 @@ func TestCommsContext(t *testing.T) {
 				ctx,
 				&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 				tc.pub,
-				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
+				&fspb.WrappedContactData{ContactData: bcd},
+				false); err != nil {
 				t.Fatal(err)
 			}
 		}

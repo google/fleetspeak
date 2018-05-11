@@ -100,6 +100,7 @@ client_key BLOB,
 blacklisted BOOLEAN NOT NULL,
 last_contact_time INT8 NOT NULL,
 last_contact_address TEXT(64),
+last_contact_streaming_to TEXT(128),
 last_clock_seconds INT8,
 last_clock_nanos INT4)`,
 		`CREATE TABLE IF NOT EXISTS client_labels(

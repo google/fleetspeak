@@ -211,7 +211,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
-	info, toSend, err := s.fs.InitializeConnection(ctx, addr, key, &wcd)
+	info, toSend, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
 	if err == comms.ErrNotAuthorized {
 		return nil, makeError("not authorized", http.StatusServiceUnavailable)
 	}

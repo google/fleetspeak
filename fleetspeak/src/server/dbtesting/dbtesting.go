@@ -579,6 +579,7 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		NonceReceived: 54,
 		Addr:          longAddr,
 		ClientClock:   &tpb.Timestamp{Seconds: 21},
+		StreamingTo:   "fs.servers.somewhere.com",
 	})
 	if err != nil {
 		t.Errorf("unexpected error for RecordClientContact: %v", err)
@@ -645,9 +646,10 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 				Label:       "new label",
 			},
 		},
-		LastContactTime:    &tpb.Timestamp{Seconds: 84},
-		LastContactAddress: longAddr,
-		LastClock:          &tpb.Timestamp{Seconds: 21},
+		LastContactTime:        &tpb.Timestamp{Seconds: 84},
+		LastContactStreamingTo: "fs.servers.somewhere.com",
+		LastContactAddress:     longAddr,
+		LastClock:              &tpb.Timestamp{Seconds: 21},
 	}
 
 	labelSorter{got.Labels}.Sort()

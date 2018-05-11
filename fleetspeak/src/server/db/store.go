@@ -171,6 +171,10 @@ type ContactData struct {
 	NonceSent, NonceReceived uint64          // Nonce sent to the client and received from the client.
 	Addr                     string          // Observed client network address.
 	ClientClock              *tpb.Timestamp  // Client's report of its current clock setting.
+
+	// If non-empty, indicates that the contact is or was a streaming contact to
+	// the listed FS server. (As defined by notifications module being used.)
+	StreamingTo string
 }
 
 // ClientStore provides methods to store and retrieve information about clients.

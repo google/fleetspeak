@@ -31,10 +31,13 @@ message ListClientsResponse {
 }
 
 message Client {
+  // Next unused tag: 8
+
   bytes client_id = 1;
   repeated Label labels = 2;
   google.protobuf.Timestamp last_contact_time = 3;
   string last_contact_address = 4;
+  string last_contact_streaming_to = 7;
   google.protobuf.Timestamp last_clock = 5;
   bool blacklisted = 6;
 }

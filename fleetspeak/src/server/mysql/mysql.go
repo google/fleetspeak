@@ -122,6 +122,7 @@ client_key BLOB,
 blacklisted BOOL NOT NULL,
 last_contact_time BIGINT NOT NULL,
 last_contact_address TEXT(64),
+last_contact_streaming_to TEXT(128),
 last_clock_seconds BIGINT UNSIGNED,
 last_clock_nanos INT UNSIGNED)`,
 		`CREATE TABLE IF NOT EXISTS client_labels(

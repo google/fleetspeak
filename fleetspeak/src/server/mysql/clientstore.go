@@ -65,8 +65,9 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 			var timeNS int64
 			var addr sql.NullString
 			var clockSecs, clockNanos sql.NullInt64
+			var streamTo sql.NullString
 			var blacklisted bool
-			if err := rows.Scan(&id, &timeNS, &addr, &clockSecs, &clockNanos, &blacklisted); err != nil {
+			if err := rows.Scan(&id, &timeNS, &addr, &streamTo, &clockSecs, &clockNanos, &blacklisted); err != nil {
 				return err
 			}
 
@@ -79,6 +80,10 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 				addr.String = ""
 			}
 
+			if !streamTo.Valid {
+				streamTo.String = ""
+			}
+
 			var lastClock *tspb.Timestamp
 			if clockSecs.Valid && clockNanos.Valid {
 				lastClock = &tspb.Timestamp{
@@ -87,11 +92,12 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 				}
 			}
 			retm[string(id)] = &spb.Client{
-				ClientId:           id,
-				LastContactTime:    ts,
-				LastContactAddress: addr.String,
-				LastClock:          lastClock,
-				Blacklisted:        blacklisted,
+				ClientId:               id,
+				LastContactTime:        ts,
+				LastContactAddress:     addr.String,
+				LastContactStreamingTo: streamTo.String,
+				LastClock:              lastClock,
+				Blacklisted:            blacklisted,
 			}
 		}
 		return rows.Err()
@@ -100,12 +106,12 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		retm = make(map[string]*spb.Client)
 		if len(ids) == 0 {
-			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
+			if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_contact_streaming_to, last_clock_seconds, last_clock_nanos, blacklisted FROM clients")); err != nil {
 				return err
 			}
 		} else {
 			for _, id := range ids {
-				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_clock_seconds, last_clock_nanos, blacklisted FROM clients WHERE client_id = ?", id.Bytes())); err != nil {
+				if err := h(tx.QueryContext(ctx, "SELECT client_id, last_contact_time, last_contact_address, last_contact_streaming_to, last_clock_seconds, last_clock_nanos, blacklisted FROM clients WHERE client_id = ?", id.Bytes())); err != nil {
 					return err
 				}
 			}
@@ -229,7 +235,11 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 			lcs.Int64, lcs.Valid = data.ClientClock.Seconds, true
 			lcn.Int64, lcn.Valid = int64(data.ClientClock.Nanos), true
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_address = ?, last_clock_seconds = ?, last_clock_nanos = ? WHERE client_id = ?", n, data.Addr, lcs, lcn, data.ClientID.Bytes()); err != nil {
+		var lcst sql.NullString
+		if data.StreamingTo != "" {
+			lcst.String, lcst.Valid = data.StreamingTo, true
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE clients SET last_contact_time = ?, last_contact_streaming_to = ?, last_contact_address = ?, last_clock_seconds = ?, last_clock_nanos = ? WHERE client_id = ?", n, lcst, data.Addr, lcs, lcn, data.ClientID.Bytes()); err != nil {
 			return err
 		}
 		res = db.ContactID(strconv.FormatUint(uint64(id), 16))

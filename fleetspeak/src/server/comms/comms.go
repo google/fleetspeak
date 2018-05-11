@@ -73,7 +73,7 @@ type Context interface {
 	//
 	// The returned ContactData should be sent back to the client unconditionally,
 	// in order to update the client's de-duplication nonce.
-	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData) (*ConnectionInfo, *fspb.ContactData, error)
+	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (*ConnectionInfo, *fspb.ContactData, error)
 
 	// HandleContactData processes the messages contained in a WrappedContactData
 	// received from the client.  The ConnectionInfo parameter should have been
