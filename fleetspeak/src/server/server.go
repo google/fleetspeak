@@ -26,9 +26,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/broadcasts"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -83,10 +83,10 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		sc.Authorizer = authorizer.PermissiveAuthorizer{}
 	}
 	if sc.Notifier == nil {
-		sc.Notifier = internal.NoopNotifier{}
+		sc.Notifier = inotifications.NoopNotifier{}
 	}
 	if sc.Listener == nil {
-		sc.Listener = &internal.NoopListener{}
+		sc.Listener = &inotifications.NoopListener{}
 	}
 	s := Server{
 		config:         c,
