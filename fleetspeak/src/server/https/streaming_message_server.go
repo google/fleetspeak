@@ -119,7 +119,6 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	if err != nil || info == nil {
 		return
 	}
-	defer info.Fin()
 
 	m := streamManager{
 		ctx:  ctx,
@@ -144,6 +143,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		//
 		// Once the readLoop returns, we can safely close m.out and wait for
 		// writeLoop to finish.
+		info.Fin()
 		m.reading.Wait()
 		close(m.out)
 		m.writing.Wait()
@@ -219,7 +219,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	pi.ReadBytes = int(size)
 
 	var wcd fspb.WrappedContactData
-	if err = proto.Unmarshal(buf, &wcd); err != nil {
+	if err := proto.Unmarshal(buf, &wcd); err != nil {
 		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
