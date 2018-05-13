@@ -21,7 +21,11 @@ import (
 	"sync"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"golang.org/x/time/rate"
 )
+
+// Limit to 50 bulk notification calls per second.
+const bulkNotificationMaxRate = rate.Limit(50.0)
 
 // NoopListener implements notifications.Listener in a trivial way. It can be used
 // as a listener when no listener is actually needed.
@@ -51,18 +55,20 @@ func (n NoopNotifier) NewMessageForClient(ctx context.Context, target string, id
 // A Dispatcher connects dispatches incoming notifications according to the
 // client that they are for.
 type Dispatcher struct {
-	l sync.RWMutex
-	m map[common.ClientID]chan<- struct{}
+	l   sync.RWMutex
+	m   map[common.ClientID]chan<- struct{}
+	lim *rate.Limiter
 }
 
 func NewDispatcher() *Dispatcher {
 	return &Dispatcher{
-		m: make(map[common.ClientID]chan<- struct{}),
+		m:   make(map[common.ClientID]chan<- struct{}),
+		lim: rate.NewLimiter(bulkNotificationMaxRate, 20),
 	}
 }
 
 // Dispatch sends a notification to the most recent registration for id. It is a
-// no-op if there already a notification pending for the id.
+// no-op if there is already a notification pending for the id.
 func (d *Dispatcher) Dispatch(id common.ClientID) {
 	d.l.RLock()
 	defer d.l.RUnlock()
@@ -87,14 +93,14 @@ func (d *Dispatcher) Register(id common.ClientID) (notice <-chan struct{}, fin f
 	// behavior that a notification can be buffered until the connection is ready
 	// to read it, with no real blocking possible of the Dispatch method.
 	ch := make(chan struct{}, 1)
-	d.l.Lock()
-	defer d.l.Unlock()
 
+	d.l.Lock()
 	c, ok := d.m[id]
 	if ok {
 		close(c)
 	}
 	d.m[id] = ch
+	d.l.Unlock()
 
 	return ch, func() {
 		d.l.Lock()
@@ -105,5 +111,24 @@ func (d *Dispatcher) Register(id common.ClientID) (notice <-chan struct{}, fin f
 			close(c)
 			delete(d.m, id)
 		}
+	}
+}
+
+// NotifyAll effectively dispatches to every client currently registered.
+func (d *Dispatcher) NotifyAll(ctx context.Context) {
+	d.l.RLock()
+	ids := make([]common.ClientID, 0, len(d.m))
+	for k, _ := range d.m {
+		ids = append(ids, k)
+	}
+	d.l.RUnlock()
+
+	for _, id := range ids {
+		if err := d.lim.Wait(ctx); err != nil {
+			// We are probably just out of time, trust any remaining clients to notice
+			// eventually, e.g. on reconnect or similar.
+			return
+		}
+		d.Dispatch(id)
 	}
 }

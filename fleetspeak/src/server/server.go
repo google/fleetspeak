@@ -136,7 +136,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		context.Background(),
 		sc.Datastore,
 		time.Duration(c.BroadcastPollTime.Seconds)*time.Second+time.Duration(c.BroadcastPollTime.Nanos)*time.Nanosecond,
-		s.clientCache)
+		s.clientCache, s.dispatcher)
 	if err != nil {
 		return nil, err
 	}
