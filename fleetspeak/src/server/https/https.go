@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package https implements an https-based server Communicator. It is the
+// primary way for clients to communicate with the FS server.
 package https
 
 import (

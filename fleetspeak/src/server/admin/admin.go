@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -39,7 +39,7 @@ import (
 // the provided db.Store.
 func NewServer(s db.Store, n notifications.Notifier) sgrpc.AdminServer {
 	if n == nil {
-		n = internal.NoopNotifier{}
+		n = inotifications.NoopNotifier{}
 	}
 	return adminServer{
 		store:    s,

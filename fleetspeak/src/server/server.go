@@ -26,9 +26,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-	"github.com/google/fleetspeak/fleetspeak/src/server/internal"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/broadcasts"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -67,6 +67,7 @@ type Server struct {
 	clientCache      *cache.Clients
 	notifier         notifications.Notifier
 	listener         notifications.Listener
+	dispatcher       *inotifications.Dispatcher
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -83,10 +84,10 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		sc.Authorizer = authorizer.PermissiveAuthorizer{}
 	}
 	if sc.Notifier == nil {
-		sc.Notifier = internal.NoopNotifier{}
+		sc.Notifier = inotifications.NoopNotifier{}
 	}
 	if sc.Listener == nil {
-		sc.Listener = &internal.NoopListener{}
+		sc.Listener = &inotifications.NoopListener{}
 	}
 	s := Server{
 		config:         c,
@@ -98,6 +99,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		clientCache:    cache.NewClients(),
 		notifier:       sc.Notifier,
 		listener:       sc.Listener,
+		dispatcher:     inotifications.NewDispatcher(),
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
@@ -164,6 +166,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) processClientNotifications(c <-chan common.ClientID) {
-	for _ = range c {
+	for id := range c {
+		s.dispatcher.Dispatch(id)
 	}
 }

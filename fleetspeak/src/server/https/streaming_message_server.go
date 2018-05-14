@@ -1,3 +1,17 @@
+// Copyright 2018 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package https
 
 import (
@@ -99,6 +113,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	// Also create a way to terminate early in case of error.
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	info, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
 	if err != nil || info == nil {
@@ -111,6 +126,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		info: info,
 		res:  fullRes,
 		body: body,
+		out:  make(chan *fspb.ContactData, 5),
 
 		cancel: cancel,
 	}
@@ -127,27 +143,24 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		//
 		// Once the readLoop returns, we can safely close m.out and wait for
 		// writeLoop to finish.
+		info.Fin()
 		m.reading.Wait()
 		close(m.out)
 		m.writing.Wait()
 	}()
 
-	m.reading.Add(1)
+	m.reading.Add(2)
 	go m.readLoop()
+	go m.notifyLoop()
 
 	m.writing.Add(1)
 	go m.writeLoop()
 
 	select {
 	case <-ctx.Done():
-		return
 	case <-fullRes.CloseNotify():
-		m.cancel()
-		return
 	case <-s.stopping:
 		// Communicator is shutting down.
-		m.cancel()
-		return
 	}
 }
 
@@ -206,7 +219,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	pi.ReadBytes = int(size)
 
 	var wcd fspb.WrappedContactData
-	if err = proto.Unmarshal(buf, &wcd); err != nil {
+	if err := proto.Unmarshal(buf, &wcd); err != nil {
 		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
@@ -222,11 +235,13 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	out := proto.NewBuffer(make([]byte, 0, 1024))
 	// EncodeMessage prepends the size as a Varint.
 	if err := out.EncodeMessage(toSend); err != nil {
+		info.Fin()
 		return nil, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
 	}
 	st = time.Now()
 	sz, err := res.Write(out.Bytes())
 	if err != nil {
+		info.Fin()
 		return nil, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
 	}
 	res.Flush()
@@ -276,7 +291,7 @@ func (m *streamManager) readLoop() {
 			return
 		}
 		m.s.fs.StatsCollector().ClientPoll(*pi)
-		cnt += 1
+		cnt++
 		m.out <- &fspb.ContactData{AckIndex: cnt}
 	}
 }
@@ -326,6 +341,20 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	}
 
 	return &pi, nil
+}
+
+func (m *streamManager) notifyLoop() {
+	defer m.reading.Done()
+
+	for _ = range m.info.Notices {
+		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
+		if err != nil {
+			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
+		}
+		if len(cd.Messages) > 0 {
+			m.out <- cd
+		}
+	}
 }
 
 func (m *streamManager) writeLoop() {

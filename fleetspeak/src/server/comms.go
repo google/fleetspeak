@@ -155,8 +155,16 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		return nil, nil, err
 	}
 
+	// Complete registering for notifications before checking messages.
+	if streaming {
+		res.Notices, res.Fin = c.s.dispatcher.Register(id)
+	}
+
 	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, 100)
 	if err != nil {
+		if res.Fin != nil {
+			res.Fin()
+		}
 		return nil, nil, err
 	}
 
