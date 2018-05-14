@@ -53,8 +53,11 @@ type Manager struct {
 	l            sync.RWMutex // Protects the structure of i.
 	done         chan bool    // Closes to indicate it is time to shut down.
 	basePollWait time.Duration
-	clientCache  *cache.Clients
-	dispatcher   *notifications.Dispatcher
+
+	// These members are used to inform other parts of the system that they might
+	// need to check for broadcast messages.
+	clientCache *cache.Clients
+	dispatcher  *notifications.Dispatcher
 }
 
 // MakeManager creates a Manager, populates it with the

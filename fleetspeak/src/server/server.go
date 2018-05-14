@@ -17,6 +17,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -83,11 +84,13 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	if sc.Authorizer == nil {
 		sc.Authorizer = authorizer.PermissiveAuthorizer{}
 	}
-	if sc.Notifier == nil {
-		sc.Notifier = inotifications.NoopNotifier{}
+	if sc.Listener == nil && sc.Notifier == nil {
+		llc := inotifications.LocalListenerNotifier{}
+		sc.Notifier = &llc
+		sc.Listener = &llc
 	}
-	if sc.Listener == nil {
-		sc.Listener = &inotifications.NoopListener{}
+	if sc.Notifier == nil || sc.Listener == nil {
+		return nil, fmt.Errorf("expected (Listener, Notifier) to be both set, got (%T, %T)", sc.Listener, sc.Notifier)
 	}
 	s := Server{
 		config:         c,
