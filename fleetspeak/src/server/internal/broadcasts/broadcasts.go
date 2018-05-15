@@ -32,6 +32,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -52,19 +53,24 @@ type Manager struct {
 	l            sync.RWMutex // Protects the structure of i.
 	done         chan bool    // Closes to indicate it is time to shut down.
 	basePollWait time.Duration
-	clientCache  *cache.Clients
+
+	// These members are used to inform other parts of the system that they might
+	// need to check for broadcast messages.
+	clientCache *cache.Clients
+	dispatcher  *notifications.Dispatcher
 }
 
 // MakeManager creates a Manager, populates it with the
 // current set of broadcasts, and begins updating the broadcasts in the
 // background, the time between updates is always between pw and 2*pw.
-func MakeManager(ctx context.Context, bs db.BroadcastStore, pw time.Duration, clientCache *cache.Clients) (*Manager, error) {
+func MakeManager(ctx context.Context, bs db.BroadcastStore, pw time.Duration, clientCache *cache.Clients, dispatcher *notifications.Dispatcher) (*Manager, error) {
 	r := &Manager{
 		bs:           bs,
 		infos:        make(map[ids.BroadcastID]*bInfo),
 		done:         make(chan bool),
 		basePollWait: pw,
 		clientCache:  clientCache,
+		dispatcher:   dispatcher,
 	}
 	if err := r.refreshInfo(ctx); err != nil {
 		return nil, err
@@ -280,9 +286,15 @@ func (m *Manager) refreshInfo(ctx context.Context) error {
 	c := m.updateAllocs(curr, newAllocs)
 
 	// If we added any new allocations, then we should recompute broadcasts for
-	// any cached clients.
+	// any cached clients. We also start a process taking up to basePollWait time
+	// to notify already connected clients.
 	if len(newAllocs) > 0 {
 		m.clientCache.Clear()
+		go func() {
+			ctx, fin := context.WithTimeout(context.Background(), m.basePollWait)
+			m.dispatcher.NotifyAll(ctx)
+			fin()
+		}()
 	}
 
 	var errMsgs []string
