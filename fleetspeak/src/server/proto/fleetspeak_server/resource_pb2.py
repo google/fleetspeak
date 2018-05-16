@@ -34,7 +34,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/server/proto/fleetspeak_server/resource.proto',
   package='fleetspeak.server',
   syntax='proto3',
-  serialized_pb=_b('\n<fleetspeak/src/server/proto/fleetspeak_server/resource.proto\x12\x11\x66leetspeak.server\x1a\x1fgoogle/protobuf/timestamp.proto\"\x90\x03\n\x19\x43lientResourceUsageRecord\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0b\n\x03pid\x18\x02 \x01(\x03\x12\x36\n\x12process_start_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10\x63lient_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10server_timestamp\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1a\n\x12mean_user_cpu_rate\x18\x06 \x01(\x02\x12\x19\n\x11max_user_cpu_rate\x18\x07 \x01(\x02\x12\x1c\n\x14mean_system_cpu_rate\x18\x08 \x01(\x02\x12\x1b\n\x13max_system_cpu_rate\x18\t \x01(\x02\x12 \n\x18mean_resident_memory_mib\x18\n \x01(\x05\x12\x1f\n\x17max_resident_memory_mib\x18\x0b \x01(\x05\x62\x06proto3')
+  serialized_pb=_b('\n<fleetspeak/src/server/proto/fleetspeak_server/resource.proto\x12\x11\x66leetspeak.server\x1a\x1fgoogle/protobuf/timestamp.proto\"\xac\x03\n\x19\x43lientResourceUsageRecord\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0b\n\x03pid\x18\x02 \x01(\x03\x12\x36\n\x12process_start_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10\x63lient_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10server_timestamp\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1a\n\x12process_terminated\x18\x0c \x01(\x08\x12\x1a\n\x12mean_user_cpu_rate\x18\x06 \x01(\x02\x12\x19\n\x11max_user_cpu_rate\x18\x07 \x01(\x02\x12\x1c\n\x14mean_system_cpu_rate\x18\x08 \x01(\x02\x12\x1b\n\x13max_system_cpu_rate\x18\t \x01(\x02\x12 \n\x18mean_resident_memory_mib\x18\n \x01(\x05\x12\x1f\n\x17max_resident_memory_mib\x18\x0b \x01(\x05\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -84,42 +84,49 @@ _CLIENTRESOURCEUSAGERECORD = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='mean_user_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_user_cpu_rate', index=5,
+      name='process_terminated', full_name='fleetspeak.server.ClientResourceUsageRecord.process_terminated', index=5,
+      number=12, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='mean_user_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_user_cpu_rate', index=6,
       number=6, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='max_user_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.max_user_cpu_rate', index=6,
+      name='max_user_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.max_user_cpu_rate', index=7,
       number=7, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='mean_system_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_system_cpu_rate', index=7,
+      name='mean_system_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_system_cpu_rate', index=8,
       number=8, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='max_system_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.max_system_cpu_rate', index=8,
+      name='max_system_cpu_rate', full_name='fleetspeak.server.ClientResourceUsageRecord.max_system_cpu_rate', index=9,
       number=9, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='mean_resident_memory_mib', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_resident_memory_mib', index=9,
+      name='mean_resident_memory_mib', full_name='fleetspeak.server.ClientResourceUsageRecord.mean_resident_memory_mib', index=10,
       number=10, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='max_resident_memory_mib', full_name='fleetspeak.server.ClientResourceUsageRecord.max_resident_memory_mib', index=10,
+      name='max_resident_memory_mib', full_name='fleetspeak.server.ClientResourceUsageRecord.max_resident_memory_mib', index=11,
       number=11, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -138,7 +145,7 @@ _CLIENTRESOURCEUSAGERECORD = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=117,
-  serialized_end=517,
+  serialized_end=545,
 )
 
 _CLIENTRESOURCEUSAGERECORD.fields_by_name['process_start_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP

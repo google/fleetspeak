@@ -5,6 +5,7 @@ package fleetspeak.server;
 import "google/protobuf/timestamp.proto";
 
 // Represents client resource-usage data in the data-store.
+// Next id: 13
 message ClientResourceUsageRecord {
   // Name of the client service that resource usage is charged/attributed to
   // e.g 'system' for the system Fleetspeak service, or the name of a daemon
@@ -19,6 +20,10 @@ message ClientResourceUsageRecord {
 
   // When the resource usage record was written to the data-store.
   google.protobuf.Timestamp server_timestamp = 5;
+
+  // If true, indicates that the process has terminated, and that this is
+  // the final resource-usage record for that process.
+  bool process_terminated = 12;
 
   // CPU-usage is in millis per second.
   float mean_user_cpu_rate = 6;

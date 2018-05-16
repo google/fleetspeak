@@ -342,13 +342,14 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	return d.runInTx(func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			id.String(),
 			rud.Scope,
 			rud.Pid,
 			processStartTime.UnixNano(),
 			clientTimestamp.UnixNano(),
 			db.Now().UnixNano(),
+			rud.ProcessTerminated,
 			rud.ResourceUsage.MeanUserCpuRate,
 			rud.ResourceUsage.MaxUserCpuRate,
 			rud.ResourceUsage.MeanSystemCpuRate,
@@ -366,7 +367,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			ctx,
 			"SELECT "+
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
-				"mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
+				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
 				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
 			id.String(),
@@ -383,7 +384,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			var processStartTime, clientTimestamp, serverTimestamp int64
 			err := rows.Scan(
 				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
-				&record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
+				&record.ProcessTerminated, &record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
 				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
 
 			if err != nil {
