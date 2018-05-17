@@ -37,6 +37,8 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+const magic = uint32(0xf1ee1001)
+
 type StreamingCommunicator struct {
 	ctx         context.Context
 	cctx        comms.Context
@@ -243,7 +245,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string) (*conn
 	// We also need to feed the intital data into the pipe while Do
 	// executes.
 	go func() {
-		binary.Write(bw, binary.LittleEndian, uint32(0xf1ee1001))
+		binary.Write(bw, binary.LittleEndian, magic)
 		bw.Write(buf.Bytes())
 	}()
 	resp, err := c.hc.Do(req)
