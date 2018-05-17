@@ -79,6 +79,13 @@ func (c *StreamingCommunicator) Stop() {
 	c.working.Wait()
 }
 
+func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
+	c.hostLock.RLock()
+	hosts := append([]string(nil), c.hosts...)
+	c.hostLock.RUnlock()
+	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince)
+}
+
 func (c *StreamingCommunicator) configure() error {
 	id, tr, err := makeTransport(c.cctx, c.DialContext)
 	if err != nil {
