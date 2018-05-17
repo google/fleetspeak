@@ -678,10 +678,11 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 
 	meanRAM, maxRAM := 190, 200
 	rud := mpb.ResourceUsageData{
-		Scope:            "test-scope",
-		Pid:              1234,
-		ProcessStartTime: &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
-		DataTimestamp:    &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		Scope:             "test-scope",
+		Pid:               1234,
+		ProcessStartTime:  &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		DataTimestamp:     &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ProcessTerminated: true,
 		ResourceUsage: &mpb.AggregatedResourceUsage{
 			MeanUserCpuRate:    50.0,
 			MaxUserCpuRate:     60.0,
@@ -708,6 +709,7 @@ func ClientStoreTest(t *testing.T, ds db.Store) {
 		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
 		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
 		ServerTimestamp:       &tpb.Timestamp{Seconds: 84},
+		ProcessTerminated:     true,
 		MeanUserCpuRate:       50.0,
 		MaxUserCpuRate:        60.0,
 		MeanSystemCpuRate:     70.0,
