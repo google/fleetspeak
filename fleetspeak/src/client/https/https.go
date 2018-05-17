@@ -69,33 +69,83 @@ func (c *Communicator) Setup(cl comms.Context) error {
 	return c.configure()
 }
 
-func (c *Communicator) configure() error {
-	id, err := c.cctx.CurrentIdentity()
+func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, error) {
+	ci, err := cctx.CurrentIdentity()
 	if err != nil {
-		return err
+		return common.ClientID{}, nil, err
+	}
+	si, err := cctx.ServerInfo()
+	if err != nil {
+		return common.ClientID{}, nil, err
 	}
 
-	c.id = id.ID
+	cv := func(_ [][]byte, chains [][]*x509.Certificate) error {
+		for _, chain := range chains {
+			if !cctx.ChainRevoked(chain) {
+				return nil
+			}
+		}
+		return errors.New("certificate revoked")
+	}
 
 	tmpl := x509.Certificate{
 		Issuer:       pkix.Name{Organization: []string{"GRR Client"}},
-		Subject:      pkix.Name{Organization: []string{id.ID.String()}},
+		Subject:      pkix.Name{Organization: []string{ci.ID.String()}},
 		SerialNumber: big.NewInt(1),
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, id.Public, id.Private)
+	certBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, ci.Public, ci.Private)
 	if err != nil {
-		return fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
+		return common.ClientID{}, nil, fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
 	}
-	certPair := tls.Certificate{
-		Certificate: [][]byte{certBytes},
-		PrivateKey:  id.Private,
+
+	if dc == nil {
+		dc = (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext
 	}
+
+	return ci.ID, &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			RootCAs: si.TrustedCerts,
+			Certificates: []tls.Certificate{tls.Certificate{
+				Certificate: [][]byte{certBytes},
+				PrivateKey:  ci.Private,
+			}},
+			CipherSuites: []uint16{
+				// We implement both endpoints, so we might as well require long keys and
+				// perfect forward secrecy. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+				// is required by the https library.
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+			VerifyPeerCertificate: cv,
+		},
+		MaxIdleConns:          10,
+		DialContext:           dc,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}, nil
+}
+
+func (c *Communicator) configure() error {
+	id, tr, err := makeTransport(c.cctx, c.DialContext)
+	if err != nil {
+		return err
+	}
+	c.id = id
 
 	si, err := c.cctx.ServerInfo()
 	if err != nil {
 		return fmt.Errorf("unable to configure communicator, could not get server information: %v", err)
 	}
+	c.hostLock.Lock()
 	c.hosts = append([]string(nil), si.Servers...)
+	c.hostLock.Unlock()
+
 	if len(c.hosts) == 0 {
 		return errors.New("no server_addresses in client configuration")
 	}
@@ -117,35 +167,9 @@ func (c *Communicator) configure() error {
 		c.conf.FailureSuicideTimeSeconds = 60 * 60 * 24 * 7
 	}
 
-	if c.DialContext == nil {
-		c.DialContext = (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext
-	}
-
 	c.hc = &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				RootCAs:      si.TrustedCerts,
-				Certificates: []tls.Certificate{certPair},
-				CipherSuites: []uint16{
-					// We implement both endpoints, so we might as well require long keys and
-					// perfect forward secrecy. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-					// is required by the https library.
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
-				VerifyPeerCertificate: c.peerCertVerifier,
-			},
-			DialContext:           c.DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-		Timeout: 5 * time.Minute,
+		Transport: tr,
+		Timeout:   5 * time.Minute,
 	}
 	c.ctx, c.done = context.WithCancel(context.Background())
 	return nil
@@ -165,15 +189,6 @@ func (c *Communicator) Stop() {
 // jitter adds up to 50% random jitter, and converts to time.Duration.
 func jitter(seconds int32) time.Duration {
 	return time.Duration((1.0 + 0.5*mrand.Float32()) * float32(seconds) * float32(time.Second))
-}
-
-func (c *Communicator) peerCertVerifier(_ [][]byte, chains [][]*x509.Certificate) error {
-	for _, chain := range chains {
-		if !c.cctx.ChainRevoked(chain) {
-			return nil
-		}
-	}
-	return errors.New("certificate revoked")
 }
 
 // processingLoop polls the server according to the configured policies while
@@ -369,7 +384,7 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 			continue
 		}
 
-		if err := c.cctx.ProcessContactData(&r); err != nil {
+		if err := c.cctx.ProcessContactData(&r, false); err != nil {
 			log.Warningf("Error processing ContactData from server: %v", err)
 			continue
 		}
