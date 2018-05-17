@@ -99,7 +99,7 @@ func TestIntegration(t *testing.T) {
 	ms, fin := setup(t, "TestIntegration")
 	defer fin()
 
-	integrationtest.FRRIntegrationTest(t, ms, tmpDir)
+	integrationtest.FRRIntegrationTest(t, ms, tmpDir, false)
 }
 
 func TestCloneHandling(t *testing.T) {

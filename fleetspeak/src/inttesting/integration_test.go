@@ -37,7 +37,7 @@ func TestFRRIntegration(t *testing.T) {
 	log.Infof("Created database: %s", p)
 	defer ds.Close()
 
-	integrationtest.FRRIntegrationTest(t, ds, tmpDir)
+	integrationtest.FRRIntegrationTest(t, ds, tmpDir, false)
 }
 
 func TestCloneHandling(t *testing.T) {
@@ -55,4 +55,19 @@ func TestCloneHandling(t *testing.T) {
 	defer ds.Close()
 
 	integrationtest.CloneHandlingTest(t, ds, tmpConfPath)
+}
+
+func TestFRRIntegrationStreaming(t *testing.T) {
+	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_frr_integration")
+	defer tmpDirCleanup()
+	// Create an sqlite datastore.
+	p := path.Join(tmpDir, "FRRIntegration.sqlite")
+	ds, err := sqlite.MakeDatastore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Infof("Created database: %s", p)
+	defer ds.Close()
+
+	integrationtest.FRRIntegrationTest(t, ds, tmpDir, true)
 }

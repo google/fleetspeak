@@ -351,7 +351,7 @@ func (m *streamManager) notifyLoop() {
 		if err != nil {
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
 		}
-		if len(cd.Messages) > 0 {
+		if cd != nil {
 			m.out <- cd
 		}
 	}
