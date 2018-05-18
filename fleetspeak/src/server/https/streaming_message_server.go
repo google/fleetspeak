@@ -69,6 +69,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 			Start:  db.Now(),
 			End:    db.Now(),
 			Status: status,
+			Type:   stats.StreamStart,
 		})
 	}
 
@@ -171,6 +172,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 		CTX:    ctx,
 		Start:  db.Now(),
 		Status: http.StatusTeapot, // Should never actually be returned
+		Type:   stats.StreamStart,
 	}
 	defer func() {
 		fin()
@@ -311,6 +313,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		Start:    db.Now(),
 		Status:   http.StatusTeapot,
 		CacheHit: true,
+		Type:     stats.StreamFromClient,
 	}
 	defer func() {
 		if pi.Status == http.StatusTeapot {
@@ -396,6 +399,7 @@ func (m *streamManager) writeOne(cd *fspb.ContactData) (stats.PollInfo, error) {
 		Start:    db.Now(),
 		Status:   http.StatusTeapot,
 		CacheHit: true,
+		Type:     stats.StreamToClient,
 	}
 	defer func() {
 		if pi.Status == http.StatusTeapot {
