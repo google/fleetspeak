@@ -320,6 +320,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	}()
 	buf := make([]byte, size)
 	if _, err := io.ReadFull(m.body, buf); err != nil {
+		pi.Status = http.StatusBadRequest
 		return &pi, fmt.Errorf("error reading streamed data: %v", err)
 	}
 	pi.ReadTime = time.Since(pi.Start)
@@ -339,7 +340,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		}
 		return &pi, err
 	}
-
+	pi.Status = http.StatusOK
 	return &pi, nil
 }
 
@@ -366,7 +367,10 @@ func (m *streamManager) writeLoop() {
 
 	for {
 		select {
-		case cd := <-m.out:
+		case cd, ok := <-m.out:
+			if !ok {
+				return
+			}
 			pi, err := m.writeOne(cd)
 			if err != nil {
 				if m.ctx.Err() != nil {
