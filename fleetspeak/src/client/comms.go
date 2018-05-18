@@ -73,8 +73,10 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedCont
 	}, nil
 }
 
-func (c commsContext) ProcessContactData(cd *fspb.ContactData) error {
-	c.c.config.SetSequencingNonce(cd.SequencingNonce)
+func (c commsContext) ProcessContactData(cd *fspb.ContactData, streaming bool) error {
+	if !streaming {
+		c.c.config.SetSequencingNonce(cd.SequencingNonce)
+	}
 	for _, m := range cd.Messages {
 		if err := c.c.ProcessMessage(context.TODO(), service.AckMessage{M: m}); err != nil {
 			log.Warningf("Unable to process message[%v] from server: %v", hex.EncodeToString(m.MessageId), err)
