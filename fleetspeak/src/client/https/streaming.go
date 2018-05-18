@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -114,6 +115,7 @@ func (c *StreamingCommunicator) connectLoop() {
 	defer c.working.Done()
 
 	lastContact := time.Now()
+	first := true
 	for {
 		if c.id != c.cctx.CurrentID() {
 			c.configure()
@@ -122,7 +124,15 @@ func (c *StreamingCommunicator) connectLoop() {
 		var err error
 		for i, h := range c.hosts {
 			conCTX, fin := context.WithTimeout(c.ctx, 60*time.Second)
-			con, err = c.connect(conCTX, h)
+			// The server limits us to a 10m connection, but we cut
+			// off the first connection early in order to avoid long
+			// term connection spikes every 10m after a mass client
+			// update.
+			d := 10 * time.Minute
+			if first {
+				d = time.Minute + time.Duration(float32(9*time.Minute)*rand.Float32())
+			}
+			con, err = c.connect(conCTX, h, d)
 			fin()
 			if err != nil {
 				con = nil
@@ -152,6 +162,7 @@ func (c *StreamingCommunicator) connectLoop() {
 		}
 		con.working.Wait()
 		lastContact = time.Now()
+		first = false
 		for _, l := range con.pending {
 			for _, m := range l {
 				m.Nack()
@@ -179,12 +190,12 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 
 // connect performs an initial exchange and returns an active streaming
 // connection to the given host. ctx only regulates this initial connection.
-func (c *StreamingCommunicator) connect(ctx context.Context, host string) (*connection, error) {
+func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLife time.Duration) (*connection, error) {
 	ret := connection{
 		cctx:    c.cctx,
 		pending: make(map[int][]comms.MessageInfo),
 	}
-	ret.ctx, ret.stop = context.WithCancel(c.ctx)
+	ret.ctx, ret.stop = context.WithTimeout(c.ctx, maxLife)
 
 	// Spend up to 1 second getting some initial messages - we need to send
 	// an initial WrappedContactData for the initial exchange whether or not

@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	ccomms "github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/client/https"
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -108,7 +109,7 @@ func (c *statsCounter) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNo
 
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
 // and exercises it.
-func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
+func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool) {
 	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
 		return db.Now().Add(time.Second)
 	})
@@ -150,7 +151,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := https.NewCommunicator(listener, cert, key, false)
+	com, err := https.NewCommunicator(listener, cert, key, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,13 +245,21 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string) {
 	}
 
 	clients := make([]*client.Client, 0, numClients)
+	makeComm := func() ccomms.Communicator {
+		return &chttps.Communicator{}
+	}
+	if streaming {
+		makeComm = func() ccomms.Communicator {
+			return &chttps.StreamingCommunicator{}
+		}
+	}
 	// Create numClient clients.
 	for i := 0; i < numClients; i++ {
 		cl, err := client.New(
 			conf,
 			client.Components{
 				ServiceFactories: map[string]cservice.Factory{"FRR": frr.ClientServiceFactory},
-				Communicator:     &chttps.Communicator{},
+				Communicator:     makeComm(),
 				Signers:          signs,
 			})
 		if err != nil {
