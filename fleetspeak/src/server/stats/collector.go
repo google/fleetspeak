@@ -27,6 +27,15 @@ import (
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
+type PollType int
+
+const (
+	FullPoll         PollType = iota // Classic one-off bidirectional poll.
+	StreamStart                      // Bidirectional poll that starts a streaming connection.
+	StreamFromClient                 // 'Poll' that is really a client pushing data to the server.
+	StreamToClient                   // 'Poll' that is really the server pushing data to the client.
+)
+
 // A PollInfo describes a client poll operation which has occurred.
 type PollInfo struct {
 	// A Context associated with the poll operation, if available.
@@ -49,6 +58,9 @@ type PollInfo struct {
 
 	// Whether the client was in the client cache.
 	CacheHit bool
+
+	// The 'type of poll.
+	Type PollType
 }
 
 // A Collector is a component which is notified when certain events occurred, to support

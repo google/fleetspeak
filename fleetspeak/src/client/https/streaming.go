@@ -135,6 +135,9 @@ func (c *StreamingCommunicator) connectLoop() {
 			con, err = c.connect(conCTX, h, d)
 			fin()
 			if err != nil {
+				if c.ctx.Err() != nil {
+					return
+				}
 				con = nil
 				log.Warningf("Connection to %v failed with error: %v", h, err)
 				continue
@@ -404,7 +407,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 	for {
 		cd, err := readContact(body)
 		if err != nil {
-			if c.ctx.Err() == nil {
+			if c.ctx.Err() == nil && err != io.EOF {
 				log.Errorf("Error reading streaming ContactData: %v", err)
 			}
 			return

@@ -160,7 +160,7 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	var lc time.Time
 	if m.Destination.ClientId != nil {
 		var err error
-		cid, err := common.BytesToClientID(m.Destination.ClientId)
+		cid, err = common.BytesToClientID(m.Destination.ClientId)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing destination.client_id (%x): %v", m.Destination.ClientId, err)
 		}
