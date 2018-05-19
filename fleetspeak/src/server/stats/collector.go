@@ -27,14 +27,34 @@ import (
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
+// PollType indicates the type of poll, primarily differentiating between the
+// original bidirectional contact and the different events within a streaming
+// connection.
 type PollType int
 
+// PollType values.
 const (
 	FullPoll         PollType = iota // Classic one-off bidirectional poll.
 	StreamStart                      // Bidirectional poll that starts a streaming connection.
 	StreamFromClient                 // 'Poll' that is really a client pushing data to the server.
 	StreamToClient                   // 'Poll' that is really the server pushing data to the client.
 )
+
+// String implements fmt.Stringer.
+func (t PollType) String() string {
+	switch t {
+	case FullPoll:
+		return "POLL"
+	case StreamStart:
+		return "STREAM_START"
+	case StreamFromClient:
+		return "STREAM_FROM_CLIENT"
+	case StreamToClient:
+		return "STREAM_TO_CLIENT"
+	default:
+	}
+	return "UNKNOWN"
+}
 
 // A PollInfo describes a client poll operation which has occurred.
 type PollInfo struct {
