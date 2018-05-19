@@ -135,6 +135,9 @@ func (c *StreamingCommunicator) connectLoop() {
 			con, err = c.connect(conCTX, h, d)
 			fin()
 			if err != nil {
+				if c.ctx.Err() != nil {
+					return
+				}
 				con = nil
 				log.Warningf("Connection to %v failed with error: %v", h, err)
 				continue
