@@ -66,7 +66,7 @@ func makeServer(t *testing.T, caseName string) (*server.Server, *sqlite.Datastor
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := NewCommunicator(tl, cert, key, true)
+	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true})
 	if err != nil {
 		t.Fatal(err)
 	}

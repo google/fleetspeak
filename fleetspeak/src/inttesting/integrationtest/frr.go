@@ -151,7 +151,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := https.NewCommunicator(listener, cert, key, true)
+	com, err := https.NewCommunicator(https.Params{Listener: listener, Cert: cert, Key: key, Streaming: true})
 	if err != nil {
 		t.Fatal(err)
 	}

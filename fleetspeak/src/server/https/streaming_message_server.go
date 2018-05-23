@@ -39,9 +39,6 @@ import (
 
 const magic = uint32(0xf1ee1001)
 
-// hard maximum lifespan of a streaming connection, variable only for unit testing
-var maxStreaming = 10 * time.Minute
-
 type fullResponseWriter interface {
 	http.ResponseWriter
 	http.CloseNotifier
@@ -113,7 +110,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	body := bufio.NewReader(req.Body)
 
 	// Set a 10 min overall maximum lifespan of the connection.
-	ctx, fin := context.WithTimeout(req.Context(), maxStreaming)
+	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan)
 	defer fin()
 
 	// Also create a way to terminate early in case of error.
@@ -156,7 +153,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	m.reading.Add(2)
 	go m.readLoop()
-	go m.notifyLoop()
+	go m.notifyLoop(s.p.StreamingCloseTime)
 
 	m.writing.Add(1)
 	go m.writeLoop()
@@ -351,13 +348,13 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	return &pi, nil
 }
 
-func (m *streamManager) notifyLoop() {
+func (m *streamManager) notifyLoop(closeTime time.Duration) {
 	defer m.reading.Done()
 
 	for _ = range m.info.Notices {
 		// Stop sending messages to the client 30 seconds before our hard timelimit.
 		d, ok := m.ctx.Deadline()
-		if ok && time.Now().After(d.Add(-30*time.Second)) {
+		if ok && time.Now().After(d.Add(-closeTime)) {
 			m.out <- &fspb.ContactData{DoneSending: true}
 			return
 		}
