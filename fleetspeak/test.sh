@@ -63,7 +63,7 @@ time (
   RC=0
 
   pretty_echo 'Executing Go tests.'
-  time go test --timeout 1m ${TEST_GO_DIRS} || RC=1
+  time go test --timeout 2m ${TEST_GO_DIRS} || RC=1
 
   pretty_echo 'Executing Python tests.'
   python -m unittest discover --pattern '*_test.py' || RC=2
