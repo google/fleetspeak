@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -115,7 +114,6 @@ func (c *StreamingCommunicator) connectLoop() {
 	defer c.working.Done()
 
 	lastContact := time.Now()
-	first := true
 	for {
 		if c.id != c.cctx.CurrentID() {
 			c.configure()
@@ -124,15 +122,10 @@ func (c *StreamingCommunicator) connectLoop() {
 		var err error
 		for i, h := range c.hosts {
 			conCTX, fin := context.WithTimeout(c.ctx, 60*time.Second)
-			// The server limits us to a 10m connection, but we cut
-			// off the first connection early in order to avoid long
-			// term connection spikes every 10m after a mass client
-			// update.
-			d := 10 * time.Minute
-			if first {
-				d = time.Minute + time.Duration(float32(9*time.Minute)*rand.Float32())
-			}
-			con, err = c.connect(conCTX, h, d)
+			// The server limits us to a 10m connection, and we prefer that
+			// the server close the connection so it can minimize the chance of
+			// a message getting lost while being sent to us.
+			con, err = c.connect(conCTX, h, 12*time.Minute)
 			fin()
 			if err != nil {
 				if c.ctx.Err() != nil {
@@ -165,7 +158,6 @@ func (c *StreamingCommunicator) connectLoop() {
 		}
 		con.working.Wait()
 		lastContact = time.Now()
-		first = false
 		for _, l := range con.pending {
 			for _, m := range l {
 				m.Nack()
@@ -195,8 +187,10 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 // connection to the given host. ctx only regulates this initial connection.
 func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLife time.Duration) (*connection, error) {
 	ret := connection{
-		cctx:    c.cctx,
-		pending: make(map[int][]comms.MessageInfo),
+		cctx:        c.cctx,
+		pending:     make(map[int][]comms.MessageInfo),
+		serverDone:  make(chan struct{}),
+		writingDone: make(chan struct{}),
 	}
 	ret.ctx, ret.stop = context.WithTimeout(c.ctx, maxLife)
 
@@ -314,6 +308,9 @@ type connection struct {
 	pending     map[int][]comms.MessageInfo
 	pendingLock sync.Mutex
 
+	serverDone  chan struct{} // done message received from server
+	writingDone chan struct{} // writeloop finished
+
 	// Used to wait until everything is done.
 	working sync.WaitGroup
 	// Closure which can be called to terminate the connection.
@@ -327,6 +324,8 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 
 	var r []comms.MessageInfo
 	select {
+	case <-c.serverDone:
+		return nil
 	case <-ctx.Done():
 		return nil
 	case m := <-b:
@@ -337,7 +336,7 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 	ctx, fin := context.WithTimeout(ctx, time.Second)
 	defer fin()
 	for {
-		if size >= sendBytesThreshold || len(r) >= sendCountThreshold {
+		if size >= sendBytesThreshold/2 || len(r) >= sendCountThreshold {
 			break
 		}
 		select {
@@ -352,9 +351,13 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 }
 
 func (c *connection) writeLoop(bw *io.PipeWriter) {
+	steppedShutdown := false
 	defer func() {
 		c.stop()
 		bw.Close()
+		if !steppedShutdown {
+			close(c.writingDone)
+		}
 		c.working.Done()
 	}()
 
@@ -364,6 +367,14 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		// Immediatly add to c.pending, so that somebody will Ack/Nack
 		// them.
 		msgs := c.groupMessages(c.ctx)
+		if msgs == nil {
+			if c.ctx.Err() != nil {
+				steppedShutdown = true
+				close(c.writingDone)
+				<-c.ctx.Done()
+			}
+			return
+		}
 		c.pendingLock.Lock()
 		c.pending[cnt] = msgs
 		c.pendingLock.Unlock()
@@ -404,6 +415,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 	}()
 
 	cnt := 1
+	writingDone := false
 	for {
 		cd, err := readContact(body)
 		if err != nil {
@@ -412,17 +424,30 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			}
 			return
 		}
-		if cd.AckIndex == 0 && len(cd.Messages) == 0 {
+		if cd.AckIndex == 0 && len(cd.Messages) == 0 && !cd.DoneSending {
 			log.Warningf("Read empty streaming ContactData.")
+		}
+		if cd.DoneSending {
+			close(c.serverDone)
+			select {
+			case <-c.ctx.Done():
+				return
+			case <-c.writingDone:
+				writingDone = true
+			}
 		}
 		if cd.AckIndex != 0 {
 			c.pendingLock.Lock()
 			toAck := c.pending[cnt]
 			delete(c.pending, cnt)
+			l := len(c.pending)
 			c.pendingLock.Unlock()
 			cnt++
 			for _, m := range toAck {
 				m.Ack()
+			}
+			if writingDone && l == 0 {
+				return
 			}
 		}
 		if len(cd.Messages) != 0 {
