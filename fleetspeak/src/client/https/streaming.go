@@ -137,7 +137,9 @@ func (c *StreamingCommunicator) connectLoop() {
 			}
 			if con != nil {
 				if i != 0 {
+					c.hostLock.Lock()
 					c.hosts[0], c.hosts[i] = c.hosts[i], c.hosts[0]
+					c.hostLock.Unlock()
 				}
 				break
 			}
@@ -263,26 +265,32 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 
 	if err != nil {
+		if log.V(1) {
+			log.Errorf("Streaming connection failed: %v", err)
+		}
 		ret.stop()
 		return nil, err
 	}
-	fail := func() {
+
+	fail := func(err error) (*connection, error) {
+		if log.V(1) {
+			log.Errorf("Streaming connection failed: %v", err)
+		}
 		ret.stop()
 		resp.Body.Close()
+		return nil, err
 	}
+
 	if resp.StatusCode != 200 {
-		fail()
-		return nil, fmt.Errorf("POST to %v failed with status: %v", host, resp.StatusCode)
+		return fail(fmt.Errorf("POST to %v failed with status: %v", host, resp.StatusCode))
 	}
 	body := bufio.NewReader(resp.Body)
 	cd, err := readContact(body)
 	if err != nil {
-		fail()
-		return nil, err
+		return fail(err)
 	}
 	if err := c.cctx.ProcessContactData(cd, false); err != nil {
-		fail()
-		return nil, err
+		return fail(err)
 	}
 
 	for _, m := range toSend {
@@ -294,6 +302,9 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	go ret.readLoop(body, resp.Body)
 	go ret.writeLoop(bw)
 
+	if log.V(2) {
+		log.Info("Streaming connection with %s started.", host)
+	}
 	return &ret, nil
 }
 
@@ -396,12 +407,15 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			log.Errorf("Error encoding streaming contact data: %v", err)
 			return
 		}
-		_, err = bw.Write(buf.Bytes())
+		s, err := bw.Write(buf.Bytes())
 		if err != nil {
 			if c.ctx.Err() == nil {
 				log.Errorf("Error writing streaming contact data: %v", err)
 			}
 			return
+		}
+		if log.V(2) {
+			log.Infof("Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
 		}
 		buf.Reset()
 	}
@@ -423,6 +437,9 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 				log.Errorf("Error reading streaming ContactData: %v", err)
 			}
 			return
+		}
+		if log.V(2) {
+			log.Infof("Read streaming ContactData [AckIdx: %d, MessageCount: %d, DoneSending: %t]", cd.AckIndex, len(cd.Messages), cd.DoneSending)
 		}
 		if cd.AckIndex == 0 && len(cd.Messages) == 0 && !cd.DoneSending {
 			log.Warningf("Read empty streaming ContactData.")
