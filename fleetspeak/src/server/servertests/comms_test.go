@@ -75,7 +75,7 @@ func TestCommsContext(t *testing.T) {
 			pub:       privateKey2.Public(),
 			streaming: true},
 	} {
-		ci, cd, err := ts.CC.InitializeConnection(
+		ci, cd, _, err := ts.CC.InitializeConnection(
 			ctx,
 			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 			tc.pub,
@@ -136,7 +136,7 @@ func TestCommsContext(t *testing.T) {
 				&fspb.WrappedContactData{ContactData: bcd}); err != nil {
 				t.Fatal(err)
 			}
-			cd, err := ts.CC.GetMessagesForClient(ctx, ci)
+			cd, _, err := ts.CC.GetMessagesForClient(ctx, ci)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -144,7 +144,7 @@ func TestCommsContext(t *testing.T) {
 				t.Errorf("%s: Expected nil ContactData, got: %v", tc.name, cd)
 			}
 		} else {
-			if ci, cd, err = ts.CC.InitializeConnection(
+			if ci, cd, _, err = ts.CC.InitializeConnection(
 				ctx,
 				&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 				tc.pub,

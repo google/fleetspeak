@@ -107,7 +107,7 @@ func (s Server) AddClient() (crypto.PublicKey, error) {
 	if err != nil {
 		return common.ClientID{}, err
 	}
-	if _, _, err := s.CC.InitializeConnection(
+	if _, _, _, err := s.CC.InitializeConnection(
 		context.Background(),
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 		k.Public(),
@@ -155,7 +155,7 @@ func (s Server) SimulateContactFromClient(ctx context.Context, key crypto.Public
 	if err != nil {
 		return nil, err
 	}
-	_, rcd, err := s.CC.InitializeConnection(
+	_, rcd, _, err := s.CC.InitializeConnection(
 		ctx,
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 		key,

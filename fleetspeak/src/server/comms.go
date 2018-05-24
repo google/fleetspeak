@@ -55,10 +55,10 @@ func randUint64() uint64 {
 	return binary.LittleEndian.Uint64(b)
 }
 
-func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (*comms.ConnectionInfo, *fspb.ContactData, error) {
+func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (*comms.ConnectionInfo, *fspb.ContactData, bool, error) {
 	id, err := common.MakeClientID(key)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	contactInfo := authorizer.ContactInfo{
@@ -67,12 +67,12 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		ClientLabels: wcd.ClientLabels,
 	}
 	if !c.s.authorizer.Allow2(addr, contactInfo) {
-		return nil, nil, comms.ErrNotAuthorized
+		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
 	ci, err := c.getClientInfo(ctx, id)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	res := comms.ConnectionInfo{
@@ -86,12 +86,12 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	}
 
 	if !c.s.authorizer.Allow3(addr, contactInfo, res.AuthClientInfo) {
-		return nil, nil, comms.ErrNotAuthorized
+		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
 	if ci == nil {
 		if err := c.addClient(ctx, id, key); err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		res.Client.ID = id
 		res.Client.Key = key
@@ -112,7 +112,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 
 	sigs, err := signatures.ValidateWrappedContactData(id, wcd)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	accept, validationInfo := c.s.authorizer.Allow4(
 		addr,
@@ -120,15 +120,15 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.AuthClientInfo,
 		sigs)
 	if !accept {
-		return nil, nil, comms.ErrNotAuthorized
+		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
 	var cd fspb.ContactData
 	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
-		return nil, nil, fmt.Errorf("unable to parse contact_data: %v", err)
+		return nil, nil, false, fmt.Errorf("unable to parse contact_data: %v", err)
 	}
 	if len(cd.Messages) > maxMessagesPerContact {
-		return nil, nil, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
+		return nil, nil, false, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
 	res.NonceReceived = cd.SequencingNonce
 	toSend := fspb.ContactData{SequencingNonce: randUint64()}
@@ -147,12 +147,12 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 			StreamingTo:   streamingTo,
 		})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	err = c.handleMessagesFromClient(ctx, &res.Client, res.ContactID, &cd, validationInfo)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	// Complete registering for notifications before checking messages.
@@ -160,16 +160,16 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.Notices, res.Fin = c.s.dispatcher.Register(id)
 	}
 
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, 100)
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, maxMessagesPerContact)
 	if err != nil {
 		if res.Fin != nil {
 			res.Fin()
 		}
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	res.AuthClientInfo.New = false
-	return &res, &toSend, nil
+	return &res, &toSend, len(toSend.Messages) == maxMessagesPerContact, nil
 }
 
 // getClientInfo loads basic information about a client. Returns nil if the client does
@@ -229,16 +229,16 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 	return nil
 }
 
-func (c commsContext) GetMessagesForClient(ctx context.Context, info *comms.ConnectionInfo) (*fspb.ContactData, error) {
+func (c commsContext) GetMessagesForClient(ctx context.Context, info *comms.ConnectionInfo) (*fspb.ContactData, bool, error) {
 	toSend := fspb.ContactData{
 		SequencingNonce: info.NonceSent,
 	}
 	var err error
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, 100)
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, maxMessagesPerContact)
 	if err != nil || len(toSend.Messages) == 0 {
-		return nil, err
+		return nil, false, err
 	}
-	return &toSend, nil
+	return &toSend, len(toSend.Messages) == maxMessagesPerContact, nil
 }
 
 // addClient adds a new client to the system.

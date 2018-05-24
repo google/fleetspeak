@@ -77,7 +77,10 @@ type Context interface {
 	//
 	// The returned ContactData should be sent back to the client unconditionally,
 	// in order to update the client's de-duplication nonce.
-	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (*ConnectionInfo, *fspb.ContactData, error)
+	//
+	// In addition, returns an indication whether there might be additional
+	// messages for the client.
+	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (i *ConnectionInfo, d *fspb.ContactData, more bool, err error)
 
 	// HandleContactData processes the messages contained in a WrappedContactData
 	// received from the client.  The ConnectionInfo parameter should have been
@@ -88,8 +91,12 @@ type Context interface {
 	// reserves them for processing. The ConnectionInfo parameter should have been
 	// created by an InitializeConnection call made for this connection.
 	//
-	// Returns nil, nil when there are no outstanding messages for the client.
-	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (*fspb.ContactData, error)
+	// In addition to some messages, also indicates wether there may be more
+	// messages to get.
+	//
+	// Returns nil, false, nil when there are no outstanding messages for
+	// the client.
+	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (data *fspb.ContactData, more bool, err error)
 
 	// ReadFile returns the data and modification time of file. Caller is
 	// responsible for closing data.

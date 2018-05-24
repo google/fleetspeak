@@ -227,7 +227,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
-	info, toSend, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
+	info, toSend, _, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
 	if err == comms.ErrNotAuthorized {
 		return nil, makeError("not authorized", http.StatusServiceUnavailable)
 	}
@@ -375,7 +375,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration) {
 			}
 		}
 		t.Stop()
-		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
+		cd, _, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
 		}
