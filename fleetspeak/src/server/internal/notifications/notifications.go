@@ -160,7 +160,7 @@ func (d *Dispatcher) Register(id common.ClientID) (notice <-chan struct{}, fin f
 func (d *Dispatcher) NotifyAll(ctx context.Context) {
 	d.l.RLock()
 	ids := make([]common.ClientID, 0, len(d.m))
-	for k, _ := range d.m {
+	for k := range d.m {
 		ids = append(ids, k)
 	}
 	d.l.RUnlock()

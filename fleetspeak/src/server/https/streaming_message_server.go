@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -110,7 +111,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	body := bufio.NewReader(req.Body)
 
 	// Set a 10 min overall maximum lifespan of the connection.
-	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan)
+	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan+time.Duration(float32(s.p.StreamingJitter)*rand.Float32()))
 	defer fin()
 
 	// Also create a way to terminate early in case of error.
@@ -351,7 +352,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 func (m *streamManager) notifyLoop(closeTime time.Duration) {
 	defer m.reading.Done()
 
-	for _ = range m.info.Notices {
+	for range m.info.Notices {
 		// Stop sending messages to the client 30 seconds before our hard timelimit.
 		d, ok := m.ctx.Deadline()
 		if ok && time.Now().After(d.Add(-closeTime)) {

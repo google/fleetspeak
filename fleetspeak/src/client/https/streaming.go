@@ -266,7 +266,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 
 	if err != nil {
 		if log.V(1) {
-			log.Errorf("Streaming connection failed: %v", err)
+			log.Infof("Streaming connection attempt failed: %v", err)
 		}
 		ret.stop()
 		return nil, err
@@ -274,7 +274,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 
 	fail := func(err error) (*connection, error) {
 		if log.V(1) {
-			log.Errorf("Streaming connection failed: %v", err)
+			log.Infof("Streaming connection failed: %v", err)
 		}
 		ret.stop()
 		resp.Body.Close()
@@ -347,6 +347,9 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 	ctx, fin := context.WithTimeout(ctx, time.Second)
 	defer fin()
 	for {
+		// Since we are streaming, we don't wait synchronously for a
+		// response, so trigger at a smaller byte threshold to perhaps
+		// increase pipelining.
 		if size >= sendBytesThreshold/2 || len(r) >= sendCountThreshold {
 			break
 		}
