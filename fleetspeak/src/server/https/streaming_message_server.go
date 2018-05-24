@@ -369,12 +369,12 @@ func (m *streamManager) notifyLoop(closeTime time.Duration) {
 				if !ok {
 					break L
 				}
-				t.Stop()
 				continue L
 			case <-t.C:
 				break L
 			}
 		}
+		t.Stop()
 		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
