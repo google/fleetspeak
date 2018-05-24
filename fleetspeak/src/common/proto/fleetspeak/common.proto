@@ -128,8 +128,8 @@ message ContactData {
   // ContactData. Only set by the client.
    google.protobuf.Timestamp client_clock = 3;
 
-  // If set, used to acknowledges receipt of a streamed WrappedContactData. This
-  // is used for control purposes during streaming connections.
+  // If set, acknowledges receipt of a streamed WrappedContactData. This is used
+  // for control purposes during streaming connections.
   uint64 ack_index = 4;
 
   // If set, indicates that the connection is shutting down and no more data
