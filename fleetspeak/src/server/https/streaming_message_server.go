@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -110,7 +111,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	body := bufio.NewReader(req.Body)
 
 	// Set a 10 min overall maximum lifespan of the connection.
-	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan)
+	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan+time.Duration(float32(s.p.StreamingJitter)*rand.Float32()))
 	defer fin()
 
 	// Also create a way to terminate early in case of error.

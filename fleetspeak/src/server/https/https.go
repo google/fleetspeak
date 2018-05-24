@@ -87,6 +87,7 @@ type Params struct {
 	Streaming          bool          // Whether to enable streaming communications.
 	StreamingLifespan  time.Duration // Maximum time to keep a streaming connection open, defaults to 10 min.
 	StreamingCloseTime time.Duration // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
+	StreamingJitter    time.Duration // Maximum amount of jitter to add to StreamingLifespan.
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
