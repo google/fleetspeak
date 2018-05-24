@@ -303,7 +303,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	go ret.writeLoop(bw)
 
 	if log.V(2) {
-		log.Info("Streaming connection with %s started.", host)
+		log.Infof("Streaming connection with %s started.", host)
 	}
 	return &ret, nil
 }
