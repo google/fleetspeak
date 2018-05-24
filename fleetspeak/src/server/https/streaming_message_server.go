@@ -351,7 +351,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 func (m *streamManager) notifyLoop(closeTime time.Duration) {
 	defer m.reading.Done()
 
-	for _ = range m.info.Notices {
+	for range m.info.Notices {
 		// Stop sending messages to the client 30 seconds before our hard timelimit.
 		d, ok := m.ctx.Deadline()
 		if ok && time.Now().After(d.Add(-closeTime)) {

@@ -83,7 +83,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			RootCAs: si.TrustedCerts,
-			Certificates: []tls.Certificate{tls.Certificate{
+			Certificates: []tls.Certificate{{
 				Certificate: [][]byte{certBytes},
 				PrivateKey:  ci.Private,
 			}},
