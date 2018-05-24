@@ -37,6 +37,7 @@ const (
 // Communicator implements server.Communicator, and accepts client connections
 // over HTTPS.
 type Communicator struct {
+	p           Params
 	hs          http.Server
 	l           net.Listener
 	fs          comms.Context
@@ -79,15 +80,31 @@ func (l listener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
+// Params wraps the parameters required to create an https communicator.
+type Params struct {
+	Listener           net.Listener  // Where to listen for connections, required.
+	Cert, Key          []byte        // x509 encoded certificate and matching private key, required.
+	Streaming          bool          // Whether to enable streaming communications.
+	StreamingLifespan  time.Duration // Maximum time to keep a streaming connection open, defaults to 10 min.
+	StreamingCloseTime time.Duration // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
+}
+
 // NewCommunicator creates a Communicator, which listens through l and identifies
 // itself using certFile and keyFile.
-func NewCommunicator(l net.Listener, cert, key []byte, streaming bool) (*Communicator, error) {
+func NewCommunicator(p Params) (*Communicator, error) {
+	if p.StreamingLifespan == 0 {
+		p.StreamingLifespan = 10 * time.Minute
+	}
+	if p.StreamingCloseTime == 0 {
+		p.StreamingCloseTime = 30 * time.Second
+	}
 	mux := http.NewServeMux()
-	c, err := tls.X509KeyPair(cert, key)
+	c, err := tls.X509KeyPair(p.Cert, p.Key)
 	if err != nil {
 		return nil, err
 	}
 	h := Communicator{
+		p: p,
 		hs: http.Server{
 			Handler: mux,
 			TLSConfig: &tls.Config{
@@ -116,16 +133,15 @@ func NewCommunicator(l net.Listener, cert, key []byte, streaming bool) (*Communi
 		stopping: make(chan struct{}),
 	}
 	mux.Handle("/message", messageServer{&h})
-	if streaming {
+	if p.Streaming {
 		mux.Handle("/streaming-message", streamingMessageServer{&h})
 	}
 	mux.Handle("/files/", fileServer{&h})
 
-	switch l := l.(type) {
+	switch l := h.p.Listener.(type) {
 	case *net.TCPListener:
-		h.l = listener{l}
+		h.p.Listener = listener{l}
 	default:
-		h.l = l
 	}
 
 	return &h, nil
@@ -138,15 +154,15 @@ func (c *Communicator) serve(l net.Listener) {
 
 func (c *Communicator) Setup(fs comms.Context) error {
 	c.fs = fs
-	c.l = guardedListener{
-		Listener: c.l,
+	c.p.Listener = guardedListener{
+		Listener: c.p.Listener,
 		auth:     fs.Authorizer(),
 	}
 	return nil
 }
 
 func (c *Communicator) Start() error {
-	go c.serve(tls.NewListener(c.l, c.hs.TLSConfig))
+	go c.serve(tls.NewListener(c.p.Listener, c.hs.TLSConfig))
 
 	c.runningLock.Lock()
 	defer c.runningLock.Unlock()
@@ -156,7 +172,7 @@ func (c *Communicator) Start() error {
 
 func (c *Communicator) Stop() {
 	// The most graceful way to shut down an http.Server is to close the associated listener.
-	c.l.Close()
+	c.p.Listener.Close()
 	c.runningLock.Lock()
 	c.running = false
 	c.runningLock.Unlock()

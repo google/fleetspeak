@@ -110,7 +110,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	body := bufio.NewReader(req.Body)
 
 	// Set a 10 min overall maximum lifespan of the connection.
-	ctx, fin := context.WithTimeout(req.Context(), 10*time.Minute)
+	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan)
 	defer fin()
 
 	// Also create a way to terminate early in case of error.
@@ -153,7 +153,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	m.reading.Add(2)
 	go m.readLoop()
-	go m.notifyLoop()
+	go m.notifyLoop(s.p.StreamingCloseTime)
 
 	m.writing.Add(1)
 	go m.writeLoop()
@@ -162,8 +162,8 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	case <-ctx.Done():
 	case <-fullRes.CloseNotify():
 	case <-s.stopping:
-		// Communicator is shutting down.
 	}
+	m.cancel()
 }
 
 func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, error) {
@@ -348,10 +348,32 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	return &pi, nil
 }
 
-func (m *streamManager) notifyLoop() {
+func (m *streamManager) notifyLoop(closeTime time.Duration) {
 	defer m.reading.Done()
 
 	for _ = range m.info.Notices {
+		// Stop sending messages to the client 30 seconds before our hard timelimit.
+		d, ok := m.ctx.Deadline()
+		if ok && time.Now().After(d.Add(-closeTime)) {
+			m.out <- &fspb.ContactData{DoneSending: true}
+			return
+		}
+		// Wait up to 1 second for extra notifications/messages, ignoring additional
+		// notifications during this time.
+		t := time.NewTimer(time.Second)
+	L:
+		for {
+			select {
+			case _, ok := <-m.info.Notices:
+				if !ok {
+					break L
+				}
+				t.Stop()
+				continue L
+			case <-t.C:
+				break L
+			}
+		}
 		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)

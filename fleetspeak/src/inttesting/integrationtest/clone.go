@@ -68,7 +68,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := https.NewCommunicator(listener, cert, key, false)
+	com, err := https.NewCommunicator(https.Params{Listener: listener, Cert: cert, Key: key})
 	if err != nil {
 		t.Fatal(err)
 	}
