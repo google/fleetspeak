@@ -118,7 +118,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	info, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
+	info, moreMsgs, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
 	if err != nil || info == nil {
 		return
 	}
@@ -154,7 +154,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	m.reading.Add(2)
 	go m.readLoop()
-	go m.notifyLoop(s.p.StreamingCloseTime)
+	go m.notifyLoop(s.p.StreamingCloseTime, moreMsgs)
 
 	m.writing.Add(1)
 	go m.writeLoop()
@@ -167,7 +167,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	m.cancel()
 }
 
-func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, error) {
+func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, bool, error) {
 	ctx, fin := context.WithTimeout(ctx, time.Minute)
 
 	pi := stats.PollInfo{
@@ -193,46 +193,46 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 
 	id, err := common.MakeClientID(key)
 	if err != nil {
-		return nil, makeError(fmt.Sprintf("unable to create client id from public key: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("unable to create client id from public key: %v", err), http.StatusBadRequest)
 	}
 	pi.ID = id
 
 	m, err := readUint32(body)
 	if err != nil {
-		return nil, makeError(fmt.Sprintf("error reading magic number: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("error reading magic number: %v", err), http.StatusBadRequest)
 	}
 	if m != magic {
-		return nil, makeError(fmt.Sprintf("unknown magic number: got %x, expected %x", m, magic), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("unknown magic number: got %x, expected %x", m, magic), http.StatusBadRequest)
 	}
 
 	st := time.Now()
 	size, err := binary.ReadUvarint(body)
 	if err != nil {
-		return nil, makeError(fmt.Sprintf("error reading size: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("error reading size: %v", err), http.StatusBadRequest)
 	}
 	if size > MaxContactSize {
-		return nil, makeError(fmt.Sprintf("initial contact size too large: got %d, expected at most %d", size, MaxContactSize), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("initial contact size too large: got %d, expected at most %d", size, MaxContactSize), http.StatusBadRequest)
 	}
 
 	buf := make([]byte, size)
 	_, err = io.ReadFull(body, buf)
 	if err != nil {
-		return nil, makeError(fmt.Sprintf("error reading body for initial exchange: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("error reading body for initial exchange: %v", err), http.StatusBadRequest)
 	}
 	pi.ReadTime = time.Since(st)
 	pi.ReadBytes = int(size)
 
 	var wcd fspb.WrappedContactData
 	if err := proto.Unmarshal(buf, &wcd); err != nil {
-		return nil, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
-	info, toSend, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
+	info, toSend, more, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
 	if err == comms.ErrNotAuthorized {
-		return nil, makeError("not authorized", http.StatusServiceUnavailable)
+		return nil, false, makeError("not authorized", http.StatusServiceUnavailable)
 	}
 	if err != nil {
-		return nil, makeError(fmt.Sprintf("error processing contact: %v", err), http.StatusInternalServerError)
+		return nil, false, makeError(fmt.Sprintf("error processing contact: %v", err), http.StatusInternalServerError)
 	}
 	pi.CacheHit = info.Client.Cached
 
@@ -240,13 +240,13 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	// EncodeMessage prepends the size as a Varint.
 	if err := out.EncodeMessage(toSend); err != nil {
 		info.Fin()
-		return nil, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
+		return nil, false, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
 	}
 	st = time.Now()
 	sz, err := res.Write(out.Bytes())
 	if err != nil {
 		info.Fin()
-		return nil, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
+		return nil, false, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
 	}
 	res.Flush()
 
@@ -254,7 +254,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	pi.End = time.Now()
 	pi.WriteBytes = sz
 	pi.Status = http.StatusOK
-	return info, nil
+	return info, more, nil
 }
 
 type streamManager struct {
@@ -349,33 +349,43 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	return &pi, nil
 }
 
-func (m *streamManager) notifyLoop(closeTime time.Duration) {
+func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 	defer m.reading.Done()
 
-	for range m.info.Notices {
+	for {
+		if !moreMsgs {
+			_, ok := <-m.info.Notices
+			if !ok {
+				return
+			}
+		}
 		// Stop sending messages to the client 30 seconds before our hard timelimit.
 		d, ok := m.ctx.Deadline()
 		if ok && time.Now().After(d.Add(-closeTime)) {
 			m.out <- &fspb.ContactData{DoneSending: true}
 			return
 		}
-		// Wait up to 1 second for extra notifications/messages, ignoring additional
-		// notifications during this time.
-		t := time.NewTimer(time.Second)
-	L:
-		for {
-			select {
-			case _, ok := <-m.info.Notices:
-				if !ok {
+		if !moreMsgs {
+			// Wait up to 1 second for extra notifications/messages, ignoring additional
+			// notifications during this time.
+			t := time.NewTimer(time.Second)
+		L:
+			for {
+				select {
+				case _, ok := <-m.info.Notices:
+					if !ok {
+						break L
+					}
+					continue L
+				case <-t.C:
 					break L
 				}
-				continue L
-			case <-t.C:
-				break L
 			}
+			t.Stop()
 		}
-		t.Stop()
-		cd, err := m.s.fs.GetMessagesForClient(m.ctx, m.info)
+		var cd *fspb.ContactData
+		var err error
+		cd, moreMsgs, err = m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
 		}
