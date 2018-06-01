@@ -265,17 +265,13 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 
 	if err != nil {
-		if log.V(1) {
-			log.Infof("Streaming connection attempt failed: %v", err)
-		}
+		log.V(1).Infof("Streaming connection attempt failed: %v", err)
 		ret.stop()
 		return nil, err
 	}
 
 	fail := func(err error) (*connection, error) {
-		if log.V(1) {
-			log.Infof("Streaming connection failed: %v", err)
-		}
+		log.V(1).Infof("Streaming connection failed: %v", err)
 		ret.stop()
 		resp.Body.Close()
 		return nil, err
@@ -302,9 +298,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	go ret.readLoop(body, resp.Body)
 	go ret.writeLoop(bw)
 
-	if log.V(2) {
-		log.Infof("Streaming connection with %s started.", host)
-	}
+	log.V(2).Infof("Streaming connection with %s started.", host)
 	return &ret, nil
 }
 
