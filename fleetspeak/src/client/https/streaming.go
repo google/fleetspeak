@@ -289,7 +289,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	if err != nil {
 		return fail(err)
 	}
-	if err := c.cctx.ProcessContactData(cd, false); err != nil {
+	if err := c.cctx.ProcessContactData(ctx, cd, false); err != nil {
 		return fail(err)
 	}
 
@@ -471,7 +471,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			}
 		}
 		if len(cd.Messages) != 0 {
-			if err := c.cctx.ProcessContactData(cd, true); err != nil {
+			if err := c.cctx.ProcessContactData(c.ctx, cd, true); err != nil {
 				log.Errorf("Failed to process received ContactData: %v", err)
 			}
 		}

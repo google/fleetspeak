@@ -303,7 +303,7 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 			continue
 		}
 
-		if err := c.cctx.ProcessContactData(&r, false); err != nil {
+		if err := c.cctx.ProcessContactData(context.TODO(), &r, false); err != nil {
 			log.Warningf("Error processing ContactData from server: %v", err)
 			continue
 		}
