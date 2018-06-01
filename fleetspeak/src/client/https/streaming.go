@@ -387,7 +387,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		// them.
 		msgs := c.groupMessages(c.ctx)
 		if msgs == nil {
-			if c.ctx.Err() != nil {
+			if c.ctx.Err() == nil {
 				steppedShutdown = true
 				close(c.writingDone)
 				<-c.ctx.Done()
