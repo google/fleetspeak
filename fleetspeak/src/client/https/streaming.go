@@ -460,6 +460,12 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 				return
 			case <-c.writingDone:
 				writingDone = true
+				c.pendingLock.Lock()
+				l := len(c.pending)
+				c.pendingLock.Unlock()
+				if l == 0 {
+					return
+				}
 			}
 		}
 		if cd.AckIndex != 0 {
