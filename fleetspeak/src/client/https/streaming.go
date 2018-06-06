@@ -145,6 +145,7 @@ func (c *StreamingCommunicator) connectLoop() {
 			}
 		}
 		if con == nil {
+			log.V(1).Info("Connection failed, sleeping before retry.")
 			// Failure!
 			if time.Since(lastContact) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second {
 				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastContact))
@@ -158,6 +159,7 @@ func (c *StreamingCommunicator) connectLoop() {
 			}
 			continue
 		}
+		log.V(2).Infof("--%p: started", con)
 		con.working.Wait()
 		lastContact = time.Now()
 		for _, l := range con.pending {
@@ -169,10 +171,12 @@ func (c *StreamingCommunicator) connectLoop() {
 }
 
 func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
+	log.V(2).Info("->Reading contact size.")
 	size, err := binary.ReadUvarint(body)
 	if err != nil {
 		return nil, err
 	}
+	log.V(2).Infof("->Reading body of size %d.", size)
 	buf := make([]byte, size)
 	_, err = io.ReadFull(body, buf)
 	if err != nil {
@@ -265,17 +269,18 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 
 	if err != nil {
-		if log.V(1) {
-			log.Infof("Streaming connection attempt failed: %v", err)
-		}
+		log.V(1).Infof("Streaming connection attempt failed: %v", err)
 		ret.stop()
 		return nil, err
 	}
+	go func() {
+		<-ret.ctx.Done()
+		err := resp.Body.Close()
+		log.V(2).Infof("--%p: Context finished, body closed with result: %v", &ret, err)
+	}()
 
 	fail := func(err error) (*connection, error) {
-		if log.V(1) {
-			log.Infof("Streaming connection failed: %v", err)
-		}
+		log.V(1).Infof("Streaming connection failed: %v", err)
 		ret.stop()
 		resp.Body.Close()
 		return nil, err
@@ -289,7 +294,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	if err != nil {
 		return fail(err)
 	}
-	if err := c.cctx.ProcessContactData(cd, false); err != nil {
+	if err := c.cctx.ProcessContactData(ctx, cd, false); err != nil {
 		return fail(err)
 	}
 
@@ -302,9 +307,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	go ret.readLoop(body, resp.Body)
 	go ret.writeLoop(bw)
 
-	if log.V(2) {
-		log.Infof("Streaming connection with %s started.", host)
-	}
+	log.V(2).Infof("--Streaming connection with %s started.", host)
 	return &ret, nil
 }
 
@@ -367,12 +370,14 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 func (c *connection) writeLoop(bw *io.PipeWriter) {
 	steppedShutdown := false
 	defer func() {
+		log.V(2).Infof("<-%p: writeLoop stopping, steppedShutdown: %t", c, steppedShutdown)
 		c.stop()
 		bw.Close()
 		if !steppedShutdown {
 			close(c.writingDone)
 		}
 		c.working.Done()
+		log.V(2).Infof("<-%p: writeLoop stopped", c)
 	}()
 
 	buf := proto.NewBuffer(make([]byte, 0, 1024))
@@ -382,7 +387,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		// them.
 		msgs := c.groupMessages(c.ctx)
 		if msgs == nil {
-			if c.ctx.Err() != nil {
+			if c.ctx.Err() == nil {
 				steppedShutdown = true
 				close(c.writingDone)
 				<-c.ctx.Done()
@@ -410,6 +415,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			log.Errorf("Error encoding streaming contact data: %v", err)
 			return
 		}
+		log.V(2).Infof("<-Starting write of %d bytes", len(buf.Bytes()))
 		s, err := bw.Write(buf.Bytes())
 		if err != nil {
 			if c.ctx.Err() == nil {
@@ -417,18 +423,18 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
-		if log.V(2) {
-			log.Infof("Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
-		}
+		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
 		buf.Reset()
 	}
 }
 
 func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 	defer func() {
+		log.V(2).Infof("->%p: readLoop stopping", c)
 		c.stop()
 		closer.Close()
 		c.working.Done()
+		log.V(2).Infof("->%p: readLoop stopped", c)
 	}()
 
 	cnt := 1
@@ -442,7 +448,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			return
 		}
 		if log.V(2) {
-			log.Infof("Read streaming ContactData [AckIdx: %d, MessageCount: %d, DoneSending: %t]", cd.AckIndex, len(cd.Messages), cd.DoneSending)
+			log.Infof("->Read streaming ContactData [AckIdx: %d, MessageCount: %d, DoneSending: %t]", cd.AckIndex, len(cd.Messages), cd.DoneSending)
 		}
 		if cd.AckIndex == 0 && len(cd.Messages) == 0 && !cd.DoneSending {
 			log.Warningf("Read empty streaming ContactData.")
@@ -454,6 +460,12 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 				return
 			case <-c.writingDone:
 				writingDone = true
+				c.pendingLock.Lock()
+				l := len(c.pending)
+				c.pendingLock.Unlock()
+				if l == 0 {
+					return
+				}
 			}
 		}
 		if cd.AckIndex != 0 {
@@ -469,11 +481,14 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			if writingDone && l == 0 {
 				return
 			}
+			log.V(2).Infof("->Acked %d messages.", len(toAck))
 		}
 		if len(cd.Messages) != 0 {
-			if err := c.cctx.ProcessContactData(cd, true); err != nil {
+			if err := c.cctx.ProcessContactData(c.ctx, cd, true); err != nil {
 				log.Errorf("Failed to process received ContactData: %v", err)
 			}
+		} else {
+			log.V(2).Infof("->Processed %d messages.", len(cd.Messages))
 		}
 	}
 }

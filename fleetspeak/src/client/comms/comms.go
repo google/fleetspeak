@@ -84,7 +84,7 @@ type Context interface {
 	MakeContactData([]*fspb.Message) (*fspb.WrappedContactData, error)
 
 	// ProcessContactData processes a ContactData recevied from the server.
-	ProcessContactData(data *fspb.ContactData, streaming bool) error
+	ProcessContactData(ctx context.Context, data *fspb.ContactData, streaming bool) error
 
 	// ChainRevoked takes an x509 certificate chain, and returns true if any link
 	// of the chain has been revoked.
