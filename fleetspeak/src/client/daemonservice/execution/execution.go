@@ -69,13 +69,44 @@ func (s *atomicString) Set(val string) {
 	s.v.Store(val)
 }
 
-func (s *atomicString) Get() *string {
+func (s *atomicString) Get() string {
 	stored := s.v.Load()
 	if stored == nil {
-		return nil
+		return ""
 	}
-	ret := stored.(string)
-	return &ret
+	return stored.(string)
+}
+
+type atomicBool struct {
+	v atomic.Value
+}
+
+func (b *atomicBool) Set(val bool) {
+	b.v.Store(val)
+}
+
+func (b *atomicBool) Get() bool {
+	stored := b.v.Load()
+	if stored == nil {
+		return false
+	}
+	return stored.(bool)
+}
+
+type atomicTime struct {
+	v atomic.Value
+}
+
+func (t *atomicTime) Set(val time.Time) {
+	t.v.Store(val)
+}
+
+func (t *atomicTime) Get() time.Time {
+	stored := t.v.Load()
+	if stored == nil {
+		return time.Unix(0, 0).UTC()
+	}
+	return stored.(time.Time)
 }
 
 // An Execution represents a specific execution of a daemonservice.
@@ -108,12 +139,12 @@ type Execution struct {
 	inProcess   sync.WaitGroup         // count of active goroutines
 	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
 
-	heartbeat                        int64         // Time of the last input message in seconds since epoch (UTC), atomic access only.
-	monitorHeartbeats                bool          // Whether to monitor the daemon process's hearbeats and kill unresponsive processes.
-	heartbeatUnresponsiveGracePeriod time.Duration // How long to wait for initial heartbeat.
-	heartbeatUnresponsiveKillPeriod  time.Duration // How long to wait for subsequent heartbeats.
-	sending                          int32         // Non-zero when we are sending a messaging into FS. atomic access only.
-	serviceVersion                   atomicString  // Version reported by the daemon process.
+	heartbeat                    atomicTime   // Time when the last message was received from the daemon process.
+	monitorHeartbeats            bool         // Whether to monitor the daemon process's hearbeats, killing it if it doesn't heartbeat often enough.
+	initialHeartbeatDeadlineSecs int          // How long to wait for the initial heartbeat.
+	heartbeatDeadlineSecs        int          // How long to wait for subsequent heartbeats.
+	sending                      atomicBool   // Indicates whether a message-send operation is in progress.
+	serviceVersion               atomicString // Version reported by the daemon process.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -140,9 +171,9 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		dead:        make(chan struct{}),
 		startupData: make(chan *fcpb.StartupData, 1),
 
-		monitorHeartbeats:                cfg.MonitorHeartbeats,
-		heartbeatUnresponsiveGracePeriod: time.Duration(cfg.HeartbeatUnresponsiveGracePeriodSeconds) * time.Second,
-		heartbeatUnresponsiveKillPeriod:  time.Duration(cfg.HeartbeatUnresponsiveKillPeriodSeconds) * time.Second,
+		monitorHeartbeats:            cfg.MonitorHeartbeats,
+		initialHeartbeatDeadlineSecs: int(cfg.HeartbeatUnresponsiveGracePeriodSeconds),
+		heartbeatDeadlineSecs:        int(cfg.HeartbeatUnresponsiveKillPeriodSeconds),
 	}
 
 	var err error
@@ -245,16 +276,6 @@ func (e *Execution) LastActive() time.Time {
 
 func (e *Execution) setLastActive(t time.Time) {
 	atomic.StoreInt64(&e.lastActive, t.Unix())
-}
-
-// getHeartbeat returns the last time that a message was received, to the nearest
-// second.
-func (e *Execution) getHeartbeat() time.Time {
-	return time.Unix(atomic.LoadInt64(&e.heartbeat), 0).UTC()
-}
-
-func (e *Execution) recordHeartbeat() {
-	atomic.StoreInt64(&e.heartbeat, time.Now().Unix())
 }
 
 func dataSize(o *dspb.StdOutputData) int {
@@ -423,7 +444,7 @@ func (e *Execution) inRoutine() {
 			return
 		}
 		e.setLastActive(time.Now())
-		e.recordHeartbeat()
+		e.heartbeat.Set(time.Now())
 
 		if m.Destination != nil && m.Destination.ServiceName == "system" {
 			switch m.MessageType {
@@ -450,13 +471,14 @@ func (e *Execution) inRoutine() {
 				log.Warningf("Unknown system message type: %s", m.MessageType)
 			}
 		} else {
-			atomic.StoreInt32(&e.sending, 1)
+			e.sending.Set(true)
+			// sc.Send() buffers the message locally for sending to the Fleetspeak server. It will
+			// block if the buffer is full.
 			if err := e.sc.Send(context.Background(), service.AckMessage{M: m}); err != nil {
 				log.Errorf("error sending message to server: %v", err)
 			}
-			atomic.StoreInt32(&e.sending, 0)
+			e.sending.Set(false)
 		}
-
 	}
 }
 
@@ -521,6 +543,22 @@ func (e *Execution) statsRoutine() {
 	rum.Run()
 }
 
+// busySleep sleeps for a given number of seconds, not counting the time
+// when the Fleetspeak process is suspended. Returns true if execution
+// should continue (i.e if the daemon process is still alive).
+func (e *Execution) busySleep(sleepSecs int) bool {
+	for i := 0; i < sleepSecs; i++ {
+		select {
+		// With very high probability, if the system gets suspended, it will occur
+		// while waiting for this channel.
+		case <-time.After(time.Second):
+		case <-e.dead:
+			return false
+		}
+	}
+	return true
+}
+
 // heartbeatMonitorRoutine monitors the daemon process's hearbeats and kills
 // unresponsive processes.
 func (e *Execution) heartbeatMonitorRoutine(pid int) {
@@ -529,38 +567,30 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 	// Give the child process some time to start up. During boot it sometimes
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
-	e.recordHeartbeat()
-	sleepTime := e.heartbeatUnresponsiveGracePeriod
+	e.heartbeat.Set(time.Now())
+	if !e.busySleep(e.initialHeartbeatDeadlineSecs) {
+		return
+	}
 
 	for {
-		select {
-		case <-time.After(sleepTime):
-		case <-e.dead:
-			return
+		if e.sending.Get() { // Blocked trying to buffer a message for sending to the FS server.
+			if e.busySleep(e.heartbeatDeadlineSecs) {
+				continue
+			} else {
+				return
+			}
 		}
-
-		now := time.Now()
-		var heartbeat time.Time
-		if atomic.LoadInt32(&e.sending) != 0 {
-			// We are blocked waiting for Send to complete, e.g. because there is no
-			// network connection.  Treat this as if we got a heartbeat 'now'.
-			heartbeat = now
-		} else {
-			heartbeat = e.getHeartbeat()
-		}
-		sleepTime = e.heartbeatUnresponsiveKillPeriod - now.Sub(heartbeat)
-		if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod {
+		secsSinceLastHB := int(time.Now().Sub(e.heartbeat.Get()).Seconds())
+		if secsSinceLastHB > e.heartbeatDeadlineSecs {
 			// There is a very unlikely race condition if the machine gets suspended
 			// for longer than unresponsive_kill_period seconds so we give the client
 			// some time to catch up.
-			select {
-			case <-time.After(2 * time.Second):
-			case <-e.dead:
+			if !e.busySleep(2) {
 				return
 			}
 
-			heartbeat = e.getHeartbeat()
-			if now.Sub(heartbeat) > e.heartbeatUnresponsiveKillPeriod && atomic.LoadInt32(&e.sending) == 0 {
+			secsSinceLastHB = int(time.Now().Sub(e.heartbeat.Get()).Seconds())
+			if secsSinceLastHB > e.heartbeatDeadlineSecs && !e.sending.Get() {
 				// We have not received a heartbeat in a while, kill the child.
 				log.Warningf("No heartbeat received from %s (pid %d), killing.", e.daemonServiceName, pid)
 
@@ -578,8 +608,8 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 					KilledWhen:       ptypes.TimestampNow(),
 					Reason:           mpb.KillNotification_HEARTBEAT_FAILURE,
 				}
-				if version := e.serviceVersion.Get(); version != nil {
-					kn.Version = *version
+				if version := e.serviceVersion.Get(); version != "" {
+					kn.Version = version
 				}
 				if err := monitoring.SendProtoToServer(kn, "KillNotification", e.sc); err != nil {
 					log.Errorf("Failed to send kill notification to server: %v", err)
@@ -592,6 +622,10 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				}
 				return
 			}
+		}
+		// Sleep until when the next heartbeat is due.
+		if !e.busySleep(e.heartbeatDeadlineSecs - secsSinceLastHB) {
+			return
 		}
 	}
 }
