@@ -361,6 +361,8 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 }
 
 func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+	d.l.Lock()
+	defer d.l.Unlock()
 	var records []*spb.ClientResourceUsageRecord
 	err := d.runInTx(func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
