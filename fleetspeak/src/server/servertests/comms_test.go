@@ -40,7 +40,10 @@ func TestCommsContext(t *testing.T) {
 	defer fakeTime.Revert()
 
 	ts := testserver.Make(t, "server", "CommsContext", nil)
-	defer ts.S.Stop()
+	defer func() {
+		ts.S.Stop()
+		ts.DS.Close()
+	}()
 	ctx := context.Background()
 
 	// Verify that we can add clients using different types of keys.
