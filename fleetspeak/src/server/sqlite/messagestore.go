@@ -61,6 +61,8 @@ func toMicro(t time.Time) int64 {
 }
 
 func (d *Datastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
+	d.l.Lock()
+	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error { return d.trySetMessageResult(ctx, tx, id, res) })
 }
 
