@@ -37,4 +37,5 @@ build_script:
 # Build all Fleetspeak packages, and run all tests.
 test_script:
 - pip show fleetspeak
-- go test ./... --timeout 90s
+- go test github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 90s
+- go test github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 90s
