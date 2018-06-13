@@ -17,10 +17,12 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -34,7 +36,7 @@ import (
 
 // dbBroadcast matches the schema of the broadcasts table.
 type dbBroadcast struct {
-	broadcastID           string
+	broadcastID           []byte
 	sourceServiceName     string
 	messageType           string
 	expirationTimeSeconds sql.NullInt64
@@ -59,7 +61,7 @@ func fromBroadcastProto(b *spb.Broadcast) (*dbBroadcast, error) {
 	}
 
 	res := dbBroadcast{
-		broadcastID:       id.String(),
+		broadcastID:       id.Bytes(),
 		sourceServiceName: b.Source.ServiceName,
 		messageType:       b.MessageType,
 	}
@@ -75,7 +77,7 @@ func fromBroadcastProto(b *spb.Broadcast) (*dbBroadcast, error) {
 }
 
 func toBroadcastProto(b *dbBroadcast) (*spb.Broadcast, error) {
-	bid, err := ids.StringToBroadcastID(b.broadcastID)
+	bid, err := ids.BytesToBroadcastID(b.broadcastID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +143,7 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 
 func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE broadcasts(message_limit) VALUES(?) WHERE broadcast_id=?", limit, id.String())
+		_, err := tx.ExecContext(ctx, "UPDATE broadcasts(message_limit) VALUES(?) WHERE broadcast_id=?", limit, id.Bytes())
 		return err
 	})
 }
@@ -155,7 +157,7 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var as, al uint64
 		var exp tpb.Timestamp
-		r := tx.QueryRowContext(ctx, "SELECT sent, message_limit, expiration_time_seconds, expiration_time_nanos FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.String(), aID.String())
+		r := tx.QueryRowContext(ctx, "SELECT sent, message_limit, expiration_time_seconds, expiration_time_nanos FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.Bytes(), aID.Bytes())
 		if err := r.Scan(&as, &al, &exp.Seconds, &exp.Nanos); err != nil {
 			return err
 		}
@@ -174,10 +176,10 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 			return err
 		}
 
-		if _, err := tx.ExecContext(ctx, "UPDATE broadcast_allocations SET sent = ? WHERE broadcast_id = ? AND allocation_id = ?", as+1, bID.String(), aID.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE broadcast_allocations SET sent = ? WHERE broadcast_id = ? AND allocation_id = ?", as+1, bID.Bytes(), aID.Bytes()); err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, "INSERT INTO broadcast_sent(broadcast_id, client_id) VALUES (?, ?)", bID.String(), cID.Bytes())
+		_, err = tx.ExecContext(ctx, "INSERT INTO broadcast_sent(broadcast_id, client_id) VALUES (?, ?)", bID.Bytes(), cID.Bytes())
 		return err
 	})
 }
@@ -226,6 +228,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			}
 			bp, err := toBroadcastProto(&b)
 			if err != nil {
+				log.Errorf("Failed to convert read broadcast %+v: %v", b, err)
 				return err
 			}
 			ret = append(ret, &db.BroadcastInfo{
@@ -248,7 +251,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			if err != nil {
 				return err
 			}
-			r, err := stmt.QueryContext(ctx, id.String())
+			r, err := stmt.QueryContext(ctx, id.Bytes())
 			if err != nil {
 				return err
 			}
@@ -276,14 +279,14 @@ func (d *Datastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) 
 	defer rs.Close()
 	var res []ids.BroadcastID
 	for rs.Next() {
-		var b string
+		var b []byte
 		err = rs.Scan(&b)
 		if err != nil {
 			return nil, err
 		}
-		bID, err := ids.StringToBroadcastID(b)
+		bID, err := ids.BytesToBroadcastID(b)
 		if err != nil {
-			return nil, fmt.Errorf("ListSentBroadcasts: bad broadcast id for client %v: %v", id, b)
+			return nil, fmt.Errorf("ListSentBroadcasts: bad broadcast id [%s] for client %v: %v", hex.EncodeToString(b), id, err)
 		}
 		res = append(res, bID)
 	}
@@ -306,7 +309,7 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 		}
 
 		var b dbBroadcast
-		r := tx.QueryRowContext(ctx, "SELECT sent, allocated, message_limit FROM broadcasts WHERE broadcast_id = ?", id.String())
+		r := tx.QueryRowContext(ctx, "SELECT sent, allocated, message_limit FROM broadcasts WHERE broadcast_id = ?", id.Bytes())
 		if err := r.Scan(&b.sent, &b.allocated, &b.messageLimit); err != nil {
 			return err
 		}
@@ -315,7 +318,7 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 			return nil
 		}
 
-		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET allocated = ? WHERE broadcast_id = ?", newAllocated, id.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET allocated = ? WHERE broadcast_id = ?", newAllocated, id.Bytes()); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, "INSERT INTO broadcast_allocations("+
@@ -326,7 +329,7 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 			"expiration_time_seconds, "+
 			"expiration_time_nanos) "+
 			"VALUES (?, ?, 0, ?, ?, ?) ",
-			id.String(), aid.String(), toAllocate, ep.Seconds, ep.Nanos); err != nil {
+			id.Bytes(), aid.Bytes(), toAllocate, ep.Seconds, ep.Nanos); err != nil {
 			return err
 		}
 
@@ -343,13 +346,13 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, aID ids.AllocationID) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var b dbBroadcast
-		r := tx.QueryRowContext(ctx, "SELECT sent, allocated, message_limit FROM broadcasts WHERE broadcast_id = ?", bID.String())
+		r := tx.QueryRowContext(ctx, "SELECT sent, allocated, message_limit FROM broadcasts WHERE broadcast_id = ?", bID.Bytes())
 		if err := r.Scan(&b.sent, &b.allocated, &b.messageLimit); err != nil {
 			return err
 		}
 
 		var as, al uint64
-		r = tx.QueryRowContext(ctx, "SELECT sent, message_limit FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.String(), aID.String())
+		r = tx.QueryRowContext(ctx, "SELECT sent, message_limit FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.Bytes(), aID.Bytes())
 		if err := r.Scan(&as, &al); err != nil {
 			return err
 		}
@@ -357,10 +360,10 @@ func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, 
 		if err != nil {
 			return fmt.Errorf("unable to clear allocation [%v,%v]: %v", bID.String(), aID.String(), err)
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET sent = ?, allocated = ? WHERE broadcast_id = ?", b.sent+as, newAllocated, bID.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET sent = ?, allocated = ? WHERE broadcast_id = ?", b.sent+as, newAllocated, bID.Bytes()); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, "DELETE from broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.String(), aID.String()); err != nil {
+		if _, err := tx.ExecContext(ctx, "DELETE from broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.Bytes(), aID.Bytes()); err != nil {
 			return err
 		}
 		return nil

@@ -36,6 +36,9 @@ func setup(t *testing.T, caseName string) (ds *Datastore, fin func()) {
 	if err != nil {
 		t.Fatalf("Unable to open connection [%s] to create database: %v", cs, err)
 	}
+	if _, err := ac.ExecContext(ctx, "DROP DATABASE IF EXISTS "+caseName); err != nil {
+		t.Fatalf("Unable to drop database [%s]: %v", caseName, err)
+	}
 	if _, err := ac.ExecContext(ctx, "CREATE DATABASE "+caseName); err != nil {
 		t.Fatalf("Unable to create database [%s]: %v", caseName, err)
 	}

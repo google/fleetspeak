@@ -41,7 +41,7 @@ type dbMessage struct {
 	messageID              []byte
 	sourceClientID         []byte
 	sourceServiceName      string
-	sourceMessageID        string
+	sourceMessageID        []byte
 	destinationClientID    []byte
 	destinationServiceName string
 	messageType            string
@@ -113,7 +113,7 @@ func fromMessageProto(m *fspb.Message) (*dbMessage, error) {
 		dbm.destinationServiceName = m.Destination.ServiceName
 	}
 	if len(m.SourceMessageId) != 0 {
-		dbm.sourceMessageID = hex.EncodeToString(m.SourceMessageId)
+		dbm.sourceMessageID = m.SourceMessageId
 	}
 	if m.CreationTime != nil {
 		dbm.creationTimeSeconds = m.CreationTime.Seconds
@@ -167,17 +167,13 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	bsmid, err := hex.DecodeString(m.sourceMessageID)
-	if err != nil {
-		return nil, err
-	}
 	pm := &fspb.Message{
 		MessageId: mid.Bytes(),
 		Source: &fspb.Address{
 			ClientId:    m.sourceClientID,
 			ServiceName: m.sourceServiceName,
 		},
-		SourceMessageId: bsmid,
+		SourceMessageId: m.sourceMessageID,
 		Destination: &fspb.Address{
 			ClientId:    m.destinationClientID,
 			ServiceName: m.destinationServiceName,
