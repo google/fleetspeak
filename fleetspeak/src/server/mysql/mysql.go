@@ -221,7 +221,7 @@ FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id),
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS files(
 service VARCHAR(128) NOT NULL,
-name VARCHAR(256) NOT NULL,
+name VARCHAR(128) NOT NULL,
 modified_time_nanos BIGINT NOT NULL,
 data BLOB,
 PRIMARY KEY (service, name))
