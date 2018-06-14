@@ -43,6 +43,9 @@ func Load(conf *pb.Config) (server.Components, error) {
 		if err != nil {
 			return server.Components{}, err
 		}
+		if sfs[n] != nil {
+			return server.Components{}, fmt.Errorf("Duplicate service factory name [%v] created by %v.", n, p)
+		}
 		sfs[n] = f
 	}
 	return server.Components{
