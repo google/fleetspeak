@@ -22,16 +22,28 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	pb "github.com/google/fleetspeak/fleetspeak/src/server/plugins/proto/plugins"
 )
 
 type DatabaseFactory func(string) (db.Store, error)
 
+type ServiceFactoryFactory func(string) (string, service.Factory, error)
+
 func Load(conf *pb.Config) (server.Components, error) {
 	ds, err := LoadDatastore(conf.Datastore)
 	if err != nil {
 		return server.Components{}, err
+	}
+
+	sfs := make(map[string]service.Factory)
+	for _, p := range conf.ServiceFactory {
+		n, f, err := LoadServiceFactory(p)
+		if err != nil {
+			return server.Components{}, err
+		}
+		sfs[n] = f
 	}
 	return server.Components{
 		Datastore: ds,
@@ -46,6 +58,18 @@ func LoadDatastore(p *pb.Plugin) (db.Store, error) {
 	df, ok := f.(DatabaseFactory)
 	if !ok {
 		return nil, fmt.Errorf("unable to load datastore from (%s:%s), expected DatabaseFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadServiceFactory(p *pb.Plugin) (string, service.Factory, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return "", nil, err
+	}
+	df, ok := f.(ServiceFactoryFactory)
+	if !ok {
+		return "", nil, fmt.Errorf("unable to load datastore from (%s:%s), expected ServiceFactoryFactory got %T", p.Path, p.FactoryName, df)
 	}
 	return df(p.Config)
 }
