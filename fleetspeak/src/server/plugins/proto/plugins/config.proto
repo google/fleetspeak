@@ -16,9 +16,13 @@ message Plugin {
 }
 
 message Config {
-  Plugin datastore = 1;
+  Plugin datastore = 1;  // Required
   repeated Plugin service_factory = 2;
   repeated Plugin communicator = 3;
+  Plugin stats_collector = 4;
+  Plugin authorizer = 5;
+  Plugin notifier = 6;
+  Plugin listener = 7;
 }
 
 message HttpsConfig {

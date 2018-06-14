@@ -21,18 +21,43 @@ import (
 	"plugin"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	pb "github.com/google/fleetspeak/fleetspeak/src/server/plugins/proto/plugins"
 )
 
+// DatabaseFactory is a function which creates a db.Store from a configuration
+// string.
 type DatabaseFactory func(string) (db.Store, error)
 
+// DatabaseFactory is a function which creates a named service.Factory from a
+// configuration string.
 type ServiceFactoryFactory func(string) (string, service.Factory, error)
 
+// CommunicatorFactory is a function which creates a db.Store from a configuration
+// string.
 type CommunicatorFactory func(string) (comms.Communicator, error)
+
+// StatsCollectorFactory is a function which creates a stats.Collector from a
+// configuration string.
+type StatsCollectorFactory func(string) (stats.Collector, error)
+
+// AuthorizerFactory is a function which creates an authorizer.Authorizer from a
+// configuration string.
+type AuthorizerFactory func(string) (authorizer.Authorizer, error)
+
+// NotifierFactory is a function which creates an notifications.Notifier from a
+// configuration string.
+type NotifierFactory func(string) (notifications.Notifier, error)
+
+// ListenerFactory is a function which creates an notifications.Listener from a
+// configuration string.
+type ListenerFactory func(string) (notifications.Listener, error)
 
 func Load(conf *pb.Config) (server.Components, error) {
 	ds, err := LoadDatastore(conf.Datastore)
@@ -61,10 +86,50 @@ func Load(conf *pb.Config) (server.Components, error) {
 		cs = append(cs, c)
 	}
 
+	var sc stats.Collector
+	if conf.StatsCollector != nil {
+		var err error
+		sc, err = LoadStatsCollector(conf.StatsCollector)
+		if err != nil {
+			return server.Components{}, err
+		}
+	}
+
+	var au authorizer.Authorizer
+	if conf.Authorizer != nil {
+		var err error
+		au, err = LoadAuthorizer(conf.Authorizer)
+		if err != nil {
+			return server.Components{}, err
+		}
+	}
+
+	var n notifications.Notifier
+	if conf.Notifier != nil {
+		var err error
+		n, err = LoadNotifier(conf.Notifier)
+		if err != nil {
+			return server.Components{}, err
+		}
+	}
+
+	var l notifications.Listener
+	if conf.Listener != nil {
+		var err error
+		l, err = LoadListener(conf.Listener)
+		if err != nil {
+			return server.Components{}, err
+		}
+	}
+
 	return server.Components{
 		Datastore:        ds,
 		ServiceFactories: sfs,
 		Communicators:    cs,
+		Stats:            sc,
+		Authorizer:       au,
+		Notifier:         n,
+		Listener:         l,
 	}, nil
 }
 
@@ -100,6 +165,54 @@ func LoadCommunicator(p *pb.Plugin) (comms.Communicator, error) {
 	df, ok := f.(CommunicatorFactory)
 	if !ok {
 		return nil, fmt.Errorf("unable to load communicator from (%s:%s), expected CommunicatorFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadStatsCollector(p *pb.Plugin) (stats.Collector, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return nil, err
+	}
+	df, ok := f.(StatsCollectorFactory)
+	if !ok {
+		return nil, fmt.Errorf("unable to load stats collector from (%s:%s), expected CollectorFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadAuthorizer(p *pb.Plugin) (authorizer.Authorizer, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return nil, err
+	}
+	df, ok := f.(AuthorizerFactory)
+	if !ok {
+		return nil, fmt.Errorf("unable to load authorizer from (%s:%s), expected AuthorizerFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadNotifier(p *pb.Plugin) (notifications.Notifier, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return nil, err
+	}
+	df, ok := f.(NotifierFactory)
+	if !ok {
+		return nil, fmt.Errorf("unable to load notifier from (%s:%s), expected NotifierFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadListener(p *pb.Plugin) (notifications.Listener, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return nil, err
+	}
+	df, ok := f.(ListenerFactory)
+	if !ok {
+		return nil, fmt.Errorf("unable to load listener from (%s:%s), expected ListenerFactory got %T", p.Path, p.FactoryName, df)
 	}
 	return df(p.Config)
 }
