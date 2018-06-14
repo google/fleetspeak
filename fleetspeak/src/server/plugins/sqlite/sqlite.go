@@ -16,6 +16,8 @@
 package main
 
 import (
+	log "github.com/golang/glog"
+
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 )
@@ -25,4 +27,8 @@ import (
 // an sqlite3 database.
 func Factory(file string) (db.Store, error) {
 	return sqlite.MakeDatastore(file)
+}
+
+func main() {
+	log.Exitf("unimplemented")
 }

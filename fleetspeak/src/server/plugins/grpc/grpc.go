@@ -16,10 +16,16 @@
 package main
 
 import (
+	log "github.com/golang/glog"
+
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 )
 
 func GRPCServiceFactoryFactory(_ string) (string, service.Factory, error) {
 	return "GRPC", grpcservice.Factory, nil
+}
+
+func main() {
+	log.Exitf("unimplemented")
 }

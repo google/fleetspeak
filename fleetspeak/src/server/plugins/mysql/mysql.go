@@ -18,6 +18,8 @@ package main
 import (
 	"database/sql"
 
+	log "github.com/golang/glog"
+
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
 
@@ -37,4 +39,8 @@ func Factory(cs string) (db.Store, error) {
 		return nil, err
 	}
 	return mysql.MakeDatastore(c)
+}
+
+func main() {
+	log.Exitf("unimplemented")
 }

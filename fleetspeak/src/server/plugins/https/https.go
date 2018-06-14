@@ -51,3 +51,7 @@ func HttpsFactory(configFile string) (comms.Communicator, error) {
 		Streaming: c.Streaming,
 	})
 }
+
+func main() {
+	log.Exitf("unimplemented")
+}
