@@ -34,7 +34,7 @@ cd "${SCRIPT_DIR}"
 readonly GOS=$(/usr/bin/find . -name '*.go')
 # ${GOS} should not be double-quoted; disable lint check
 # shellcheck disable=SC2086
-readonly MAIN_FILES=$(grep -rl 'func main' ${GOS})
+readonly MAIN_FILES=$(grep -rl 'func main' ${GOS} | grep -v '^./src/server/plugins/.*/')
 
 readonly PLUGIN_FILES=$(grep -rl 'package main' src/server/plugins/*/*.go)
 
