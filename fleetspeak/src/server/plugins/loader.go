@@ -21,6 +21,7 @@ import (
 	"plugin"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
@@ -30,6 +31,8 @@ import (
 type DatabaseFactory func(string) (db.Store, error)
 
 type ServiceFactoryFactory func(string) (string, service.Factory, error)
+
+type CommunicatorFactory func(string) (comms.Communicator, error)
 
 func Load(conf *pb.Config) (server.Components, error) {
 	ds, err := LoadDatastore(conf.Datastore)
@@ -48,8 +51,20 @@ func Load(conf *pb.Config) (server.Components, error) {
 		}
 		sfs[n] = f
 	}
+
+	var cs []comms.Communicator
+	for _, p := range conf.Communicator {
+		c, err := LoadCommunicator(p)
+		if err != nil {
+			return server.Components{}, err
+		}
+		cs = append(cs, c)
+	}
+
 	return server.Components{
-		Datastore: ds,
+		Datastore:        ds,
+		ServiceFactories: sfs,
+		Communicators:    cs,
 	}, nil
 }
 
@@ -73,6 +88,18 @@ func LoadServiceFactory(p *pb.Plugin) (string, service.Factory, error) {
 	df, ok := f.(ServiceFactoryFactory)
 	if !ok {
 		return "", nil, fmt.Errorf("unable to load datastore from (%s:%s), expected ServiceFactoryFactory got %T", p.Path, p.FactoryName, df)
+	}
+	return df(p.Config)
+}
+
+func LoadCommunicator(p *pb.Plugin) (comms.Communicator, error) {
+	f, err := loadFactory(p)
+	if err != nil {
+		return nil, err
+	}
+	df, ok := f.(CommunicatorFactory)
+	if !ok {
+		return nil, fmt.Errorf("unable to load communicator from (%s:%s), expected CommunicatorFactory got %T", p.Path, p.FactoryName, df)
 	}
 	return df(p.Config)
 }

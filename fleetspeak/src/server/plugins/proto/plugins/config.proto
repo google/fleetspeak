@@ -18,4 +18,5 @@ message Plugin {
 message Config {
   Plugin datastore = 1;
   repeated Plugin service_factory = 2;
+  repeated Plugin communicator = 3;
 }
