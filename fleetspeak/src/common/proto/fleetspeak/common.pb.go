@@ -379,8 +379,8 @@ type ContactData struct {
 	// Records the client's current time setting, as of the creation of this
 	// ContactData. Only set by the client.
 	ClientClock *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=client_clock,json=clientClock" json:"client_clock,omitempty"`
-	// If set, used to acknowledges receipt of a streamed WrappedContactData. This
-	// is used for control purposes during streaming connections.
+	// If set, acknowledges receipt of a streamed WrappedContactData. This is used
+	// for control purposes during streaming connections.
 	AckIndex uint64 `protobuf:"varint,4,opt,name=ack_index,json=ackIndex" json:"ack_index,omitempty"`
 	// If set, indicates that the connection is shutting down and no more data
 	// will be sent.

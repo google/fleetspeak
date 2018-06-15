@@ -16,3 +16,4 @@
 ./src/demo/miniclient/miniclient
 ./src/demo/miniserver/miniserver
 ./src/server/grpcservice/client/testing/tester
+./src/server/server/server

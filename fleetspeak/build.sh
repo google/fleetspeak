@@ -34,7 +34,9 @@ cd "${SCRIPT_DIR}"
 readonly GOS=$(/usr/bin/find . -name '*.go')
 # ${GOS} should not be double-quoted; disable lint check
 # shellcheck disable=SC2086
-readonly MAIN_FILES=$(grep -rl 'package main' ${GOS})
+readonly MAIN_FILES=$(grep -rl 'func main' ${GOS} | grep -v '^./src/server/plugins/.*/')
+
+readonly PLUGIN_FILES=$(grep -rl 'package main' src/server/plugins/*/*.go)
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
@@ -63,10 +65,26 @@ function build_single_main_file {
   )
 }
 
+function build_single_plugin_file {
+  local readonly F=${1}
+  local readonly COMPILED="${F%.go}.so"
+
+  time (
+    /bin/echo >&2 "Building ${F} => ${COMPILED} "
+    go build -buildmode=plugin -o "${COMPILED}" "${F}"
+  )
+}
+
 time (
   for f in ${MAIN_FILES}; do
     build_single_main_file "${f}"
   done
+
+  if [[ "$(uname)" != 'CYGWIN'* ]]; then
+    for f in ${PLUGIN_FILES}; do
+      build_single_plugin_file "${f}"
+    done
+  fi
 
   /bin/echo >&2 -n "${ARGV0} "
 )

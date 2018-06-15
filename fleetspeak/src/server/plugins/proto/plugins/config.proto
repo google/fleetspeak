@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package fleetspeak.plugins;
+
+// A Plugin message describes how to instantiate a FS component from a go plugin
+// file, as defined by go's plugin library: https://golang.org/pkg/plugin/
+message Plugin {
+  // The full path to the plugin file containing this component.
+  string path = 1;
+
+  // The name of a factory function exported by the file. It will be passed the
+  // config string and must be one of the *Factory types defined in the
+  // Fleetspeak server.plugins package.
+  string factory_name = 2;
+  string config = 3;
+}
+
+message Config {
+  Plugin datastore = 1;  // Required
+  repeated Plugin service_factory = 2;
+  repeated Plugin communicator = 3;
+  Plugin stats_collector = 4;
+  Plugin authorizer = 5;
+  Plugin notifier = 6;
+  Plugin listener = 7;
+}
+
+message HttpsConfig {
+  // The bind address to listen for connections on, e.g. ":443" or "localhost:1234".
+  string listen_address = 1;
+
+  // A certificate chain which identifies the server to clients. x509 format.
+  string certificate = 2;
+
+  // The private key used to identify the server. Must match the first entry in
+  // certificates. x509 format.
+  string key = 3;
+
+  // If set includes support for streaming connections to clients.
+  bool streaming = 4;
+}
