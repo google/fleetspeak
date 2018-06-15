@@ -84,6 +84,25 @@ time (
     for f in ${PLUGIN_FILES}; do
       build_single_plugin_file "${f}"
     done
+
+    /bin/echo >&2 ""
+    /bin/echo >&2 "Building .deb"
+
+    fakeroot bash -c '
+      rm -rf pkg
+      cp -r pkg-tmpl pkg
+
+      chmod o-r pkg/etc/fleetspeak-server/https.config
+      chmod g-r pkg/etc/fleetspeak-server/https.config
+
+      mkdir -p pkg/usr/bin
+      install -o root -g root src/server/server/server pkg/usr/bin/fleetspeak-server
+  
+      mkdir -p pkg/usr/lib/fleetspeak-server
+      install -o root -g root src/server/plugins/*/*.so pkg/usr/lib/fleetspeak-server
+
+      dpkg-deb -b pkg out.deb
+    '
   fi
 
   /bin/echo >&2 -n "${ARGV0} "

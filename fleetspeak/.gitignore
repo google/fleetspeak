@@ -6,6 +6,7 @@
 *.pb.h
 *~
 .idea
+*.deb
 
 ./src/admin/fleetspeak_admin
 ./src/client/daemonservice/testclient/testclient
@@ -16,4 +17,5 @@
 ./src/demo/miniclient/miniclient
 ./src/demo/miniserver/miniserver
 ./src/server/grpcservice/client/testing/tester
-./src/server/server/server
+src/server/server/server
+pkg/

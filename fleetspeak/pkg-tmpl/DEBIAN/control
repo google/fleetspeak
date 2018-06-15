@@ -1,0 +1,5 @@
+Package: fleetspeak-server
+Version: 0.1.0
+Maintainer: Ben Galehouse <bgalehouse@google.com>
+Description: The fleetspeak server binary package.
+Architecture: amd64
