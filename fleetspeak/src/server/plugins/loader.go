@@ -35,12 +35,12 @@ import (
 // string.
 type DatabaseFactory func(string) (db.Store, error)
 
-// DatabaseFactory is a function which creates a named service.Factory from a
+// ServiceFactoryFactory is a function which creates a named service.Factory from a
 // configuration string.
 type ServiceFactoryFactory func(string) (string, service.Factory, error)
 
-// CommunicatorFactory is a function which creates a db.Store from a configuration
-// string.
+// CommunicatorFactory is a function which creates a comms.Communicator from a
+// configuration string.
 type CommunicatorFactory func(string) (comms.Communicator, error)
 
 // StatsCollectorFactory is a function which creates a stats.Collector from a
@@ -72,7 +72,7 @@ func Load(conf *pb.Config) (server.Components, error) {
 			return server.Components{}, err
 		}
 		if sfs[n] != nil {
-			return server.Components{}, fmt.Errorf("Duplicate service factory name [%v] created by %v.", n, p)
+			return server.Components{}, fmt.Errorf("duplicate service factory name [%v] created by %v.", n, p)
 		}
 		sfs[n] = f
 	}
@@ -176,7 +176,7 @@ func LoadStatsCollector(p *pb.Plugin) (stats.Collector, error) {
 	}
 	df, ok := f.(StatsCollectorFactory)
 	if !ok {
-		return nil, fmt.Errorf("unable to load stats collector from (%s:%s), expected CollectorFactory got %T", p.Path, p.FactoryName, df)
+		return nil, fmt.Errorf("unable to load stats collector from (%s:%s), expected StatsCollectorFactory got %T", p.Path, p.FactoryName, df)
 	}
 	return df(p.Config)
 }
