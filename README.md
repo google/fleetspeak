@@ -29,6 +29,7 @@ go get \
   github.com/golang/glog \
   github.com/golang/protobuf/proto \
   github.com/mattn/go-sqlite3 \
+  github.com/pires/go-proxyproto \
   golang.org/x/sys \
   golang.org/x/time/rate \
   google.golang.org/grpc
