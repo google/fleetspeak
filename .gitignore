@@ -1,3 +1,14 @@
+# Common temporary and build artifact file types.
+*.pyc
+*.swp
+*.o
+*.so
+*.pb.cc
+*.pb.h
+*~
+.idea
+*.deb
+
 # Generated when installing the Python lib.
 fleetspeak.egg-info/
 
@@ -11,3 +22,8 @@ fleetspeak/src/demo/configurator/configurator
 fleetspeak/src/demo/miniclient/miniclient
 fleetspeak/src/demo/miniserver/miniserver
 fleetspeak/src/server/grpcservice/client/testing/tester
+fleetspeak/src/server/server/server
+
+# Directory laying out debian package structure, fully populated by
+# fleetspeak/build.sh.
+fleetspeak/pkg/
