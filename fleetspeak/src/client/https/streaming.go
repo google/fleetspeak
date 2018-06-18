@@ -222,10 +222,11 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	for _, m := range toSend {
 		msgs = append(msgs, m.M)
 	}
-	wcd, err := c.cctx.MakeContactData(msgs, nil)
+	wcd, pm, err := c.cctx.MakeContactData(msgs, nil)
 	if err != nil {
 		return nil, err
 	}
+	ret.processed = pm
 	buf := proto.NewBuffer(make([]byte, 0, 1024))
 	if err := buf.EncodeMessage(wcd); err != nil {
 		return nil, err
@@ -329,6 +330,11 @@ type connection struct {
 	working sync.WaitGroup
 	// Closure which can be called to terminate the connection.
 	stop func()
+
+	// Count of processed messages (per service), as of the last message
+	// sent to the server. Used to update the number of messages the server
+	// can send us.
+	processed map[string]uint64
 }
 
 // groupMessages gets a group of messages to send. Note that we are committed to calling
@@ -406,7 +412,8 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		for _, m := range msgs {
 			fsmsgs = append(fsmsgs, m.M)
 		}
-		wcd, err := c.cctx.MakeContactData(fsmsgs, nil)
+		wcd, pm, err := c.cctx.MakeContactData(fsmsgs, c.processed)
+		c.processed = pm
 		if err != nil {
 			log.Errorf("Error creating streaming contact data: %v", err)
 			return

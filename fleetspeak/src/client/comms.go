@@ -40,9 +40,14 @@ func (c commsContext) Outbox() <-chan comms.MessageInfo {
 	return c.c.outbox
 }
 
-func (c commsContext) MakeContactData(toSend []*fspb.Message, allowedMessages map[string]uint64) (*fspb.WrappedContactData, error) {
-	if allowedMessages == nil {
-		allowedMessages = c.c.sc.Space()
+func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	am, pm := c.c.sc.Counts()
+	if baseCount != nil {
+		pm = baseCount
+	}
+	allowedMessages := make(map[string]uint64)
+	for k, a := range am {
+		allowedMessages[k] = inboxSize - (a - pm[k])
 	}
 
 	// Create the bytes transferred with this contact.
@@ -54,7 +59,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, allowedMessages ma
 	}
 	b, err := proto.Marshal(&cd)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Pick the non-repetitious part out of the config manager's
 	// labels.
@@ -75,7 +80,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, allowedMessages ma
 		ContactData:  b,
 		Signatures:   sigs,
 		ClientLabels: stringLabels,
-	}, nil
+	}, pm, nil
 }
 
 func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {

@@ -195,6 +195,10 @@ func TestStreamingCommunicator(t *testing.T) {
 				Messages: []*fspb.Message{
 					{Destination: &fspb.Address{ServiceName: "DummyService"}},
 				},
+				AllowedMessages: map[string]uint64{
+					"NOOPService": 100,
+					"system":      100,
+				},
 			}
 			cb.ClientClock = nil
 			if !proto.Equal(cb, want) {

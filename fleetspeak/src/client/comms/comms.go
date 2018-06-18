@@ -81,11 +81,18 @@ type Context interface {
 	Outbox() <-chan MessageInfo
 
 	// MakeContactData creates a WrappedContactData containing messages to
-	// be sent to the server. If allowedMessage is non-nil, it becomes the
-	// AllowedMessages field used in the embedded ContactData, otherwise it
-	// is populated according to how much buffer space we current have for
-	// each service.
-	MakeContactData(msgs []*fspb.Message, allowedMessages map[string]uint64) (*fspb.WrappedContactData, error)
+	// be sent to the server.
+	//
+	// If baseMessages is nil, will assume that this is for a simple poll or
+	// the start of a streaming connection - the returned ContactData will
+	// contained an AllowedMessages field indicating the total number of
+	// messages we are willing to accept for each service.
+	//
+	// When creating ContactData records for streaming connections, baseMessages
+	// should be the number of messages processed by each service as of the last
+	// call to MakeContactData - the value returned as the second value by
+	// the previous call.
+	MakeContactData(msgs []*fspb.Message, baseMessages map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error)
 
 	// ProcessContactData processes a ContactData recevied from the server.
 	ProcessContactData(ctx context.Context, data *fspb.ContactData, streaming bool) error

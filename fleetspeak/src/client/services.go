@@ -52,6 +52,11 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 	}
 	select {
 	case target.inbox <- m:
+
+		target.countLock.Lock()
+		target.acceptCount++
+		target.countLock.Unlock()
+
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -125,17 +130,22 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	return nil
 }
 
-// Space returns the amout of buffer space (in messages) that we have remaining
-// for each service.
-func (c *serviceConfiguration) Space() map[string]uint64 {
-	ret := make(map[string]uint64)
+// Counts returns the number of accepted and processed messages for each
+// service.
+func (c *serviceConfiguration) Counts() (accepted, processed map[string]uint64) {
+	am := make(map[string]uint64)
+	pm := make(map[string]uint64)
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	for _, sd := range c.services {
-		ret[sd.name] = uint64(inboxSize - len(sd.inbox))
+		sd.countLock.Lock()
+		a, p := sd.acceptCount, sd.processedCount
+		sd.countLock.Unlock()
+		am[sd.name] = a
+		pm[sd.name] = p
 	}
-	return ret
+	return am, pm
 }
 
 func (c *serviceConfiguration) Stop() {
@@ -156,6 +166,9 @@ type serviceData struct {
 	working sync.WaitGroup
 	service service.Service
 	inbox   chan *fspb.Message
+
+	countLock                   sync.Mutex // Protects acceptCount, processCount
+	acceptCount, processedCount uint64
 }
 
 // Send implements service.Context.
@@ -208,6 +221,11 @@ func (d *serviceData) GetFileIfModified(ctx context.Context, name string, modSin
 func (d *serviceData) processingLoop() {
 	for {
 		m, ok := <-d.inbox
+
+		d.countLock.Lock()
+		d.processedCount++
+		d.countLock.Unlock()
+
 		if !ok {
 			d.working.Done()
 			return
