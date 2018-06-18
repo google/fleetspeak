@@ -1,5 +1,5 @@
 Package: fleetspeak-server
-Version: 0.1.0
+Version: <version>
 Maintainer: GRR Dev <grr-dev@googlegroups.com>
 Homepage: https://github.com/google/fleetspeak
 Description: The fleetspeak server binary package.

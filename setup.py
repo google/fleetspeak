@@ -18,15 +18,17 @@ Forked from https://github.com/pypa/sampleproject/blob/master/setup.py .
 """
 
 # Always prefer setuptools over distutils
+import os
+
 from setuptools import setup, find_packages
+
+with open(os.path.join('VERSION')) as version_file:
+  version = version_file.read().strip()
 
 setup(
     name='fleetspeak',
 
-    # Versions should comply with PEP440.  For a discussion on single-sourcing
-    # the version across setup.py and the project code, see
-    # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.7',
+    version = version,
 
     description='Fleetspeak',
     long_description=(
