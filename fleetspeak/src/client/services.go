@@ -125,6 +125,19 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	return nil
 }
 
+// Space returns the amout of buffer space (in messages) that we have remaining
+// for each service.
+func (c *serviceConfiguration) Space() map[string]uint64 {
+	ret := make(map[string]uint64)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for _, sd := range c.services {
+		ret[sd.name] = uint64(inboxSize - len(sd.inbox))
+	}
+	return ret
+}
+
 func (c *serviceConfiguration) Stop() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -190,11 +203,6 @@ func (d *serviceData) GetFileIfModified(ctx context.Context, name string, modSin
 		return nil, time.Time{}, errors.New("file not found")
 	}
 	return d.config.client.com.GetFileIfModified(ctx, d.name, name, modSince)
-}
-
-// Space returns how many more messages this service's inbox has space for.
-func (d *serviceData) Space() int {
-	return inboxSize - len(d.inbox)
 }
 
 func (d *serviceData) processingLoop() {

@@ -222,7 +222,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	for _, m := range toSend {
 		msgs = append(msgs, m.M)
 	}
-	wcd, err := c.cctx.MakeContactData(msgs)
+	wcd, err := c.cctx.MakeContactData(msgs, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +406,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		for _, m := range msgs {
 			fsmsgs = append(fsmsgs, m.M)
 		}
-		wcd, err := c.cctx.MakeContactData(fsmsgs)
+		wcd, err := c.cctx.MakeContactData(fsmsgs, nil)
 		if err != nil {
 			log.Errorf("Error creating streaming contact data: %v", err)
 			return

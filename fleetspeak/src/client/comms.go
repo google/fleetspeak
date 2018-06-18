@@ -40,12 +40,17 @@ func (c commsContext) Outbox() <-chan comms.MessageInfo {
 	return c.c.outbox
 }
 
-func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedContactData, error) {
+func (c commsContext) MakeContactData(toSend []*fspb.Message, allowedMessages map[string]uint64) (*fspb.WrappedContactData, error) {
+	if allowedMessages == nil {
+		allowedMessages = c.c.sc.Space()
+	}
+
 	// Create the bytes transferred with this contact.
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
 		Messages:        toSend,
 		ClientClock:     ptypes.TimestampNow(),
+		AllowedMessages: allowedMessages,
 	}
 	b, err := proto.Marshal(&cd)
 	if err != nil {

@@ -80,8 +80,12 @@ type Context interface {
 	// calling exactly one of Ack, Nack.
 	Outbox() <-chan MessageInfo
 
-	// MakeContactData creates a WrappedContactData containing messages to be sent to the server.
-	MakeContactData([]*fspb.Message) (*fspb.WrappedContactData, error)
+	// MakeContactData creates a WrappedContactData containing messages to
+	// be sent to the server. If allowedMessage is non-nil, it becomes the
+	// AllowedMessages field used in the embedded ContactData, otherwise it
+	// is populated according to how much buffer space we current have for
+	// each service.
+	MakeContactData(msgs []*fspb.Message, allowedMessages map[string]uint64) (*fspb.WrappedContactData, error)
 
 	// ProcessContactData processes a ContactData recevied from the server.
 	ProcessContactData(ctx context.Context, data *fspb.ContactData, streaming bool) error
