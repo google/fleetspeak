@@ -6,6 +6,10 @@ matrix:
       sudo: required
       services:
         - mysql
+      addons:
+        apt:
+          packages:
+            - fakeroot
       env:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
