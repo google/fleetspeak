@@ -31,6 +31,8 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+const inboxSize = 100
+
 // A serviceConfiguration manages and communicates the services installed on a
 // client. In normal use it is a singleton.
 type serviceConfiguration struct {
@@ -100,7 +102,7 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		config:  c,
 		name:    cfg.Name,
 		service: s,
-		inbox:   make(chan *fspb.Message, 5),
+		inbox:   make(chan *fspb.Message, inboxSize),
 	}
 	if err := d.start(); err != nil {
 		return fmt.Errorf("unable to start service: %v", err)
@@ -190,10 +192,12 @@ func (d *serviceData) GetFileIfModified(ctx context.Context, name string, modSin
 	return d.config.client.com.GetFileIfModified(ctx, d.name, name, modSince)
 }
 
-func (d *serviceData) processingLoop() {
-	// TODO: Kill misbehaving processes, limit processes'
-	//       memory quota and niceness.
+// Space returns how many more messages this service's inbox has space for.
+func (d *serviceData) Space() int {
+	return inboxSize - len(d.inbox)
+}
 
+func (d *serviceData) processingLoop() {
 	for {
 		m, ok := <-d.inbox
 		if !ok {
