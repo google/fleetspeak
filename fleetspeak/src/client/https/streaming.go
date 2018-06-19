@@ -204,7 +204,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	// an initial WrappedContactData for the initial exchange whether or not
 	// we have any messages.
 	gctx, fin := context.WithTimeout(ctx, time.Second)
-	toSend := ret.groupMessages(gctx)
+	toSend, _ := ret.groupMessages(gctx)
 	fin()
 
 	defer func() {
@@ -222,10 +222,11 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	for _, m := range toSend {
 		msgs = append(msgs, m.M)
 	}
-	wcd, err := c.cctx.MakeContactData(msgs)
+	wcd, pm, err := c.cctx.MakeContactData(msgs, nil)
 	if err != nil {
 		return nil, err
 	}
+	ret.processed = pm
 	buf := proto.NewBuffer(make([]byte, 0, 1024))
 	if err := buf.EncodeMessage(wcd); err != nil {
 		return nil, err
@@ -329,19 +330,28 @@ type connection struct {
 	working sync.WaitGroup
 	// Closure which can be called to terminate the connection.
 	stop func()
+
+	// Count of processed messages (per service), as of the last message
+	// sent to the server. Used to update the number of messages the server
+	// can send us.
+	processed map[string]uint64
 }
 
 // groupMessages gets a group of messages to send. Note that we are committed to calling
-// either Ack or Nack on every message that it returns.
-func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
+// either Ack or Nack on every message that it returns. In addition to a group of messages,
+// it returns a boolean indicating if we should continue.
+func (c *connection) groupMessages(ctx context.Context) (msg []comms.MessageInfo, shutdown bool) {
 	b := c.cctx.Outbox()
+	pb := c.cctx.ProcessingBeacon()
 
 	var r []comms.MessageInfo
 	select {
 	case <-c.serverDone:
-		return nil
+		return nil, true
 	case <-ctx.Done():
-		return nil
+		return nil, true
+	case <-pb:
+		return nil, false
 	case m := <-b:
 		r = append(r, m)
 	}
@@ -358,13 +368,13 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 		}
 		select {
 		case <-ctx.Done():
-			return r
+			return r, false
 		case m := <-b:
 			r = append(r, m)
 			size += proto.Size(m.M)
 		}
 	}
-	return r
+	return r, false
 }
 
 func (c *connection) writeLoop(bw *io.PipeWriter) {
@@ -385,8 +395,8 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 	for {
 		// Immediatly add to c.pending, so that somebody will Ack/Nack
 		// them.
-		msgs := c.groupMessages(c.ctx)
-		if msgs == nil {
+		msgs, fin := c.groupMessages(c.ctx)
+		if fin {
 			if c.ctx.Err() == nil {
 				steppedShutdown = true
 				close(c.writingDone)
@@ -394,9 +404,11 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
-		c.pendingLock.Lock()
-		c.pending[cnt] = msgs
-		c.pendingLock.Unlock()
+		if msgs != nil {
+			c.pendingLock.Lock()
+			c.pending[cnt] = msgs
+			c.pendingLock.Unlock()
+		}
 		cnt++
 
 		if c.ctx.Err() != nil {
@@ -406,7 +418,8 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		for _, m := range msgs {
 			fsmsgs = append(fsmsgs, m.M)
 		}
-		wcd, err := c.cctx.MakeContactData(fsmsgs)
+		wcd, pm, err := c.cctx.MakeContactData(fsmsgs, c.processed)
+		c.processed = pm
 		if err != nil {
 			log.Errorf("Error creating streaming contact data: %v", err)
 			return

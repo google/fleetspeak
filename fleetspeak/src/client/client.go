@@ -80,6 +80,8 @@ type Client struct {
 	errs    chan *fspb.MessageErrorData
 	signers []signer.Signer
 	config  *intconfig.Manager
+
+	processingBeacon chan struct{}
 }
 
 // New creates a new Client object based on the provided components.
@@ -119,6 +121,8 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		acks:    make(chan common.MessageID, 500),
 		errs:    make(chan *fspb.MessageErrorData, 50),
 		signers: cmps.Signers,
+
+		processingBeacon: make(chan struct{}, 1),
 	}
 	ret.sc.client = ret
 	ret.retryLoopsDone.Add(3)

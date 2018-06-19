@@ -74,14 +74,30 @@ type ServerInfo struct {
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.
 type Context interface {
-
 	// Outbox returns a channel of MessageInfo records for the client to send to
 	// the server. Once a MessageInfo is accepted, the Communicator commits to
 	// calling exactly one of Ack, Nack.
 	Outbox() <-chan MessageInfo
 
-	// MakeContactData creates a WrappedContactData containing messages to be sent to the server.
-	MakeContactData([]*fspb.Message) (*fspb.WrappedContactData, error)
+	// ProcessingBeacon returns a channel which occasionally beacons when a
+	// service accepts and processes messages. This indicates that it may be
+	// appropriate to inform the server that more messages can be accepted
+	// for the service.
+	ProcessingBeacon() <-chan struct{}
+
+	// MakeContactData creates a WrappedContactData containing messages to
+	// be sent to the server.
+	//
+	// If baseMessages is nil, will assume that this is for a simple poll or
+	// the start of a streaming connection - the returned ContactData will
+	// contained an AllowedMessages field indicating the total number of
+	// messages we are willing to accept for each service.
+	//
+	// When creating ContactData records for streaming connections, baseMessages
+	// should be the number of messages processed by each service as of the last
+	// call to MakeContactData - the value returned as the second value by
+	// the previous call.
+	MakeContactData(msgs []*fspb.Message, baseMessages map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error)
 
 	// ProcessContactData processes a ContactData recevied from the server.
 	ProcessContactData(ctx context.Context, data *fspb.ContactData, streaming bool) error

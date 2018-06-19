@@ -265,7 +265,7 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 			sent = true
 		}
 	}
-	d, err := c.cctx.MakeContactData(msgs)
+	d, _, err := c.cctx.MakeContactData(msgs, nil)
 	if err != nil {
 		return false, err
 	}

@@ -35,7 +35,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='fleetspeak/src/common/proto/fleetspeak/common.proto',
   package='fleetspeak',
   syntax='proto3',
-  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"q\n\x0eValidationInfo\x12\x32\n\x04tags\x18\x01 \x03(\x0b\x32$.fleetspeak.ValidationInfo.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc3\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x33\n\x0fvalidation_info\x18\x08 \x01(\x0b\x32\x1a.fleetspeak.ValidationInfo\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\x12\x12\n\nbackground\x18\x0b \x01(\x08\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x03(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\xa9\x01\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tack_index\x18\x04 \x01(\x04\x12\x14\n\x0c\x64one_sending\x18\x05 \x01(\x08\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
+  serialized_pb=_b('\n3fleetspeak/src/common/proto/fleetspeak/common.proto\x12\nfleetspeak\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"2\n\x07\x41\x64\x64ress\x12\x11\n\tclient_id\x18\x01 \x01(\x0c\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\"q\n\x0eValidationInfo\x12\x32\n\x04tags\x18\x01 \x03(\x0b\x32$.fleetspeak.ValidationInfo.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc3\x03\n\x07Message\x12\x12\n\nmessage_id\x18\x01 \x01(\x0c\x12#\n\x06source\x18\x02 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x19\n\x11source_message_id\x18\x03 \x01(\x0c\x12(\n\x0b\x64\x65stination\x18\x04 \x01(\x0b\x32\x13.fleetspeak.Address\x12\x14\n\x0cmessage_type\x18\x05 \x01(\t\x12\x31\n\rcreation_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\"\n\x04\x64\x61ta\x18\x07 \x01(\x0b\x32\x14.google.protobuf.Any\x12\x33\n\x0fvalidation_info\x18\x08 \x01(\x0b\x32\x1a.fleetspeak.ValidationInfo\x12)\n\x06result\x18\t \x01(\x0b\x32\x19.fleetspeak.MessageResult\x12.\n\x08priority\x18\n \x01(\x0e\x32\x1c.fleetspeak.Message.Priority\x12\x12\n\nbackground\x18\x0b \x01(\x08\")\n\x08Priority\x12\n\n\x06MEDIUM\x10\x00\x12\x07\n\x03LOW\x10\x01\x12\x08\n\x04HIGH\x10\x02\"j\n\rMessageResult\x12\x32\n\x0eprocessed_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x66\x61iled\x18\x03 \x01(\x08\x12\x15\n\rfailed_reason\x18\x04 \x01(\t\",\n\x05Label\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\tSignature\x12\x13\n\x0b\x63\x65rtificate\x18\x01 \x03(\x0c\x12\x11\n\talgorithm\x18\x02 \x01(\x05\x12\x11\n\tsignature\x18\x03 \x01(\x0c\"l\n\x12WrappedContactData\x12\x14\n\x0c\x63ontact_data\x18\x01 \x01(\x0c\x12)\n\nsignatures\x18\x02 \x03(\x0b\x32\x15.fleetspeak.Signature\x12\x15\n\rclient_labels\x18\x03 \x03(\t\"\xa8\x02\n\x0b\x43ontactData\x12\x18\n\x10sequencing_nonce\x18\x01 \x01(\x04\x12%\n\x08messages\x18\x02 \x03(\x0b\x32\x13.fleetspeak.Message\x12\x30\n\x0c\x63lient_clock\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tack_index\x18\x04 \x01(\x04\x12\x14\n\x0c\x64one_sending\x18\x05 \x01(\x08\x12\x45\n\x0f\x41llowedMessages\x18\x06 \x03(\x0b\x32,.fleetspeak.ContactData.AllowedMessagesEntry\x1a\x36\n\x14\x41llowedMessagesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x04:\x02\x38\x01\"\x0e\n\x0c\x45mptyMessageb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -449,6 +449,43 @@ _WRAPPEDCONTACTDATA = _descriptor.Descriptor(
 )
 
 
+_CONTACTDATA_ALLOWEDMESSAGESENTRY = _descriptor.Descriptor(
+  name='AllowedMessagesEntry',
+  full_name='fleetspeak.ContactData.AllowedMessagesEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='fleetspeak.ContactData.AllowedMessagesEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='fleetspeak.ContactData.AllowedMessagesEntry.value', index=1,
+      number=2, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1327,
+  serialized_end=1381,
+)
+
 _CONTACTDATA = _descriptor.Descriptor(
   name='ContactData',
   full_name='fleetspeak.ContactData',
@@ -491,10 +528,17 @@ _CONTACTDATA = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='AllowedMessages', full_name='fleetspeak.ContactData.AllowedMessages', index=5,
+      number=6, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
-  nested_types=[],
+  nested_types=[_CONTACTDATA_ALLOWEDMESSAGESENTRY, ],
   enum_types=[
   ],
   options=None,
@@ -504,7 +548,7 @@ _CONTACTDATA = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=1085,
-  serialized_end=1254,
+  serialized_end=1381,
 )
 
 
@@ -527,8 +571,8 @@ _EMPTYMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1256,
-  serialized_end=1270,
+  serialized_start=1383,
+  serialized_end=1397,
 )
 
 _VALIDATIONINFO_TAGSENTRY.containing_type = _VALIDATIONINFO
@@ -543,8 +587,10 @@ _MESSAGE.fields_by_name['priority'].enum_type = _MESSAGE_PRIORITY
 _MESSAGE_PRIORITY.containing_type = _MESSAGE
 _MESSAGERESULT.fields_by_name['processed_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _WRAPPEDCONTACTDATA.fields_by_name['signatures'].message_type = _SIGNATURE
+_CONTACTDATA_ALLOWEDMESSAGESENTRY.containing_type = _CONTACTDATA
 _CONTACTDATA.fields_by_name['messages'].message_type = _MESSAGE
 _CONTACTDATA.fields_by_name['client_clock'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_CONTACTDATA.fields_by_name['AllowedMessages'].message_type = _CONTACTDATA_ALLOWEDMESSAGESENTRY
 DESCRIPTOR.message_types_by_name['Address'] = _ADDRESS
 DESCRIPTOR.message_types_by_name['ValidationInfo'] = _VALIDATIONINFO
 DESCRIPTOR.message_types_by_name['Message'] = _MESSAGE
@@ -614,11 +660,19 @@ WrappedContactData = _reflection.GeneratedProtocolMessageType('WrappedContactDat
 _sym_db.RegisterMessage(WrappedContactData)
 
 ContactData = _reflection.GeneratedProtocolMessageType('ContactData', (_message.Message,), dict(
+
+  AllowedMessagesEntry = _reflection.GeneratedProtocolMessageType('AllowedMessagesEntry', (_message.Message,), dict(
+    DESCRIPTOR = _CONTACTDATA_ALLOWEDMESSAGESENTRY,
+    __module__ = 'fleetspeak.src.common.proto.fleetspeak.common_pb2'
+    # @@protoc_insertion_point(class_scope:fleetspeak.ContactData.AllowedMessagesEntry)
+    ))
+  ,
   DESCRIPTOR = _CONTACTDATA,
   __module__ = 'fleetspeak.src.common.proto.fleetspeak.common_pb2'
   # @@protoc_insertion_point(class_scope:fleetspeak.ContactData)
   ))
 _sym_db.RegisterMessage(ContactData)
+_sym_db.RegisterMessage(ContactData.AllowedMessagesEntry)
 
 EmptyMessage = _reflection.GeneratedProtocolMessageType('EmptyMessage', (_message.Message,), dict(
   DESCRIPTOR = _EMPTYMESSAGE,
@@ -630,4 +684,6 @@ _sym_db.RegisterMessage(EmptyMessage)
 
 _VALIDATIONINFO_TAGSENTRY.has_options = True
 _VALIDATIONINFO_TAGSENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
+_CONTACTDATA_ALLOWEDMESSAGESENTRY.has_options = True
+_CONTACTDATA_ALLOWEDMESSAGESENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 # @@protoc_insertion_point(module_scope)

@@ -135,6 +135,11 @@ message ContactData {
   // If set, indicates that the connection is shutting down and no more data
   // will be sent.
   bool done_sending = 5;
+
+  // Set by the client to indicate how many messages it is willing to accept for
+  // each installed service. After the first exchange of an streaming connection, it
+  // represents the number of additional messages that will be accepted.
+  map<string, uint64> AllowedMessages = 6;
 }
 
 // An empty message, typically used as a trivial RPC response.

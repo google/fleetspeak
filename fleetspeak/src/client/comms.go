@@ -40,16 +40,30 @@ func (c commsContext) Outbox() <-chan comms.MessageInfo {
 	return c.c.outbox
 }
 
-func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedContactData, error) {
+func (c commsContext) ProcessingBeacon() <-chan struct{} {
+	return c.c.processingBeacon
+}
+
+func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	am, pm := c.c.sc.Counts()
+	allowedMessages := make(map[string]uint64)
+	for k, a := range am {
+		if b, ok := baseCount[k]; !ok {
+			allowedMessages[k] = inboxSize - (a - pm[k])
+		} else {
+			allowedMessages[k] = pm[k] - b
+		}
+	}
 	// Create the bytes transferred with this contact.
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
 		Messages:        toSend,
 		ClientClock:     ptypes.TimestampNow(),
+		AllowedMessages: allowedMessages,
 	}
 	b, err := proto.Marshal(&cd)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Pick the non-repetitious part out of the config manager's
 	// labels.
@@ -70,7 +84,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message) (*fspb.WrappedCont
 		ContactData:  b,
 		Signatures:   sigs,
 		ClientLabels: stringLabels,
-	}, nil
+	}, pm, nil
 }
 
 func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {

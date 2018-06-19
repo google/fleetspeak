@@ -31,6 +31,8 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+const inboxSize = 100
+
 // A serviceConfiguration manages and communicates the services installed on a
 // client. In normal use it is a singleton.
 type serviceConfiguration struct {
@@ -50,6 +52,11 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 	}
 	select {
 	case target.inbox <- m:
+
+		target.countLock.Lock()
+		target.acceptCount++
+		target.countLock.Unlock()
+
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -100,7 +107,7 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		config:  c,
 		name:    cfg.Name,
 		service: s,
-		inbox:   make(chan *fspb.Message, 5),
+		inbox:   make(chan *fspb.Message, inboxSize),
 	}
 	if err := d.start(); err != nil {
 		return fmt.Errorf("unable to start service: %v", err)
@@ -123,6 +130,24 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	return nil
 }
 
+// Counts returns the number of accepted and processed messages for each
+// service.
+func (c *serviceConfiguration) Counts() (accepted, processed map[string]uint64) {
+	am := make(map[string]uint64)
+	pm := make(map[string]uint64)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for _, sd := range c.services {
+		sd.countLock.Lock()
+		a, p := sd.acceptCount, sd.processedCount
+		sd.countLock.Unlock()
+		am[sd.name] = a
+		pm[sd.name] = p
+	}
+	return am, pm
+}
+
 func (c *serviceConfiguration) Stop() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -141,6 +166,9 @@ type serviceData struct {
 	working sync.WaitGroup
 	service service.Service
 	inbox   chan *fspb.Message
+
+	countLock                   sync.Mutex // Protects acceptCount, processCount
+	acceptCount, processedCount uint64
 }
 
 // Send implements service.Context.
@@ -191,11 +219,23 @@ func (d *serviceData) GetFileIfModified(ctx context.Context, name string, modSin
 }
 
 func (d *serviceData) processingLoop() {
-	// TODO: Kill misbehaving processes, limit processes'
-	//       memory quota and niceness.
-
 	for {
 		m, ok := <-d.inbox
+
+		d.countLock.Lock()
+		d.processedCount++
+		cnt := d.processedCount
+		d.countLock.Unlock()
+
+		log.Errorf("%s: cnt: %d", d.name, cnt)
+		if cnt&0x1f == 0 {
+			log.Error("beaconing")
+			select {
+			case d.config.client.processingBeacon <- struct{}{}:
+			default:
+			}
+		}
+
 		if !ok {
 			d.working.Done()
 			return
@@ -213,6 +253,7 @@ func (d *serviceData) processingLoop() {
 		} else {
 			d.config.client.acks <- id
 		}
+
 	}
 }
 
