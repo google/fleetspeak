@@ -204,7 +204,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	// an initial WrappedContactData for the initial exchange whether or not
 	// we have any messages.
 	gctx, fin := context.WithTimeout(ctx, time.Second)
-	toSend := ret.groupMessages(gctx)
+	toSend, _ := ret.groupMessages(gctx)
 	fin()
 
 	defer func() {
@@ -338,16 +338,20 @@ type connection struct {
 }
 
 // groupMessages gets a group of messages to send. Note that we are committed to calling
-// either Ack or Nack on every message that it returns.
-func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
+// either Ack or Nack on every message that it returns. In addition to a group of messages,
+// it returns a boolean indicating if we should continue.
+func (c *connection) groupMessages(ctx context.Context) (msg []comms.MessageInfo, shutdown bool) {
 	b := c.cctx.Outbox()
+	pb := c.cctx.ProcessingBeacon()
 
 	var r []comms.MessageInfo
 	select {
 	case <-c.serverDone:
-		return nil
+		return nil, true
 	case <-ctx.Done():
-		return nil
+		return nil, true
+	case <-pb:
+		return nil, false
 	case m := <-b:
 		r = append(r, m)
 	}
@@ -364,13 +368,13 @@ func (c *connection) groupMessages(ctx context.Context) []comms.MessageInfo {
 		}
 		select {
 		case <-ctx.Done():
-			return r
+			return r, false
 		case m := <-b:
 			r = append(r, m)
 			size += proto.Size(m.M)
 		}
 	}
-	return r
+	return r, false
 }
 
 func (c *connection) writeLoop(bw *io.PipeWriter) {
@@ -391,8 +395,8 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 	for {
 		// Immediatly add to c.pending, so that somebody will Ack/Nack
 		// them.
-		msgs := c.groupMessages(c.ctx)
-		if msgs == nil {
+		msgs, fin := c.groupMessages(c.ctx)
+		if fin {
 			if c.ctx.Err() == nil {
 				steppedShutdown = true
 				close(c.writingDone)
@@ -400,9 +404,11 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
-		c.pendingLock.Lock()
-		c.pending[cnt] = msgs
-		c.pendingLock.Unlock()
+		if msgs != nil {
+			c.pendingLock.Lock()
+			c.pending[cnt] = msgs
+			c.pendingLock.Unlock()
+		}
 		cnt++
 
 		if c.ctx.Err() != nil {
@@ -430,7 +436,6 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
-		log.Errorf("Wrote streaming ContactData: %v", wcd)
 		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
 		buf.Reset()
 	}

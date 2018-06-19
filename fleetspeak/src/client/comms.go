@@ -40,9 +40,12 @@ func (c commsContext) Outbox() <-chan comms.MessageInfo {
 	return c.c.outbox
 }
 
+func (c commsContext) ProcessingBeacon() <-chan struct{} {
+	return c.c.processingBeacon
+}
+
 func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
 	am, pm := c.c.sc.Counts()
-	log.Errorf("Making with am: %v, pm: %v, baseCount: %v", am, pm, baseCount)
 	allowedMessages := make(map[string]uint64)
 	for k, a := range am {
 		if b, ok := baseCount[k]; !ok {
@@ -51,7 +54,6 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 			allowedMessages[k] = pm[k] - b
 		}
 	}
-	log.Errorf("Created allowedMessages: %v", allowedMessages)
 	// Create the bytes transferred with this contact.
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),

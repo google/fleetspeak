@@ -74,11 +74,16 @@ type ServerInfo struct {
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.
 type Context interface {
-
 	// Outbox returns a channel of MessageInfo records for the client to send to
 	// the server. Once a MessageInfo is accepted, the Communicator commits to
 	// calling exactly one of Ack, Nack.
 	Outbox() <-chan MessageInfo
+
+	// ProcessingBeacon returns a channel which occasionally beacons when a
+	// service accepts and processes messages. This indicates that it may be
+	// appropriate to inform the server that more messages can be accepted
+	// for the service.
+	ProcessingBeacon() <-chan struct{}
 
 	// MakeContactData creates a WrappedContactData containing messages to
 	// be sent to the server.
