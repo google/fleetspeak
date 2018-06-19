@@ -66,7 +66,7 @@ type MonitoredDatastore struct {
 	C stats.Collector
 }
 
-func (d MonitoredDatastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d MonitoredDatastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error) {
 	s := ftime.Now()
 	res, err := d.D.ClientMessagesForProcessing(ctx, id, lim)
 	d.C.DatastoreOperation(s, ftime.Now(), "ClientMessagesForProcessing", err)

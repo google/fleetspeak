@@ -452,11 +452,16 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 	return ret, err
 }
 
-func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error) {
+	var sumLim uint64
+	for _, v := range lim {
+		sumLim += v
+	}
+
 	if id == (common.ClientID{}) {
 		return nil, errors.New("a client is required")
 	}
-	return d.internalClientMessagesForProcessing(ctx, id, lim)
+	return d.internalClientMessagesForProcessing(ctx, id, sumLim, lim)
 }
 
 type pendingUpdate struct {
@@ -465,8 +470,10 @@ type pendingUpdate struct {
 	due int64
 }
 
-func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
-	res := make([]*fspb.Message, 0, lim)
+func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id common.ClientID, sumLim uint64, lim map[string]uint64) ([]*fspb.Message, error) {
+	res := make([]*fspb.Message, 0, sumLim)
+	read := make(map[string]uint64)
+
 	if err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var updates []*pendingUpdate
 
@@ -489,7 +496,7 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			"FROM messages AS m, pending_messages AS pm "+
 			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? "+
 			"LIMIT ? FOR UPDATE",
-			id.Bytes(), toMicro(db.Now()), lim)
+			id.Bytes(), toMicro(db.Now()), sumLim)
 		if err != nil {
 			return err
 		}
@@ -513,6 +520,12 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			); err != nil {
 				return err
 			}
+			if read[dbm.destinationServiceName] >= lim[dbm.destinationServiceName] {
+				continue
+			} else {
+				read[dbm.destinationServiceName]++
+			}
+
 			updates = append(updates, &pendingUpdate{
 				id:  dbm.messageID,
 				nc:  dbm.retryCount + 1,

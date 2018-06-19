@@ -122,15 +122,18 @@ type MessageStore interface {
 	// setting a Result will delete the message's Data field payload.
 	StoreMessages(ctx context.Context, msgs []*fspb.Message, contact ContactID) error
 
-	// ClientMessagesForProcessing returns up to lim messages that are due to be
+	// ClientMessagesForProcessing returns messages that are due to be
 	// processed by a client. It also increments the time at which the
 	// messages will again become overdue using rp.
+	//
+	// The lim parameter indicates the maximum number of messages to to
+	// retrieve for each service installed on the client.
 	//
 	// Note that if an error occurs partway through the loading of messages,
 	// the already loaded messages may be returned along with the error. In
 	// particular, datastore implementations may want to do this if the ctx
 	// times out before all messages are found and updated.
-	ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error)
+	ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error)
 
 	// GetMessages retrieves specific messages.
 	GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error)

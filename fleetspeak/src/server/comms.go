@@ -133,6 +133,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	res.NonceReceived = cd.SequencingNonce
 	toSend := fspb.ContactData{SequencingNonce: randUint64()}
 	res.NonceSent = toSend.SequencingNonce
+	res.MessageTokens = cd.AllowedMessages
 	var streamingTo string
 	if streaming {
 		streamingTo = c.s.listener.Address()
@@ -160,7 +161,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.Notices, res.Fin = c.s.dispatcher.Register(id)
 	}
 
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, maxMessagesPerContact)
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, res.MessageTokens)
 	if err != nil {
 		if res.Fin != nil {
 			res.Fin()
@@ -222,6 +223,10 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 		return fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
 
+	for k, v := range cd.AllowedMessages {
+		info.MessageTokens[k] += v
+	}
+
 	err = c.handleMessagesFromClient(ctx, &info.Client, info.ContactID, &cd, validationInfo)
 	if err != nil {
 		return err
@@ -234,7 +239,7 @@ func (c commsContext) GetMessagesForClient(ctx context.Context, info *comms.Conn
 		SequencingNonce: info.NonceSent,
 	}
 	var err error
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, maxMessagesPerContact)
+	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, info.MessageTokens)
 	if err != nil || len(toSend.Messages) == 0 {
 		return nil, false, err
 	}
@@ -251,19 +256,41 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 }
 
 // FindMessagesForClient finds unprocessed messages for a given client and
-// reserves them for processing.
-func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, maxMessages int) ([]*fspb.Message, error) {
+// reserves them for processing in the database. It limits the returned messages
+// for which we have a token, and decrements the token.
+func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, messageTokens map[string]uint64) ([]*fspb.Message, error) {
 	if info.Blacklisted {
 		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.ID)
 		m, err := c.MakeBlacklistMessage(ctx, info, contactID)
 		return []*fspb.Message{m}, err
 	}
-	msgs, err := c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
-	if err != nil {
-		if len(msgs) == 0 {
-			return nil, err
+	// Hard cap messages retrieved to 100 per service.
+	maxMessages := make(map[string]uint64)
+	for k, v := range messageTokens {
+		if v > 100 {
+			maxMessages[k] = 100
+		} else {
+			maxMessages[k] = v
 		}
-		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
+	}
+	var msgs []*fspb.Message
+	if len(maxMessages) > 0 {
+		var err error
+		msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
+		if err != nil {
+			if len(msgs) == 0 {
+				return nil, err
+			}
+			log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
+		}
+	}
+
+	for _, m := range msgs {
+		if messageTokens[m.Destination.ServiceName] == 0 {
+			log.Errorf("Internal error! retrieved message without token for %s.", m.Destination.ServiceName)
+		} else {
+			messageTokens[m.Destination.ServiceName] -= 1
+		}
 	}
 
 	// If the client recently contacted us, the broadcast situation is unlikely to
@@ -290,7 +317,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		}
 		mids = append(mids, id)
 	}
-	err = c.s.dataStore.LinkMessagesToContact(ctx, contactID, mids)
+	err := c.s.dataStore.LinkMessagesToContact(ctx, contactID, mids)
 	if err != nil {
 		return nil, err
 	}

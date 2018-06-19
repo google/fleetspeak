@@ -480,17 +480,26 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 }
 
 // ClientMessagesForProcessing implements db.MessageStore.
-func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error) {
+	var sumLim uint64
+	for _, v := range lim {
+		sumLim += v
+	}
+
 	if id == (common.ClientID{}) {
 		return nil, errors.New("a client is required")
 	}
-	return d.internalMessagesForProcessing(ctx, id, lim)
+	return d.internalMessagesForProcessing(ctx, id, sumLim, lim)
 }
 
-func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
-	res := make([]*fspb.Message, 0, lim)
+
+	read := make(map[string]uint64)
+
+	var res []*fspb.Message
+
 	if err := d.runInTx(func(tx *sql.Tx) error {
 		// As an internal addition to the MessageStore interface, this
 		// also gets server messages when id=ClientID{}.
@@ -534,6 +543,13 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 				&dbm.dataValue,
 			); err != nil {
 				return err
+			}
+			if serviceLimits != nil {
+				if read[dbm.destinationServiceName] >= serviceLimits[dbm.destinationServiceName] {
+					continue
+				} else {
+					read[dbm.destinationServiceName]++
+				}
 			}
 			nc := dbm.retryCount + 1
 			var due int64
@@ -611,7 +627,7 @@ func (l *messageLooper) stop() {
 
 func (l *messageLooper) processMessages() {
 	for {
-		msgs, err := l.d.internalMessagesForProcessing(context.Background(), common.ClientID{}, 5)
+		msgs, err := l.d.internalMessagesForProcessing(context.Background(), common.ClientID{}, 5, nil)
 		if err != nil {
 			if err.Error() == "attempt to write a readonly database" {
 				log.Errorf("Failed to read server messages for processing; probably the database was removed: %v", err)
