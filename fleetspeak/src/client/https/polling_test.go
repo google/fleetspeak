@@ -26,11 +26,13 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
@@ -67,6 +69,27 @@ func filterMessages(msgs []*fspb.Message, fn func(*fspb.Message) bool) []*fspb.M
 	return res
 }
 
+type blockingService struct {
+	unblock  chan struct{}
+	received chan *fspb.Message
+}
+
+func (s *blockingService) Start(_ service.Context) error { return nil }
+func (s *blockingService) Stop() error                   { return nil }
+func (s *blockingService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.unblock:
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case s.received <- m:
+	}
+	return nil
+}
+
 func TestCommunicator(t *testing.T) {
 	// Create a local https server for the client to talk to.
 	pemCert, pemKey, err := common_util.ServerCert()
@@ -92,10 +115,17 @@ func TestCommunicator(t *testing.T) {
 	}
 	addr := tl.Addr().String()
 
-	// Dummy server just puts the ContactData records that we receive into a channel.
+	// Dummy server just puts the ContactData records that we receive into a
+	// channel, and looks into a channel for ContactData records to pass to
+	// the client.
 	mux := http.NewServeMux()
 	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
 	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
+		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
+		if err != nil {
+			t.Errorf("unable to make ClientID in test server: %v", err)
+		}
 		buf, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			t.Errorf("unable to read body in test server: %v", err)
@@ -117,10 +147,18 @@ func TestCommunicator(t *testing.T) {
 		}
 		received <- &rcd
 
-		cd := fspb.ContactData{
-			SequencingNonce: 42,
+		var cd *fspb.ContactData
+		select {
+		case cd = <-toSend:
+		default:
+			cd = &fspb.ContactData{
+				SequencingNonce: 42,
+			}
 		}
-		buf, err = proto.Marshal(&cd)
+		for _, m := range cd.Messages {
+			m.Destination.ClientId = cid.Bytes()
+		}
+		buf, err = proto.Marshal(cd)
 		if err != nil {
 			t.Errorf("Unable to marshal ContactData: %v", err)
 		}
@@ -144,9 +182,10 @@ func TestCommunicator(t *testing.T) {
 	// Create a communicator, configured to talk to the local server.
 	var c Communicator
 	conf := config.Configuration{
-		TrustedCerts:  x509.NewCertPool(),
-		Servers:       []string{addr},
-		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		TrustedCerts: x509.NewCertPool(),
+		Servers:      []string{addr},
+		FixedServices: []*fspb.ClientServiceConfig{{
+			Name: "BlockingService", Factory: "Blocking"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
@@ -157,11 +196,19 @@ func TestCommunicator(t *testing.T) {
 		t.Fatal("unable to add server cert to pool")
 	}
 
+	bs := blockingService{
+		unblock:  make(chan struct{}),
+		received: make(chan *fspb.Message, 100),
+	}
 	cl, err := client.New(
 		conf,
 		client.Components{
-			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
-			Communicator:     &c})
+			ServiceFactories: map[string]service.Factory{
+				"Blocking": func(_ *fspb.ClientServiceConfig) (service.Service, error) {
+					return &bs, nil
+				},
+			},
+			Communicator: &c})
 	if err != nil {
 		t.Fatalf("unable to create client: %v", err)
 	}
@@ -192,8 +239,8 @@ func TestCommunicator(t *testing.T) {
 					{Destination: &fspb.Address{ServiceName: "DummyService"}},
 				},
 				AllowedMessages: map[string]uint64{
-					"NOOPService": 100,
-					"system":      100,
+					"BlockingService": 100,
+					"system":          100,
 				},
 			}
 			cb.ClientClock = nil
@@ -275,7 +322,50 @@ func TestCommunicator(t *testing.T) {
 		t.Errorf("Expected to see at most 15 messages in each contact, got: %v", recMaxCount)
 	}
 
-	// TODO Test that messages go in the other direction, error cases, etc.
+	toSend <- &fspb.ContactData{
+		SequencingNonce: 44,
+		Messages: []*fspb.Message{
+			{Destination: &fspb.Address{ServiceName: "BlockingService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "BlockingService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "BlockingService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "BlockingService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "BlockingService"}, MessageType: "TestMessage"},
+		},
+	}
+
+	a := time.After(10 * time.Second)
+F:
+	for {
+		select {
+		case cd := <-received:
+			// 5 messages in, buffer sized of 100, first message
+			// blocked -> we should see free buffer space of 96.
+			if cd.AllowedMessages["BlockingService"] == 96 {
+				break F
+			}
+			log.Errorf("AllowedMessaged: %v", cd.AllowedMessages)
+		case <-a:
+			t.Errorf("Timed out waiting for reduced capacity.")
+			break F
+		}
+	}
+
+	close(bs.unblock)
+
+G:
+	for {
+		select {
+		case cd := <-received:
+			if cd.AllowedMessages["BlockingService"] == 100 {
+				break G
+			}
+		case <-a:
+			t.Errorf("Timed out waiting for returned capacity.")
+			break G
+		}
+	}
+
+	// TODO error cases, etc.
 
 	// The most graceful way to shut down a http.Server is to close the associated listener.
 	tl.Close()
