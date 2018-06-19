@@ -430,6 +430,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
+		log.Errorf("Wrote streaming ContactData: %v", wcd)
 		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
 		buf.Reset()
 	}

@@ -12,11 +12,14 @@ import (
 	"net/http"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -71,8 +74,13 @@ func TestStreamingCommunicator(t *testing.T) {
 	// channel, blindly returning responses.
 	mux := http.NewServeMux()
 	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
 	var rc int32
 	mux.HandleFunc("/streaming-message", func(res http.ResponseWriter, req *http.Request) {
+		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
+		if err != nil {
+			t.Errorf("unable to make ClientID in test server: %v", err)
+		}
 		if reqs := atomic.AddInt32(&rc, 1); reqs != 1 {
 			t.Errorf("Only expected 1 request, but this is request %d", reqs)
 			http.Error(res, "only expected 1 request", http.StatusBadRequest)
@@ -93,6 +101,7 @@ func TestStreamingCommunicator(t *testing.T) {
 
 		cnt := uint64(0)
 		for {
+			log.Error("starting read")
 			size, err := binary.ReadUvarint(body)
 			if err != nil {
 				if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -116,6 +125,7 @@ func TestStreamingCommunicator(t *testing.T) {
 				t.Errorf("Unable to parse ContactData: %v", err)
 				return
 			}
+			log.Errorf("Read: %v", rcd)
 			received <- &rcd
 
 			cd := fspb.ContactData{
@@ -132,7 +142,26 @@ func TestStreamingCommunicator(t *testing.T) {
 				return
 			}
 			res.(http.Flusher).Flush()
-
+		F:
+			for {
+				select {
+				case cd := <-toSend:
+					for _, m := range cd.Messages {
+						m.Destination.ClientId = cid.Bytes()
+					}
+					if err := out.EncodeMessage(cd); err != nil {
+						t.Errorf("Unable to encode response: %v", err)
+						return
+					}
+					if _, err := res.Write(out.Bytes()); err != nil {
+						t.Errorf("Unable to write response: %v", err)
+						return
+					}
+					res.(http.Flusher).Flush()
+				default:
+					break F
+				}
+			}
 		}
 	})
 
@@ -239,6 +268,46 @@ func TestStreamingCommunicator(t *testing.T) {
 		}
 	}
 
+	toSend <- &fspb.ContactData{
+		SequencingNonce: 44,
+		Messages: []*fspb.Message{
+			{Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"},
+			{Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"},
+		},
+	}
+	// Send messages through until we get a contact datas giving 5 more capacity.
+	var granted uint64
+F:
+	for {
+		if err := cl.ProcessMessage(context.Background(),
+			service.AckMessage{
+				M: &fspb.Message{
+					Destination: &fspb.Address{ServiceName: "DummyService"}},
+			}); err != nil {
+			t.Fatalf("unable to hand message to client: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	G:
+		for {
+			select {
+			case rcb := <-received:
+				log.Errorf("Received: %v", rcb)
+				granted += rcb.AllowedMessages["NOOPService"]
+				log.Errorf("Recieved AllowedMessages: %v", rcb.AllowedMessages)
+				if granted >= 5 {
+					break F
+				}
+			default:
+				break G
+			}
+		}
+	}
+	if granted != 5 {
+		t.Errorf("Only expected extra capacity, but got %d", granted)
+	}
 	tl.Close()
 	cl.Stop()
 }
