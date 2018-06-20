@@ -452,11 +452,11 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 	return ret, err
 }
 
-func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
 	if id == (common.ClientID{}) {
 		return nil, errors.New("a client is required")
 	}
-	return d.internalClientMessagesForProcessing(ctx, id, lim)
+	return d.internalClientMessagesForProcessing(ctx, id, lim, serviceLimits)
 }
 
 type pendingUpdate struct {
@@ -465,8 +465,14 @@ type pendingUpdate struct {
 	due int64
 }
 
-func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim int) ([]*fspb.Message, error) {
+func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
+
+	var read map[string]uint64
+	if serviceLimits != nil {
+		read = make(map[string]uint64)
+	}
 	res := make([]*fspb.Message, 0, lim)
+
 	if err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var updates []*pendingUpdate
 
@@ -488,8 +494,8 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			"pm.data_value "+
 			"FROM messages AS m, pending_messages AS pm "+
 			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? "+
-			"LIMIT ? FOR UPDATE",
-			id.Bytes(), toMicro(db.Now()), lim)
+			"FOR UPDATE",
+			id.Bytes(), toMicro(db.Now()))
 		if err != nil {
 			return err
 		}
@@ -513,6 +519,14 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			); err != nil {
 				return err
 			}
+			if serviceLimits != nil {
+				if read[dbm.destinationServiceName] >= serviceLimits[dbm.destinationServiceName] {
+					continue
+				} else {
+					read[dbm.destinationServiceName]++
+				}
+			}
+
 			updates = append(updates, &pendingUpdate{
 				id:  dbm.messageID,
 				nc:  dbm.retryCount + 1,
@@ -522,6 +536,9 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 				return err
 			}
 			res = append(res, m)
+			if len(res) >= int(lim) {
+				return nil
+			}
 		}
 		if err := rs.Err(); err != nil {
 			return err

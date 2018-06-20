@@ -19,6 +19,7 @@ package dbtesting
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -53,11 +54,24 @@ func MessageStoreTest(t *testing.T, ms db.Store) {
 	fin2 := sertesting.SetServerRetryTime(func(_ uint32) time.Time { return db.Now().Add(time.Minute) })
 	defer fin2()
 
-	storeGetMessagesTest(t, ms)
-	storeMessagesTest(t, ms)
-	clientMessagesForProcessingTest(t, ms)
-	registerMessageProcessorTest(t, ms)
-	listClientsTest(t, ms)
+	t.Run("StoreGetMessages", func(st *testing.T) {
+		storeGetMessagesTest(st, ms)
+	})
+	t.Run("StoreMessages", func(st *testing.T) {
+		storeMessagesTest(st, ms)
+	})
+	t.Run("ClientMessagesForProcessing", func(st *testing.T) {
+		clientMessagesForProcessingTest(st, ms)
+	})
+	t.Run("ClientMessagesForProcessingLimit", func(st *testing.T) {
+		clientMessagesForProcessingLimitTest(st, ms)
+	})
+	t.Run("RegisterMessageProcessr", func(st *testing.T) {
+		registerMessageProcessorTest(st, ms)
+	})
+	t.Run("ListClients", func(st *testing.T) {
+		listClientsTest(st, ms)
+	})
 }
 
 type idPair struct {
@@ -225,7 +239,7 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 
 	fakeTime.SetSeconds(300000)
 
-	m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10)
+	m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
 	if err != nil {
 		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", clientID, err)
 	}
@@ -235,6 +249,73 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 	}
 	if !proto.Equal(m[0], &stored) {
 		t.Errorf("ClientMessageForProcessing(%v) unexpected result, want: %v, got: %v", clientID, &stored, m[0])
+	}
+}
+
+func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
+	// Create a backlog for 2 different services.
+	var toStore []*fspb.Message
+	for i := 0; i < 100; i++ {
+		mid1 := common.MakeMessageID(
+			&fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestService1",
+			}, []byte(fmt.Sprintf("omit: %d", i)))
+		toStore = append(toStore, &fspb.Message{
+			MessageId: mid1.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestService1",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestService1",
+			},
+			CreationTime: db.NowProto(),
+		})
+		mid2 := common.MakeMessageID(
+			&fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestService2",
+			}, []byte(fmt.Sprintf("omit: %d", i)))
+		toStore = append(toStore, &fspb.Message{
+			MessageId: mid2.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestService2",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestService2",
+			},
+			CreationTime: db.NowProto(),
+		})
+	}
+	ctx := context.Background()
+	if err := ms.StoreMessages(ctx, toStore, ""); err != nil {
+		t.Errorf("StoreMessages returned error: %v", err)
+		return
+	}
+	for _, s := range []string{"TestService1", "TestService2"} {
+		m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, map[string]uint64{s: 5})
+		if err != nil {
+			t.Errorf("ClientMessagesForProcessing(10, %s=5) returned unexpected error: %v", s, err)
+			continue
+		}
+		if len(m) != 5 {
+			t.Errorf("ClientMessagesForProcessing(10, %s=5) returned %d messages, but expected 5.", s, len(m))
+		}
+		for _, v := range m {
+			if v.Destination.ServiceName != s {
+				t.Errorf("ClientMessagesForProcessing(10, %s=5) returned message with ServiceName=%s, but expected %s.", s, v.Destination.ServiceName, s)
+			}
+		}
+	}
+	m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
+	if err != nil {
+		t.Errorf("ClientMessagesForProcessing(10, nil) returned unexpected error: %v", err)
+		return
+	}
+	if len(m) != 10 {
+		t.Errorf("ClientMessagesForProcessing(10, nil) returned %d messages, but expected 5.", len(m))
 	}
 }
 

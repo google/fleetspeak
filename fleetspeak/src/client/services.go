@@ -227,9 +227,7 @@ func (d *serviceData) processingLoop() {
 		cnt := d.processedCount
 		d.countLock.Unlock()
 
-		log.Errorf("%s: cnt: %d", d.name, cnt)
 		if cnt&0x1f == 0 {
-			log.Error("beaconing")
 			select {
 			case d.config.client.processingBeacon <- struct{}{}:
 			default:

@@ -230,7 +230,7 @@ func TestInsertMessageAPI(t *testing.T) {
 		t.Fatalf("InsertMessage returned error: %v", err)
 	}
 	// m should now be available for processing:
-	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10)
+	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
 	if err != nil {
 		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
 	}

@@ -48,14 +48,17 @@ type ClientInfo struct {
 	Cached      bool // Whether the data was retrieved from a cache.
 }
 
-// A ConnectionInfo is the static information that the FS system gathers about a
-// particular connection to a client.
+// A ConnectionInfo is the information that the FS system gathers and maintains
+// about a particular connection to a client.
 type ConnectionInfo struct {
 	Addr                     net.Addr
 	Client                   ClientInfo
 	ContactID                db.ContactID
 	NonceSent, NonceReceived uint64
 	AuthClientInfo           authorizer.ClientInfo
+
+	// Number of oustanding message tokens we have for the client.
+	MessageTokens map[string]uint64
 
 	// These are only set for streaming connections.
 	Notices <-chan struct{} // publishes when there may be a new message for the client
