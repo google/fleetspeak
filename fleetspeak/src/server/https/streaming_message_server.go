@@ -129,7 +129,9 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		info: info,
 		res:  fullRes,
 		body: body,
-		out:  make(chan *fspb.ContactData, 5),
+
+		localNotices: make(chan struct{}, 1),
+		out:          make(chan *fspb.ContactData, 5),
 
 		cancel: cancel,
 	}
@@ -265,6 +267,9 @@ type streamManager struct {
 	res  fullResponseWriter
 	body *bufio.Reader
 
+	// Signals that a we have more tokens and might retry sending.
+	localNotices chan struct{}
+
 	// The read- and writeLoop will wait for these. Separate because readloop
 	// needs to finish before writeLoop.
 	reading sync.WaitGroup
@@ -336,6 +341,13 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		pi.Status = http.StatusBadRequest
 		return &pi, fmt.Errorf("error parsing streamed data: %v", err)
 	}
+
+	var blockedServices []string
+	for k, v := range m.info.MessageTokens {
+		if v == 0 {
+			blockedServices = append(blockedServices, k)
+		}
+	}
 	if err := m.s.fs.HandleMessagesFromClient(m.ctx, m.info, &wcd); err != nil {
 		if err == comms.ErrNotAuthorized {
 			pi.Status = http.StatusServiceUnavailable
@@ -344,6 +356,14 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 			err = fmt.Errorf("error processing streamed messages: %v", err)
 		}
 		return &pi, err
+	}
+	for _, s := range blockedServices {
+		if m.info.MessageTokens[s] > 0 {
+			select {
+			case m.localNotices <- struct{}{}:
+			default:
+			}
+		}
 	}
 	pi.Status = http.StatusOK
 	return &pi, nil
@@ -354,9 +374,12 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 
 	for {
 		if !moreMsgs {
-			_, ok := <-m.info.Notices
-			if !ok {
-				return
+			select {
+			case _, ok := <-m.info.Notices:
+				if !ok {
+					return
+				}
+			case <-m.localNotices:
 			}
 		}
 		// Stop sending messages to the client 30 seconds before our hard timelimit.
