@@ -105,7 +105,7 @@ func (c *StreamingCommunicator) configure() error {
 	}
 	c.hc = &http.Client{
 		Transport: tr,
-		Timeout:   10 * time.Minute,
+		Timeout:   15 * time.Minute,
 	}
 	return nil
 }
