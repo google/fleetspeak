@@ -480,16 +480,11 @@ func (d *Datastore) GetMessageResult(ctx context.Context, id common.MessageID) (
 }
 
 // ClientMessagesForProcessing implements db.MessageStore.
-func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error) {
-	var sumLim uint64
-	for _, v := range lim {
-		sumLim += v
-	}
-
+func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
 	if id == (common.ClientID{}) {
 		return nil, errors.New("a client is required")
 	}
-	return d.internalMessagesForProcessing(ctx, id, sumLim, lim)
+	return d.internalMessagesForProcessing(ctx, id, lim, serviceLimits)
 }
 
 func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
@@ -499,13 +494,6 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 	read := make(map[string]uint64)
 
 	var res []*fspb.Message
-
-	var dynamicLim bool
-	if lim == 0 && serviceLimits == nil {
-		dynamicLim = true
-		serviceLimits = make(map[string]uint64)
-	}
-	lim = 100
 
 	if err := d.runInTx(func(tx *sql.Tx) error {
 		// As an internal addition to the MessageStore interface, this
@@ -525,9 +513,8 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 			"pm.data_type_url, "+
 			"pm.data_value "+
 			"FROM messages AS m, pending_messages AS pm "+
-			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? "+
-			"LIMIT ?",
-			toClientIDString(id.Bytes()), toMicro(db.Now()), lim)
+			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? ",
+			toClientIDString(id.Bytes()), toMicro(db.Now()))
 		if err != nil {
 			return err
 		}
@@ -552,9 +539,6 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 				return err
 			}
 			if serviceLimits != nil {
-				if dynamicLim && serviceLimits[dbm.destinationServiceName] == 0 {
-					serviceLimits[dbm.destinationServiceName] = 100
-				}
 				if read[dbm.destinationServiceName] >= serviceLimits[dbm.destinationServiceName] {
 					continue
 				} else {
@@ -576,6 +560,9 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 				return err
 			}
 			res = append(res, m)
+			if len(res) >= int(lim) {
+				return nil
+			}
 		}
 		return rs.Err()
 	}); err != nil {

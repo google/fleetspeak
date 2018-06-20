@@ -127,14 +127,15 @@ type MessageStore interface {
 	// messages will again become overdue using rp.
 	//
 	// The lim parameter indicates the maximum number of messages to to
-	// retrieve for each service installed on the client. If nil, defaults
-	// to 100 per service for backwards compatibility purposes.
+	// retrieve. If non-nil, serviceLimits further limits the number returned
+	// for each service.
 	//
 	// Note that if an error occurs partway through the loading of messages,
 	// the already loaded messages may be returned along with the error. In
-	// particular, datastore implementations may want to do this if the ctx
-	// times out before all messages are found and updated.
-	ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim map[string]uint64) ([]*fspb.Message, error)
+	// particular, datastore implementations might do this if the ctx times
+	// out before all messages are found and updated. Any such are message
+	// is valid and ready for processing.
+	ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error)
 
 	// GetMessages retrieves specific messages.
 	GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error)

@@ -225,7 +225,7 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 
 	fakeTime.SetSeconds(300000)
 
-	m, err := ms.ClientMessagesForProcessing(ctx, clientID, map[string]uint64{"TestServiceName": 10})
+	m, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
 	if err != nil {
 		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", clientID, err)
 	}

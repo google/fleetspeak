@@ -269,32 +269,12 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		m, err := c.MakeBlacklistMessage(ctx, info, contactID)
 		return []*fspb.Message{m}, err
 	}
-	// Hard cap messages retrieved to 100 per service.
-	maxMessages := make(map[string]uint64)
-	for k, v := range messageTokens {
-		switch {
-		case v == 0:
-			continue
-		case v > 100:
-			maxMessages[k] = 100
-		default:
-			maxMessages[k] = v
+	msgs, err := c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, 100, messageTokens)
+	if err != nil {
+		if len(msgs) == 0 {
+			return nil, err
 		}
-	}
-	var msgs []*fspb.Message
-	if messageTokens == nil || len(maxMessages) > 0 {
-		var err error
-		if messageTokens == nil {
-			msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, nil)
-		} else {
-			msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
-		}
-		if err != nil {
-			if len(msgs) == 0 {
-				return nil, err
-			}
-			log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
-		}
+		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
 	if messageTokens != nil {
 		for _, m := range msgs {
@@ -330,8 +310,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		}
 		mids = append(mids, id)
 	}
-	err := c.s.dataStore.LinkMessagesToContact(ctx, contactID, mids)
-	if err != nil {
+	if err := c.s.dataStore.LinkMessagesToContact(ctx, contactID, mids); err != nil {
 		return nil, err
 	}
 	return msgs, nil
