@@ -500,6 +500,13 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 
 	var res []*fspb.Message
 
+	var dynamicLim bool
+	if lim == 0 && serviceLimits == nil {
+		dynamicLim = true
+		serviceLimits = make(map[string]uint64)
+	}
+	lim = 100
+
 	if err := d.runInTx(func(tx *sql.Tx) error {
 		// As an internal addition to the MessageStore interface, this
 		// also gets server messages when id=ClientID{}.
@@ -545,6 +552,9 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 				return err
 			}
 			if serviceLimits != nil {
+				if dynamicLim && serviceLimits[dbm.destinationServiceName] == 0 {
+					serviceLimits[dbm.destinationServiceName] = 100
+				}
 				if read[dbm.destinationServiceName] >= serviceLimits[dbm.destinationServiceName] {
 					continue
 				} else {

@@ -127,7 +127,8 @@ type MessageStore interface {
 	// messages will again become overdue using rp.
 	//
 	// The lim parameter indicates the maximum number of messages to to
-	// retrieve for each service installed on the client.
+	// retrieve for each service installed on the client. If nil, defaults
+	// to 100 per service for backwards compatibility purposes.
 	//
 	// Note that if an error occurs partway through the loading of messages,
 	// the already loaded messages may be returned along with the error. In

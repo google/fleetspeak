@@ -130,10 +130,16 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	if len(cd.Messages) > maxMessagesPerContact {
 		return nil, nil, false, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
+
 	res.NonceReceived = cd.SequencingNonce
 	toSend := fspb.ContactData{SequencingNonce: randUint64()}
 	res.NonceSent = toSend.SequencingNonce
-	res.MessageTokens = cd.AllowedMessages
+	if len(cd.AllowedMessages) > 0 {
+		res.MessageTokens = cd.AllowedMessages
+	} else {
+		res.MessageTokens = nil
+	}
+
 	var streamingTo string
 	if streaming {
 		streamingTo = c.s.listener.Address()
@@ -160,7 +166,6 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	if streaming {
 		res.Notices, res.Fin = c.s.dispatcher.Register(id)
 	}
-
 	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, res.MessageTokens)
 	if err != nil {
 		if res.Fin != nil {
@@ -257,7 +262,7 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 
 // FindMessagesForClient finds unprocessed messages for a given client and
 // reserves them for processing in the database. It limits the returned messages
-// for which we have a token, and decrements the token.
+// to those for which token, and decrements token counters as necessary.
 func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, messageTokens map[string]uint64) ([]*fspb.Message, error) {
 	if info.Blacklisted {
 		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.ID)
@@ -267,16 +272,23 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 	// Hard cap messages retrieved to 100 per service.
 	maxMessages := make(map[string]uint64)
 	for k, v := range messageTokens {
-		if v > 100 {
+		switch {
+		case v == 0:
+			continue
+		case v > 100:
 			maxMessages[k] = 100
-		} else {
+		default:
 			maxMessages[k] = v
 		}
 	}
 	var msgs []*fspb.Message
-	if len(maxMessages) > 0 {
+	if messageTokens == nil || len(maxMessages) > 0 {
 		var err error
-		msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
+		if messageTokens == nil {
+			msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, nil)
+		} else {
+			msgs, err = c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, maxMessages)
+		}
 		if err != nil {
 			if len(msgs) == 0 {
 				return nil, err
@@ -284,12 +296,13 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 			log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 		}
 	}
-
-	for _, m := range msgs {
-		if messageTokens[m.Destination.ServiceName] == 0 {
-			log.Errorf("Internal error! retrieved message without token for %s.", m.Destination.ServiceName)
-		} else {
-			messageTokens[m.Destination.ServiceName] -= 1
+	if messageTokens != nil {
+		for _, m := range msgs {
+			if messageTokens[m.Destination.ServiceName] == 0 {
+				log.Errorf("Internal error! retrieved message without token for %s.", m.Destination.ServiceName)
+			} else {
+				messageTokens[m.Destination.ServiceName] -= 1
+			}
 		}
 	}
 

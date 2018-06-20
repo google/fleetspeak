@@ -474,6 +474,13 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 	res := make([]*fspb.Message, 0, sumLim)
 	read := make(map[string]uint64)
 
+	var dynamicLim bool
+	if lim == nil {
+		dynamicLim = true
+		lim = make(map[string]uint64)
+		sumLim = 100
+	}
+
 	if err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var updates []*pendingUpdate
 
@@ -519,6 +526,9 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 				&dbm.dataValue,
 			); err != nil {
 				return err
+			}
+			if dynamicLim && lim[dbm.destinationServiceName] == 0 {
+				lim[dbm.destinationServiceName] = 100
 			}
 			if read[dbm.destinationServiceName] >= lim[dbm.destinationServiceName] {
 				continue
