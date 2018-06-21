@@ -21,10 +21,10 @@ import (
 )
 
 // ClientRetryTime determines how long to wait for an acknowledgement before
-// sending a message to a client again. The normal implementation waits one
-// hour. It is mutable primarily to support testing.
+// sending a message to a client again. The normal implementation waits 15
+// minutes. It is mutable primarily to support testing.
 var ClientRetryTime = func() time.Time {
-	return Now().Add(time.Hour)
+	return Now().Add(15 * time.Minute)
 }
 
 // ServerRetryTime determines how long to wait before attempting to process a
