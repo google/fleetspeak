@@ -170,7 +170,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 }
 
 func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, bool, error) {
-	ctx, fin := context.WithTimeout(ctx, time.Minute)
+	ctx, fin := context.WithTimeout(ctx, 3*time.Minute)
 
 	pi := stats.PollInfo{
 		CTX:    ctx,
