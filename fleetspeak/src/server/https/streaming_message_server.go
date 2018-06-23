@@ -396,21 +396,33 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 	defer m.reading.Done()
 
+	// Stop sending messages to the client closeTime (e.g. 30 sec) before our hard deadline.
+	d, ok := m.ctx.Deadline()
+	if !ok {
+		// Shouldn't happen, ctx is created with a deadline.
+		log.Fatalf("m.ctx does not have a deadline set")
+	}
+	deadline := d.Add(-closeTime)
+	stop := time.NewTimer(time.Until(deadline))
+	defer stop.Stop()
+
 	for {
 		if !moreMsgs {
 			select {
+			case <-stop.C:
+				m.out <- &fspb.ContactData{DoneSending: true}
+				return
 			case _, ok := <-m.info.Notices:
 				if !ok {
 					return
 				}
 			case <-m.localNotices:
 			}
-		}
-		// Stop sending messages to the client 30 seconds before our hard timelimit.
-		d, ok := m.ctx.Deadline()
-		if ok && time.Now().After(d.Add(-closeTime)) {
-			m.out <- &fspb.ContactData{DoneSending: true}
-			return
+		} else {
+			if time.Now().After(deadline) {
+				m.out <- &fspb.ContactData{DoneSending: true}
+				return
+			}
 		}
 		if !moreMsgs {
 			// Wait up to 1 second for extra notifications/messages, ignoring additional
@@ -466,7 +478,9 @@ func (m *streamManager) writeLoop() {
 				// as a poll.
 				return
 			}
-			m.s.fs.StatsCollector().ClientPoll(pi)
+			if len(cd.Messages) > 0 {
+				m.s.fs.StatsCollector().ClientPoll(pi)
+			}
 		case <-m.ctx.Done():
 			return
 		}
