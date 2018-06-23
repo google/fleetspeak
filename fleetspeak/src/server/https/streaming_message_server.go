@@ -348,8 +348,10 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 			blockedServices = append(blockedServices, k)
 		}
 	}
-	// We might be close to the connection's natural end. Accept up to 15 seconds
-	// of overrun trying to process what we've been given.
+	// We might be close to the connection's natural end. Accept up to 15
+	// seconds of overrun trying to process what we've been given. This
+	// should only happen when things are unexpectedly slow and likely
+	// causes duplicate messages.
 	ctx, fin := context.WithCancel(context.Background())
 	go func() {
 		defer fin()
@@ -357,6 +359,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		case <-ctx.Done():
 			return
 		case <-m.ctx.Done():
+			log.Warningf("Extra time required while processing message from %v.", m.info.Client.ID)
 			t := time.NewTimer(15 * time.Second)
 			defer t.Stop()
 			select {
