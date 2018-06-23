@@ -110,7 +110,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 
 	body := bufio.NewReader(req.Body)
 
-	// Set a 10 min overall maximum lifespan of the connection.
+	// Set a 9-11 minute overall maximum lifespan of the connection.
 	ctx, fin := context.WithTimeout(req.Context(), s.p.StreamingLifespan+time.Duration(float32(s.p.StreamingJitter)*rand.Float32()))
 	defer fin()
 
@@ -348,7 +348,31 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 			blockedServices = append(blockedServices, k)
 		}
 	}
-	if err := m.s.fs.HandleMessagesFromClient(m.ctx, m.info, &wcd); err != nil {
+	// We might be close to the connection's natural end. Accept up to 15
+	// seconds of overrun trying to process what we've been given. This
+	// should only happen when things are unexpectedly slow and likely
+	// causes duplicate messages.
+	ctx, fin := context.WithCancel(context.Background())
+	go func() {
+		defer fin()
+		select {
+		case <-ctx.Done():
+			return
+		case <-m.ctx.Done():
+			log.Warningf("Extra time required while processing message from %v.", m.info.Client.ID)
+			t := time.NewTimer(15 * time.Second)
+			defer t.Stop()
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				return
+			}
+		}
+	}()
+	err = m.s.fs.HandleMessagesFromClient(ctx, m.info, &wcd)
+	fin()
+	if err != nil {
 		if err == comms.ErrNotAuthorized {
 			pi.Status = http.StatusServiceUnavailable
 		} else {
