@@ -470,6 +470,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			close(c.serverDone)
 			select {
 			case <-c.ctx.Done():
+				log.Warning("Connection closed early during staged shutdown.")
 				return
 			case <-c.writingDone:
 				writingDone = true
