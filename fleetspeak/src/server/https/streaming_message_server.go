@@ -466,7 +466,9 @@ func (m *streamManager) writeLoop() {
 				// as a poll.
 				return
 			}
-			m.s.fs.StatsCollector().ClientPoll(pi)
+			if len(cd.Messages) > 0 {
+				m.s.fs.StatsCollector().ClientPoll(pi)
+			}
 		case <-m.ctx.Done():
 			return
 		}
