@@ -412,6 +412,9 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 	var errCnt int
 
 	for {
+		// This switch decides how long we should wait before trying to
+		// get more messages for the client, and returns when it is time
+		// to stop.
 		switch {
 		case errCnt > 0:
 			// Last attempt to get messages failed - try again with
@@ -421,6 +424,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			t := time.NewTimer(errDelay)
 			select {
 			case <-m.ctx.Done():
+				t.Stop()
 				return
 			case <-stop.C:
 				t.Stop()
@@ -440,7 +444,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			}
 		default:
 			// Wait for a notification, then wait 1 more second in
-			// case messages arrive.
+			// case more messages arrive.
 			select {
 			case <-m.ctx.Done():
 				return
@@ -457,6 +461,8 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		L:
 			for {
 				select {
+				case <-m.ctx.Done():
+					return
 				case _, ok := <-m.info.Notices:
 					if !ok {
 						break L
