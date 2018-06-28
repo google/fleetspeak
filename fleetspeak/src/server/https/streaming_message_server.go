@@ -420,6 +420,8 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			errDelay := time.Duration((baseErrorDelay + rand.Float64()*baseErrorDelay) * math.Pow(1.5, float64(errCnt)))
 			t := time.NewTimer(errDelay)
 			select {
+			case <-m.ctx.Done():
+				return
 			case <-stop.C:
 				t.Stop()
 				m.out <- &fspb.ContactData{DoneSending: true}
@@ -433,10 +435,15 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 				m.out <- &fspb.ContactData{DoneSending: true}
 				return
 			}
+			if m.ctx.Err() != nil {
+				return
+			}
 		default:
 			// Wait for a notification, then wait 1 more second in
 			// case messages arrive.
 			select {
+			case <-m.ctx.Done():
+				return
 			case <-stop.C:
 				m.out <- &fspb.ContactData{DoneSending: true}
 				return
@@ -465,6 +472,9 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		var err error
 		cd, moreMsgs, err = m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
+			if err == m.ctx.Err() {
+				return
+			}
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
 			errCnt++
 		} else {
