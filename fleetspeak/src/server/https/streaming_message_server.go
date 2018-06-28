@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -39,6 +40,7 @@ import (
 )
 
 const magic = uint32(0xf1ee1001)
+const baseErrorDelay = float64(100 * time.Millisecond)
 
 type fullResponseWriter interface {
 	http.ResponseWriter
@@ -406,9 +408,42 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 	stop := time.NewTimer(time.Until(deadline))
 	defer stop.Stop()
 
+	// Number of sequential errors getting messages for the client.
+	var errCnt int
+
 	for {
-		if !moreMsgs {
+		switch {
+		case errCnt > 0:
+			// Last attempt to get messages failed - try again with
+			// a jittery exponential backoff in the hopes that the
+			// database recovers.
+			errDelay := time.Duration((baseErrorDelay + rand.Float64()*baseErrorDelay) * math.Pow(1.5, float64(errCnt)))
+			t := time.NewTimer(errDelay)
 			select {
+			case <-m.ctx.Done():
+				return
+			case <-stop.C:
+				t.Stop()
+				m.out <- &fspb.ContactData{DoneSending: true}
+				return
+			case <-t.C:
+			}
+		case moreMsgs:
+			// We believe that there are more messages already
+			// available, just check if it is time to shutdown.
+			if time.Now().After(deadline) {
+				m.out <- &fspb.ContactData{DoneSending: true}
+				return
+			}
+			if m.ctx.Err() != nil {
+				return
+			}
+		default:
+			// Wait for a notification, then wait 1 more second in
+			// case messages arrive.
+			select {
+			case <-m.ctx.Done():
+				return
 			case <-stop.C:
 				m.out <- &fspb.ContactData{DoneSending: true}
 				return
@@ -418,15 +453,6 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 				}
 			case <-m.localNotices:
 			}
-		} else {
-			if time.Now().After(deadline) {
-				m.out <- &fspb.ContactData{DoneSending: true}
-				return
-			}
-		}
-		if !moreMsgs {
-			// Wait up to 1 second for extra notifications/messages, ignoring additional
-			// notifications during this time.
 			t := time.NewTimer(time.Second)
 		L:
 			for {
@@ -446,7 +472,13 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		var err error
 		cd, moreMsgs, err = m.s.fs.GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
+			if err == m.ctx.Err() {
+				return
+			}
 			log.Errorf("Error getting messages for streaming client [%v]: %v", m.info.Client.ID, err)
+			errCnt++
+		} else {
+			errCnt = 0
 		}
 		if cd != nil {
 			m.out <- cd
