@@ -54,6 +54,8 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 			allowedMessages[k] = pm[k] - b
 		}
 	}
+	log.V(2).Info("Creating ContactData with %d messages and giving tokens: %v", len(toSend), allowedMessages)
+
 	// Create the bytes transferred with this contact.
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
@@ -65,6 +67,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// Pick the non-repetitious part out of the config manager's
 	// labels.
 	labels := c.c.config.Labels()

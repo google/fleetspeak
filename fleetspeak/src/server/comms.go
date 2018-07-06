@@ -276,6 +276,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		}
 		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
+	log.V(1).Infof("FindMessagesForClient(%v): found %d messages for tokens: %v", info.ID, messageTokens)
 	if messageTokens != nil {
 		for _, m := range msgs {
 			if messageTokens[m.Destination.ServiceName] == 0 {
@@ -284,6 +285,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 				messageTokens[m.Destination.ServiceName] -= 1
 			}
 		}
+		log.V(2).Infof("FindMessagesForClient(%v): updated tokens to: %v", info.ID, messageTokens)
 	}
 
 	// If the client recently contacted us, the broadcast situation is unlikely to

@@ -412,6 +412,9 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 	var errCnt int
 
 	for {
+		// This switch decides how long we should wait before trying to
+		// get more messages for the client, and returns when it is time
+		// to stop.
 		switch {
 		case errCnt > 0:
 			// Last attempt to get messages failed - try again with
@@ -419,8 +422,10 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			// database recovers.
 			errDelay := time.Duration((baseErrorDelay + rand.Float64()*baseErrorDelay) * math.Pow(1.5, float64(errCnt)))
 			t := time.NewTimer(errDelay)
+			log.V(1).Infof("NotifyLoop(%v): waiting %v due to previous error.", m.info.Client.ID, errDelay)
 			select {
 			case <-m.ctx.Done():
+				t.Stop()
 				return
 			case <-stop.C:
 				t.Stop()
@@ -431,6 +436,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		case moreMsgs:
 			// We believe that there are more messages already
 			// available, just check if it is time to shutdown.
+			log.V(1).Infof("NotifyLoop(%v): continuing, more messages possible.", m.info.Client.ID)
 			if time.Now().After(deadline) {
 				m.out <- &fspb.ContactData{DoneSending: true}
 				return
@@ -440,7 +446,8 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			}
 		default:
 			// Wait for a notification, then wait 1 more second in
-			// case messages arrive.
+			// case more messages arrive.
+			log.V(1).Infof("NotifyLoop(%v): waiting for notifications.", m.info.Client.ID)
 			select {
 			case <-m.ctx.Done():
 				return
@@ -457,6 +464,8 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		L:
 			for {
 				select {
+				case <-m.ctx.Done():
+					return
 				case _, ok := <-m.info.Notices:
 					if !ok {
 						break L
