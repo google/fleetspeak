@@ -112,6 +112,10 @@ func TestValidateServiceConfig(t *testing.T) {
 			DeploymentPublicKeys: []rsa.PublicKey{k1.PublicKey, k2.PublicKey},
 			FixedServices:        make([]*fspb.ClientServiceConfig, 0),
 		}, make(chan *fspb.ClientInfoData))
+	if err != nil {
+		t.Errorf("StartManager failed: %v", err)
+	}
+	defer m.Stop()
 
 	for _, k := range []*rsa.PrivateKey{k1, k2} {
 		sd := fspb.SignedClientServiceConfig{ServiceConfig: []byte("A serialized proto")}

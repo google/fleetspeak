@@ -57,7 +57,7 @@ type ConnectionInfo struct {
 	NonceSent, NonceReceived uint64
 	AuthClientInfo           authorizer.ClientInfo
 
-	// Number of oustanding message tokens we have for the client.
+	// Number of outstanding message tokens we have for the client.
 	MessageTokens map[string]uint64
 
 	// These are only set for streaming connections.

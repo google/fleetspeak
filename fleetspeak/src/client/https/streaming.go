@@ -393,7 +393,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 	buf := proto.NewBuffer(make([]byte, 0, 1024))
 	cnt := 1
 	for {
-		// Immediatly add to c.pending, so that somebody will Ack/Nack
+		// Immediately add to c.pending, so that somebody will Ack/Nack
 		// them.
 		msgs, fin := c.groupMessages(c.ctx)
 		if fin {

@@ -198,6 +198,9 @@ func TestStreamingCommunicator(t *testing.T) {
 		client.Components{
 			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
 			Communicator:     &c})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
 
 	acks := make(chan int, 1000)
 	if err := cl.ProcessMessage(context.Background(),
