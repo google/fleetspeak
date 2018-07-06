@@ -128,7 +128,7 @@ func (c *Channel) read(n int, d time.Duration) ([]byte, error) {
 	}
 	t := time.AfterFunc(d, func() {
 		c.e <- fmt.Errorf("read of length %d timed out", n)
-		// Aborting a os level read is tricky, and not well supported by
+		// Aborting an os level read is tricky, and not well supported by
 		// go. So we just send the error now and trust the user of
 		// channel to kill the other end (or suicide) to get things
 		// working again.
