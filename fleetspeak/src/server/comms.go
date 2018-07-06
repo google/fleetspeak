@@ -285,8 +285,8 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 				messageTokens[m.Destination.ServiceName] -= 1
 			}
 		}
+		log.V(2).Infof("FindMessagesForClient(%v): updated tokens to: %v", info.ID, messageTokens)
 	}
-	log.V(2).Infof("FindMessagesForClient(%v): updated tokens to: %v", info.ID, messageTokens)
 
 	// If the client recently contacted us, the broadcast situation is unlikely to
 	// have changed, so we skip checking for broadcasts. To keep this from delaying

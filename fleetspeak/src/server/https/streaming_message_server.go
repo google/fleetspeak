@@ -422,7 +422,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 			// database recovers.
 			errDelay := time.Duration((baseErrorDelay + rand.Float64()*baseErrorDelay) * math.Pow(1.5, float64(errCnt)))
 			t := time.NewTimer(errDelay)
-			log.V(1).Infof("NotifyLoop(%v): waiting %d due to previous error.", m.info.Client.ID, errDelay)
+			log.V(1).Infof("NotifyLoop(%v): waiting %v due to previous error.", m.info.Client.ID, errDelay)
 			select {
 			case <-m.ctx.Done():
 				t.Stop()
