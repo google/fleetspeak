@@ -54,7 +54,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 			allowedMessages[k] = pm[k] - b
 		}
 	}
-	log.V(2).Info("Creating ContactData with %d messages and giving tokens: %v", len(toSend), allowedMessages)
+	log.V(2).Infof("Creating ContactData with %d messages and giving tokens: %v", len(toSend), allowedMessages)
 
 	// Create the bytes transferred with this contact.
 	cd := fspb.ContactData{
