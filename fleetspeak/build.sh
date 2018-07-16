@@ -92,6 +92,8 @@ time (
       rm -rf pkg
       cp -r pkg-tmpl pkg
 
+      chmod 755 pkg/*
+
       chmod o-r pkg/etc/fleetspeak-server/https.config
       chmod g-r pkg/etc/fleetspeak-server/https.config
 
