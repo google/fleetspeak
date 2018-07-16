@@ -6,12 +6,18 @@ package fleetspeak_server
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf1 "github.com/golang/protobuf/ptypes/any"
+import any "github.com/golang/protobuf/ptypes/any"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // A ServiceConfig describes how the server should configure a 'service', which is
 // a module that sends and processes messages.
@@ -19,21 +25,43 @@ type ServiceConfig struct {
 	// The name that the service will be known as. Primary use is to address
 	// messages to the service. The service names 'server' and 'client' are
 	// reserved.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The name of the factory which will be used to generate the service.
-	Factory string `protobuf:"bytes,2,opt,name=factory" json:"factory,omitempty"`
+	Factory string `protobuf:"bytes,2,opt,name=factory,proto3" json:"factory,omitempty"`
 	// The maximum number of simultaneous calls to the service's ProcessMessage
 	// method. If unset, defaults to 100.
-	MaxParallelism uint32 `protobuf:"varint,3,opt,name=max_parallelism,json=maxParallelism" json:"max_parallelism,omitempty"`
+	MaxParallelism uint32 `protobuf:"varint,3,opt,name=max_parallelism,json=maxParallelism,proto3" json:"max_parallelism,omitempty"`
 	// Additional configuration information for the factory to use when setting up
 	// the service. The allowed type depends upon the factory.
-	Config *google_protobuf1.Any `protobuf:"bytes,4,opt,name=config" json:"config,omitempty"`
+	Config               *any.Any `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ServiceConfig) Reset()                    { *m = ServiceConfig{} }
-func (m *ServiceConfig) String() string            { return proto.CompactTextString(m) }
-func (*ServiceConfig) ProtoMessage()               {}
-func (*ServiceConfig) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
+func (m *ServiceConfig) Reset()         { *m = ServiceConfig{} }
+func (m *ServiceConfig) String() string { return proto.CompactTextString(m) }
+func (*ServiceConfig) ProtoMessage()    {}
+func (*ServiceConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_services_9d67e677149c20ee, []int{0}
+}
+func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ServiceConfig.Unmarshal(m, b)
+}
+func (m *ServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ServiceConfig.Marshal(b, m, deterministic)
+}
+func (dst *ServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceConfig.Merge(dst, src)
+}
+func (m *ServiceConfig) XXX_Size() int {
+	return xxx_messageInfo_ServiceConfig.Size(m)
+}
+func (m *ServiceConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceConfig proto.InternalMessageInfo
 
 func (m *ServiceConfig) GetName() string {
 	if m != nil {
@@ -56,7 +84,7 @@ func (m *ServiceConfig) GetMaxParallelism() uint32 {
 	return 0
 }
 
-func (m *ServiceConfig) GetConfig() *google_protobuf1.Any {
+func (m *ServiceConfig) GetConfig() *any.Any {
 	if m != nil {
 		return m.Config
 	}
@@ -68,10 +96,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/services.proto", fileDescriptor4)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/services.proto", fileDescriptor_services_9d67e677149c20ee)
 }
 
-var fileDescriptor4 = []byte{
+var fileDescriptor_services_9d67e677149c20ee = []byte{
 	// 206 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x44, 0x8e, 0x4f, 0x4a, 0xc7, 0x30,
 	0x10, 0x85, 0x89, 0x96, 0x8a, 0x91, 0x2a, 0x06, 0x17, 0xd1, 0x55, 0x71, 0x63, 0x17, 0x92, 0x80,

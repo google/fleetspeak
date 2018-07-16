@@ -12,23 +12,51 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // A fleetspeak.Message with message type "StdOutput" and data type
 // StdOutputData is sent by a daemon service to the server when the daemon
 // subprocess produces output on stdout or stderr.
 type StdOutputData struct {
 	// The pid of the daemon process.
-	Pid int64 `protobuf:"varint,1,opt,name=pid" json:"pid,omitempty"`
+	Pid int64 `protobuf:"varint,1,opt,name=pid,proto3" json:"pid,omitempty"`
 	// The index of this message within the set of messages returned for
 	// this pid.
-	MessageIndex int64  `protobuf:"varint,2,opt,name=message_index,json=messageIndex" json:"message_index,omitempty"`
-	Stdout       []byte `protobuf:"bytes,3,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr       []byte `protobuf:"bytes,4,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	MessageIndex         int64    `protobuf:"varint,2,opt,name=message_index,json=messageIndex,proto3" json:"message_index,omitempty"`
+	Stdout               []byte   `protobuf:"bytes,3,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stderr               []byte   `protobuf:"bytes,4,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *StdOutputData) Reset()                    { *m = StdOutputData{} }
-func (m *StdOutputData) String() string            { return proto.CompactTextString(m) }
-func (*StdOutputData) ProtoMessage()               {}
-func (*StdOutputData) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *StdOutputData) Reset()         { *m = StdOutputData{} }
+func (m *StdOutputData) String() string { return proto.CompactTextString(m) }
+func (*StdOutputData) ProtoMessage()    {}
+func (*StdOutputData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_messages_ac08e7a74db6a692, []int{0}
+}
+func (m *StdOutputData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StdOutputData.Unmarshal(m, b)
+}
+func (m *StdOutputData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StdOutputData.Marshal(b, m, deterministic)
+}
+func (dst *StdOutputData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StdOutputData.Merge(dst, src)
+}
+func (m *StdOutputData) XXX_Size() int {
+	return xxx_messageInfo_StdOutputData.Size(m)
+}
+func (m *StdOutputData) XXX_DiscardUnknown() {
+	xxx_messageInfo_StdOutputData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StdOutputData proto.InternalMessageInfo
 
 func (m *StdOutputData) GetPid() int64 {
 	if m != nil {
@@ -63,10 +91,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/messages.proto", fileDescriptor1)
+	proto.RegisterFile("fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/messages.proto", fileDescriptor_messages_ac08e7a74db6a692)
 }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_messages_ac08e7a74db6a692 = []byte{
 	// 179 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x8e, 0xc1, 0x8a, 0x83, 0x30,
 	0x10, 0x40, 0x71, 0x5d, 0x3c, 0x04, 0x85, 0x25, 0x87, 0x25, 0x47, 0xd9, 0xbd, 0x78, 0x32, 0x87,
