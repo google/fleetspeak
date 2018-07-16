@@ -6,28 +6,56 @@ package fleetspeak_server
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/golang/protobuf/ptypes/duration"
+import duration "github.com/golang/protobuf/ptypes/duration"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // Describes a server's configuration. If unset, all values default to values
 // reasonable for a unit test or small installation. Larger installations may
 // need to tune these.
 type ServerConfig struct {
 	// The collection of services that this server should include.
-	Services []*ServiceConfig `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	Services []*ServiceConfig `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// The approximate time to wait between checking for new broadcasts. If unset,
 	// a default of 1 minute is used.
-	BroadcastPollTime *google_protobuf2.Duration `protobuf:"bytes,2,opt,name=broadcast_poll_time,json=broadcastPollTime" json:"broadcast_poll_time,omitempty"`
+	BroadcastPollTime    *duration.Duration `protobuf:"bytes,2,opt,name=broadcast_poll_time,json=broadcastPollTime,proto3" json:"broadcast_poll_time,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *ServerConfig) Reset()                    { *m = ServerConfig{} }
-func (m *ServerConfig) String() string            { return proto.CompactTextString(m) }
-func (*ServerConfig) ProtoMessage()               {}
-func (*ServerConfig) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (m *ServerConfig) Reset()         { *m = ServerConfig{} }
+func (m *ServerConfig) String() string { return proto.CompactTextString(m) }
+func (*ServerConfig) ProtoMessage()    {}
+func (*ServerConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_server_2271f3b4a5c265fb, []int{0}
+}
+func (m *ServerConfig) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ServerConfig.Unmarshal(m, b)
+}
+func (m *ServerConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ServerConfig.Marshal(b, m, deterministic)
+}
+func (dst *ServerConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConfig.Merge(dst, src)
+}
+func (m *ServerConfig) XXX_Size() int {
+	return xxx_messageInfo_ServerConfig.Size(m)
+}
+func (m *ServerConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServerConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServerConfig proto.InternalMessageInfo
 
 func (m *ServerConfig) GetServices() []*ServiceConfig {
 	if m != nil {
@@ -36,7 +64,7 @@ func (m *ServerConfig) GetServices() []*ServiceConfig {
 	return nil
 }
 
-func (m *ServerConfig) GetBroadcastPollTime() *google_protobuf2.Duration {
+func (m *ServerConfig) GetBroadcastPollTime() *duration.Duration {
 	if m != nil {
 		return m.BroadcastPollTime
 	}
@@ -48,10 +76,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor3)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor_server_2271f3b4a5c265fb)
 }
 
-var fileDescriptor3 = []byte{
+var fileDescriptor_server_2271f3b4a5c265fb = []byte{
 	// 204 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x4a, 0xcb, 0x49, 0x4d,
 	0x2d, 0x29, 0x2e, 0x48, 0x4d, 0xcc, 0xd6, 0x2f, 0x2e, 0x4a, 0xd6, 0x2f, 0x4e, 0x2d, 0x2a, 0x4b,

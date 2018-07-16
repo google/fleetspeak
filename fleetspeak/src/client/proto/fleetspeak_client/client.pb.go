@@ -12,6 +12,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // Parameters used to configure communicator plugins.
 type CommunicatorConfig struct {
 	// The longest possible wait before attempting to contact the server.  The
@@ -19,28 +25,50 @@ type CommunicatorConfig struct {
 	// there has been recent communication with the server.
 	//
 	// A default of 5 minutes is used if unset.
-	MaxPollDelaySeconds int32 `protobuf:"varint,2,opt,name=max_poll_delay_seconds,json=maxPollDelaySeconds" json:"max_poll_delay_seconds,omitempty"`
+	MaxPollDelaySeconds int32 `protobuf:"varint,2,opt,name=max_poll_delay_seconds,json=maxPollDelaySeconds,proto3" json:"max_poll_delay_seconds,omitempty"`
 	// The longest possible wait before attempting to contact the server when
 	// there is some data to transmit. The communicator may poll sooner if the
 	// buffer is full.
 	//
 	// A default of 5 seconds is used if unset.
-	MaxBufferDelaySeconds int32 `protobuf:"varint,3,opt,name=max_buffer_delay_seconds,json=maxBufferDelaySeconds" json:"max_buffer_delay_seconds,omitempty"`
+	MaxBufferDelaySeconds int32 `protobuf:"varint,3,opt,name=max_buffer_delay_seconds,json=maxBufferDelaySeconds,proto3" json:"max_buffer_delay_seconds,omitempty"`
 	// The minimum time to wait after a failure to reach any server.
 	//
 	// A default of 5 minutes is used if unset.
-	MinFailureDelaySeconds int32 `protobuf:"varint,4,opt,name=min_failure_delay_seconds,json=minFailureDelaySeconds" json:"min_failure_delay_seconds,omitempty"`
+	MinFailureDelaySeconds int32 `protobuf:"varint,4,opt,name=min_failure_delay_seconds,json=minFailureDelaySeconds,proto3" json:"min_failure_delay_seconds,omitempty"`
 	// If the communicator is unable to communicate with the server for this long,
 	// it should kill fleetspeak, in the hope that a restart will fix things.
 	//
 	// A default of 7 days is used if unset.
-	FailureSuicideTimeSeconds int32 `protobuf:"varint,5,opt,name=failure_suicide_time_seconds,json=failureSuicideTimeSeconds" json:"failure_suicide_time_seconds,omitempty"`
+	FailureSuicideTimeSeconds int32    `protobuf:"varint,5,opt,name=failure_suicide_time_seconds,json=failureSuicideTimeSeconds,proto3" json:"failure_suicide_time_seconds,omitempty"`
+	XXX_NoUnkeyedLiteral      struct{} `json:"-"`
+	XXX_unrecognized          []byte   `json:"-"`
+	XXX_sizecache             int32    `json:"-"`
 }
 
-func (m *CommunicatorConfig) Reset()                    { *m = CommunicatorConfig{} }
-func (m *CommunicatorConfig) String() string            { return proto.CompactTextString(m) }
-func (*CommunicatorConfig) ProtoMessage()               {}
-func (*CommunicatorConfig) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *CommunicatorConfig) Reset()         { *m = CommunicatorConfig{} }
+func (m *CommunicatorConfig) String() string { return proto.CompactTextString(m) }
+func (*CommunicatorConfig) ProtoMessage()    {}
+func (*CommunicatorConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_client_341421432342fac9, []int{0}
+}
+func (m *CommunicatorConfig) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CommunicatorConfig.Unmarshal(m, b)
+}
+func (m *CommunicatorConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CommunicatorConfig.Marshal(b, m, deterministic)
+}
+func (dst *CommunicatorConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommunicatorConfig.Merge(dst, src)
+}
+func (m *CommunicatorConfig) XXX_Size() int {
+	return xxx_messageInfo_CommunicatorConfig.Size(m)
+}
+func (m *CommunicatorConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_CommunicatorConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CommunicatorConfig proto.InternalMessageInfo
 
 func (m *CommunicatorConfig) GetMaxPollDelaySeconds() int32 {
 	if m != nil {
@@ -77,16 +105,38 @@ type ClientState struct {
 	// client's id.
 	ClientKey []byte `protobuf:"bytes,1,opt,name=client_key,json=clientKey,proto3" json:"client_key,omitempty"`
 	// The most recent sequencing nonce received from the server.
-	SequencingNonce uint64 `protobuf:"varint,7,opt,name=sequencing_nonce,json=sequencingNonce" json:"sequencing_nonce,omitempty"`
+	SequencingNonce uint64 `protobuf:"varint,7,opt,name=sequencing_nonce,json=sequencingNonce,proto3" json:"sequencing_nonce,omitempty"`
 	// A set of revoked/blacklisted certificate serial numbers in big endian
 	// format. Not restricted, but normally at most 20 bytes. (RFC 3280)
-	RevokedCertSerials [][]byte `protobuf:"bytes,8,rep,name=revoked_cert_serials,json=revokedCertSerials,proto3" json:"revoked_cert_serials,omitempty"`
+	RevokedCertSerials   [][]byte `protobuf:"bytes,8,rep,name=revoked_cert_serials,json=revokedCertSerials,proto3" json:"revoked_cert_serials,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ClientState) Reset()                    { *m = ClientState{} }
-func (m *ClientState) String() string            { return proto.CompactTextString(m) }
-func (*ClientState) ProtoMessage()               {}
-func (*ClientState) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *ClientState) Reset()         { *m = ClientState{} }
+func (m *ClientState) String() string { return proto.CompactTextString(m) }
+func (*ClientState) ProtoMessage()    {}
+func (*ClientState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_client_341421432342fac9, []int{1}
+}
+func (m *ClientState) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientState.Unmarshal(m, b)
+}
+func (m *ClientState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientState.Marshal(b, m, deterministic)
+}
+func (dst *ClientState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientState.Merge(dst, src)
+}
+func (m *ClientState) XXX_Size() int {
+	return xxx_messageInfo_ClientState.Size(m)
+}
+func (m *ClientState) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientState proto.InternalMessageInfo
 
 func (m *ClientState) GetClientKey() []byte {
 	if m != nil {
@@ -115,10 +165,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/client.proto", fileDescriptor1)
+	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/client.proto", fileDescriptor_client_341421432342fac9)
 }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_client_341421432342fac9 = []byte{
 	// 314 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x91, 0xcf, 0x4b, 0xc3, 0x30,
 	0x14, 0x80, 0xa9, 0xdb, 0xfc, 0x11, 0x07, 0x6a, 0xd4, 0xd1, 0x81, 0x42, 0xd9, 0xa9, 0x5e, 0x56,
