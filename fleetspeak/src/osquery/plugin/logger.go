@@ -58,16 +58,21 @@ func toProtoType(t logger.LogType) ospb.LoggedResult_Type {
 	return ospb.LoggedResult_UNKNOWN
 }
 
-func encodeResult(sb []byte) (ospb.CompressionType, []byte) {
-	if len(sb) < 8 {
-		return ospb.CompressionType_UNCOMPRESSED, sb
-	}
+func zcompress(in []byte) []byte {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
-	w.Write([]byte(sb))
+	w.Write([]byte(in))
 	w.Close()
-	if len(b.Bytes()) > len(sb) {
+	return b.Bytes()
+}
+
+func encodeResult(sb []byte) (ospb.CompressionType, []byte) {
+	if len(sb) < 32 {
 		return ospb.CompressionType_UNCOMPRESSED, sb
 	}
-	return ospb.CompressionType_ZCOMPRESSION, b.Bytes()
+	b := zcompress(sb)
+	if len(b) >= len(sb) {
+		return ospb.CompressionType_UNCOMPRESSED, sb
+	}
+	return ospb.CompressionType_ZCOMPRESSION, b
 }
