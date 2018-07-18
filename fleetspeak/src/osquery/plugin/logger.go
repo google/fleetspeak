@@ -17,7 +17,7 @@ import (
 // messages through output. The messages will be addressed to the server service dest.
 func MakeLogger(name string, dest string, output chan<- *fspb.Message) *logger.Plugin {
 	return logger.NewPlugin(name, func(ctx context.Context, t logger.LogType, ll string) error {
-		c, b := encodeResult(ll)
+		c, b := encodeResult([]byte(ll))
 		res := ospb.LoggedResult{
 			Type:     toProtoType(t),
 			Compress: c,
@@ -58,8 +58,7 @@ func toProtoType(t logger.LogType) ospb.LoggedResult_Type {
 	return ospb.LoggedResult_UNKNOWN
 }
 
-func encodeResult(s string) (ospb.CompressionType, []byte) {
-	sb := []byte(s)
+func encodeResult(sb []byte) (ospb.CompressionType, []byte) {
 	if len(sb) < 8 {
 		return ospb.CompressionType_UNCOMPRESSED, sb
 	}
@@ -71,5 +70,4 @@ func encodeResult(s string) (ospb.CompressionType, []byte) {
 		return ospb.CompressionType_UNCOMPRESSED, sb
 	}
 	return ospb.CompressionType_ZCOMPRESSION, b.Bytes()
-
 }
