@@ -79,6 +79,9 @@ func (d *dist) writeResult(ctx context.Context, result distributed.Result) error
 	delete(d.running, result.QueryName)
 	d.rl.Unlock()
 
+	if dest == nil {
+		return fmt.Errorf("received results for unrecognized query: %s", result.QueryName)
+	}
 	rows := ospb.Rows{
 		Rows: make([]*ospb.Row, len(result.Rows)),
 	}

@@ -47,10 +47,8 @@ func TestDistributed(t *testing.T) {
 
 		// What results should be given using writeResults after getQueries.
 		inResults []osquery.ExtensionPluginRequest
-		// What results are expected to be sent back to FS.
-		wantResults []ospb.QueryResults
-		// What rows are expected to be sent back to FS, should be same length as wantResults.
-		wantRows []ospb.Rows
+		// What rows are expected to be sent back to FS, for each query.
+		wantRows map[string]*ospb.Rows
 	}{
 		{
 			name: "basic",
@@ -63,15 +61,47 @@ func TestDistributed(t *testing.T) {
 			inResults: []osquery.ExtensionPluginRequest{
 				{"action": "writeResults", "results": `{"queries":{"basic":[{"iso_8601":"2017-07-10T22:08:40Z"}]}, "statuses":{"basic":"0"}}`},
 			},
-			wantResults: []ospb.QueryResults{{
-				QueryName: "basic",
-				Status:    0,
+			wantRows: map[string]*ospb.Rows{"basic": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}}}}},
+		},
+		{
+			name: "multi-query",
+			inQueries: []*ospb.Queries{
+				{Queries: map[string]string{
+					"multi1": "SELECT name FROM foobar WHERE idx=1",
+					"multi2": "SELECT name FROM foobar WHERE idx=2"}},
+				{Queries: map[string]string{
+					"multi3": "SELECT name FROM foobar WHERE idx=3",
+					"multi4": "SELECT name FROM foobar WHERE idx=4"}},
+			},
+			wantGet: osquery.ExtensionPluginResponse{
+				{"results": `{"queries":{"multi1":"SELECT name FROM foobar WHERE idx=1","multi2":"SELECT name FROM foobar WHERE idx=2","multi3":"SELECT name FROM foobar WHERE idx=3","multi4":"SELECT name FROM foobar WHERE idx=4"}}`},
+			},
+			inResults: []osquery.ExtensionPluginRequest{
+				{"action": "writeResults", "results": `{"queries":{"multi1":[{"name":"client1"}], "multi2":[{"name":"client2"}], "multi3":[{"name":"client3"}], "multi4":[{"name":"client4"}]}, "statuses":{"multi1":"0","multi2":"0","multi3":"0","multi4":"0"}}`},
+			},
+			wantRows: map[string]*ospb.Rows{
+				"multi1": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client1"}}}},
+				"multi2": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client2"}}}},
+				"multi3": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client3"}}}},
+				"multi4": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client4"}}}},
+			},
+		},
+		{
+			name: "multi-results",
+			inQueries: []*ospb.Queries{{
+				Queries: map[string]string{"basic": "SELECT * FROM foobar"},
 			}},
-			wantRows: []ospb.Rows{{
-				Rows: []*ospb.Row{
-					{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}},
-				},
-			}},
+			wantGet: osquery.ExtensionPluginResponse{
+				{"results": `{"queries":{"basic":"SELECT * FROM foobar"}}`},
+			},
+			inResults: []osquery.ExtensionPluginRequest{
+				{"action": "writeResults", "results": `{"queries":{"basic":[{"iso_8601":"2017-07-10T22:08:40Z"}, {"iso_8601":"2017-07-10T22:08:41Z"}, {"iso_8601":"2017-07-10T22:08:42Z"}]}, "statuses":{"basic":"0"}}`},
+			},
+			wantRows: map[string]*ospb.Rows{"basic": &ospb.Rows{Rows: []*ospb.Row{
+				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}},
+				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:41Z"}},
+				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:42Z"}},
+			}}},
 		},
 	} {
 		serviceName := fmt.Sprintf("TestService-%s", tc.name)
@@ -102,19 +132,20 @@ func TestDistributed(t *testing.T) {
 				continue
 			}
 		}
-		for i, r := range tc.wantResults {
+	L:
+		for {
 			var msg *fspb.Message
 			select {
 			case msg = <-fromOSQuery:
 			default:
-				t.Errorf("%s: Failed to read result message", tc.name)
-				continue
+				break L
 			}
+
 			if !proto.Equal(msg.Destination, &fspb.Address{ServiceName: serviceName}) {
-				t.Errorf("%s: Unexpected Destination, for result %d wanted %v, got %v", tc.name, i, msg.Destination, &fspb.Address{ServiceName: serviceName})
+				t.Errorf("%s: Unexpected Destination, wanted %v, got %v", tc.name, msg.Destination, &fspb.Address{ServiceName: serviceName})
 			}
 			if msg.MessageType != "DistributedResult" {
-				t.Errorf("%s: Unexpected MessageType, for result %d wanted DistributedResult, got %s", tc.name, i, msg.MessageType)
+				t.Errorf("%s: Unexpected MessageType, wanted DistributedResult, got %s", tc.name, msg.MessageType)
 			}
 			var qr ospb.QueryResults
 			if err := ptypes.UnmarshalAny(msg.Data, &qr); err != nil {
@@ -125,25 +156,18 @@ func TestDistributed(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s: Error decoding Rows: %v", tc.name, err)
 			}
-			qr.Compress = ospb.CompressionType_UNCOMPRESSED
-			qr.Rows = nil
-			if !proto.Equal(&qr, &r) {
-				t.Errorf("%s: Unexpected QueryResults, wanted %+v, got %+v.", tc.name, r, qr)
-			}
 			var rows ospb.Rows
 			if err := proto.Unmarshal(b, &rows); err != nil {
 				t.Errorf("%s: Unable to unmarshal rows: %v", tc.name, err)
 				continue
 			}
-			if !proto.Equal(&rows, &tc.wantRows[i]) {
-				t.Errorf("%s: Unexpected rows returned, wanted %+v, got %+v", tc.name, tc.wantRows[i], rows)
+			if !proto.Equal(&rows, tc.wantRows[qr.QueryName]) {
+				t.Errorf("%s: Unexpected rows returned for %s, wanted %+v, got %+v", tc.name, qr.QueryName, tc.wantRows[qr.QueryName], rows)
 			}
+			delete(tc.wantRows, qr.QueryName)
 		}
-		select {
-		case msg := <-fromOSQuery:
-			t.Errorf("%s: Unexpected message from OSQuery: %v", tc.name, msg)
-		default:
+		if len(tc.wantRows) > 0 {
+			t.Errorf("Did not receive all expected rows, still waiting for: %v", tc.wantRows)
 		}
-
 	}
 }
