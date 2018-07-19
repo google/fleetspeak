@@ -23,6 +23,7 @@ fleetspeak/src/demo/miniclient/miniclient
 fleetspeak/src/demo/miniserver/miniserver
 fleetspeak/src/server/grpcservice/client/testing/tester
 fleetspeak/src/server/server/server
+fleetspeak/src/osquery/connector
 
 # Directory laying out debian package structure, fully populated by
 # fleetspeak/build.sh.
