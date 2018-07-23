@@ -451,8 +451,8 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		}
 		delta := time.Since(start)
 		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes in %v", len(fsmsgs), s, delta)
-		if len(fsmsgs) > minSendBytesThreshold {
-			lastRate = float64(len(fsmsgs)) / (float64(delta) / float64(time.Second))
+		if s > minSendBytesThreshold {
+			lastRate = float64(s) / (float64(delta) / float64(time.Second))
 		}
 		buf.Reset()
 	}
