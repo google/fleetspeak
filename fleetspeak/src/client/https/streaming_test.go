@@ -44,12 +44,7 @@ func TestStreamingCreate(t *testing.T) {
 	cl.Stop()
 }
 
-func TestStreamingCommunicator(t *testing.T) {
-	// Create a local https server for the client to talk to.
-	pemCert, pemKey, err := comtesting.ServerCert()
-	if err != nil {
-		t.Fatal(err)
-	}
+func streamingServer(t *testing.T, pemCert, pemKey []byte, received chan<- *fspb.ContactData, toSend <-chan *fspb.ContactData) (addr string, fin func()) {
 	cb, _ := pem.Decode(pemCert)
 	if cb == nil || cb.Type != "CERTIFICATE" {
 		t.Fatalf("Expected CERTIFICATE in parsed pem block, got: %v", cb)
@@ -67,13 +62,13 @@ func TestStreamingCommunicator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr := tl.Addr().String()
+	addr = tl.Addr().String()
+	fin = func() {
+		tl.Close()
+	}
 
-	// Dummy server just puts the ContactData records that we receive into a
-	// channel, blindly returning responses.
 	mux := http.NewServeMux()
-	received := make(chan *fspb.ContactData, 5)
-	toSend := make(chan *fspb.ContactData, 5)
+
 	var rc int32
 	mux.HandleFunc("/streaming-message", func(res http.ResponseWriter, req *http.Request) {
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
@@ -178,6 +173,19 @@ func TestStreamingCommunicator(t *testing.T) {
 	}
 	l := tls.NewListener(tl, server.TLSConfig)
 	go server.Serve(l)
+	return
+}
+
+func TestStreamingCommunicator(t *testing.T) {
+	// Create a local https server for the client to talk to.
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	addr, fin := streamingServer(t, pemCert, pemKey, received, toSend)
+	defer fin()
 
 	var c StreamingCommunicator
 	conf := config.Configuration{
@@ -297,6 +305,5 @@ F:
 		t.Errorf("Expected to be granted at most 35, but got %d", granted)
 	}
 	close(toSend)
-	tl.Close()
 	cl.Stop()
 }
