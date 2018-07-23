@@ -37,9 +37,10 @@ import (
 )
 
 const (
-	sendBytesThreshold = 15 * 1024 * 1024
-	sendCountThreshold = 100
-	closeWaitThreshold = 30 * time.Second // Matches IdleTimeout in server/https.
+	sendBytesThreshold    = 15 * 1024 * 1024
+	minSendBytesThreshold = 256 * 1024
+	sendCountThreshold    = 100
+	closeWaitThreshold    = 30 * time.Second // Matches IdleTimeout in server/https.
 )
 
 func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, error) {

@@ -8,22 +8,34 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/time/rate"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
+	apb "github.com/golang/protobuf/ptypes/any"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
+
+func randBytes(n int) []byte {
+	b := make([]byte, n)
+	rand.Read(b)
+	return b
+}
 
 func TestStreamingCreate(t *testing.T) {
 	var c StreamingCommunicator
@@ -44,56 +56,64 @@ func TestStreamingCreate(t *testing.T) {
 	cl.Stop()
 }
 
-func TestStreamingCommunicator(t *testing.T) {
-	// Create a local https server for the client to talk to.
-	pemCert, pemKey, err := comtesting.ServerCert()
+type streamingTestServer struct {
+	// These should be populated by the creator.
+	t        *testing.T
+	received chan<- *fspb.ContactData
+	toSend   <-chan *fspb.ContactData
+
+	// These are populated by Start.
+	pemCert, pemKey []byte
+	tl              net.Listener
+	rc              int32
+}
+
+func (s *streamingTestServer) Start() {
+	var err error
+	s.pemCert, s.pemKey, err = comtesting.ServerCert()
 	if err != nil {
-		t.Fatal(err)
-	}
-	cb, _ := pem.Decode(pemCert)
-	if cb == nil || cb.Type != "CERTIFICATE" {
-		t.Fatalf("Expected CERTIFICATE in parsed pem block, got: %v", cb)
+		s.t.Fatal(err)
 	}
 
-	cp, err := tls.X509KeyPair(pemCert, pemKey)
+	cb, _ := pem.Decode(s.pemCert)
+	if cb == nil || cb.Type != "CERTIFICATE" {
+		s.t.Fatalf("Expected CERTIFICATE in parsed pem block, got: %v", cb)
+	}
+
+	cp, err := tls.X509KeyPair(s.pemCert, s.pemKey)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
-	tl, err := net.ListenTCP("tcp", ad)
+	s.tl, err = net.ListenTCP("tcp", ad)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
-	addr := tl.Addr().String()
 
-	// Dummy server just puts the ContactData records that we receive into a
-	// channel, blindly returning responses.
 	mux := http.NewServeMux()
-	received := make(chan *fspb.ContactData, 5)
-	toSend := make(chan *fspb.ContactData, 5)
-	var rc int32
+
 	mux.HandleFunc("/streaming-message", func(res http.ResponseWriter, req *http.Request) {
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
 		if err != nil {
-			t.Errorf("unable to make ClientID in test server: %v", err)
+			s.t.Errorf("unable to make ClientID in test server: %v", err)
 		}
-		if reqs := atomic.AddInt32(&rc, 1); reqs != 1 {
-			t.Errorf("Only expected 1 request, but this is request %d", reqs)
+		if reqs := atomic.AddInt32(&s.rc, 1); reqs != 1 {
+			s.t.Errorf("Only expected 1 request, but this is request %d", reqs)
 			http.Error(res, "only expected 1 request", http.StatusBadRequest)
 		}
 		body := bufio.NewReader(req.Body)
 		b := make([]byte, 4)
 		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
-			t.Errorf("Error reading magic number: %v", err)
+			s.t.Errorf("Error reading magic number: %v", err)
 			http.Error(res, "unable to read magic number", http.StatusBadRequest)
 			return
 		}
 		m := binary.LittleEndian.Uint32(b)
 		if m != magic {
-			t.Errorf("Unexpected magic number, got %x expected %x", m, magic)
+			s.t.Errorf("Unexpected magic number, got %x expected %x", m, magic)
 			http.Error(res, "bad magic number", http.StatusBadRequest)
 			return
 		}
@@ -105,39 +125,39 @@ func TestStreamingCommunicator(t *testing.T) {
 			size, err := binary.ReadUvarint(body)
 			if err != nil {
 				if err != io.EOF && err != io.ErrUnexpectedEOF {
-					t.Errorf("Unable to read size: %v", err)
+					s.t.Errorf("Unable to read size: %v", err)
 				}
 				return
 			}
 			buf := make([]byte, size)
 			_, err = io.ReadFull(body, buf)
 			if err != nil {
-				t.Errorf("Unable to read incoming messages: %v", err)
+				s.t.Errorf("Unable to read incoming messages: %v", err)
 				return
 			}
 			var wcd fspb.WrappedContactData
 			if err := proto.Unmarshal(buf, &wcd); err != nil {
-				t.Errorf("Unable to parse incoming messages: %v", err)
+				s.t.Errorf("Unable to parse incoming messages: %v", err)
 				return
 			}
 			var rcd fspb.ContactData
 			if err := proto.Unmarshal(wcd.ContactData, &rcd); err != nil {
-				t.Errorf("Unable to parse ContactData: %v", err)
+				s.t.Errorf("Unable to parse ContactData: %v", err)
 				return
 			}
-			received <- &rcd
+			s.received <- &rcd
 			cd := fspb.ContactData{
 				AckIndex: cnt,
 			}
 			cnt++
 			out := proto.NewBuffer(make([]byte, 0, 1024))
 			if err := out.EncodeMessage(&cd); err != nil {
-				t.Errorf("Unable to encode response: %v", err)
+				s.t.Errorf("Unable to encode response: %v", err)
 				return
 			}
 			writeLock.Lock()
 			if _, err := res.Write(out.Bytes()); err != nil {
-				t.Errorf("Unable to write response: %v", err)
+				s.t.Errorf("Unable to write response: %v", err)
 				return
 			}
 			res.(http.Flusher).Flush()
@@ -145,17 +165,17 @@ func TestStreamingCommunicator(t *testing.T) {
 
 			if !writerStarted {
 				go func() {
-					for cd := range toSend {
+					for cd := range s.toSend {
 						for _, m := range cd.Messages {
 							m.Destination.ClientId = cid.Bytes()
 						}
 						if err := out.EncodeMessage(cd); err != nil {
-							t.Errorf("Unable to encode response: %v", err)
+							s.t.Errorf("Unable to encode response: %v", err)
 							return
 						}
 						writeLock.Lock()
 						if _, err := res.Write(out.Bytes()); err != nil {
-							t.Errorf("Unable to write response: %v", err)
+							s.t.Errorf("Unable to write response: %v", err)
 							return
 						}
 						res.(http.Flusher).Flush()
@@ -168,7 +188,7 @@ func TestStreamingCommunicator(t *testing.T) {
 	})
 
 	server := http.Server{
-		Addr:    addr,
+		Addr:    s.Addr(),
 		Handler: mux,
 		TLSConfig: &tls.Config{
 			ClientAuth:   tls.RequireAnyClientCert,
@@ -176,10 +196,54 @@ func TestStreamingCommunicator(t *testing.T) {
 			NextProtos:   []string{"h2"},
 		},
 	}
-	l := tls.NewListener(tl, server.TLSConfig)
+	l := tls.NewListener(s.tl, server.TLSConfig)
 	go server.Serve(l)
+}
 
-	var c StreamingCommunicator
+func (s *streamingTestServer) Addr() string {
+	return s.tl.Addr().String()
+}
+func (s *streamingTestServer) Stop() {
+	if err := s.tl.Close(); err != nil {
+		log.Errorf("Error closing listener: %v", err)
+	}
+}
+
+type slowConn struct {
+	net.Conn
+	out *rate.Limiter
+}
+
+func (c slowConn) Write(b []byte) (int, error) {
+	var s int
+	for len(b) > 0 {
+		l := len(b)
+		if l > c.out.Burst() {
+			l = c.out.Burst()
+		}
+		h := b[:l]
+		b = b[l:]
+		c.out.WaitN(context.Background(), len(h))
+		r, err := c.Conn.Write(h)
+		s += r
+		if err != nil {
+			return s, err
+		}
+	}
+	return s, nil
+}
+
+func startStreamingClient(t *testing.T, addr string, cert []byte, out *rate.Limiter) *client.Client {
+	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
+	if out != nil {
+		dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+			return slowConn{c, out}, err
+		}
+	}
+	c := StreamingCommunicator{
+		DialContext: dial,
+	}
 	conf := config.Configuration{
 		Servers:       []string{addr},
 		TrustedCerts:  x509.NewCertPool(),
@@ -190,7 +254,7 @@ func TestStreamingCommunicator(t *testing.T) {
 			MinFailureDelaySeconds: 1,
 		},
 	}
-	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
+	if !conf.TrustedCerts.AppendCertsFromPEM(cert) {
 		t.Fatal("unable to add server cert to pool")
 	}
 	cl, err := client.New(
@@ -201,6 +265,23 @@ func TestStreamingCommunicator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create client: %v", err)
 	}
+	return cl
+}
+
+func TestStreamingCommunicator(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+
+	server := streamingTestServer{
+		t:        t,
+		received: received,
+		toSend:   toSend,
+	}
+	server.Start()
+	defer server.Stop()
+
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, nil)
+	defer cl.Stop()
 
 	acks := make(chan int, 1000)
 	if err := cl.ProcessMessage(context.Background(),
@@ -297,6 +378,214 @@ F:
 		t.Errorf("Expected to be granted at most 35, but got %d", granted)
 	}
 	close(toSend)
-	tl.Close()
-	cl.Stop()
+}
+
+func TestStreamingCommunicatorBulkSlow(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 20)
+
+	server := streamingTestServer{
+		t:        t,
+		received: received,
+		toSend:   toSend,
+	}
+	server.Start()
+	defer server.Stop()
+
+	// Limit write rate to 100KB/sec in 1KB chunks
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(100*1024, 10*1024))
+	defer cl.Stop()
+
+	// Send an initial message to make sure a streaming connection is started.
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"},
+				Data: &apb.Any{
+					TypeUrl: "Some proto",
+				},
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+
+	// Wait for it to work through the system, filter the initial client info mesage.
+	for cb := range received {
+		cb.Messages = filterMessages(cb.Messages, func(m *fspb.Message) bool {
+			return m.Destination.ServiceName != "system"
+		})
+		if len(cb.Messages) > 1 {
+			t.Errorf("Expected at most one message in delivered ContactData, got: %v", cb.Messages)
+			break
+		}
+		if len(cb.Messages) == 1 {
+			break
+		}
+	}
+
+	// Send a large-ish message, sized to make rate measurement easy (0.5MB)
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"},
+				Data: &apb.Any{
+					TypeUrl: "Some proto",
+					Value:   randBytes(512 * 1024),
+				},
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+	var rcb *fspb.ContactData
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 1 {
+		t.Errorf("Expected a ContactData with 1 record, got %d", len(rcb.Messages))
+	}
+
+	// 6 medium (300KB) messages. The client should be flushing when it has more than 10 sec (~1MB) worth of data, so
+	// we expect 4 to arrive together, then 2 more.
+	for i := 0; i < 6; i++ {
+		if err := cl.ProcessMessage(context.Background(),
+			service.AckMessage{
+				M: &fspb.Message{
+					Destination: &fspb.Address{ServiceName: "DummyService"},
+					Data: &apb.Any{
+						TypeUrl: "Some proto",
+						Value:   randBytes(300 * 1024),
+					},
+				},
+			},
+		); err != nil {
+			t.Fatalf("unable to hand message to client: %v", err)
+		}
+
+	}
+
+	select {
+	case <-time.After(15 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 4 {
+		t.Errorf("Expected a ContactData with 4 records, got %d", len(rcb.Messages))
+	}
+
+	select {
+	case <-time.After(15 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 2 {
+		t.Errorf("Expected a ContactData with 2 records, got %d", len(rcb.Messages))
+	}
+	close(toSend)
+}
+
+func TestStreamingCommunicatorBulkFast(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 20)
+
+	server := streamingTestServer{
+		t:        t,
+		received: received,
+		toSend:   toSend,
+	}
+	server.Start()
+	defer server.Stop()
+
+	// 5MB/sec in 10KB chunks
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(5*1024*1024, 10*1024))
+	defer cl.Stop()
+
+	// Send an initial message to make sure a streaming connection is started.
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"},
+				Data: &apb.Any{
+					TypeUrl: "Some proto",
+				},
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+
+	// Wait for it to work through the system, filter the initial client info mesage.
+	for cb := range received {
+		cb.Messages = filterMessages(cb.Messages, func(m *fspb.Message) bool {
+			return m.Destination.ServiceName != "system"
+		})
+		if len(cb.Messages) > 1 {
+			t.Errorf("Expected at most one message in delivered ContactData, got: %v", cb.Messages)
+			break
+		}
+		if len(cb.Messages) == 1 {
+			break
+		}
+	}
+
+	// Send an initial streaming message, sized to make rate measurement easy (0.5MB)
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"},
+				Data: &apb.Any{
+					TypeUrl: "Some proto",
+					Value:   randBytes(512 * 1024),
+				},
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+	var rcb *fspb.ContactData
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 1 {
+		t.Errorf("Expected a ContactData with 1 record, got %d", len(rcb.Messages))
+	}
+
+	// 10 large (1MB) messages. The client should be flushing when it has more than 7.5MB of data, so
+	// we expect 8 to arrive together, then 2 more.
+	for i := 0; i < 10; i++ {
+		if err := cl.ProcessMessage(context.Background(),
+			service.AckMessage{
+				M: &fspb.Message{
+					Destination: &fspb.Address{ServiceName: "DummyService"},
+					Data: &apb.Any{
+						TypeUrl: "Some proto",
+						Value:   randBytes(1024 * 1024),
+					},
+				},
+			},
+		); err != nil {
+			t.Fatalf("unable to hand message to client: %v", err)
+		}
+
+	}
+
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 8 {
+		t.Errorf("Expected a ContactData with 10 records, got %d", len(rcb.Messages))
+	}
+
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("Failed to read expected contact data.")
+	case rcb = <-received:
+	}
+	if len(rcb.Messages) != 2 {
+		t.Errorf("Expected a ContactData with 2 records, got %d", len(rcb.Messages))
+	}
+	close(toSend)
 }

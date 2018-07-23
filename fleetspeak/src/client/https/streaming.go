@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -204,7 +205,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	// an initial WrappedContactData for the initial exchange whether or not
 	// we have any messages.
 	gctx, fin := context.WithTimeout(ctx, time.Second)
-	toSend, _ := ret.groupMessages(gctx)
+	toSend, _ := ret.groupMessages(gctx, 0.0)
 	fin()
 
 	defer func() {
@@ -340,7 +341,7 @@ type connection struct {
 // groupMessages gets a group of messages to send. Note that we are committed to calling
 // either Ack or Nack on every message that it returns. In addition to a group of messages,
 // it returns a boolean indicating if we should continue.
-func (c *connection) groupMessages(ctx context.Context) (msg []comms.MessageInfo, shutdown bool) {
+func (c *connection) groupMessages(ctx context.Context, rate float64) (msg []comms.MessageInfo, shutdown bool) {
 	b := c.cctx.Outbox()
 	pb := c.cctx.ProcessingBeacon()
 
@@ -361,9 +362,19 @@ func (c *connection) groupMessages(ctx context.Context) (msg []comms.MessageInfo
 	defer fin()
 	for {
 		// Since we are streaming, we don't wait synchronously for a
-		// response, so trigger at a smaller byte threshold to perhaps
-		// increase pipelining.
-		if size >= sendBytesThreshold/2 || len(r) >= sendCountThreshold {
+		// response, and we'd like to avoid writes which take more than
+		// about 10 seconds, because we only get 30 seconds to shut
+		// everything down.
+		sizeT := sendBytesThreshold / 2
+		if !math.IsNaN(rate) && rate > 0.0 {
+			if ns := int(rate * 10.0); ns < sizeT {
+				sizeT = ns
+			}
+			if sizeT < minSendBytesThreshold {
+				sizeT = minSendBytesThreshold
+			}
+		}
+		if size >= sizeT || len(r) >= sendCountThreshold {
 			break
 		}
 		select {
@@ -392,10 +403,11 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 
 	buf := proto.NewBuffer(make([]byte, 0, 1024))
 	cnt := 1
+	var lastRate float64 // speed of last large-ish write, in bytes/sec
 	for {
 		// Immediately add to c.pending, so that somebody will Ack/Nack
 		// them.
-		msgs, fin := c.groupMessages(c.ctx)
+		msgs, fin := c.groupMessages(c.ctx, lastRate)
 		if fin {
 			if c.ctx.Err() == nil {
 				steppedShutdown = true
@@ -429,6 +441,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			return
 		}
 		log.V(2).Infof("<-Starting write of %d bytes", len(buf.Bytes()))
+		start := time.Now()
 		s, err := bw.Write(buf.Bytes())
 		if err != nil {
 			if c.ctx.Err() == nil {
@@ -436,7 +449,11 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			}
 			return
 		}
-		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes", len(fsmsgs), s)
+		delta := time.Since(start)
+		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes in %v", len(fsmsgs), s, delta)
+		if s > minSendBytesThreshold {
+			lastRate = float64(s) / (float64(delta) / float64(time.Second))
+		}
 		buf.Reset()
 	}
 }
