@@ -396,7 +396,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(100*1024, 10*1024))
 	defer cl.Stop()
 
-	// Send an initial message to start a streaming connection.
+	// Send an initial message to make sure a streaming connection is started.
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
 			M: &fspb.Message{
@@ -409,11 +409,8 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		t.Fatalf("unable to hand message to client: %v", err)
 	}
 
-	// The message not might work through the system in time for the initial
-	// exchange, but it should eventually work through the system and come
-	// out by itself in a ContactData.
+	// Wait for it to work through the system, filter the initial client info mesage.
 	for cb := range received {
-		// filter out any system messages (first contact will also include a client info)
 		cb.Messages = filterMessages(cb.Messages, func(m *fspb.Message) bool {
 			return m.Destination.ServiceName != "system"
 		})
@@ -426,7 +423,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		}
 	}
 
-	// Send an initial streaming message, sized to make rate measurement easy (0.5MB)
+	// Send a large-ish message, sized to make rate measurement easy (0.5MB)
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
 			M: &fspb.Message{
@@ -450,7 +447,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 	}
 
 	// 6 medium (300KB) messages. The client should be flushing when it has more than 10 sec (~1MB) worth of data, so
-	// we expect 4 to arrive together, then 4 more.
+	// we expect 4 to arrive together, then 2 more.
 	for i := 0; i < 6; i++ {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{
@@ -504,7 +501,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(5*1024*1024, 10*1024))
 	defer cl.Stop()
 
-	// Send an initial message big enough for a rate measurement (>256KB)
+	// Send an initial message to make sure a streaming connection is started.
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
 			M: &fspb.Message{
@@ -517,11 +514,8 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		t.Fatalf("unable to hand message to client: %v", err)
 	}
 
-	// The message not might work through the system in time for the initial
-	// exchange, but it should eventually work through the system and come
-	// out by itself in a ContactData.
+	// Wait for it to work through the system, filter the initial client info mesage.
 	for cb := range received {
-		// filter out any system messages (first contact will also include a client info)
 		cb.Messages = filterMessages(cb.Messages, func(m *fspb.Message) bool {
 			return m.Destination.ServiceName != "system"
 		})
