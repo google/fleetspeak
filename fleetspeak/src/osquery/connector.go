@@ -70,8 +70,24 @@ func main() {
 		server.RegisterPlugin(plugin.MakeLogger("FleetspeakLogger", *logService, ch.Out))
 	}
 
+	done := make(chan struct{})
+	go func() {
+		if err := server.Start(); err != nil {
+			log.Errorf("server.Start() returned error: %v", err)
+		} else {
+			log.Infof("server.Start() terminated normally")
+		}
+		close(done)
+	}()
+
 	s := make(chan os.Signal)
 	signal.Notify(s, os.Interrupt)
-	<-s
+	select {
+	case <-s:
+		server.Shutdown()
+		log.Infof("Interrupt received, waiting for server to finish.")
+		<-done
+	case <-done:
+	}
 	signal.Reset(os.Interrupt)
 }

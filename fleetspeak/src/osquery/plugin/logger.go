@@ -61,7 +61,7 @@ func toProtoType(t logger.LogType) ospb.LoggedResult_Type {
 func zcompress(in []byte) []byte {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
-	w.Write([]byte(in))
+	w.Write(in)
 	w.Close()
 	return b.Bytes()
 }

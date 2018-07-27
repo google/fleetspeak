@@ -13,7 +13,7 @@ import (
 	ospb "github.com/google/fleetspeak/fleetspeak/src/osquery/proto/fleetspeak_osquery"
 )
 
-// MakeDistributed returns a logger.Plugin which accepts Fleetspeak messages containing queries and returns messages containing results.
+// MakeDistributed returns a logger.Distributed which accepts Fleetspeak messages containing queries and returns messages containing results.
 func MakeDistributed(name string, input <-chan *fspb.Message, output chan<- *fspb.Message) *distributed.Plugin {
 	d := dist{
 		in:      input,

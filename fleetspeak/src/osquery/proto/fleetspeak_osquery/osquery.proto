@@ -29,11 +29,12 @@ message LoggedResult {
 // A Queries message contains queries to execute using osquery through the
 // osquery distributed inteface.
 message Queries {
-  // map from query name to SQL text
+  // map from query name to SQL text.
   map<string, string> queries = 1;
 
-  // map from query name to SQL text, if set the corresponding query will only
-  // be executed if the discory query returns a result.
+  // map from query name to SQL text. If a discovery query name matches an entry
+  // in queries, that entry will be executed only if the discovery query returns
+  // a result.
   map<string, string> discovery = 2;
 }
 
