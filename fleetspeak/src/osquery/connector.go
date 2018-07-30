@@ -18,8 +18,9 @@ import (
 const version = "0.1"
 
 var (
-	socketPath = flag.String("socket", "", "path to osqueryd extensions socket")
-	logService = flag.String("log_service", "", "If set, a logger extention will be registered which logs to this Fleetspeak service.")
+	socketPath  = flag.String("socket", "", "path to osqueryd extensions socket")
+	logService  = flag.String("log_service", "", "If set, a logger extention will be registered which logs to this Fleetspeak service.")
+	managerName = flag.String("manager_name", "Fleetspeak", "Name to register the extension manager as, also used as a prefix for the plugin names.")
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 		log.Exitf("Unable to initialize FS connection: %v", err)
 	}
 
-	server, err := osquery.NewExtensionManagerServer("Fleetspeak", *socketPath)
+	server, err := osquery.NewExtensionManagerServer(*managerName, *socketPath)
 	if err != nil {
 		log.Exitf("Unable to create osquery extension manager: %v", err)
 	}
@@ -64,10 +65,10 @@ func main() {
 		}
 	}()
 
-	server.RegisterPlugin(plugin.MakeDistributed("FleetspeakQueries", in, ch.Out))
+	server.RegisterPlugin(plugin.MakeDistributed(*managerName+"Queries", in, ch.Out))
 
 	if *logService != "" {
-		server.RegisterPlugin(plugin.MakeLogger("FleetspeakLogger", *logService, ch.Out))
+		server.RegisterPlugin(plugin.MakeLogger(*managerName+"Logger", *logService, ch.Out))
 	}
 
 	done := make(chan struct{})
