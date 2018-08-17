@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -85,7 +86,7 @@ func main() {
 	signal.Notify(s, os.Interrupt)
 	select {
 	case <-s:
-		server.Shutdown()
+		server.Shutdown(context.Background())
 		log.Infof("Interrupt received, waiting for server to finish.")
 		<-done
 	case <-done:
