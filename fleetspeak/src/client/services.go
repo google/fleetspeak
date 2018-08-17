@@ -33,6 +33,8 @@ import (
 
 const inboxSize = 100
 
+var protoTexter = proto.TextMarshaler{ExpandAny: true}
+
 // A serviceConfiguration manages and communicates the services installed on a
 // client. In normal use it is a singleton.
 type serviceConfiguration struct {
@@ -126,7 +128,7 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		old.stop()
 	}
 
-	log.Infof("Started service %v with config:\n%v", cfg.Name, cfg)
+	log.Infof("Started service %v with config:\n%s", cfg.Name, protoTexter.Text(cfg))
 	return nil
 }
 
