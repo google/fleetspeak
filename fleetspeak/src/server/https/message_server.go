@@ -185,7 +185,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	st = time.Now()
 	size, err := res.Write(bytes)
 	if err != nil {
-		log.Warning("Error writing body: %v", err)
+		log.Warningf("Error writing body: %v", err)
 		pi.Status = http.StatusBadRequest
 		return
 	}
