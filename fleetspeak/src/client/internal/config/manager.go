@@ -118,7 +118,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		if err != nil {
 			return nil, fmt.Errorf("unable to create clientID: %v", err)
 		}
-		log.Infof("Using client id: %v (Escaped: %q, Octal: %o)", r.id, r.id.Bytes(), r.id.Bytes())
+		log.Infof("Using client id: %v", r.id)
 	}
 
 	if cc, err := cfg.PersistenceHandler.ReadCommunicatorConfig(); err == nil {
@@ -160,7 +160,7 @@ func (m *Manager) Rekey() error {
 	m.dirty = true
 	m.lock.Unlock()
 
-	log.Infof("Using new client id: %v (Escaped: %q, Octal: %o)", id, id.Bytes(), id.Bytes())
+	log.Infof("Using new client id: %v", id)
 
 	return nil
 }

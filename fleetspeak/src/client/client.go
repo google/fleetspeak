@@ -165,7 +165,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	}
 
 	if ss, err := ret.cfg.PersistenceHandler.ReadSignedServices(); err != nil {
-		log.Warningf("Unable to read signed services - this typically means a different kind of services is used in this installation; continuing: %v", err)
+		log.Warningf("No signed service configs could be read; continuing: %v", err)
 	} else {
 		for _, s := range ss {
 			if err := ret.sc.InstallSignedService(s); err != nil {
@@ -175,7 +175,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	}
 
 	if ss, err := ret.cfg.PersistenceHandler.ReadServices(); err != nil {
-		log.Warningf("Unable to read services - this typically means a different kind of services is used in this installation; continuing: %v", err)
+		log.Warningf("No unsigned service configs could be read; continuing: %v", err)
 	} else {
 		for _, s := range ss {
 			if err := ret.sc.InstallService(s, nil); err != nil {
