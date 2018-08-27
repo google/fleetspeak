@@ -47,7 +47,7 @@ func Usage() {
 	n := path.Base(os.Args[0])
 	fmt.Fprintf(os.Stderr,
 		"Usage:\n"+
-			"    %s listclients [[client_id]]\n"+
+			"    %s listclients [<client_id>...]\n"+
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
 			"    %s blacklistclient <client_id>\n"+
@@ -88,7 +88,7 @@ func ListClients(c sgrpc.AdminClient, args ...string) {
 	for i, arg := range args {
 		id, err := common.StringToClientID(arg)
 		if err != nil {
-			log.Exitf("Unable to convert [%s] (id %d) to client id: %v", arg, i, err)
+			log.Exitf("Unable to convert [%s] (index %d) to client id: %v", arg, i, err)
 		}
 		ids = append(ids, id.Bytes())
 	}
