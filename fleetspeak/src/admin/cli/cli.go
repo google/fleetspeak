@@ -47,7 +47,7 @@ func Usage() {
 	n := path.Base(os.Args[0])
 	fmt.Fprintf(os.Stderr,
 		"Usage:\n"+
-			"    %s listclients\n"+
+			"    %s listclients [<client_id>...]\n"+
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
 			"    %s blacklistclient <client_id>\n"+
@@ -84,12 +84,16 @@ func Execute(conn *grpc.ClientConn, args ...string) {
 
 // ListClients prints a list of all clients in the fleetspeak system.
 func ListClients(c sgrpc.AdminClient, args ...string) {
-	if len(args) > 0 {
-		Usage()
-		os.Exit(1)
+	var ids [][]byte
+	for i, arg := range args {
+		id, err := common.StringToClientID(arg)
+		if err != nil {
+			log.Exitf("Unable to convert [%s] (index %d) to client id: %v", arg, i, err)
+		}
+		ids = append(ids, id.Bytes())
 	}
 	ctx := context.Background()
-	res, err := c.ListClients(ctx, &spb.ListClientsRequest{}, grpc.MaxCallRecvMsgSize(1024*1024*1024))
+	res, err := c.ListClients(ctx, &spb.ListClientsRequest{ClientIds: ids}, grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
 		log.Exitf("ListClients RPC failed: %v", err)
 	}
