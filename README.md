@@ -28,6 +28,7 @@ go get \
   github.com/go-sql-driver/mysql \
   github.com/golang/glog \
   github.com/golang/protobuf/proto \
+  github.com/kolide/osquery-go \
   github.com/mattn/go-sqlite3 \
   github.com/pires/go-proxyproto \
   golang.org/x/sys \
