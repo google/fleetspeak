@@ -142,7 +142,7 @@ func TestDistributed(t *testing.T) {
 			}
 
 			if !proto.Equal(msg.Destination, &fspb.Address{ServiceName: serviceName}) {
-				t.Errorf("%s: Unexpected Destination, wanted %v, got %v", tc.name, msg.Destination, &fspb.Address{ServiceName: serviceName})
+				t.Errorf("%s: Unexpected Destination, wanted %v, got %v", tc.name, &fspb.Address{ServiceName: serviceName}, msg.Destination)
 			}
 			if msg.MessageType != "DistributedResult" {
 				t.Errorf("%s: Unexpected MessageType, wanted DistributedResult, got %s", tc.name, msg.MessageType)
