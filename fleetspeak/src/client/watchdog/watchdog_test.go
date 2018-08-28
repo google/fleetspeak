@@ -44,7 +44,7 @@ func TestDump(t *testing.T) {
 	w.noExit = true
 	defer w.Stop()
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(1500 * time.Millisecond)
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
