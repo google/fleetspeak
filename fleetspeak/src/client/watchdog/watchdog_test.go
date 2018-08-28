@@ -41,7 +41,7 @@ func TestDump(t *testing.T) {
 	defer fin()
 
 	w := MakeWatchdog(dir, "TestTimer", time.Second)
-	w.noExit = true
+	w.skipExit = true
 	defer w.Stop()
 
 	time.Sleep(1500 * time.Millisecond)

@@ -30,7 +30,7 @@ type Watchdog struct {
 	prefix   string
 	duration time.Duration
 	reset    chan struct{}
-	noExit   bool
+	skipExit bool // If set, skip exiting the process, meant for unit testing.
 }
 
 // MakeWatchdog creates and starts running a watchdog timer. If <duration>
@@ -85,7 +85,7 @@ func (w *Watchdog) watch() {
 				}
 				log.Infof("Wrote goroutine traces to %s", f.Name())
 			}
-			if !w.noExit {
+			if !w.skipExit {
 				log.Exitf("Watchdog expired.")
 				return
 			}
