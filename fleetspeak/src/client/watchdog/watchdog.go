@@ -73,22 +73,34 @@ func (w *Watchdog) watch() {
 			t.Stop()
 			t = nil
 		case <-t.C:
-			log.Errorf("Watchdog expired, attempting to write goroutine traces.")
-			f, err := ioutil.TempFile(w.dir, w.prefix)
-			if err != nil {
-				log.Errorf("Unable to create file for goroutine traces: %v", err)
-			} else {
-				if err := pprof.Lookup("goroutine").WriteTo(f, 2); err != nil {
-					log.Errorf("Unable to write goroutine traces to [%s]: %v", f.Name(), err)
+			// We may have just woke up from sleep, wait another 5
+			// seconds for a connection attempt.
+			t = time.NewTimer(5 * time.Second)
+			select {
+			case _, ok := <-w.reset:
+				if !ok {
+					return
 				}
-				if err := f.Close(); err != nil {
-					log.Errorf("Unable to close file [%s]: %v", f.Name(), err)
+				t.Stop()
+				t = nil
+			case <-t.C:
+				log.Errorf("Watchdog expired, attempting to write goroutine traces.")
+				f, err := ioutil.TempFile(w.dir, w.prefix)
+				if err != nil {
+					log.Errorf("Unable to create file for goroutine traces: %v", err)
+				} else {
+					if err := pprof.Lookup("goroutine").WriteTo(f, 2); err != nil {
+						log.Errorf("Unable to write goroutine traces to [%s]: %v", f.Name(), err)
+					}
+					if err := f.Close(); err != nil {
+						log.Errorf("Unable to close file [%s]: %v", f.Name(), err)
+					}
+					log.Infof("Wrote goroutine traces to %s", f.Name())
 				}
-				log.Infof("Wrote goroutine traces to %s", f.Name())
-			}
-			if w.exit {
-				log.Exitf("Watchdog expired.")
-				return
+				if w.exit {
+					log.Exitf("Watchdog expired.")
+					return
+				}
 			}
 		}
 	}

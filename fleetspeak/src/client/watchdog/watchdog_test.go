@@ -31,7 +31,7 @@ func TestReset(t *testing.T) {
 	w := MakeWatchdog("asdf", "asdf", time.Second, true)
 	defer w.Stop()
 	for i := 0; i < 5; i++ {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 		w.Reset()
 	}
 }
@@ -43,7 +43,7 @@ func TestDump(t *testing.T) {
 	w := MakeWatchdog(dir, "TestTimer", time.Second, false)
 	defer w.Stop()
 
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(6500 * time.Millisecond)
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
