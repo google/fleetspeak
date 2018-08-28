@@ -86,7 +86,7 @@ func (w *Watchdog) watch() {
 				}
 				log.Infof("Wrote goroutine traces to %s", f.Name())
 			}
-			if !w.exit {
+			if w.exit {
 				log.Exitf("Watchdog expired.")
 				return
 			}
