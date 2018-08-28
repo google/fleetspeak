@@ -104,7 +104,7 @@ func (c *Communicator) configure() error {
 }
 
 func (c *Communicator) Start() error {
-	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-polling-traces-", time.Hour)
+	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-polling-traces-", time.Hour, true)
 	c.working.Add(1)
 	go c.processingLoop()
 	return nil

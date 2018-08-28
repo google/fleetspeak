@@ -23,12 +23,12 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	w := MakeWatchdog("asdf", "asdf", time.Second)
+	w := MakeWatchdog("asdf", "asdf", time.Second, true)
 	w.Stop()
 }
 
 func TestReset(t *testing.T) {
-	w := MakeWatchdog("asdf", "asdf", time.Second)
+	w := MakeWatchdog("asdf", "asdf", time.Second, true)
 	defer w.Stop()
 	for i := 0; i < 5; i++ {
 		time.Sleep(500 * time.Millisecond)
@@ -40,8 +40,7 @@ func TestDump(t *testing.T) {
 	dir, fin := comtesting.GetTempDir("TestDump")
 	defer fin()
 
-	w := MakeWatchdog(dir, "TestTimer", time.Second)
-	w.skipExit = true
+	w := MakeWatchdog(dir, "TestTimer", time.Second, false)
 	defer w.Stop()
 
 	time.Sleep(1500 * time.Millisecond)
