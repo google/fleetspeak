@@ -55,7 +55,7 @@ type StreamingCommunicator struct {
 	// called to shutdown the communicator
 	fin context.CancelFunc
 
-	// 1 hour watchdog for server communication.
+	// 1 hour watchdog for server communication attempts.
 	wd *watchdog.Watchdog
 }
 
