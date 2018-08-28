@@ -29,6 +29,7 @@ import (
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
+	"github.com/google/fleetspeak/fleetspeak/src/client/watchdog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -48,6 +49,9 @@ type Communicator struct {
 	hosts       []string
 	hostLock    sync.RWMutex                                                      // Protects hosts
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error) // If set, will be used to initiate network connections to the server.
+
+	// 1 hour watchdog for server communication attempts.
+	wd *watchdog.Watchdog
 }
 
 func (c *Communicator) Setup(cl comms.Context) error {
@@ -100,6 +104,7 @@ func (c *Communicator) configure() error {
 }
 
 func (c *Communicator) Start() error {
+	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-polling-traces-", time.Hour)
 	c.working.Add(1)
 	go c.processingLoop()
 	return nil
@@ -108,6 +113,7 @@ func (c *Communicator) Start() error {
 func (c *Communicator) Stop() {
 	c.done()
 	c.working.Wait()
+	c.wd.Stop()
 }
 
 // processingLoop polls the server according to the configured policies while
@@ -135,6 +141,7 @@ func (c *Communicator) processingLoop() {
 	// and updates the variables defined above. In case of failure it also sleeps
 	// for the MinFailureDelay.
 	poll := func() {
+		c.wd.Reset()
 		if c.cctx.CurrentID() != c.id {
 			c.configure()
 		}
