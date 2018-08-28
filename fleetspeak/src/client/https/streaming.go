@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
+	"github.com/google/fleetspeak/fleetspeak/src/client/watchdog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -53,6 +54,9 @@ type StreamingCommunicator struct {
 
 	// called to shutdown the communicator
 	fin context.CancelFunc
+
+	// 1 hour watchdog for server communication.
+	wd *watchdog.Watchdog
 }
 
 func (c *StreamingCommunicator) Setup(cl comms.Context) error {
@@ -72,6 +76,7 @@ func (c *StreamingCommunicator) Setup(cl comms.Context) error {
 }
 
 func (c *StreamingCommunicator) Start() error {
+	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-streaming-traces-", time.Hour)
 	c.working.Add(1)
 	go c.connectLoop()
 	return nil
@@ -80,6 +85,7 @@ func (c *StreamingCommunicator) Start() error {
 func (c *StreamingCommunicator) Stop() {
 	c.fin()
 	c.working.Wait()
+	c.wd.Stop()
 }
 
 func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
@@ -116,6 +122,7 @@ func (c *StreamingCommunicator) connectLoop() {
 
 	lastContact := time.Now()
 	for {
+		c.wd.Reset()
 		if c.id != c.cctx.CurrentID() {
 			c.configure()
 		}
