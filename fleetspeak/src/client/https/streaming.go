@@ -76,7 +76,7 @@ func (c *StreamingCommunicator) Setup(cl comms.Context) error {
 }
 
 func (c *StreamingCommunicator) Start() error {
-	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-streaming-traces-", time.Hour)
+	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-streaming-traces-", time.Hour, true)
 	c.working.Add(1)
 	go c.connectLoop()
 	return nil

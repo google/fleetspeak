@@ -30,18 +30,19 @@ type Watchdog struct {
 	prefix   string
 	duration time.Duration
 	reset    chan struct{}
-	skipExit bool // If set, skip exiting the process, meant for unit testing.
+	exit     bool
 }
 
 // MakeWatchdog creates and starts running a watchdog timer. If <duration>
 // passes without a reset it writes stack traces to a temporary file determined
-// by dir, prefix. Then it exits the program.
-func MakeWatchdog(dir, prefix string, duration time.Duration) *Watchdog {
+// by dir, prefix. Then it exits the program if exit is set.
+func MakeWatchdog(dir, prefix string, duration time.Duration, exit bool) *Watchdog {
 	r := &Watchdog{
 		dir:      dir,
 		prefix:   prefix,
 		duration: duration,
 		reset:    make(chan struct{}),
+		exit:     exit,
 	}
 	go r.watch()
 	return r
@@ -85,7 +86,7 @@ func (w *Watchdog) watch() {
 				}
 				log.Infof("Wrote goroutine traces to %s", f.Name())
 			}
-			if !w.skipExit {
+			if !w.exit {
 				log.Exitf("Watchdog expired.")
 				return
 			}
