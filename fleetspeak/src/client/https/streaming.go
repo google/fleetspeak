@@ -254,7 +254,9 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 
 	// If ctx terminates during the initial Do, we want ret.ctx to end, but
 	// if we succeed we want ret.ctx to continue independently of ctx.
-	ok := make(chan struct{})
+
+	ok := make(chan struct{}) // Closed after initial Do finishes.
+
 	canceled := make(chan bool)
 	go func() {
 		select {
@@ -262,6 +264,9 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 			canceled <- false
 		case <-ctx.Done():
 			ret.stop()
+			// If we close context at the wrong time, the initial Do might not
+			// return until we close the pipe.
+			bw.Close()
 			canceled <- true
 		}
 	}()
