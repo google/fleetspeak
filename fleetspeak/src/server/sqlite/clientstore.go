@@ -261,6 +261,9 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 }
 
 func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+	d.l.Lock()
+	defer d.l.Unlock()
+
 	var res []*spb.ClientContact
 	if err := d.runInTx(func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
