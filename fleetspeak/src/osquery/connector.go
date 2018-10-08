@@ -20,7 +20,7 @@ const version = "0.1"
 
 var (
 	socketPath  = flag.String("socket", "", "path to osqueryd extensions socket")
-	logService  = flag.String("log_service", "", "If set, a logger extention will be registered which logs to this Fleetspeak service.")
+	logService  = flag.String("log_service", "", "If set, a logger extension will be registered which logs to this Fleetspeak service.")
 	managerName = flag.String("manager_name", "Fleetspeak", "Name to register the extension manager as, also used as a prefix for the plugin names.")
 )
 
