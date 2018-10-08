@@ -164,7 +164,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	if streaming {
 		res.Notices, res.Fin = c.s.dispatcher.Register(id)
 	}
-	toSend.Messages, err = c.findMessagesForClient(ctx, &res) //&res.Client, res.ContactID, res.MessageTokens)
+	toSend.Messages, err = c.findMessagesForClient(ctx, &res)
 	if err != nil {
 		if res.Fin != nil {
 			res.Fin()
@@ -260,7 +260,6 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 // reserves them for processing in the database. It limits the returned messages
 // to those for which token, and decrements token counters as necessary.
 func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.ConnectionInfo) ([]*fspb.Message, error) {
-	//*comms.ClientInfo, contactID db.ContactID, messageTokens map[string]uint64) ([]*fspb.Message, error) {
 	if info.Client.Blacklisted {
 		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.Client.ID)
 		m, err := c.MakeBlacklistMessage(ctx, &info.Client, info.ContactID)
