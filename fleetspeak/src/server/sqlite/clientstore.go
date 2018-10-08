@@ -222,6 +222,8 @@ func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l
 }
 
 func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
+	d.l.Lock()
+	defer d.l.Unlock()
 	_, err := d.db.ExecContext(ctx, "UPDATE clients SET blacklisted=1 WHERE client_id=?", id.String())
 	return err
 }
