@@ -20,10 +20,12 @@ import (
 	"crypto"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"context"
 
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -58,11 +60,53 @@ type ConnectionInfo struct {
 	AuthClientInfo           authorizer.ClientInfo
 
 	// Number of outstanding message tokens we have for the client.
-	MessageTokens map[string]uint64
+	messageTokens     map[string]uint64
+	messageTokensLock sync.RWMutex
 
 	// These are only set for streaming connections.
 	Notices <-chan struct{} // publishes when there may be a new message for the client
 	Fin     func()          // should be called to indicate that the streaming connection is closed.
+}
+
+// MessageTokens returns a copy of the current token available count. Thread safe.
+func (i *ConnectionInfo) MessageTokens() map[string]uint64 {
+	i.messageTokensLock.RLock()
+	defer i.messageTokensLock.RUnlock()
+
+	ret := make(map[string]uint64)
+	for k, v := range i.messageTokens {
+		ret[k] = v
+	}
+	return ret
+}
+
+// AddMessageTokens changes the tokens available count according
+// to the provided delta.
+func (i *ConnectionInfo) AddMessageTokens(delta map[string]uint64) {
+	i.messageTokensLock.Lock()
+	defer i.messageTokensLock.Unlock()
+
+	if i.messageTokens == nil {
+		i.messageTokens = make(map[string]uint64)
+	}
+
+	for k, v := range delta {
+		i.messageTokens[k] += v
+	}
+}
+
+// SubtractMessageTokens changes the tokens available count according
+// to the provided delta.
+func (i *ConnectionInfo) SubtractMessageTokens(delta map[string]uint64) {
+	i.messageTokensLock.Lock()
+	defer i.messageTokensLock.Unlock()
+
+	for k, v := range delta {
+		if v > i.messageTokens[k] {
+			log.Exitf("Attempt to consume %d tokens but only have %d.", v, i.messageTokens[k])
+		}
+		i.messageTokens[k] -= v
+	}
 }
 
 // ErrNotAuthorized is returned by certain methods to indicate that the client

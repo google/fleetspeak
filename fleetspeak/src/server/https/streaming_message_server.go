@@ -345,7 +345,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	}
 
 	var blockedServices []string
-	for k, v := range m.info.MessageTokens {
+	for k, v := range m.info.MessageTokens() {
 		if v == 0 {
 			blockedServices = append(blockedServices, k)
 		}
@@ -383,8 +383,9 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 		}
 		return &pi, err
 	}
+	tokens := m.info.MessageTokens()
 	for _, s := range blockedServices {
-		if m.info.MessageTokens[s] > 0 {
+		if tokens[s] > 0 {
 			select {
 			case m.localNotices <- struct{}{}:
 			default:

@@ -135,9 +135,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	toSend := fspb.ContactData{SequencingNonce: randUint64()}
 	res.NonceSent = toSend.SequencingNonce
 	if len(cd.AllowedMessages) > 0 {
-		res.MessageTokens = cd.AllowedMessages
-	} else {
-		res.MessageTokens = nil
+		res.AddMessageTokens(cd.AllowedMessages)
 	}
 
 	var streamingTo string
@@ -166,7 +164,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	if streaming {
 		res.Notices, res.Fin = c.s.dispatcher.Register(id)
 	}
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &res.Client, res.ContactID, res.MessageTokens)
+	toSend.Messages, err = c.findMessagesForClient(ctx, &res) //&res.Client, res.ContactID, res.MessageTokens)
 	if err != nil {
 		if res.Fin != nil {
 			res.Fin()
@@ -228,9 +226,7 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 		return fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
 
-	for k, v := range cd.AllowedMessages {
-		info.MessageTokens[k] += v
-	}
+	info.AddMessageTokens(cd.AllowedMessages)
 
 	err = c.handleMessagesFromClient(ctx, &info.Client, info.ContactID, &cd, validationInfo)
 	if err != nil {
@@ -244,7 +240,7 @@ func (c commsContext) GetMessagesForClient(ctx context.Context, info *comms.Conn
 		SequencingNonce: info.NonceSent,
 	}
 	var err error
-	toSend.Messages, err = c.FindMessagesForClient(ctx, &info.Client, info.ContactID, info.MessageTokens)
+	toSend.Messages, err = c.findMessagesForClient(ctx, info)
 	if err != nil || len(toSend.Messages) == 0 {
 		return nil, false, err
 	}
@@ -263,37 +259,39 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 // FindMessagesForClient finds unprocessed messages for a given client and
 // reserves them for processing in the database. It limits the returned messages
 // to those for which token, and decrements token counters as necessary.
-func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.ClientInfo, contactID db.ContactID, messageTokens map[string]uint64) ([]*fspb.Message, error) {
-	if info.Blacklisted {
-		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.ID)
-		m, err := c.MakeBlacklistMessage(ctx, info, contactID)
+func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.ConnectionInfo) ([]*fspb.Message, error) {
+	//*comms.ClientInfo, contactID db.ContactID, messageTokens map[string]uint64) ([]*fspb.Message, error) {
+	if info.Client.Blacklisted {
+		log.Warningf("Contact from blacklisted id [%v], creating RekeyRequest.", info.Client.ID)
+		m, err := c.MakeBlacklistMessage(ctx, &info.Client, info.ContactID)
 		return []*fspb.Message{m}, err
 	}
-	msgs, err := c.s.dataStore.ClientMessagesForProcessing(ctx, info.ID, 100, messageTokens)
+	tokens := info.MessageTokens()
+	msgs, err := c.s.dataStore.ClientMessagesForProcessing(ctx, info.Client.ID, 100, tokens)
 	if err != nil {
 		if len(msgs) == 0 {
 			return nil, err
 		}
 		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
-	log.V(1).Infof("FindMessagesForClient(%v): found %d messages for tokens: %v", info.ID, len(msgs), messageTokens)
-	if messageTokens != nil {
+	log.V(1).Infof("FindMessagesForClient(%v): found %d messages for tokens: %v", info.Client.ID, len(msgs), tokens)
+	if tokens != nil {
+		cnts := make(map[string]uint64)
 		for _, m := range msgs {
-			if messageTokens[m.Destination.ServiceName] == 0 {
-				log.Errorf("Internal error! retrieved message without token for %s.", m.Destination.ServiceName)
-			} else {
-				messageTokens[m.Destination.ServiceName] -= 1
-			}
+			cnts[m.Destination.ServiceName] += 1
 		}
-		log.V(2).Infof("FindMessagesForClient(%v): updated tokens to: %v", info.ID, messageTokens)
+		info.SubtractMessageTokens(cnts)
+		if log.V(2) {
+			log.Infof("FindMessagesForClient(%v): updated tokens to: %v", info.Client.ID, info.MessageTokens())
+		}
 	}
 
 	// If the client recently contacted us, the broadcast situation is unlikely to
 	// have changed, so we skip checking for broadcasts. To keep this from delaying
 	// broadcast distribution, the broadcast manager clears the client cache when it
 	// finds more broadcasts.
-	if !info.Cached {
-		bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.ID, info.Labels)
+	if !info.Client.Cached {
+		bms, err := c.s.broadcastManager.MakeBroadcastMessagesForClient(ctx, info.Client.ID, info.Client.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -312,7 +310,7 @@ func (c commsContext) FindMessagesForClient(ctx context.Context, info *comms.Cli
 		}
 		mids = append(mids, id)
 	}
-	if err := c.s.dataStore.LinkMessagesToContact(ctx, contactID, mids); err != nil {
+	if err := c.s.dataStore.LinkMessagesToContact(ctx, info.ContactID, mids); err != nil {
 		return nil, err
 	}
 	return msgs, nil
