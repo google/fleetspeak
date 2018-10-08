@@ -61,7 +61,7 @@ func TestDistributed(t *testing.T) {
 			inResults: []osquery.ExtensionPluginRequest{
 				{"action": "writeResults", "results": `{"queries":{"basic":[{"iso_8601":"2017-07-10T22:08:40Z"}]}, "statuses":{"basic":"0"}}`},
 			},
-			wantRows: map[string]*ospb.Rows{"basic": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}}}}},
+			wantRows: map[string]*ospb.Rows{"basic": {Rows: []*ospb.Row{{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}}}}},
 		},
 		{
 			name: "multi-query",
@@ -80,10 +80,10 @@ func TestDistributed(t *testing.T) {
 				{"action": "writeResults", "results": `{"queries":{"multi1":[{"name":"client1"}], "multi2":[{"name":"client2"}], "multi3":[{"name":"client3"}], "multi4":[{"name":"client4"}]}, "statuses":{"multi1":"0","multi2":"0","multi3":"0","multi4":"0"}}`},
 			},
 			wantRows: map[string]*ospb.Rows{
-				"multi1": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client1"}}}},
-				"multi2": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client2"}}}},
-				"multi3": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client3"}}}},
-				"multi4": &ospb.Rows{Rows: []*ospb.Row{{Row: map[string]string{"name": "client4"}}}},
+				"multi1": {Rows: []*ospb.Row{{Row: map[string]string{"name": "client1"}}}},
+				"multi2": {Rows: []*ospb.Row{{Row: map[string]string{"name": "client2"}}}},
+				"multi3": {Rows: []*ospb.Row{{Row: map[string]string{"name": "client3"}}}},
+				"multi4": {Rows: []*ospb.Row{{Row: map[string]string{"name": "client4"}}}},
 			},
 		},
 		{
@@ -97,7 +97,7 @@ func TestDistributed(t *testing.T) {
 			inResults: []osquery.ExtensionPluginRequest{
 				{"action": "writeResults", "results": `{"queries":{"basic":[{"iso_8601":"2017-07-10T22:08:40Z"}, {"iso_8601":"2017-07-10T22:08:41Z"}, {"iso_8601":"2017-07-10T22:08:42Z"}]}, "statuses":{"basic":"0"}}`},
 			},
-			wantRows: map[string]*ospb.Rows{"basic": &ospb.Rows{Rows: []*ospb.Row{
+			wantRows: map[string]*ospb.Rows{"basic": {Rows: []*ospb.Row{
 				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:40Z"}},
 				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:41Z"}},
 				{Row: map[string]string{"iso_8601": "2017-07-10T22:08:42Z"}},
