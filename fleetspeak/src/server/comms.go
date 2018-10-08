@@ -277,7 +277,7 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 	if tokens != nil {
 		cnts := make(map[string]uint64)
 		for _, m := range msgs {
-			cnts[m.Destination.ServiceName] += 1
+			cnts[m.Destination.ServiceName]++
 		}
 		info.SubtractMessageTokens(cnts)
 		if log.V(2) {
