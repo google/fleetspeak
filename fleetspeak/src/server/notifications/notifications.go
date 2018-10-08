@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The notifications package define the plugin interface for components which
-// allow the fleetspeak servers within an installation to notify each other
-// about interesting events.
+// Package notifications defines the plugin interface for components which allow
+// the fleetspeak servers within an installation to notify each other about
+// interesting events.
 package notifications
 
 import (
