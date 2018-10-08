@@ -212,6 +212,9 @@ Infos:
 }
 
 func (m *Manager) refreshLoop() {
+	defer func() {
+		m.infos = nil
+	}()
 	ctx := context.Background()
 	for {
 		select {
@@ -339,10 +342,6 @@ func (m *Manager) updateAllocs(keep map[ids.BroadcastID]bool, new map[ids.Broadc
 	m.l.Lock()
 	defer m.l.Unlock()
 
-	if m.infos == nil { // occasionally happens when shutting down
-		return nil
-	}
-
 	var ret []*bInfo
 
 	// Make a pass through m.infos, deleting anything not in keep or new.
@@ -381,7 +380,6 @@ func (m *Manager) Close(ctx context.Context) error {
 			errMsgs = append(errMsgs, fmt.Sprintf("[%v,%v]:\"%v\"", i.bID, i.aID, err))
 		}
 	}
-	m.infos = nil
 
 	if len(errMsgs) > 0 {
 		return errors.New("errors cleaning up allocations - " + strings.Join(errMsgs, " "))
