@@ -50,8 +50,9 @@ const (
 type Manager struct {
 	bs           db.BroadcastStore
 	infos        map[ids.BroadcastID]*bInfo
-	l            sync.RWMutex // Protects the structure of i.
-	done         chan bool    // Closes to indicate it is time to shut down.
+	l            sync.RWMutex   // Protects the structure of i.
+	done         chan bool      // Closes to indicate it is time to shut down.
+	working      sync.WaitGroup // Indicates that work is ongoing.
 	basePollWait time.Duration
 
 	// These members are used to inform other parts of the system that they might
@@ -75,6 +76,7 @@ func MakeManager(ctx context.Context, bs db.BroadcastStore, pw time.Duration, cl
 	if err := r.refreshInfo(ctx); err != nil {
 		return nil, err
 	}
+	r.working.Add(1)
 	go r.refreshLoop()
 	return r, nil
 }
@@ -212,9 +214,7 @@ Infos:
 }
 
 func (m *Manager) refreshLoop() {
-	defer func() {
-		m.infos = nil
-	}()
+	defer m.working.Done()
 	ctx := context.Background()
 	for {
 		select {
@@ -370,8 +370,7 @@ func (m *Manager) updateAllocs(keep map[ids.BroadcastID]bool, new map[ids.Broadc
 // Close attempts to shut down the Manager gracefully.
 func (m *Manager) Close(ctx context.Context) error {
 	close(m.done)
-	m.l.Lock()
-	defer m.l.Unlock()
+	m.working.Wait()
 
 	var errMsgs []string
 	for _, i := range m.infos {
@@ -380,6 +379,7 @@ func (m *Manager) Close(ctx context.Context) error {
 			errMsgs = append(errMsgs, fmt.Sprintf("[%v,%v]:\"%v\"", i.bID, i.aID, err))
 		}
 	}
+	m.infos = nil
 
 	if len(errMsgs) > 0 {
 		return errors.New("errors cleaning up allocations - " + strings.Join(errMsgs, " "))
