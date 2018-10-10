@@ -98,10 +98,18 @@ func checkUnixOwnership(fi os.FileInfo) error {
 	}
 
 	gid := os.Getgid()
-	// On some platforms (e.g. Darwin) groups 1 and 0 are mostly interchangeable.
-	if gid != int(st.Gid) && st.Gid > 1 && runtime.GOOS == "darwin" {
-		return fmt.Errorf("unexpected gid %d (wanted %d or <1 (system groups))", st.Gid, gid)
+	switch runtime.GOOS {
+	case "darwin":
+		// On macOS groups 1 and 0 are mostly interchangeable.
+		if gid != int(st.Gid) && st.Gid > 1 {
+			return fmt.Errorf("unexpected gid %d (wanted %d or <1 (system groups))", st.Gid, gid)
+		}
+	default:
+		if gid != int(st.Gid) {
+			return fmt.Errorf("unexpected gid %d (wanted %d)", st.Gid, gid)
+		}
 	}
 
 	return nil
 }
+
