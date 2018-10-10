@@ -24,14 +24,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 )
+
 
 // CheckSocketFile ensures the naming, mode (perms, filetype) and ownership
 // (uid, gid) of a Unix socket match what we create in a Fleetspeak socket
 // service. This gives us some extra security. Note that using os.Lstat here
 // prevents confusing FS with symlink tricks.
+//
+// If the returned error is a os.IsNotExist, then a Fleetspeak socket didn't exist. This
+// condition may be retriable.
 func CheckSocketFile(socketPath string) error {
 	if !strings.HasPrefix(socketPath, "/") {
 		return fmt.Errorf("expected a Unix domain socket address starting with \"/\", got %q", socketPath)
@@ -41,6 +46,12 @@ func CheckSocketFile(socketPath string) error {
 
 	// Lstat prevents using a symlink as the Unix socket or the parent dir.
 	parentFI, err := os.Lstat(parent)
+	// Allow the caller to distinguish between two scenarios:
+	// 1) os.IsNotExist(err) => fleetspeak is not running, but may start later
+	// 2) otherwise fleetspeak is running, but there is a permissions error
+	if os.IsNotExist(err) {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("can't stat the given socketPath's (%q) parent directory: %v", socketPath, err)
 	}
@@ -83,12 +94,13 @@ func checkUnixOwnership(fi os.FileInfo) error {
 
 	uid := os.Getuid()
 	if uid != int(st.Uid) {
-		return errors.New("unexpected uid")
+		return fmt.Errorf("unexpected uid %d (wanted %d)", st.Uid, uid)
 	}
 
 	gid := os.Getgid()
-	if gid != int(st.Gid) {
-		return errors.New("unexpected gid")
+	// On some platforms (e.g. Darwin) groups 1 and 0 are mostly interchangeable.
+	if gid != int(st.Gid) && st.Gid > 1 && runtime.GOOS == "darwin" {
+		return fmt.Errorf("unexpected gid %d (wanted %d or <1 (system groups))", st.Gid, gid)
 	}
 
 	return nil
