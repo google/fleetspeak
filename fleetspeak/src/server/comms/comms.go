@@ -73,6 +73,10 @@ func (i *ConnectionInfo) MessageTokens() map[string]uint64 {
 	i.messageTokensLock.RLock()
 	defer i.messageTokensLock.RUnlock()
 
+	if i.messageTokens == nil {
+		return nil
+	}
+
 	ret := make(map[string]uint64)
 	for k, v := range i.messageTokens {
 		ret[k] = v
