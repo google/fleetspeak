@@ -90,7 +90,6 @@ setup(
         'grpcio==1.7.0',
         'grpcio-tools==1.7.0',
         'python-gflags==3.1.2',
-        'six==1.11.0',
     ],
 
     # List additional groups of dependencies here (e.g. development
