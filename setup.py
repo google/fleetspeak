@@ -86,7 +86,7 @@ setup(
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
         'google-apputils==0.4.2',
-        'grpcio==1.7.0',
+        'grpcio==1.17.1',
         'grpcio-tools==1.7.0',
         'python-gflags==3.1.2',
     ],
