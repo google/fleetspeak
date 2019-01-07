@@ -85,9 +85,8 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'futures==3.2.0',
         'google-apputils==0.4.2',
-        'grpcio==1.7.0',
+        'grpcio==1.17.1',
         'grpcio-tools==1.7.0',
         'python-gflags==3.1.2',
     ],
@@ -99,6 +98,9 @@ setup(
     extras_require={
         'dev': [],
         'test': [],
+        ':python_version == "2.7"': [
+            'futures==3.2.0',
+        ],
     },
 
     # If there are data files included in your packages that need to be
