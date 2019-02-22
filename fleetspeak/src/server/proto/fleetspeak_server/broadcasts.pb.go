@@ -6,8 +6,8 @@ package fleetspeak_server
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import google_protobuf1 "github.com/golang/protobuf/ptypes/any"
+import google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 import fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -15,54 +15,26 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 // A Broadcast is a template to build messages to send to a number of machines.
 type Broadcast struct {
 	BroadcastId []byte `protobuf:"bytes,1,opt,name=broadcast_id,json=broadcastId,proto3" json:"broadcast_id,omitempty"`
 	// The source of the broadcast, it should only be a server side service. The
 	// destinations for the resulting broadcast messages will be different clients
 	// with the same service name.
-	Source      *fleetspeak.Address `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	MessageType string              `protobuf:"bytes,3,opt,name=message_type,json=messageType,proto3" json:"message_type,omitempty"`
+	Source      *fleetspeak.Address `protobuf:"bytes,2,opt,name=source" json:"source,omitempty"`
+	MessageType string              `protobuf:"bytes,3,opt,name=message_type,json=messageType" json:"message_type,omitempty"`
 	// A client will only be sent this broadcast if it has been marked with all of
 	// the required labels.
-	RequiredLabels []*fleetspeak.Label `protobuf:"bytes,4,rep,name=required_labels,json=requiredLabels,proto3" json:"required_labels,omitempty"`
+	RequiredLabels []*fleetspeak.Label `protobuf:"bytes,4,rep,name=required_labels,json=requiredLabels" json:"required_labels,omitempty"`
 	// A broadcast will stop being sent at this time.
-	ExpirationTime       *timestamp.Timestamp `protobuf:"bytes,5,opt,name=expiration_time,json=expirationTime,proto3" json:"expiration_time,omitempty"`
-	Data                 *any.Any             `protobuf:"bytes,6,opt,name=data,proto3" json:"data,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	ExpirationTime *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=expiration_time,json=expirationTime" json:"expiration_time,omitempty"`
+	Data           *google_protobuf1.Any      `protobuf:"bytes,6,opt,name=data" json:"data,omitempty"`
 }
 
-func (m *Broadcast) Reset()         { *m = Broadcast{} }
-func (m *Broadcast) String() string { return proto.CompactTextString(m) }
-func (*Broadcast) ProtoMessage()    {}
-func (*Broadcast) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broadcasts_83a60435fcad98b2, []int{0}
-}
-func (m *Broadcast) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Broadcast.Unmarshal(m, b)
-}
-func (m *Broadcast) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Broadcast.Marshal(b, m, deterministic)
-}
-func (dst *Broadcast) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Broadcast.Merge(dst, src)
-}
-func (m *Broadcast) XXX_Size() int {
-	return xxx_messageInfo_Broadcast.Size(m)
-}
-func (m *Broadcast) XXX_DiscardUnknown() {
-	xxx_messageInfo_Broadcast.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Broadcast proto.InternalMessageInfo
+func (m *Broadcast) Reset()                    { *m = Broadcast{} }
+func (m *Broadcast) String() string            { return proto.CompactTextString(m) }
+func (*Broadcast) ProtoMessage()               {}
+func (*Broadcast) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
 func (m *Broadcast) GetBroadcastId() []byte {
 	if m != nil {
@@ -92,14 +64,14 @@ func (m *Broadcast) GetRequiredLabels() []*fleetspeak.Label {
 	return nil
 }
 
-func (m *Broadcast) GetExpirationTime() *timestamp.Timestamp {
+func (m *Broadcast) GetExpirationTime() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.ExpirationTime
 	}
 	return nil
 }
 
-func (m *Broadcast) GetData() *any.Any {
+func (m *Broadcast) GetData() *google_protobuf1.Any {
 	if m != nil {
 		return m.Data
 	}
@@ -111,10 +83,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto", fileDescriptor_broadcasts_83a60435fcad98b2)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto", fileDescriptor1)
 }
 
-var fileDescriptor_broadcasts_83a60435fcad98b2 = []byte{
+var fileDescriptor1 = []byte{
 	// 301 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0xc1, 0x6b, 0xc2, 0x30,
 	0x18, 0xc5, 0xa9, 0x3a, 0xc1, 0x54, 0x14, 0xbb, 0x1d, 0x32, 0x2f, 0xeb, 0x76, 0x2a, 0x0c, 0x52,
