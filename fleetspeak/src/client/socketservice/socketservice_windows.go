@@ -22,8 +22,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hectane/go-acl"
-
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 	"github.com/google/fleetspeak/fleetspeak/src/windows/wnixsocket"
 )
@@ -46,7 +44,7 @@ func listen(socketPath string) (net.Listener, error) {
 	// MkdirAll doesn't set mode as expected on Windows, so we make
 	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so
 	// we use go-acl.
-	if err := acl.Chmod(parent, 0700); err != nil {
+	if err := wnixsocket.Chmod(parent, 0700); err != nil {
 		return nil, fmt.Errorf("failed to chmod a Wnix domain listener's parent directory: %v", err)
 	}
 
