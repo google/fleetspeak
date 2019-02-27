@@ -17,6 +17,7 @@ package servertests_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 )
@@ -232,9 +234,10 @@ func TestSystemServiceMessageError(t *testing.T) {
 		MessageType:     "MessageError",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
+	errorMessage = strings.Repeat("a", services.MaxServiceFailureReasonLength)
 	m.Data, err = ptypes.MarshalAny(&fspb.MessageErrorData{
 		MessageId: mid.Bytes(),
-		Error:     "failed badly",
+		Error:     errorMessage,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -246,5 +249,9 @@ func TestSystemServiceMessageError(t *testing.T) {
 	msg = ts.GetMessage(ctx, mid)
 	if msg.Result == nil {
 		t.Fatal("Added message should now be failed.")
+	}
+	expectedFailedReason = strings.Repeat("a", services.MaxServiceFailureReasonLength-3) + "..."
+	if msg.Result.FailedReason != expectedFailedReason {
+		t.Errorf("Unexpected failure reason: got %v, want %v.", msg.Result.FailedReason, expectedFailedReason)
 	}
 }

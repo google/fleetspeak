@@ -38,6 +38,8 @@ import (
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
+const MaxServiceFailureReasonLength = 900
+
 // A Manager starts, remembers, and shuts down services.
 type Manager struct {
 	services        map[string]*liveService
@@ -209,10 +211,14 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	case !service.IsTemporary(e):
 		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, m.MessageType, false)
 		log.Errorf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
+		failedReason := e.Error()
+		if len(failedReason) > MaxServiceFailureReasonLength {
+			failedReason = failedReason[:MaxServiceFailureReasonLength-3] + "..."
+		}
 		return &fspb.MessageResult{
 			ProcessedTime: db.NowProto(),
 			Failed:        true,
-			FailedReason:  e.Error(),
+			FailedReason:  failedReason,
 		}
 	}
 	log.Fatal("Error is neither temporary or permanent.")
