@@ -31,10 +31,10 @@ import (
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
-	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
+	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -264,7 +264,7 @@ func TestBlacklist(t *testing.T) {
 
 // errorService is a Fleetspeak service.Service that returns a specified
 // error every time Service.ProcessMessage() is called.
-type errorService struct{
+type errorService struct {
 	e error
 }
 
@@ -272,10 +272,9 @@ func (s errorService) Start(sctx service.Context) error                         
 func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.e }
 func (s errorService) Stop() error                                               { return nil }
 
-
 func TestServiceError(t *testing.T) {
 	ctx := context.Background()
-	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength + 1))}
+	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
 	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", testService)
 	defer serverWrapper.S.Stop()
 
@@ -289,7 +288,7 @@ func TestServiceError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientMessage := &fspb.Message {
+	clientMessage := &fspb.Message{
 		Source: &fspb.Address{
 			ClientId:    clientID.Bytes(),
 			ServiceName: "TestService",
@@ -302,7 +301,7 @@ func TestServiceError(t *testing.T) {
 	}
 	contactData := &fspb.ContactData{
 		SequencingNonce: 5,
-		Messages: []*fspb.Message{clientMessage},
+		Messages:        []*fspb.Message{clientMessage},
 	}
 	serializedContactData, err := proto.Marshal(contactData)
 	if err != nil {
@@ -313,7 +312,7 @@ func TestServiceError(t *testing.T) {
 		ctx,
 		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
 		clientPublicKey,
-		&fspb.WrappedContactData{ContactData:serializedContactData},
+		&fspb.WrappedContactData{ContactData: serializedContactData},
 		false); err != nil {
 		t.Fatalf("InitializeConnection() failed: %v", err)
 	}
