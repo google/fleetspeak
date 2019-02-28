@@ -101,6 +101,45 @@ func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) S
 	return ret
 }
 
+// MakeWithService creates a server.Server using the provided service. Like in Make(), a sqlite
+// datastore is created for the provided test-case.
+func MakeWithService(t *testing.T, testName, caseName string, serviceInstance service.Service) Server {
+	tempDir, tmpDirCleanup := comtesting.GetTempDir(testName)
+	defer tmpDirCleanup()
+	p := path.Join(tempDir, caseName+".sqlite")
+	ds, err := sqlite.MakeDatastore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Infof("Created database: %s", p)
+
+	serviceFactory := func(conf *spb.ServiceConfig) (service.Service, error) {
+		return serviceInstance, nil
+	}
+
+	var testServer Server
+	s, err := server.MakeServer(
+		&spb.ServerConfig{
+			Services: []*spb.ServiceConfig{{
+				Name:           "TestService",
+				Factory:        "CustomFactory",
+				MaxParallelism: 5,
+			}},
+		},
+		server.Components{
+			Datastore:        ds,
+			ServiceFactories: map[string]service.Factory{"CustomFactory": serviceFactory},
+			Communicators:    []comms.Communicator{FakeCommunicator{&testServer}},
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testServer.S = s
+	testServer.DS = ds
+	return testServer
+}
+
 // AddClient adds a new client with a random id to a server.
 func (s Server) AddClient() (crypto.PublicKey, error) {
 	k, err := rsa.GenerateKey(rand.Reader, 2048)

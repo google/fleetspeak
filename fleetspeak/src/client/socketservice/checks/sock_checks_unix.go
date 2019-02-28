@@ -29,7 +29,6 @@ import (
 	"syscall"
 )
 
-
 // CheckSocketFile ensures the naming, mode (perms, filetype) and ownership
 // (uid, gid) of a Unix socket match what we create in a Fleetspeak socket
 // service. This gives us some extra security. Note that using os.Lstat here
@@ -112,4 +111,3 @@ func checkUnixOwnership(fi os.FileInfo) error {
 
 	return nil
 }
-

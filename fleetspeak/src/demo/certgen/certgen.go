@@ -135,10 +135,10 @@ func createCACert() bool {
 			Country:      caCountry,
 			Organization: caOrganization,
 			CommonName:   *caCommonName},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(*caExpiresAfter),
-		KeyUsage:  x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		IsCA:      true,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(*caExpiresAfter),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 	}
 	dc, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, privKey.Public(), privKey)
@@ -206,11 +206,11 @@ func createServerCert() {
 			Country:      serverCountry,
 			Organization: serverOrganization,
 			CommonName:   *serverCommonName},
-		NotBefore:   time.Now(),
-		NotAfter:    time.Now().Add(*serverExpiresAfter),
-		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IsCA:        false,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(*serverExpiresAfter),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  false,
 		BasicConstraintsValid: true,
 	}
 	for _, h := range serverHostnames {

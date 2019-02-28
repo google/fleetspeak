@@ -22,14 +22,18 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
+	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -255,5 +259,72 @@ func TestBlacklist(t *testing.T) {
 	}
 	if !bytes.Equal(msgs[0].MessageId, msg.MessageId) || msgs[0].MessageType != "RekeyRequest" {
 		t.Errorf("GetMessage([%v]) did not return expected RekeyRequest, want: %+v got: %+v", mid, msg, msgs[0])
+	}
+}
+
+// errorService is a Fleetspeak service.Service that returns a specified
+// error every time Service.ProcessMessage() is called.
+type errorService struct {
+	err error
+}
+
+func (s errorService) Start(sctx service.Context) error                          { return nil }
+func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
+func (s errorService) Stop() error                                               { return nil }
+
+func TestServiceError(t *testing.T) {
+	ctx := context.Background()
+	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
+	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", testService)
+	defer serverWrapper.S.Stop()
+
+	clientPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientPublicKey := clientPrivateKey.Public()
+
+	clientID, err := common.MakeClientID(clientPublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientMessage := &fspb.Message{
+		Source: &fspb.Address{
+			ClientId:    clientID.Bytes(),
+			ServiceName: "TestService",
+		},
+		Destination: &fspb.Address{
+			ServiceName: "TestService",
+		},
+		SourceMessageId: []byte("AAABBBCCC"),
+		MessageType:     "TestMessage",
+	}
+	contactData := &fspb.ContactData{
+		SequencingNonce: 5,
+		Messages:        []*fspb.Message{clientMessage},
+	}
+	serializedContactData, err := proto.Marshal(contactData)
+	if err != nil {
+		t.Fatalf("Unable to marshal contact data: %v", err)
+	}
+
+	if _, _, _, err = serverWrapper.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		clientPublicKey,
+		&fspb.WrappedContactData{ContactData: serializedContactData},
+		false); err != nil {
+		t.Fatalf("InitializeConnection() failed: %v", err)
+	}
+
+	messageID := common.MakeMessageID(clientMessage.Source, clientMessage.SourceMessageId)
+	messageResult, err := serverWrapper.DS.GetMessageResult(ctx, messageID)
+	if err != nil {
+		t.Fatalf("Failed to get message result: %v", err)
+	}
+
+	expectedFailedReason := strings.Repeat("a", services.MaxServiceFailureReasonLength-3) + "..."
+	if messageResult.FailedReason != expectedFailedReason {
+		t.Errorf("Unexpected failure reason: got [%v], want [%v]", messageResult.FailedReason, expectedFailedReason)
 	}
 }
