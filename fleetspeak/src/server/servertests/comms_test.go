@@ -265,11 +265,11 @@ func TestBlacklist(t *testing.T) {
 // errorService is a Fleetspeak service.Service that returns a specified
 // error every time Service.ProcessMessage() is called.
 type errorService struct {
-	e error
+	err error
 }
 
 func (s errorService) Start(sctx service.Context) error                          { return nil }
-func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.e }
+func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
 func (s errorService) Stop() error                                               { return nil }
 
 func TestServiceError(t *testing.T) {
