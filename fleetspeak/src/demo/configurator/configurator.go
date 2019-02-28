@@ -160,14 +160,14 @@ func createServerCert() bool {
 	// Create a self signed certificate good for 2 years, valid for the
 	// targeted hosts.
 	tmpl := x509.Certificate{
-		Version:      1,
-		SerialNumber: serialNumber,
-		Subject:      pkix.Name{CommonName: *certCommonName},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(2 * 24 * 365 * time.Hour),
-		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IsCA:         true,
+		Version:               1,
+		SerialNumber:          serialNumber,
+		Subject:               pkix.Name{CommonName: *certCommonName},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(2 * 24 * 365 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 	}
 	for _, hp := range serverHostPorts {

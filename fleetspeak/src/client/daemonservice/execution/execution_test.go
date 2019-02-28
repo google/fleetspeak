@@ -196,7 +196,7 @@ func TestStats(t *testing.T) {
 		OutChan: make(chan *fspb.Message, 2000),
 	}
 	dsc := &dspb.Config{
-		Argv: []string{testClient(), "--mode=loopback"},
+		Argv:                                  []string{testClient(), "--mode=loopback"},
 		ResourceMonitoringSampleSize:          2,
 		ResourceMonitoringSamplePeriodSeconds: 1,
 	}
