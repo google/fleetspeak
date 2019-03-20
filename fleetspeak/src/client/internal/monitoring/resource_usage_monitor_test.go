@@ -101,7 +101,8 @@ func TestResourceUsageMonitor(t *testing.T) {
 	}
 	go rum.Run()
 
-	timeout := 500 * time.Millisecond
+	// Wait up to one minute for each resource-usage report.
+	timeout := 1 * time.Minute
 	timeoutWhen := time.After(timeout)
 
 	for protosReceived := 0; protosReceived < 2; protosReceived++ {
