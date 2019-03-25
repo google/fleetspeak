@@ -15,8 +15,8 @@
 """Tests for grpcservice.client.client."""
 
 import threading
-import unittest
 
+from absl.testing import absltest
 import grpc
 
 from fleetspeak.src.server.grpcservice.client import client
@@ -46,7 +46,7 @@ class FakeStub(object):
     self.message = message
 
 
-class ClientTest(unittest.TestCase):
+class ClientTest(absltest.TestCase):
 
   def testKeepAlive(self):
     t = FakeStub()
@@ -63,4 +63,4 @@ class ClientTest(unittest.TestCase):
     self.assertEqual(t.message.source.service_name, 'test')
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

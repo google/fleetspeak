@@ -19,16 +19,16 @@ a fleetspeak server. They are returned to the sending address, again
 using the GRPCService client library.
 """
 
+import logging
 import threading
 import time
 
-from google.apputils import app
-import gflags
-import logging
+from absl import app
+from absl import flags
 
 from fleetspeak.src.server.grpcservice.client import client
 
-FLAGS = gflags.FLAGS
+FLAGS = flags.FLAGS
 
 
 def main(argv=None):
@@ -63,4 +63,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-  app.run()
+  app.run(main)
