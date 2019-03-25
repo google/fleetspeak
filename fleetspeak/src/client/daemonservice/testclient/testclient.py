@@ -20,16 +20,17 @@ daemonservice_test.go in order to verify that the python client library
 correctly implements the protocol expected by daemonservice.
 """
 
-from google.apputils import app
-import gflags
 import logging
 import time
 
+from absl import app
+from absl import flags
+
 import fleetspeak.src.client.daemonservice.client.client as clib
 
-FLAGS = gflags.FLAGS
-gflags.DEFINE_string("mode", "loopback",
-                     "Mode of operation. Options are: loopback")
+FLAGS = flags.FLAGS
+flags.DEFINE_string("mode", "loopback",
+                    "Mode of operation. Options are: loopback")
 
 
 class FatalError(Exception):
@@ -98,4 +99,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-  app.run()
+  app.run(main)

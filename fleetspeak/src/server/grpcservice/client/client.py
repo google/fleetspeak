@@ -16,26 +16,24 @@
 
 import abc
 import os
+import logging
 import threading
 import time
 
+from absl import flags
 from concurrent import futures
-
 import grpc
-
-import gflags
-import logging
 
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 from fleetspeak.src.server.grpcservice.proto.fleetspeak_grpcservice import grpcservice_pb2_grpc
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2_grpc
 
-FLAGS = gflags.FLAGS
+FLAGS = flags.FLAGS
 
-gflags.DEFINE_string(
+flags.DEFINE_string(
     "fleetspeak_message_listen_address", "",
     "The address to bind to, to listen for fleetspeak messages.")
-gflags.DEFINE_string("fleetspeak_server", "",
+flags.DEFINE_string("fleetspeak_server", "",
                     "The address to find the fleetspeak admin server, e.g. "
                     "'localhost:8080'")
 

@@ -85,10 +85,9 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'google-apputils==0.4.2',
+        'absl-py==0.6.1',
         'grpcio==1.17.1',
         'grpcio-tools==1.7.0',
-        'python-gflags==3.1.2',
     ],
 
     # List additional groups of dependencies here (e.g. development

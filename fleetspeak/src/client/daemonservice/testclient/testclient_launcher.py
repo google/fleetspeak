@@ -17,7 +17,7 @@
 
 import multiprocessing
 
-from google.apputils import app
+from absl import app
 
 from fleetspeak.src.client.daemonservice.testclient import testclient
 
@@ -29,4 +29,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-  app.run()
+  app.run(main)
