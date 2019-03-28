@@ -23,6 +23,7 @@ install:
 - go get -v -t ./...  # Install go dependencies.
 - virtualenv C:\fsenv
 - C:\fsenv\Scripts\activate.bat
+- pip install grpcio-tools
 - pip install -e .
 
 # Build executables needed by tests.

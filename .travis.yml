@@ -19,7 +19,7 @@ matrix:
         - mysql --print-defaults
         #- go get -u golang.org/x/lint/golint
       install:
-        - source "${HOME}/FSENV/bin/activate" && pip install -e .
+        - source "${HOME}/FSENV/bin/activate" && pip install grpcio-tools && pip install -e .
         - go get -v -t ./... # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
