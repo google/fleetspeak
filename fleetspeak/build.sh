@@ -94,17 +94,11 @@ time (
 
       chmod 755 pkg/*
 
-      chmod o-r pkg/etc/fleetspeak-server/https.config
-      chmod g-r pkg/etc/fleetspeak-server/https.config
-
       sed -i "s/<version>/$(cat ../VERSION)/" pkg/DEBIAN/control
 
       mkdir -p pkg/usr/bin
       install -o root -g root src/server/server/server pkg/usr/bin/fleetspeak-server
   
-      mkdir -p pkg/usr/lib/fleetspeak-server
-      install -o root -g root src/server/plugins/*/*.so pkg/usr/lib/fleetspeak-server
-
       dpkg-deb -b pkg out.deb
     '
   fi
