@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package fleetspeak.config;
+
+// The configuration parameters needed by the config tool in order to create the
+// artifacts needed to run a fleetspeak installation.
+message Config {
+  // An name for this installation, e.g. "Nascent" or "Nascent Staging". Used as
+  // a sanity check to differentiate between installations, and may be included
+  // in certificates, if certificates are generated. Required.
+  string configuration_name = 1;
+
+  // A file containing a PEM encoded certificate that clients should be
+  // configured to trust. Typically a CA cert. If this file is not already
+  // present, a 10 year self-signed CA certificate and associated private key
+  // will be created.
+  string trusted_cert_file = 2;
+
+  // A file containing the private key associated with trusted_cert_file, only
+  // required if it is necessary to create server certificates.
+  string trusted_cert_key_file = 3;
+
+  // A file containing a PEM encoded certificate that the Fleetspeak server
+  // should use to identify itself. If this file is not already present, a 1
+  // year certificate signed directly using the contents of
+  // trusted_cert_?(key_)file will be created.
+  string server_cert_file = 4;
+
+  // A file containing the private key associated with
+  // server_cert_file. Required.
+  string server_cert_key_file = 5;
+}
