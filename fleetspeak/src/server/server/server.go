@@ -26,14 +26,14 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
-	"github.com/google/fleetspeak/fleetspeak/src/server/plugins"
+	"github.com/google/fleetspeak/fleetspeak/src/server/components"
 
-	ppb "github.com/google/fleetspeak/fleetspeak/src/server/plugins/proto/plugins"
+	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
-var pluginConfigPath = flag.String("plugin_config_path", "/etc/fleetspeak-server/plugins.config", "File describing the plugins to load.")
-var serverConfigPath = flag.String("server_config_path", "/etc/fleetspeak-server/server.config", "File describing the overal server configuration.")
+var componentConfigPath = flag.String("component_config_path", "/etc/fleetspeak-server/components.config", "File describing the server component configuration.")
+var serverConfigPath = flag.String("server_config_path", "/etc/fleetspeak-server/server.config", "File describing the overall server configuration.")
 
 func main() {
 	flag.Parse()
@@ -52,19 +52,19 @@ func main() {
 }
 
 func loadComponents() server.Components {
-	b, err := ioutil.ReadFile(*pluginConfigPath)
+	b, err := ioutil.ReadFile(*componentConfigPath)
 	if err != nil {
-		log.Exitf("Unable to read component config file [%s]: %v", *pluginConfigPath, err)
+		log.Exitf("Unable to read component config file [%s]: %v", *componentConfigPath, err)
 	}
-	var c ppb.Config
+	var c cpb.Config
 	if err := proto.UnmarshalText(string(b), &c); err != nil {
-		log.Exitf("Unable to parse component config file [%s]: %v", *pluginConfigPath, err)
+		log.Exitf("Unable to parse component config file [%s]: %v", *componentConfigPath, err)
 	}
-	r, err := plugins.Load(&c)
+	r, err := components.MakeComponents(c)
 	if err != nil {
 		log.Exitf("Failed to load components: %v", err)
 	}
-	return r
+	return *r
 }
 
 func readConfig() *spb.ServerConfig {

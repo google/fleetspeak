@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package fleetspeak.components;
+
+message Config {
+  // Mysql connection string. Required.
+  //
+  // https://github.com/go-sql-driver/mysql#dsn-data-source-name
+  string mysql_data_source_name = 1;
+
+  // The parameters required to stand up an https server. Required.
+  HttpsConfig https_config = 2;
+
+  // If set, expects connections to arrive through a load balance implementing
+  // the PROXY protocol.
+  //
+  // https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+  bool proxy_protocol = 3;
+
+  // If set, only clients reporting this label will be allowed to
+  // connect. Meant as a sanity check that the client and server are for the
+  // same Fleetspeak installation.
+  string required_label = 4;
+}
+
+message HttpsConfig {
+  // The bind address to listen on for connections on, e.g. ":443" or
+  // "localhost:1234". Required.
+  string listen_address = 1;
+
+  // A certificate chain which identifies the server to clients. Must lead to a
+  // certificate known to the clients. x509 format. Required.
+  string certificates = 2;
+
+  // The private key used to identify the server. Must match the first entry in
+  // certificates. x509 format. Required.
+  string key = 3;
+
+  // If set, disables long running (streaming) connections.
+  bool disable_streaming = 4;
+}
