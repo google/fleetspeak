@@ -76,7 +76,7 @@ func makeCACert(cfg cpb.Config) error {
 	if err := ioutil.WriteFile(cfg.TrustedCertFile, certPEM, 0644); err != nil {
 		return fmt.Errorf("failed to write CA cert file [%s]: %v", cfg.TrustedCertFile, err)
 	}
-	if err := ioutil.WriteFile(cfg.TrustedCertKeyFile, keyPEM, 06001); err != nil {
+	if err := ioutil.WriteFile(cfg.TrustedCertKeyFile, keyPEM, 0600); err != nil {
 		return fmt.Errorf("failed to write CA key file [%s]: %v", cfg.TrustedCertKeyFile, err)
 	}
 
@@ -117,7 +117,7 @@ func getTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, e
 		}
 		return cert, priv, nil
 	case "EC PRIVATE KEY":
-		priv, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+		priv, err = x509.ParseECPrivateKey(keyBlock.Bytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to parse EC key in certificate key file [%s]: %v", cfg.TrustedCertKeyFile, err)
 		}
