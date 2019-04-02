@@ -23,28 +23,19 @@ with 1.9, probably requires at least 1.8) and virtualenv, the following sequence
 of commands will build and test this pre-release:
 
 ```bash
-# Required golang dependencies:
-go get \
-  github.com/go-sql-driver/mysql \
-  github.com/golang/glog \
-  github.com/golang/protobuf/proto \
-  github.com/kolide/osquery-go \
-  github.com/mattn/go-sqlite3 \
-  github.com/pires/go-proxyproto \
-  golang.org/x/sys \
-  golang.org/x/time/rate \
-  google.golang.org/grpc
-
-# This package:
-go get github.com/google/fleetspeak
+go get -v -t github.com/google/fleetspeak/...
 
 # Assuming default $GOPATH:
 cd ~/go/src/github.com/google/fleetspeak
 
 # Setup virtualenv - fleetspeak provides some python integration libraries,
 # and this ensures they are set up in a known way.
-virtualenv venv
-source venv/bin/activate
+virtualenv $HOME/FSENV
+source $HOME/FSENV/bin/activate
+
+# Pre-requisite to installing Fleetspeak (used to compile protos).
+pip install grpcio-tools
+
 pip install -e .
 
 # Set mysql parameters. The mysql datastore test will run if the following environment
@@ -54,10 +45,8 @@ export MYSQL_TEST_PASS=<password>   # will assume null password if unset.
 export MYSQL_TEST_ADDR=<host:port>
 
 # Build and test the release:
-source venv/bin/activate
-cd fleetspeak
-STRICT=true ./build.sh
-./test.sh
+fleetspeak/build.sh
+fleetspeak/test.sh
 ```
 
 Once built, you can take a look at the files and instructions in our
