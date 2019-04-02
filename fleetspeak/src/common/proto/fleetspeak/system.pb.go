@@ -6,25 +6,53 @@ package fleetspeak
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/any"
-import google_protobuf1 "github.com/golang/protobuf/ptypes/timestamp"
+import any "github.com/golang/protobuf/ptypes/any"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // A MessageAck message is sent from the client to the server to acknowledge the
 // successful receipt of one or more messages. Messages from the server to the
 // client may be repeated until ack'd.
 type MessageAckData struct {
-	MessageIds [][]byte `protobuf:"bytes,1,rep,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	MessageIds           [][]byte `protobuf:"bytes,1,rep,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *MessageAckData) Reset()                    { *m = MessageAckData{} }
-func (m *MessageAckData) String() string            { return proto.CompactTextString(m) }
-func (*MessageAckData) ProtoMessage()               {}
-func (*MessageAckData) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *MessageAckData) Reset()         { *m = MessageAckData{} }
+func (m *MessageAckData) String() string { return proto.CompactTextString(m) }
+func (*MessageAckData) ProtoMessage()    {}
+func (*MessageAckData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{0}
+}
+func (m *MessageAckData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MessageAckData.Unmarshal(m, b)
+}
+func (m *MessageAckData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MessageAckData.Marshal(b, m, deterministic)
+}
+func (dst *MessageAckData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageAckData.Merge(dst, src)
+}
+func (m *MessageAckData) XXX_Size() int {
+	return xxx_messageInfo_MessageAckData.Size(m)
+}
+func (m *MessageAckData) XXX_DiscardUnknown() {
+	xxx_messageInfo_MessageAckData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MessageAckData proto.InternalMessageInfo
 
 func (m *MessageAckData) GetMessageIds() [][]byte {
 	if m != nil {
@@ -36,14 +64,36 @@ func (m *MessageAckData) GetMessageIds() [][]byte {
 // A MessageError message is sent from the client to the server to indicate an
 // permanent error in processing the message.
 type MessageErrorData struct {
-	MessageId []byte `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
-	Error     string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
+	MessageId            []byte   `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Error                string   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *MessageErrorData) Reset()                    { *m = MessageErrorData{} }
-func (m *MessageErrorData) String() string            { return proto.CompactTextString(m) }
-func (*MessageErrorData) ProtoMessage()               {}
-func (*MessageErrorData) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *MessageErrorData) Reset()         { *m = MessageErrorData{} }
+func (m *MessageErrorData) String() string { return proto.CompactTextString(m) }
+func (*MessageErrorData) ProtoMessage()    {}
+func (*MessageErrorData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{1}
+}
+func (m *MessageErrorData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MessageErrorData.Unmarshal(m, b)
+}
+func (m *MessageErrorData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MessageErrorData.Marshal(b, m, deterministic)
+}
+func (dst *MessageErrorData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageErrorData.Merge(dst, src)
+}
+func (m *MessageErrorData) XXX_Size() int {
+	return xxx_messageInfo_MessageErrorData.Size(m)
+}
+func (m *MessageErrorData) XXX_DiscardUnknown() {
+	xxx_messageInfo_MessageErrorData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MessageErrorData proto.InternalMessageInfo
 
 func (m *MessageErrorData) GetMessageId() []byte {
 	if m != nil {
@@ -64,14 +114,36 @@ func (m *MessageErrorData) GetError() string {
 type ClientInfoData struct {
 	// Labels hardcoded by the client build, e.g. "client:Linux",
 	// "client:<build-nr>", "client:canary".
-	Labels   []*Label                    `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty"`
-	Services []*ClientInfoData_ServiceID `protobuf:"bytes,2,rep,name=services" json:"services,omitempty"`
+	Labels               []*Label                    `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
+	Services             []*ClientInfoData_ServiceID `protobuf:"bytes,2,rep,name=services,proto3" json:"services,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
+	XXX_unrecognized     []byte                      `json:"-"`
+	XXX_sizecache        int32                       `json:"-"`
 }
 
-func (m *ClientInfoData) Reset()                    { *m = ClientInfoData{} }
-func (m *ClientInfoData) String() string            { return proto.CompactTextString(m) }
-func (*ClientInfoData) ProtoMessage()               {}
-func (*ClientInfoData) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (m *ClientInfoData) Reset()         { *m = ClientInfoData{} }
+func (m *ClientInfoData) String() string { return proto.CompactTextString(m) }
+func (*ClientInfoData) ProtoMessage()    {}
+func (*ClientInfoData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{2}
+}
+func (m *ClientInfoData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientInfoData.Unmarshal(m, b)
+}
+func (m *ClientInfoData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientInfoData.Marshal(b, m, deterministic)
+}
+func (dst *ClientInfoData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientInfoData.Merge(dst, src)
+}
+func (m *ClientInfoData) XXX_Size() int {
+	return xxx_messageInfo_ClientInfoData.Size(m)
+}
+func (m *ClientInfoData) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientInfoData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientInfoData proto.InternalMessageInfo
 
 func (m *ClientInfoData) GetLabels() []*Label {
 	if m != nil {
@@ -89,16 +161,38 @@ func (m *ClientInfoData) GetServices() []*ClientInfoData_ServiceID {
 
 type ClientInfoData_ServiceID struct {
 	// The name of the installed service.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The signature of the installed service, as provided in the AddServiceData
 	// message which created the service.
-	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature            []byte   `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ClientInfoData_ServiceID) Reset()                    { *m = ClientInfoData_ServiceID{} }
-func (m *ClientInfoData_ServiceID) String() string            { return proto.CompactTextString(m) }
-func (*ClientInfoData_ServiceID) ProtoMessage()               {}
-func (*ClientInfoData_ServiceID) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2, 0} }
+func (m *ClientInfoData_ServiceID) Reset()         { *m = ClientInfoData_ServiceID{} }
+func (m *ClientInfoData_ServiceID) String() string { return proto.CompactTextString(m) }
+func (*ClientInfoData_ServiceID) ProtoMessage()    {}
+func (*ClientInfoData_ServiceID) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{2, 0}
+}
+func (m *ClientInfoData_ServiceID) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientInfoData_ServiceID.Unmarshal(m, b)
+}
+func (m *ClientInfoData_ServiceID) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientInfoData_ServiceID.Marshal(b, m, deterministic)
+}
+func (dst *ClientInfoData_ServiceID) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientInfoData_ServiceID.Merge(dst, src)
+}
+func (m *ClientInfoData_ServiceID) XXX_Size() int {
+	return xxx_messageInfo_ClientInfoData_ServiceID.Size(m)
+}
+func (m *ClientInfoData_ServiceID) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientInfoData_ServiceID.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientInfoData_ServiceID proto.InternalMessageInfo
 
 func (m *ClientInfoData_ServiceID) GetName() string {
 	if m != nil {
@@ -117,13 +211,35 @@ func (m *ClientInfoData_ServiceID) GetSignature() []byte {
 // A RemoveService message is sent from the server to the client to instruct the
 // client to remove an existing service.
 type RemoveServiceData struct {
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RemoveServiceData) Reset()                    { *m = RemoveServiceData{} }
-func (m *RemoveServiceData) String() string            { return proto.CompactTextString(m) }
-func (*RemoveServiceData) ProtoMessage()               {}
-func (*RemoveServiceData) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
+func (m *RemoveServiceData) Reset()         { *m = RemoveServiceData{} }
+func (m *RemoveServiceData) String() string { return proto.CompactTextString(m) }
+func (*RemoveServiceData) ProtoMessage()    {}
+func (*RemoveServiceData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{3}
+}
+func (m *RemoveServiceData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RemoveServiceData.Unmarshal(m, b)
+}
+func (m *RemoveServiceData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RemoveServiceData.Marshal(b, m, deterministic)
+}
+func (dst *RemoveServiceData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemoveServiceData.Merge(dst, src)
+}
+func (m *RemoveServiceData) XXX_Size() int {
+	return xxx_messageInfo_RemoveServiceData.Size(m)
+}
+func (m *RemoveServiceData) XXX_DiscardUnknown() {
+	xxx_messageInfo_RemoveServiceData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RemoveServiceData proto.InternalMessageInfo
 
 func (m *RemoveServiceData) GetName() string {
 	if m != nil {
@@ -138,13 +254,35 @@ type SignedClientServiceConfig struct {
 	// A serialized ClientServiceConfig, defined below.
 	ServiceConfig []byte `protobuf:"bytes,1,opt,name=service_config,json=serviceConfig,proto3" json:"service_config,omitempty"`
 	// An RSASSA-PSS signature of service_config, made using a deployment key.
-	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature            []byte   `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SignedClientServiceConfig) Reset()                    { *m = SignedClientServiceConfig{} }
-func (m *SignedClientServiceConfig) String() string            { return proto.CompactTextString(m) }
-func (*SignedClientServiceConfig) ProtoMessage()               {}
-func (*SignedClientServiceConfig) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
+func (m *SignedClientServiceConfig) Reset()         { *m = SignedClientServiceConfig{} }
+func (m *SignedClientServiceConfig) String() string { return proto.CompactTextString(m) }
+func (*SignedClientServiceConfig) ProtoMessage()    {}
+func (*SignedClientServiceConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{4}
+}
+func (m *SignedClientServiceConfig) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SignedClientServiceConfig.Unmarshal(m, b)
+}
+func (m *SignedClientServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SignedClientServiceConfig.Marshal(b, m, deterministic)
+}
+func (dst *SignedClientServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignedClientServiceConfig.Merge(dst, src)
+}
+func (m *SignedClientServiceConfig) XXX_Size() int {
+	return xxx_messageInfo_SignedClientServiceConfig.Size(m)
+}
+func (m *SignedClientServiceConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_SignedClientServiceConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SignedClientServiceConfig proto.InternalMessageInfo
 
 func (m *SignedClientServiceConfig) GetServiceConfig() []byte {
 	if m != nil {
@@ -164,25 +302,47 @@ type ClientServiceConfig struct {
 	// The name that the service will be known as. Primary use is to address
 	// message to the service.  the service names 'server' and 'client' are
 	// reserved.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The name of the factory which will be used to generate the service.
-	Factory string `protobuf:"bytes,2,opt,name=factory" json:"factory,omitempty"`
+	Factory string `protobuf:"bytes,2,opt,name=factory,proto3" json:"factory,omitempty"`
 	// Additional configuration information for the factory to use when setting up
 	// the service. The expected type depends upon the factory.
-	Config *google_protobuf.Any `protobuf:"bytes,3,opt,name=config" json:"config,omitempty"`
+	Config *any.Any `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
 	// The service will only be installed on clients with all of the listed
 	// labels. Note that labels for the special 'client' service are checked on
 	// the client. All other labels are only checked on the server.
-	RequiredLabels []*Label `protobuf:"bytes,6,rep,name=required_labels,json=requiredLabels" json:"required_labels,omitempty"`
+	RequiredLabels []*Label `protobuf:"bytes,6,rep,name=required_labels,json=requiredLabels,proto3" json:"required_labels,omitempty"`
 	// The time at which the service configuration was signed. Should be populated by
 	// the signing tool when creating a SignedClientServiceConfig.
-	SignedTime *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=signed_time,json=signedTime" json:"signed_time,omitempty"`
+	SignedTime           *timestamp.Timestamp `protobuf:"bytes,7,opt,name=signed_time,json=signedTime,proto3" json:"signed_time,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *ClientServiceConfig) Reset()                    { *m = ClientServiceConfig{} }
-func (m *ClientServiceConfig) String() string            { return proto.CompactTextString(m) }
-func (*ClientServiceConfig) ProtoMessage()               {}
-func (*ClientServiceConfig) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
+func (m *ClientServiceConfig) Reset()         { *m = ClientServiceConfig{} }
+func (m *ClientServiceConfig) String() string { return proto.CompactTextString(m) }
+func (*ClientServiceConfig) ProtoMessage()    {}
+func (*ClientServiceConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{5}
+}
+func (m *ClientServiceConfig) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientServiceConfig.Unmarshal(m, b)
+}
+func (m *ClientServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientServiceConfig.Marshal(b, m, deterministic)
+}
+func (dst *ClientServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientServiceConfig.Merge(dst, src)
+}
+func (m *ClientServiceConfig) XXX_Size() int {
+	return xxx_messageInfo_ClientServiceConfig.Size(m)
+}
+func (m *ClientServiceConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientServiceConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientServiceConfig proto.InternalMessageInfo
 
 func (m *ClientServiceConfig) GetName() string {
 	if m != nil {
@@ -198,7 +358,7 @@ func (m *ClientServiceConfig) GetFactory() string {
 	return ""
 }
 
-func (m *ClientServiceConfig) GetConfig() *google_protobuf.Any {
+func (m *ClientServiceConfig) GetConfig() *any.Any {
 	if m != nil {
 		return m.Config
 	}
@@ -212,7 +372,7 @@ func (m *ClientServiceConfig) GetRequiredLabels() []*Label {
 	return nil
 }
 
-func (m *ClientServiceConfig) GetSignedTime() *google_protobuf1.Timestamp {
+func (m *ClientServiceConfig) GetSignedTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.SignedTime
 	}
@@ -220,13 +380,35 @@ func (m *ClientServiceConfig) GetSignedTime() *google_protobuf1.Timestamp {
 }
 
 type ClientServiceConfigs struct {
-	Config []*ClientServiceConfig `protobuf:"bytes,1,rep,name=config" json:"config,omitempty"`
+	Config               []*ClientServiceConfig `protobuf:"bytes,1,rep,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *ClientServiceConfigs) Reset()                    { *m = ClientServiceConfigs{} }
-func (m *ClientServiceConfigs) String() string            { return proto.CompactTextString(m) }
-func (*ClientServiceConfigs) ProtoMessage()               {}
-func (*ClientServiceConfigs) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{6} }
+func (m *ClientServiceConfigs) Reset()         { *m = ClientServiceConfigs{} }
+func (m *ClientServiceConfigs) String() string { return proto.CompactTextString(m) }
+func (*ClientServiceConfigs) ProtoMessage()    {}
+func (*ClientServiceConfigs) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{6}
+}
+func (m *ClientServiceConfigs) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientServiceConfigs.Unmarshal(m, b)
+}
+func (m *ClientServiceConfigs) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientServiceConfigs.Marshal(b, m, deterministic)
+}
+func (dst *ClientServiceConfigs) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientServiceConfigs.Merge(dst, src)
+}
+func (m *ClientServiceConfigs) XXX_Size() int {
+	return xxx_messageInfo_ClientServiceConfigs.Size(m)
+}
+func (m *ClientServiceConfigs) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientServiceConfigs.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientServiceConfigs proto.InternalMessageInfo
 
 func (m *ClientServiceConfigs) GetConfig() []*ClientServiceConfig {
 	if m != nil {
@@ -237,13 +419,35 @@ func (m *ClientServiceConfigs) GetConfig() []*ClientServiceConfig {
 
 // A list of serial numbers of certificates which should be considered revoked.
 type RevokedCertificateList struct {
-	Serials [][]byte `protobuf:"bytes,1,rep,name=serials,proto3" json:"serials,omitempty"`
+	Serials              [][]byte `protobuf:"bytes,1,rep,name=serials,proto3" json:"serials,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RevokedCertificateList) Reset()                    { *m = RevokedCertificateList{} }
-func (m *RevokedCertificateList) String() string            { return proto.CompactTextString(m) }
-func (*RevokedCertificateList) ProtoMessage()               {}
-func (*RevokedCertificateList) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{7} }
+func (m *RevokedCertificateList) Reset()         { *m = RevokedCertificateList{} }
+func (m *RevokedCertificateList) String() string { return proto.CompactTextString(m) }
+func (*RevokedCertificateList) ProtoMessage()    {}
+func (*RevokedCertificateList) Descriptor() ([]byte, []int) {
+	return fileDescriptor_system_4386732c28984e72, []int{7}
+}
+func (m *RevokedCertificateList) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RevokedCertificateList.Unmarshal(m, b)
+}
+func (m *RevokedCertificateList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RevokedCertificateList.Marshal(b, m, deterministic)
+}
+func (dst *RevokedCertificateList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RevokedCertificateList.Merge(dst, src)
+}
+func (m *RevokedCertificateList) XXX_Size() int {
+	return xxx_messageInfo_RevokedCertificateList.Size(m)
+}
+func (m *RevokedCertificateList) XXX_DiscardUnknown() {
+	xxx_messageInfo_RevokedCertificateList.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RevokedCertificateList proto.InternalMessageInfo
 
 func (m *RevokedCertificateList) GetSerials() [][]byte {
 	if m != nil {
@@ -265,10 +469,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak/system.proto", fileDescriptor1)
+	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak/system.proto", fileDescriptor_system_4386732c28984e72)
 }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_system_4386732c28984e72 = []byte{
 	// 485 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xef, 0x8a, 0xd3, 0x4e,
 	0x14, 0x25, 0xbb, 0xbf, 0x5f, 0xd7, 0xdc, 0xd6, 0xea, 0x8e, 0x45, 0xb2, 0x45, 0x69, 0x09, 0x8a,

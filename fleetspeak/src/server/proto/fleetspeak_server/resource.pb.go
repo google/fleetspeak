@@ -6,12 +6,18 @@ package fleetspeak_server
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Represents client resource-usage data in the data-store.
 // Next id: 13
@@ -19,29 +25,51 @@ type ClientResourceUsageRecord struct {
 	// Name of the client service that resource usage is charged/attributed to
 	// e.g 'system' for the system Fleetspeak service, or the name of a daemon
 	// service as specified in its config.
-	Scope            string                     `protobuf:"bytes,1,opt,name=scope" json:"scope,omitempty"`
-	Pid              int64                      `protobuf:"varint,2,opt,name=pid" json:"pid,omitempty"`
-	ProcessStartTime *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=process_start_time,json=processStartTime" json:"process_start_time,omitempty"`
+	Scope            string               `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	Pid              int64                `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
+	ProcessStartTime *timestamp.Timestamp `protobuf:"bytes,3,opt,name=process_start_time,json=processStartTime,proto3" json:"process_start_time,omitempty"`
 	// When the resource-usage metrics were measured on the client.
-	ClientTimestamp *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=client_timestamp,json=clientTimestamp" json:"client_timestamp,omitempty"`
+	ClientTimestamp *timestamp.Timestamp `protobuf:"bytes,4,opt,name=client_timestamp,json=clientTimestamp,proto3" json:"client_timestamp,omitempty"`
 	// When the resource usage record was written to the data-store.
-	ServerTimestamp *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=server_timestamp,json=serverTimestamp" json:"server_timestamp,omitempty"`
+	ServerTimestamp *timestamp.Timestamp `protobuf:"bytes,5,opt,name=server_timestamp,json=serverTimestamp,proto3" json:"server_timestamp,omitempty"`
 	// If true, indicates that the process has terminated, and that this is
 	// the final resource-usage record for that process.
-	ProcessTerminated bool `protobuf:"varint,12,opt,name=process_terminated,json=processTerminated" json:"process_terminated,omitempty"`
+	ProcessTerminated bool `protobuf:"varint,12,opt,name=process_terminated,json=processTerminated,proto3" json:"process_terminated,omitempty"`
 	// CPU-usage is in millis per second.
-	MeanUserCpuRate       float32 `protobuf:"fixed32,6,opt,name=mean_user_cpu_rate,json=meanUserCpuRate" json:"mean_user_cpu_rate,omitempty"`
-	MaxUserCpuRate        float32 `protobuf:"fixed32,7,opt,name=max_user_cpu_rate,json=maxUserCpuRate" json:"max_user_cpu_rate,omitempty"`
-	MeanSystemCpuRate     float32 `protobuf:"fixed32,8,opt,name=mean_system_cpu_rate,json=meanSystemCpuRate" json:"mean_system_cpu_rate,omitempty"`
-	MaxSystemCpuRate      float32 `protobuf:"fixed32,9,opt,name=max_system_cpu_rate,json=maxSystemCpuRate" json:"max_system_cpu_rate,omitempty"`
-	MeanResidentMemoryMib int32   `protobuf:"varint,10,opt,name=mean_resident_memory_mib,json=meanResidentMemoryMib" json:"mean_resident_memory_mib,omitempty"`
-	MaxResidentMemoryMib  int32   `protobuf:"varint,11,opt,name=max_resident_memory_mib,json=maxResidentMemoryMib" json:"max_resident_memory_mib,omitempty"`
+	MeanUserCpuRate       float32  `protobuf:"fixed32,6,opt,name=mean_user_cpu_rate,json=meanUserCpuRate,proto3" json:"mean_user_cpu_rate,omitempty"`
+	MaxUserCpuRate        float32  `protobuf:"fixed32,7,opt,name=max_user_cpu_rate,json=maxUserCpuRate,proto3" json:"max_user_cpu_rate,omitempty"`
+	MeanSystemCpuRate     float32  `protobuf:"fixed32,8,opt,name=mean_system_cpu_rate,json=meanSystemCpuRate,proto3" json:"mean_system_cpu_rate,omitempty"`
+	MaxSystemCpuRate      float32  `protobuf:"fixed32,9,opt,name=max_system_cpu_rate,json=maxSystemCpuRate,proto3" json:"max_system_cpu_rate,omitempty"`
+	MeanResidentMemoryMib int32    `protobuf:"varint,10,opt,name=mean_resident_memory_mib,json=meanResidentMemoryMib,proto3" json:"mean_resident_memory_mib,omitempty"`
+	MaxResidentMemoryMib  int32    `protobuf:"varint,11,opt,name=max_resident_memory_mib,json=maxResidentMemoryMib,proto3" json:"max_resident_memory_mib,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
+	XXX_unrecognized      []byte   `json:"-"`
+	XXX_sizecache         int32    `json:"-"`
 }
 
-func (m *ClientResourceUsageRecord) Reset()                    { *m = ClientResourceUsageRecord{} }
-func (m *ClientResourceUsageRecord) String() string            { return proto.CompactTextString(m) }
-func (*ClientResourceUsageRecord) ProtoMessage()               {}
-func (*ClientResourceUsageRecord) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *ClientResourceUsageRecord) Reset()         { *m = ClientResourceUsageRecord{} }
+func (m *ClientResourceUsageRecord) String() string { return proto.CompactTextString(m) }
+func (*ClientResourceUsageRecord) ProtoMessage()    {}
+func (*ClientResourceUsageRecord) Descriptor() ([]byte, []int) {
+	return fileDescriptor_resource_add51730b8e324e1, []int{0}
+}
+func (m *ClientResourceUsageRecord) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClientResourceUsageRecord.Unmarshal(m, b)
+}
+func (m *ClientResourceUsageRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClientResourceUsageRecord.Marshal(b, m, deterministic)
+}
+func (dst *ClientResourceUsageRecord) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientResourceUsageRecord.Merge(dst, src)
+}
+func (m *ClientResourceUsageRecord) XXX_Size() int {
+	return xxx_messageInfo_ClientResourceUsageRecord.Size(m)
+}
+func (m *ClientResourceUsageRecord) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClientResourceUsageRecord.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClientResourceUsageRecord proto.InternalMessageInfo
 
 func (m *ClientResourceUsageRecord) GetScope() string {
 	if m != nil {
@@ -57,21 +85,21 @@ func (m *ClientResourceUsageRecord) GetPid() int64 {
 	return 0
 }
 
-func (m *ClientResourceUsageRecord) GetProcessStartTime() *google_protobuf.Timestamp {
+func (m *ClientResourceUsageRecord) GetProcessStartTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.ProcessStartTime
 	}
 	return nil
 }
 
-func (m *ClientResourceUsageRecord) GetClientTimestamp() *google_protobuf.Timestamp {
+func (m *ClientResourceUsageRecord) GetClientTimestamp() *timestamp.Timestamp {
 	if m != nil {
 		return m.ClientTimestamp
 	}
 	return nil
 }
 
-func (m *ClientResourceUsageRecord) GetServerTimestamp() *google_protobuf.Timestamp {
+func (m *ClientResourceUsageRecord) GetServerTimestamp() *timestamp.Timestamp {
 	if m != nil {
 		return m.ServerTimestamp
 	}
@@ -132,10 +160,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/resource.proto", fileDescriptor2)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/resource.proto", fileDescriptor_resource_add51730b8e324e1)
 }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_resource_add51730b8e324e1 = []byte{
 	// 393 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x90, 0xc1, 0x8e, 0xd3, 0x30,
 	0x10, 0x86, 0x95, 0xed, 0x76, 0xd9, 0xf5, 0x22, 0x36, 0x31, 0x45, 0x98, 0x5e, 0x88, 0x38, 0x05,

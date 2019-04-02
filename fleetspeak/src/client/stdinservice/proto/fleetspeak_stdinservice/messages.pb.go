@@ -6,7 +6,7 @@ package fleetspeak_stdinservice
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 import fleetspeak_monitoring "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -14,17 +14,45 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type InputMessage struct {
 	// The data to be forwarded to the service.
 	Input []byte `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
 	// Command line arguments.
-	Args []string `protobuf:"bytes,2,rep,name=args" json:"args,omitempty"`
+	Args                 []string `protobuf:"bytes,2,rep,name=args,proto3" json:"args,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *InputMessage) Reset()                    { *m = InputMessage{} }
-func (m *InputMessage) String() string            { return proto.CompactTextString(m) }
-func (*InputMessage) ProtoMessage()               {}
-func (*InputMessage) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *InputMessage) Reset()         { *m = InputMessage{} }
+func (m *InputMessage) String() string { return proto.CompactTextString(m) }
+func (*InputMessage) ProtoMessage()    {}
+func (*InputMessage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_messages_0dea43263330e4a8, []int{0}
+}
+func (m *InputMessage) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_InputMessage.Unmarshal(m, b)
+}
+func (m *InputMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_InputMessage.Marshal(b, m, deterministic)
+}
+func (dst *InputMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InputMessage.Merge(dst, src)
+}
+func (m *InputMessage) XXX_Size() int {
+	return xxx_messageInfo_InputMessage.Size(m)
+}
+func (m *InputMessage) XXX_DiscardUnknown() {
+	xxx_messageInfo_InputMessage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_InputMessage proto.InternalMessageInfo
 
 func (m *InputMessage) GetInput() []byte {
 	if m != nil {
@@ -43,15 +71,37 @@ func (m *InputMessage) GetArgs() []string {
 type OutputMessage struct {
 	Stdout        []byte                                         `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
 	Stderr        []byte                                         `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	ResourceUsage *fleetspeak_monitoring.AggregatedResourceUsage `protobuf:"bytes,3,opt,name=resource_usage,json=resourceUsage" json:"resource_usage,omitempty"`
+	ResourceUsage *fleetspeak_monitoring.AggregatedResourceUsage `protobuf:"bytes,3,opt,name=resource_usage,json=resourceUsage,proto3" json:"resource_usage,omitempty"`
 	// When the message was generated.
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp            *timestamp.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *OutputMessage) Reset()                    { *m = OutputMessage{} }
-func (m *OutputMessage) String() string            { return proto.CompactTextString(m) }
-func (*OutputMessage) ProtoMessage()               {}
-func (*OutputMessage) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *OutputMessage) Reset()         { *m = OutputMessage{} }
+func (m *OutputMessage) String() string { return proto.CompactTextString(m) }
+func (*OutputMessage) ProtoMessage()    {}
+func (*OutputMessage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_messages_0dea43263330e4a8, []int{1}
+}
+func (m *OutputMessage) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OutputMessage.Unmarshal(m, b)
+}
+func (m *OutputMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OutputMessage.Marshal(b, m, deterministic)
+}
+func (dst *OutputMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OutputMessage.Merge(dst, src)
+}
+func (m *OutputMessage) XXX_Size() int {
+	return xxx_messageInfo_OutputMessage.Size(m)
+}
+func (m *OutputMessage) XXX_DiscardUnknown() {
+	xxx_messageInfo_OutputMessage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OutputMessage proto.InternalMessageInfo
 
 func (m *OutputMessage) GetStdout() []byte {
 	if m != nil {
@@ -74,7 +124,7 @@ func (m *OutputMessage) GetResourceUsage() *fleetspeak_monitoring.AggregatedReso
 	return nil
 }
 
-func (m *OutputMessage) GetTimestamp() *google_protobuf.Timestamp {
+func (m *OutputMessage) GetTimestamp() *timestamp.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -87,10 +137,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice/messages.proto", fileDescriptor1)
+	proto.RegisterFile("fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice/messages.proto", fileDescriptor_messages_0dea43263330e4a8)
 }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_messages_0dea43263330e4a8 = []byte{
 	// 281 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0xbf, 0x4e, 0xf3, 0x30,
 	0x14, 0xc5, 0x95, 0xb6, 0x5f, 0xa5, 0xfa, 0x6b, 0x19, 0x2c, 0x04, 0x51, 0x16, 0xa2, 0x4e, 0x99,
