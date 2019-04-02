@@ -22,22 +22,6 @@ readonly ARGV0=${0}
 # Go to this script's directory.
 cd "$(/usr/bin/dirname "$(/bin/readlink -e "${ARGV0}")")"
 
-# If PROTOC isn't set:
-if [[ -z "${PROTOC}" ]]; then
-  readonly PROTOC='/usr/local/bin/protoc'
-else
-  readonly PROTOC=${PROTOC}
-fi
-
-# If PROTOC is not an executable:
-if ! [[ -x "${PROTOC}" ]]; then
-  /bin/echo >&2 "
-protoc is not available. Either install protoc, or point this script to protoc using:
-  PROTOC=/path/to/protoc ${ARGV0}
-"
-  exit 1
-fi
-
 # If SRC_PATH isn't set:
 if [[ -z "${SRC_PATH}" ]]; then
   readonly SRC_PATH="${GOPATH}/src/"
@@ -86,10 +70,11 @@ for source_package in ${PROTO_PACKAGES}; do
   /bin/echo "-- Transpiling ${source_package} to Go."
   # Pass the updated PATH to the PROTOC executable.
   PATH="${GOPATH}/bin/:${PATH}" \
-  "${PROTOC}" \
-    --go_out="plugins=grpc,${PROTOC_M_OPTS}:${FLEETSPEAK_PATH}" \
-    --proto_path="${FLEETSPEAK_PATH}" \
-    "${source_package}/"*'.proto'
+    python \
+      -m grpc_tools.protoc \
+      --go_out="plugins=grpc,${PROTOC_M_OPTS}:${FLEETSPEAK_PATH}" \
+      --proto_path="${FLEETSPEAK_PATH}" \
+      "${source_package}/"*'.proto'
 
   if [[ -f "${source_package}/__init__.py" ]]; then
     /bin/echo "-- Transpiling ${source_package} to Python."
