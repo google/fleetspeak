@@ -21,7 +21,11 @@ import (
 	"flag"
 	"io/ioutil"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+
+	"github.com/google/fleetspeak/fleetspeak/src/config/certs"
+	"github.com/google/fleetspeak/fleetspeak/src/config/server"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 )
@@ -39,5 +43,23 @@ func main() {
 	var cfg cpb.Config
 	if err := proto.UnmarshalText(string(b), &cfg); err != nil {
 		log.Exitf("Unable to parse config file [%s]: %v", *configFile, err)
+	}
+
+	if cfg.ConfigurationName == "" {
+		log.Exitf("configuration_name required, not found in [%s]", *configFile)
+	}
+
+	caCert, caKey, err := certs.GetTrustedCert(cfg)
+	if err != nil {
+		log.Exit(err)
+	}
+
+	serverCert, serverKey, err := certs.GetServerCert(cfg, caCert, caKey)
+	if err != nil {
+		log.Exit(err)
+	}
+
+	if err := server.WriteConfig(cfg, serverCert, serverKey); err != nil {
+		log.Exit(err)
 	}
 }

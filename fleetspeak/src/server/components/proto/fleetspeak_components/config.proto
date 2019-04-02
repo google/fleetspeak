@@ -50,6 +50,8 @@ message HttpsConfig {
   // certificates. x509 format. Required.
   string key = 3;
 
-  // If set, disables long running (streaming) connections.
+  // If set, disables long running (streaming) connections. This type of
+  // connection causes more active connections but can reduce database load and
+  // server->client communications latency.
   bool disable_streaming = 4;
 }

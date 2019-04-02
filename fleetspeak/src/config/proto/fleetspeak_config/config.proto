@@ -2,31 +2,58 @@ syntax = "proto3";
 
 package fleetspeak.config;
 
-// The configuration parameters needed by the config tool in order to create the
-// artifacts needed to run a fleetspeak installation.
+import "fleetspeak/src/server/components/proto/fleetspeak_components/config.proto";
+
+// The configuration parameters needed by the configuration tool in order to
+// create the artifacts needed to run a fleetspeak installation.
 message Config {
-  // An name for this installation, e.g. "Nascent" or "Nascent Staging". Used as
-  // a sanity check to differentiate between installations, and may be included
-  // in certificates, if certificates are generated. Required.
+  // An name for this installation, e.g. "Nascent" or "Nascent Staging".
+  // Required.
   string configuration_name = 1;
+
+  // A template for the components configuration file that will be generated.
+  // The configuration tool will populate the https_config.key and
+  // https_config.certificates fields based on the the parameters below.
+  fleetspeak.components.Config components_config = 2;
 
   // A file containing a PEM encoded certificate that clients should be
   // configured to trust. Typically a CA cert. If this file is not already
   // present, a 10 year self-signed CA certificate and associated private key
   // will be created.
-  string trusted_cert_file = 2;
+  string trusted_cert_file = 3;
 
   // A file containing the private key associated with trusted_cert_file, only
   // required if it is necessary to create server certificates.
-  string trusted_cert_key_file = 3;
+  //
+  // NOTE: Contains private key material. Only needs to be online when creating new
+  // server certificates.
+  string trusted_cert_key_file = 4;
 
   // A file containing a PEM encoded certificate that the Fleetspeak server
   // should use to identify itself. If this file is not already present, a 1
   // year certificate signed directly using the contents of
   // trusted_cert_?(key_)file will be created.
-  string server_cert_file = 4;
+  string server_cert_file = 5;
 
   // A file containing the private key associated with
   // server_cert_file. Required.
-  string server_cert_key_file = 5;
+  //
+  // NOTE: Contains private key material.
+  string server_cert_key_file = 6;
+
+  // Where to write the fleetspeak server component configuration file.
+  //
+  // NOTE: Result will contain private key material. Will only be needed by
+  // fleetspeak servers.
+  string server_component_configuration_file = 7;
+
+  // How clients should find the fleetspeak server(s) used by this installation.
+  //
+  // Each entry should be of the form "<ip/hostname>:<port>". Note the clients
+  // will not perform any intelligent load balancing, rather they will continue
+  // to use the first option which works for them.
+  //
+  // If you are creating your own server certificates, they will need to cover
+  // these addresses.
+  repeated string public_host_port = 8;
 }
