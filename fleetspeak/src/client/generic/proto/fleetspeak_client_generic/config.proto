@@ -3,13 +3,13 @@ syntax = "proto3";
 package fleetspeak.client.generic;
 
 message Config {
-  // One or more certificates that the client should trust, typically a CA
-  // certificate.
-  repeated string trusted_certs = 1;
+  // One or more PEM encoded certificates that the client should trust,
+  // typically a CA certificate specific to the installation.
+  string trusted_certs = 1;
 
   // The servers that the client should attempt to connect to in <host>:<port>
   // format. E.g. "lazy.com:443", "10.0.0.5:1234"
-  repeated string servers = 2;
+  repeated string server = 2;
 
   // The client labels that this client should present to the server. Labels
   // indicating the client architecture and OS are automatically included.

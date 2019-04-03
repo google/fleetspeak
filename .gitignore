@@ -19,6 +19,8 @@ fleetspeak.egg-info/
 
 # Binaries created by fleetspeak/build.sh
 fleetspeak/src/admin/fleetspeak_admin
+fleetspeak/src/client/client/client
+fleetspeak/src/client/client/client.exe
 fleetspeak/src/client/daemonservice/testclient/testclient
 fleetspeak/src/client/daemonservice/testclient/testclient.exe
 fleetspeak/src/client/socketservice/testclient/testclient
