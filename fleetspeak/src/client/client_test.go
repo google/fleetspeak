@@ -217,12 +217,6 @@ func TestServiceValidation(t *testing.T) {
 	tmpPath, fin := comtesting.GetTempDir("client_service_validation")
 	defer fin()
 
-	k, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		t.Fatalf("Unable to generate deployment key: %v", err)
-	}
-	pk := *(k.Public().(*rsa.PublicKey))
-
 	sp := filepath.Join(tmpPath, "services")
 	if err := os.Mkdir(sp, 0777); err != nil {
 		t.Fatalf("Unable to create services path [%s]: %v", sp, err)
@@ -277,8 +271,7 @@ func TestServiceValidation(t *testing.T) {
 
 	cl, err := New(
 		config.Configuration{
-			DeploymentPublicKeys: []rsa.PublicKey{pk},
-			PersistenceHandler:   ph,
+			PersistenceHandler: ph,
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: "TestClient"},
 				{ServiceName: "client", Label: "linux"}},

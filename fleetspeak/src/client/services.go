@@ -66,10 +66,6 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 }
 
 func (c *serviceConfiguration) InstallSignedService(sd *fspb.SignedClientServiceConfig) error {
-	if err := c.client.config.ValidateServiceConfig(sd); err != nil {
-		return fmt.Errorf("Unable to verify signature of service config %v, ignoring: %v", sd.Signature, err)
-	}
-
 	var cfg fspb.ClientServiceConfig
 	if err := proto.Unmarshal(sd.ServiceConfig, &cfg); err != nil {
 		return fmt.Errorf("Unable to parse service config [%v], ignoring: %v", sd.Signature, err)

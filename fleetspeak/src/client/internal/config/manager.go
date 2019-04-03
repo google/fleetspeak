@@ -17,12 +17,9 @@
 package config
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -230,20 +227,6 @@ func (m *Manager) ClientID() common.ClientID {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	return m.id
-}
-
-// ValidateServiceConfig checks that a config is correctly signed according to
-// some configured deployment key.
-func (m *Manager) ValidateServiceConfig(sd *fspb.SignedClientServiceConfig) error {
-	var err error
-	for _, k := range m.cfg.DeploymentPublicKeys {
-		hashed := sha256.Sum256(sd.ServiceConfig)
-		err = rsa.VerifyPSS(&k, crypto.SHA256, hashed[:], sd.Signature, nil)
-		if err == nil {
-			return nil
-		}
-	}
-	return err
 }
 
 // RecordRunningService adds name to the list of services which this client is

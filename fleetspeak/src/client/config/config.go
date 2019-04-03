@@ -16,7 +16,6 @@
 package config
 
 import (
-	"crypto/rsa"
 	"crypto/x509"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -36,13 +35,6 @@ type Configuration struct {
 	//
 	// Hardcoding recommended.
 	TrustedCerts *x509.CertPool
-
-	// DeploymentPublicKeys is used to verify service configuration records. To
-	// configure fleetspeak to run a particular program, it is necessary to sign a
-	// service configuration record with the private part of one of these keys.
-	//
-	// Hardcoding recommended.
-	DeploymentPublicKeys []rsa.PublicKey
 
 	// Servers lists the hosts that the client should attempt to connect to,
 	// should be of the form <hostname>:<port>.
