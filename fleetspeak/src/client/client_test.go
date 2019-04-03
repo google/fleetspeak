@@ -17,10 +17,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -235,7 +231,7 @@ func TestServiceValidation(t *testing.T) {
 	}
 
 	// A service which should work.
-	cfg := signServiceConfig(t, k, &fspb.ClientServiceConfig{
+	cfg := signServiceConfig(t, &fspb.ClientServiceConfig{
 		Name:           "FakeService",
 		Factory:        "FakeService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "linux"}},
@@ -244,18 +240,8 @@ func TestServiceValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A service signed with the wrong key - should not be started.
-	bk, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		t.Fatalf("Unable to generate bad deployment key: %v", err)
-	}
-	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{Name: "FailingServiceBadSig", Factory: "FailingService"})
-	if err := clienttestutils.WriteSignedServiceConfig(sp, "FailingServiceBadSig.signed", cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	// A service signed with the right key, but requiring the wrong label.
-	cfg = signServiceConfig(t, bk, &fspb.ClientServiceConfig{
+	// A service requiring the wrong label.
+	cfg = signServiceConfig(t, &fspb.ClientServiceConfig{
 		Name:           "FailingServiceBadLabel",
 		Factory:        "FailingService",
 		RequiredLabels: []*fspb.Label{{ServiceName: "client", Label: "windows"}},
@@ -383,15 +369,10 @@ func TestTextServiceConfig(t *testing.T) {
 	}
 }
 
-func signServiceConfig(t *testing.T, k *rsa.PrivateKey, cfg *fspb.ClientServiceConfig) *fspb.SignedClientServiceConfig {
+func signServiceConfig(t *testing.T, cfg *fspb.ClientServiceConfig) *fspb.SignedClientServiceConfig {
 	b, err := proto.Marshal(cfg)
 	if err != nil {
 		t.Fatalf("Unable to serialize service config: %v", err)
 	}
-	h := sha256.Sum256(b)
-	sig, err := rsa.SignPSS(rand.Reader, k, crypto.SHA256, h[:], nil)
-	if err != nil {
-		t.Fatalf("Unable to sign service config: %v", err)
-	}
-	return &fspb.SignedClientServiceConfig{ServiceConfig: b, Signature: sig}
+	return &fspb.SignedClientServiceConfig{ServiceConfig: b}
 }
