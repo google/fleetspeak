@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package fleetspeak.client.generic;
+
+message Config {
+  // One or more certificates that the client should trust, typically a CA
+  // certificate.
+  repeated string trusted_certs = 1;
+
+  // The servers that the client should attempt to connect to in <host>:<port>
+  // format. E.g. "lazy.com:443", "10.0.0.5:1234"
+  repeated string servers = 2;
+
+  // The client labels that this client should present to the server. Labels
+  // indicating the client architecture and OS are automatically included.
+  repeated string client_label = 3;
+
+  oneof persistence_handler {
+    FilesystemHandler filesystem_handler = 4;
+    RegistryHandler registry_handler = 5;
+  }
+}
+
+message FilesystemHandler {
+  // Where to persist client state, see NewFilesystemPersistenceHandler for
+  // details:
+  //
+  // https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/config#FilesystemPersistenceHandler
+  string configuration_directory = 1;
+  string state_file = 2;
+}
+
+message RegistryHandler {
+  // Where to persist client state, see NewWindowsRegistryPersistenceHandler
+  // for details:
+  //
+  // https://github.com/google/fleetspeak/blob/master/fleetspeak/src/client/config/windows_registry_persistence_handler.go
+  string configuration_key = 1;
+}
