@@ -32,7 +32,7 @@ func GetTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, e
 				return nil, nil, err
 			}
 		} else {
-			return nil, nil, fmt.Errorf("unable to stat trusted_cert_file [%s]: %v")
+			return nil, nil, fmt.Errorf("unable to stat trusted_cert_file [%s]: %v", cfg.TrustedCertFile, err)
 		}
 	}
 	return getTrustedCert(cfg)

@@ -20,10 +20,10 @@ func WriteConfig(cfg cpb.Config, certPEM, keyPEM []byte) error {
 		return errors.New("components_config is required")
 	}
 	if cc.HttpsConfig == nil {
-		return errors.New("component_config.https_config is required")
+		return errors.New("components_config.https_config is required")
 	}
 	if cc.HttpsConfig.ListenAddress == "" {
-		return errors.New("component_config.https_config.listen_address is required")
+		return errors.New("components_config.https_config.listen_address is required")
 	}
 	cc.HttpsConfig.Certificates = string(certPEM)
 	cc.HttpsConfig.Key = string(keyPEM)

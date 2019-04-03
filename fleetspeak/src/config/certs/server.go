@@ -35,7 +35,7 @@ func GetServerCert(cfg cpb.Config, ca *x509.Certificate, caPriv interface{}) (ce
 				return nil, nil, err
 			}
 		} else {
-			return nil, nil, fmt.Errorf("unable to stat server_cert_file [%s]: %v")
+			return nil, nil, fmt.Errorf("unable to stat server_cert_file [%s]: %v", cfg.ServerCertFile, err)
 		}
 	}
 	return getServerCert(cfg)
