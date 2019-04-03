@@ -98,6 +98,7 @@ time (
 
       mkdir -p pkg/usr/bin
       install -o root -g root src/server/server/server pkg/usr/bin/fleetspeak-server
+      install -o root -g root src/config/fleetspeak_config pkg/usr/bin/fleetspeak-config
   
       dpkg-deb -b pkg out.deb
     '

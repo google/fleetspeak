@@ -43,7 +43,7 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_1974716300b16e7f, []int{0}
+	return fileDescriptor_config_9878284d6f5ba5f5, []int{0}
 }
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config.Unmarshal(m, b)
@@ -101,7 +101,9 @@ type HttpsConfig struct {
 	// The private key used to identify the server. Must match the first entry in
 	// certificates. x509 format. Required.
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
-	// If set, disables long running (streaming) connections.
+	// If set, disables long running (streaming) connections. This type of
+	// connection causes more active connections but can reduce database load and
+	// server->client communications latency.
 	DisableStreaming     bool     `protobuf:"varint,4,opt,name=disable_streaming,json=disableStreaming,proto3" json:"disable_streaming,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -112,7 +114,7 @@ func (m *HttpsConfig) Reset()         { *m = HttpsConfig{} }
 func (m *HttpsConfig) String() string { return proto.CompactTextString(m) }
 func (*HttpsConfig) ProtoMessage()    {}
 func (*HttpsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_1974716300b16e7f, []int{1}
+	return fileDescriptor_config_9878284d6f5ba5f5, []int{1}
 }
 func (m *HttpsConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpsConfig.Unmarshal(m, b)
@@ -166,10 +168,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/components/proto/fleetspeak_components/config.proto", fileDescriptor_config_1974716300b16e7f)
+	proto.RegisterFile("fleetspeak/src/server/components/proto/fleetspeak_components/config.proto", fileDescriptor_config_9878284d6f5ba5f5)
 }
 
-var fileDescriptor_config_1974716300b16e7f = []byte{
+var fileDescriptor_config_9878284d6f5ba5f5 = []byte{
 	// 307 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x8f, 0xe1, 0x6a, 0xf2, 0x30,
 	0x14, 0x86, 0xe9, 0xe7, 0x87, 0x68, 0xd4, 0xe1, 0x32, 0x36, 0xfa, 0x53, 0x0a, 0x03, 0x61, 0xd0,
