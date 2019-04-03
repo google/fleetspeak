@@ -27,7 +27,7 @@ type Config struct {
 	ConfigurationName string `protobuf:"bytes,1,opt,name=configuration_name,json=configurationName,proto3" json:"configuration_name,omitempty"`
 	// A template for the components configuration file that will be generated.
 	// The configuration tool will populate the https_config.key and
-	// https_config.certificates fields based on the the parameters below.
+	// https_config.certificates fields based on the parameters below.
 	ComponentsConfig *fleetspeak_components.Config `protobuf:"bytes,2,opt,name=components_config,json=componentsConfig,proto3" json:"components_config,omitempty"`
 	// A file containing a PEM encoded certificate that clients should be
 	// configured to trust. Typically a CA cert. If this file is not already
@@ -73,7 +73,7 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_9aedc0ce3e7d1550, []int{0}
+	return fileDescriptor_config_9119e81c0f74769a, []int{0}
 }
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config.Unmarshal(m, b)
@@ -154,10 +154,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/config/proto/fleetspeak_config/config.proto", fileDescriptor_config_9aedc0ce3e7d1550)
+	proto.RegisterFile("fleetspeak/src/config/proto/fleetspeak_config/config.proto", fileDescriptor_config_9119e81c0f74769a)
 }
 
-var fileDescriptor_config_9aedc0ce3e7d1550 = []byte{
+var fileDescriptor_config_9119e81c0f74769a = []byte{
 	// 302 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0x5f, 0x4b, 0x84, 0x40,
 	0x14, 0xc5, 0x31, 0xcb, 0x6a, 0x82, 0x5a, 0x87, 0x02, 0x09, 0x02, 0xa9, 0x17, 0x09, 0x72, 0xa8,
