@@ -24,9 +24,7 @@
 package main
 
 import (
-	"crypto/rsa"
 	"crypto/x509"
-	"encoding/pem"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -48,10 +46,9 @@ import (
 )
 
 var (
-	configPath        = flag.String("config_path", "", "Directory for configuration files and client state.")
-	server            = flag.String("server", "", "The server to connect to: '<hostname>:<port>'")
-	trustedCertFile   = flag.String("trusted_cert_file", "", "A PEM file contain one or more certificates to trust when identifying servers.")
-	deploymentKeyFile = flag.String("deployment_key_file", "", "A PEM file containing one or more deployment keys (public exponents) to trust.")
+	configPath      = flag.String("config_path", "", "Directory for configuration files and client state.")
+	server          = flag.String("server", "", "The server to connect to: '<hostname>:<port>'")
+	trustedCertFile = flag.String("trusted_cert_file", "", "A PEM file contain one or more certificates to trust when identifying servers.")
 )
 
 func main() {
@@ -64,9 +61,8 @@ func main() {
 
 	cl, err := client.New(
 		config.Configuration{
-			TrustedCerts:         readTrustedCerts(),
-			DeploymentPublicKeys: nil,
-			Servers:              []string{*server},
+			TrustedCerts: readTrustedCerts(),
+			Servers:      []string{*server},
 			ClientLabels: []*fspb.Label{
 				{ServiceName: "client", Label: runtime.GOARCH},
 				{ServiceName: "client", Label: runtime.GOOS},
@@ -104,32 +100,4 @@ func readTrustedCerts() *x509.CertPool {
 		log.Exitf("No certs found in trusted_cert_file [%s]", *trustedCertFile)
 	}
 	return p
-}
-
-func readDeploymentKeys() []rsa.PublicKey {
-	b, err := ioutil.ReadFile(*deploymentKeyFile)
-	if err != nil {
-		log.Exitf("Unable to read deployment_key_file [%s]: %v", *deploymentKeyFile, err)
-	}
-	var ks []rsa.PublicKey
-	for {
-		var p *pem.Block
-		p, b = pem.Decode(b)
-		if p == nil {
-			break
-		}
-		if p.Type != "PUBLIC KEY" {
-			log.Exitf("Unexpected PEM type [%s] in [%s], expected [PUBLIC KEY]", p.Type, *deploymentKeyFile)
-		}
-		k, err := x509.ParsePKIXPublicKey(p.Bytes)
-		if err != nil {
-			log.Exitf("Error parsing public key in [%s]: %v", *deploymentKeyFile, err)
-		}
-		key, ok := k.(*rsa.PublicKey)
-		if !ok {
-			log.Exitf("Expected [*rsa.PublicKey] for deployment public key, got [%T]", k)
-		}
-		ks = append(ks, *key)
-	}
-	return ks
 }

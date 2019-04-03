@@ -15,10 +15,6 @@
 package config
 
 import (
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"path/filepath"
 	"testing"
 
@@ -91,45 +87,5 @@ func TestWriteback(t *testing.T) {
 	id2 := m2.ClientID()
 	if id2 != id1 {
 		t.Errorf("Got clientID=%v in reconstituted config, expected %v", id2, id1)
-	}
-}
-
-func TestValidateServiceConfig(t *testing.T) {
-	k1, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Errorf("unable to generate deployment key: %v", err)
-		return
-	}
-
-	k2, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Errorf("unable to generate deployment key: %v", err)
-		return
-	}
-
-	m, err := StartManager(
-		&config.Configuration{
-			DeploymentPublicKeys: []rsa.PublicKey{k1.PublicKey, k2.PublicKey},
-			FixedServices:        make([]*fspb.ClientServiceConfig, 0),
-		}, make(chan *fspb.ClientInfoData))
-	if err != nil {
-		t.Errorf("StartManager failed: %v", err)
-	}
-	defer m.Stop()
-
-	for _, k := range []*rsa.PrivateKey{k1, k2} {
-		sd := fspb.SignedClientServiceConfig{ServiceConfig: []byte("A serialized proto")}
-		hashed := sha256.Sum256(sd.ServiceConfig)
-		sd.Signature, err = rsa.SignPSS(rand.Reader, k, crypto.SHA256, hashed[:], nil)
-		if err != nil {
-			t.Errorf("unable to sign ServiceData: %v", err)
-		}
-		if err := m.ValidateServiceConfig(&sd); err != nil {
-			t.Errorf("ValidateServiceConfig with valid key should not error, got: %v", err)
-		}
-		sd.ServiceConfig = []byte("A corrupted serialized proto")
-		if err := m.ValidateServiceConfig(&sd); err == nil {
-			t.Error("ValidateServiceConfig on corrupt proto should error, got nil")
-		}
 	}
 }
