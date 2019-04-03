@@ -65,6 +65,12 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 	}
 }
 
+// InstallSignedService installs a service provided in signed service
+// configurationf format. Note however that this is meant for backwards
+// compatibility and the signature is not checked.
+//
+// Currently, we assume that service configurations are kept in a secured
+// location.
 func (c *serviceConfiguration) InstallSignedService(sd *fspb.SignedClientServiceConfig) error {
 	var cfg fspb.ClientServiceConfig
 	if err := proto.Unmarshal(sd.ServiceConfig, &cfg); err != nil {
