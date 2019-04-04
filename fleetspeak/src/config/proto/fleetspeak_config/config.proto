@@ -13,7 +13,7 @@ message Config {
 
   // A template for the components configuration file that will be generated.
   // The configuration tool will populate the https_config.key and
-  // https_config.certificates fields based on the the parameters below.
+  // https_config.certificates fields based on the parameters below.
   fleetspeak.components.Config components_config = 2;
 
   // A file containing a PEM encoded certificate that clients should be
