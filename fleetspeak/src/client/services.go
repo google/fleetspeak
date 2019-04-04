@@ -66,7 +66,7 @@ func (c *serviceConfiguration) ProcessMessage(ctx context.Context, m *fspb.Messa
 }
 
 // InstallSignedService installs a service provided in signed service
-// configurationf format. Note however that this is meant for backwards
+// configuration format. Note however that this is meant for backwards
 // compatibility and the signature is not checked.
 //
 // Currently, we assume that service configurations are kept in a secured
