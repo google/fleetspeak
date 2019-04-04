@@ -30,7 +30,9 @@ matrix:
         - fleetspeak/build.sh && fleetspeak/test.sh
         # Install the built package and check that the fleetspeak-config program
         # doesn't error out.
-        - sudo fleetspeak/test-package.sh fleetspeak/server.deb
+        - cd fleetspeak
+        - ./build-pkgs.sh
+        - sudo ./test-package.sh server.deb
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.

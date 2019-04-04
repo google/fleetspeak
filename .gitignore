@@ -19,6 +19,8 @@ fleetspeak.egg-info/
 
 # Binaries created by fleetspeak/build.sh
 fleetspeak/src/admin/fleetspeak_admin
+fleetspeak/src/client/client/client
+fleetspeak/src/client/client/client.exe
 fleetspeak/src/client/daemonservice/testclient/testclient
 fleetspeak/src/client/daemonservice/testclient/testclient.exe
 fleetspeak/src/client/socketservice/testclient/testclient
@@ -33,6 +35,7 @@ fleetspeak/src/server/grpcservice/client/testing/tester
 fleetspeak/src/server/server/server
 fleetspeak/src/osquery/connector
 
-# Directory laying out debian package structure, fully populated by
-# fleetspeak/build.sh.
-fleetspeak/pkg/
+# Directory laying out debian package structures, fully populated by
+# fleetspeak/build-pkgs.sh
+fleetspeak/server-pkg/
+fleetspeak/client-pkg/

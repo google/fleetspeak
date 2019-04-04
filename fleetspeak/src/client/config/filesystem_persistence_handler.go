@@ -46,8 +46,9 @@ type FilesystemPersistenceHandler struct {
 // configurationPath is the location to look for additional configuration
 // files. Possible files include:
 //
-// /communicator.txt    - A text format clpb.CommunicatorConfig, used to tweak communicator behavior.
-// /services/<service>  - A binary format SignedClientServiceConfig. One file for each configured service.
+// /communicator.txt        - A text format clpb.CommunicatorConfig, used to tweak communicator behavior.
+// /services/<service>      - A binary format fspb.SignedClientServiceConfig. One file for each configured service.
+// /textservices/<service>  - A text format fspb.ClientServiceConfig
 //
 // All of these files are optional, though Fleetspeak will not be particularly
 // useful without at least one configured service.
