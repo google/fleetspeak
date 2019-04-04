@@ -52,9 +52,16 @@ func MakeConfiguration(cfg gpb.Config) (config.Configuration, error) {
 	for _, l := range cfg.ClientLabel {
 		labels = append(labels, &fspb.Label{ServiceName: "client", Label: l})
 	}
+
+	ph, err := makePersistenceHandler(cfg)
+	if err != nil {
+		return config.Configuration{}, err
+	}
+
 	return config.Configuration{
-		TrustedCerts: trustedCerts,
-		Servers:      cfg.Server,
-		ClientLabels: labels,
+		TrustedCerts:       trustedCerts,
+		Servers:            cfg.Server,
+		PersistenceHandler: ph,
+		ClientLabels:       labels,
 	}, nil
 }
