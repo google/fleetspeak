@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice"
 	"github.com/google/fleetspeak/fleetspeak/src/client/generic"
 	"github.com/google/fleetspeak/fleetspeak/src/client/https"
@@ -38,6 +39,14 @@ func main() {
 	if err != nil {
 		log.Exitf("Error in configuration file: %v", err)
 	}
+
+	var com comms.Communicator
+	if cfgPB.Streaming {
+		com = &https.StreamingCommunicator{}
+	} else {
+		com = &https.Communicator{}
+	}
+
 	cl, err := client.New(cfg,
 		client.Components{
 			ServiceFactories: map[string]service.Factory{
@@ -46,7 +55,7 @@ func main() {
 				"Socket": socketservice.Factory,
 				"Stdin":  stdinservice.Factory,
 			},
-			Communicator: &https.Communicator{},
+			Communicator: com,
 		})
 	if err != nil {
 		log.Exitf("Error starting client: %v", err)
