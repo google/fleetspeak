@@ -1,0 +1,8 @@
+Package: fleetspeak-client
+Version: <version>
+Maintainer: GRR Dev <grr-dev@googlegroups.com>
+Homepage: https://github.com/google/fleetspeak
+Architecture: amd64
+Description: client for the Fleetspeak communications framework
+ Fleetspeak is a framework for communicating with a fleet of machines, with a
+ focus on security and administrative tasks.

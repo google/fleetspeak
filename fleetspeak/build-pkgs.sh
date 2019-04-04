@@ -33,4 +33,22 @@ fakeroot bash -c '
   dpkg-deb -c server.deb
 '
 
+/bin/echo >&2 ""
+/bin/echo >&2 "Building client.deb"
+fakeroot bash -c '
+  rm -rf client-pkg
+  cp -r client-pkg-tmpl client-pkg
+
+  chmod 755 client-pkg/*
+
+  sed -i "s/<version>/$(cat ../VERSION)/" client-pkg/DEBIAN/control
+
+  mkdir -p client-pkg/usr/bin
+  install -o root -g root src/client/client/client client-pkg/usr/bin/fleetspeak-client
+  
+  dpkg-deb -b client-pkg client.deb
+  dpkg-deb -c client.deb
+'
+
+
 

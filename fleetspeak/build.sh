@@ -79,5 +79,3 @@ time (
   done
 )
 
-  /bin/echo >&2 -n "${ARGV0} "
-)

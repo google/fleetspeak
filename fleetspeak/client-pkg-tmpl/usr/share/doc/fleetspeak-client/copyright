@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Fleetspeak
+Upstream-Contact: GRR Dev <grr-dev@googlegroups.com>
+Source: https://github.com/google/fleetspeak
+
+Files: *
+Copyright: 2017-2018 Google
+License: Apache-2.0
