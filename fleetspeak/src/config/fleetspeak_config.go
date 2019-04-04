@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/config/certs"
+	"github.com/google/fleetspeak/fleetspeak/src/config/client"
 	"github.com/google/fleetspeak/fleetspeak/src/config/server"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
@@ -49,7 +50,7 @@ func main() {
 		log.Exitf("configuration_name required, not found in [%s]", *configFile)
 	}
 
-	caCert, caKey, err := certs.GetTrustedCert(cfg)
+	caCert, caKey, caPEM, err := certs.GetTrustedCert(cfg)
 	if err != nil {
 		log.Exit(err)
 	}
@@ -60,6 +61,10 @@ func main() {
 	}
 
 	if err := server.WriteConfig(cfg, serverCert, serverKey); err != nil {
+		log.Exit(err)
+	}
+
+	if err := client.WriteLinuxConfig(cfg, caPEM); err != nil {
 		log.Exit(err)
 	}
 }

@@ -35,18 +35,18 @@ import (
 
 // GetTrustedCert returns the trusted certificate associated with cfg, creating
 // it if necessary.  If available, priv is the private key associated with cert.
-func GetTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, err error) {
+func GetTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, pem []byte, err error) {
 	if cfg.TrustedCertFile == "" {
-		return nil, nil, errors.New("trusted_cert_file not set")
+		return nil, nil, nil, errors.New("trusted_cert_file not set")
 	}
 	if _, err := os.Stat(cfg.TrustedCertFile); err != nil {
 		if os.IsNotExist(err) {
 			// Attempt to create a CA certificate.
 			if err := makeCACert(cfg); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		} else {
-			return nil, nil, fmt.Errorf("unable to stat trusted_cert_file [%s]: %v", cfg.TrustedCertFile, err)
+			return nil, nil, nil, fmt.Errorf("unable to stat trusted_cert_file [%s]: %v", cfg.TrustedCertFile, err)
 		}
 	}
 	return getTrustedCert(cfg)
@@ -97,48 +97,48 @@ func makeCACert(cfg cpb.Config) error {
 	return nil
 }
 
-func getTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, err error) {
+func getTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, certPEM []byte, err error) {
 	// Read and validate the cert.
-	certPEM, err := ioutil.ReadFile(cfg.TrustedCertFile)
+	certPEM, err = ioutil.ReadFile(cfg.TrustedCertFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to read trusted certificate file [%s]: %v", cfg.TrustedCertFile, err)
+		return nil, nil, nil, fmt.Errorf("unable to read trusted certificate file [%s]: %v", cfg.TrustedCertFile, err)
 	}
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil || certBlock.Type != "CERTIFICATE" {
-		return nil, nil, fmt.Errorf("trusted certificate file [%s] does not appear to contain a PEM format certificate", cfg.TrustedCertFile)
+		return nil, nil, nil, fmt.Errorf("trusted certificate file [%s] does not appear to contain a PEM format certificate", cfg.TrustedCertFile)
 	}
 	cert, err = x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to parse trusted certificate file [%s]: %v", cfg.TrustedCertFile, err)
+		return nil, nil, nil, fmt.Errorf("unable to parse trusted certificate file [%s]: %v", cfg.TrustedCertFile, err)
 	}
 
 	// Read the key file, if present.
 	keyPEM, err := ioutil.ReadFile(cfg.TrustedCertKeyFile)
 	if err != nil {
 		log.Infof("unable to read the trusted certificate key file [%s], server certificate creation disabled: %v", cfg.TrustedCertKeyFile, err)
-		return cert, nil, nil
+		return cert, nil, certPEM, nil
 	}
 
 	keyBlock, _ := pem.Decode(keyPEM)
 	if keyBlock == nil {
-		return nil, nil, fmt.Errorf("trusted certificate key file [%s] does not appear to contain a PEM format key", cfg.TrustedCertKeyFile)
+		return nil, nil, nil, fmt.Errorf("trusted certificate key file [%s] does not appear to contain a PEM format key", cfg.TrustedCertKeyFile)
 	}
 	switch keyBlock.Type {
 	case "RSA PRIVATE KEY":
 		priv, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to parse RSA key in certificate key file [%s]: %v", cfg.TrustedCertKeyFile, err)
+			return nil, nil, nil, fmt.Errorf("unable to parse RSA key in certificate key file [%s]: %v", cfg.TrustedCertKeyFile, err)
 		}
-		return cert, priv, nil
+		return cert, priv, certPEM, nil
 	case "EC PRIVATE KEY":
 		priv, err = x509.ParseECPrivateKey(keyBlock.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to parse EC key in certificate key file [%s]: %v", cfg.TrustedCertKeyFile, err)
+			return nil, nil, nil, fmt.Errorf("unable to parse EC key in certificate key file [%s]: %v", cfg.TrustedCertKeyFile, err)
 		}
-		return cert, priv, nil
+		return cert, priv, certPEM, nil
 	default:
-		return nil, nil, fmt.Errorf("unsupport PEM block type [%s] in certificate key file [%s]", keyBlock.Type, cfg.TrustedCertKeyFile)
+		return nil, nil, nil, fmt.Errorf("unsupport PEM block type [%s] in certificate key file [%s]", keyBlock.Type, cfg.TrustedCertKeyFile)
 	}
 
-	return cert, priv, nil
+	return cert, priv, certPEM, nil
 }

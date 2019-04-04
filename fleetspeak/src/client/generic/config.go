@@ -33,7 +33,7 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-// MakeConfiguration returns a config.Configuration based on the
+// MakeConfiguration returns a config.Configuration based on the provided gpb.Config.
 func MakeConfiguration(cfg gpb.Config) (config.Configuration, error) {
 	trustedCerts := x509.NewCertPool()
 	if !trustedCerts.AppendCertsFromPEM([]byte(cfg.TrustedCerts)) {
