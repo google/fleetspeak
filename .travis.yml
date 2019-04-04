@@ -30,6 +30,7 @@ matrix:
         - fleetspeak/build.sh && fleetspeak/test.sh
         # Install the built package and check that the fleetspeak-config program
         # doesn't error out.
+        - fleetspeak/build-pkgs.sh
         - sudo fleetspeak/test-package.sh fleetspeak/server.deb
 
     # TODO: Find alternatives to Travis for MacOS testing.

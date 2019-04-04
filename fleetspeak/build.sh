@@ -36,8 +36,6 @@ readonly GOS=$(/usr/bin/find . -name '*.go')
 # shellcheck disable=SC2086
 readonly MAIN_FILES=$(grep -rl 'func main' ${GOS} | grep -v '^./src/server/plugins/.*/')
 
-readonly PLUGIN_FILES=$(grep -rl 'package main' src/server/plugins/*/*.go)
-
 export TIMEFORMAT='real %lR user %lU system %lS'
 
 if ! python -c 'import fleetspeak'; then
@@ -79,30 +77,7 @@ time (
   for f in ${MAIN_FILES}; do
     build_single_main_file "${f}"
   done
-
-  if [[ "$(uname)" != 'CYGWIN'* ]]; then
-    for f in ${PLUGIN_FILES}; do
-      build_single_plugin_file "${f}"
-    done
-
-    /bin/echo >&2 ""
-    /bin/echo >&2 "Building .deb"
-
-    fakeroot bash -c '
-      rm -rf pkg
-      cp -r pkg-tmpl pkg
-
-      chmod 755 pkg/*
-
-      sed -i "s/<version>/$(cat ../VERSION)/" pkg/DEBIAN/control
-
-      mkdir -p pkg/usr/bin
-      install -o root -g root src/server/server/server pkg/usr/bin/fleetspeak-server
-      install -o root -g root src/config/fleetspeak_config pkg/usr/bin/fleetspeak-config
-  
-      dpkg-deb -b pkg server.deb
-    '
-  fi
+)
 
   /bin/echo >&2 -n "${ARGV0} "
 )
