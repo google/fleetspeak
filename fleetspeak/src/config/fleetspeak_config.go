@@ -67,4 +67,12 @@ func main() {
 	if err := client.WriteLinuxConfig(cfg, caPEM); err != nil {
 		log.Exit(err)
 	}
+
+	if err := client.WriteDarwinConfig(cfg, caPEM); err != nil {
+		log.Exit(err)
+	}
+
+	if err := client.WriteWindowsConfig(cfg, caPEM); err != nil {
+		log.Exit(err)
+	}
 }
