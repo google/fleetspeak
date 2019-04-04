@@ -19,7 +19,7 @@ func makePersistenceHandler(cfg gpb.Config) (config.PersistenceHandler, error) {
 	case *gpb.Config_FilesystemHandler:
 		return config.NewFilesystemPersistenceHandler(h.FilesystemHandler.ConfigurationDirectory, h.FilesystemHandler.StateFile)
 	case *gpb.Config_RegistryHandler:
-		return config.NewWindowsRegistryPersistenceHandler(h.RegistryHandler.ConfigurationKey)
+		return config.NewWindowsRegistryPersistenceHandler(h.RegistryHandler.ConfigurationKey, false)
 	default:
 		return nil, fmt.Errorf("persistence_handler has unsupported type: %T", cfg.PersistenceHandler)
 	}
