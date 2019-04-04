@@ -79,7 +79,7 @@ func WriteWindowsConfig(cfg cpb.Config, trustedPEM []byte) error {
 		Server:       cfg.PublicHostPort,
 		ClientLabel:  []string{cfg.ComponentsConfig.RequiredLabel},
 		PersistenceHandler: &gpb.Config_RegistryHandler{
-			RegisteryHandler: &gpb.RegistryHandler{
+			RegistryHandler: &gpb.RegistryHandler{
 				ConfigurationKey: `HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakClient`,
 			}},
 		Streaming: !cfg.ComponentsConfig.HttpsConfig.DisableStreaming,
