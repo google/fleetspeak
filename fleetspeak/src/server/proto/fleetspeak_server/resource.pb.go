@@ -3,10 +3,12 @@
 
 package fleetspeak_server
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Represents client resource-usage data in the data-store.
 // Next id: 13
@@ -51,16 +53,17 @@ func (m *ClientResourceUsageRecord) Reset()         { *m = ClientResourceUsageRe
 func (m *ClientResourceUsageRecord) String() string { return proto.CompactTextString(m) }
 func (*ClientResourceUsageRecord) ProtoMessage()    {}
 func (*ClientResourceUsageRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_resource_add51730b8e324e1, []int{0}
+	return fileDescriptor_e6a44a47dea9fbac, []int{0}
 }
+
 func (m *ClientResourceUsageRecord) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientResourceUsageRecord.Unmarshal(m, b)
 }
 func (m *ClientResourceUsageRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientResourceUsageRecord.Marshal(b, m, deterministic)
 }
-func (dst *ClientResourceUsageRecord) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientResourceUsageRecord.Merge(dst, src)
+func (m *ClientResourceUsageRecord) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientResourceUsageRecord.Merge(m, src)
 }
 func (m *ClientResourceUsageRecord) XXX_Size() int {
 	return xxx_messageInfo_ClientResourceUsageRecord.Size(m)
@@ -160,10 +163,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/resource.proto", fileDescriptor_resource_add51730b8e324e1)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/resource.proto", fileDescriptor_e6a44a47dea9fbac)
 }
 
-var fileDescriptor_resource_add51730b8e324e1 = []byte{
+var fileDescriptor_e6a44a47dea9fbac = []byte{
 	// 393 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x90, 0xc1, 0x8e, 0xd3, 0x30,
 	0x10, 0x86, 0x95, 0xed, 0x76, 0xd9, 0xf5, 0x22, 0x36, 0x31, 0x45, 0x98, 0x5e, 0x88, 0x38, 0x05,

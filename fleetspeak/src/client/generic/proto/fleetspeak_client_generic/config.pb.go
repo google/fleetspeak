@@ -3,9 +3,11 @@
 
 package fleetspeak_client_generic
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Config struct {
 	// One or more PEM encoded certificates that the client should trust,
@@ -44,16 +46,17 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f45b01599d583594, []int{0}
+	return fileDescriptor_4a4da71ceca0ef7d, []int{0}
 }
+
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config.Unmarshal(m, b)
 }
 func (m *Config) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config.Marshal(b, m, deterministic)
 }
-func (dst *Config) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config.Merge(dst, src)
+func (m *Config) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config.Merge(m, src)
 }
 func (m *Config) XXX_Size() int {
 	return xxx_messageInfo_Config.Size(m)
@@ -63,27 +66,6 @@ func (m *Config) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_Config proto.InternalMessageInfo
-
-type isConfig_PersistenceHandler interface {
-	isConfig_PersistenceHandler()
-}
-
-type Config_FilesystemHandler struct {
-	FilesystemHandler *FilesystemHandler `protobuf:"bytes,4,opt,name=filesystem_handler,json=filesystemHandler,proto3,oneof"`
-}
-type Config_RegistryHandler struct {
-	RegistryHandler *RegistryHandler `protobuf:"bytes,5,opt,name=registry_handler,json=registryHandler,proto3,oneof"`
-}
-
-func (*Config_FilesystemHandler) isConfig_PersistenceHandler() {}
-func (*Config_RegistryHandler) isConfig_PersistenceHandler()   {}
-
-func (m *Config) GetPersistenceHandler() isConfig_PersistenceHandler {
-	if m != nil {
-		return m.PersistenceHandler
-	}
-	return nil
-}
 
 func (m *Config) GetTrustedCerts() string {
 	if m != nil {
@@ -102,6 +84,29 @@ func (m *Config) GetServer() []string {
 func (m *Config) GetClientLabel() []string {
 	if m != nil {
 		return m.ClientLabel
+	}
+	return nil
+}
+
+type isConfig_PersistenceHandler interface {
+	isConfig_PersistenceHandler()
+}
+
+type Config_FilesystemHandler struct {
+	FilesystemHandler *FilesystemHandler `protobuf:"bytes,4,opt,name=filesystem_handler,json=filesystemHandler,proto3,oneof"`
+}
+
+type Config_RegistryHandler struct {
+	RegistryHandler *RegistryHandler `protobuf:"bytes,5,opt,name=registry_handler,json=registryHandler,proto3,oneof"`
+}
+
+func (*Config_FilesystemHandler) isConfig_PersistenceHandler() {}
+
+func (*Config_RegistryHandler) isConfig_PersistenceHandler() {}
+
+func (m *Config) GetPersistenceHandler() isConfig_PersistenceHandler {
+	if m != nil {
+		return m.PersistenceHandler
 	}
 	return nil
 }
@@ -127,78 +132,12 @@ func (m *Config) GetStreaming() bool {
 	return false
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Config) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Config_OneofMarshaler, _Config_OneofUnmarshaler, _Config_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Config) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Config_FilesystemHandler)(nil),
 		(*Config_RegistryHandler)(nil),
 	}
-}
-
-func _Config_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Config)
-	// persistence_handler
-	switch x := m.PersistenceHandler.(type) {
-	case *Config_FilesystemHandler:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.FilesystemHandler); err != nil {
-			return err
-		}
-	case *Config_RegistryHandler:
-		b.EncodeVarint(5<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.RegistryHandler); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Config.PersistenceHandler has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Config_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Config)
-	switch tag {
-	case 4: // persistence_handler.filesystem_handler
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(FilesystemHandler)
-		err := b.DecodeMessage(msg)
-		m.PersistenceHandler = &Config_FilesystemHandler{msg}
-		return true, err
-	case 5: // persistence_handler.registry_handler
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RegistryHandler)
-		err := b.DecodeMessage(msg)
-		m.PersistenceHandler = &Config_RegistryHandler{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Config_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Config)
-	// persistence_handler
-	switch x := m.PersistenceHandler.(type) {
-	case *Config_FilesystemHandler:
-		s := proto.Size(x.FilesystemHandler)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Config_RegistryHandler:
-		s := proto.Size(x.RegistryHandler)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type FilesystemHandler struct {
@@ -217,16 +156,17 @@ func (m *FilesystemHandler) Reset()         { *m = FilesystemHandler{} }
 func (m *FilesystemHandler) String() string { return proto.CompactTextString(m) }
 func (*FilesystemHandler) ProtoMessage()    {}
 func (*FilesystemHandler) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f45b01599d583594, []int{1}
+	return fileDescriptor_4a4da71ceca0ef7d, []int{1}
 }
+
 func (m *FilesystemHandler) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FilesystemHandler.Unmarshal(m, b)
 }
 func (m *FilesystemHandler) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FilesystemHandler.Marshal(b, m, deterministic)
 }
-func (dst *FilesystemHandler) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FilesystemHandler.Merge(dst, src)
+func (m *FilesystemHandler) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FilesystemHandler.Merge(m, src)
 }
 func (m *FilesystemHandler) XXX_Size() int {
 	return xxx_messageInfo_FilesystemHandler.Size(m)
@@ -266,16 +206,17 @@ func (m *RegistryHandler) Reset()         { *m = RegistryHandler{} }
 func (m *RegistryHandler) String() string { return proto.CompactTextString(m) }
 func (*RegistryHandler) ProtoMessage()    {}
 func (*RegistryHandler) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f45b01599d583594, []int{2}
+	return fileDescriptor_4a4da71ceca0ef7d, []int{2}
 }
+
 func (m *RegistryHandler) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RegistryHandler.Unmarshal(m, b)
 }
 func (m *RegistryHandler) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RegistryHandler.Marshal(b, m, deterministic)
 }
-func (dst *RegistryHandler) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RegistryHandler.Merge(dst, src)
+func (m *RegistryHandler) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegistryHandler.Merge(m, src)
 }
 func (m *RegistryHandler) XXX_Size() int {
 	return xxx_messageInfo_RegistryHandler.Size(m)
@@ -300,10 +241,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/generic/proto/fleetspeak_client_generic/config.proto", fileDescriptor_config_f45b01599d583594)
+	proto.RegisterFile("fleetspeak/src/client/generic/proto/fleetspeak_client_generic/config.proto", fileDescriptor_4a4da71ceca0ef7d)
 }
 
-var fileDescriptor_config_f45b01599d583594 = []byte{
+var fileDescriptor_4a4da71ceca0ef7d = []byte{
 	// 345 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0x41, 0x4f, 0xbb, 0x40,
 	0x10, 0xc5, 0xff, 0xb4, 0x7f, 0x89, 0x4c, 0x6b, 0xda, 0xae, 0xb1, 0x62, 0xa2, 0x09, 0xd6, 0x0b,

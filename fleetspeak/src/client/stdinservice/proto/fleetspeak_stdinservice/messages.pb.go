@@ -3,11 +3,13 @@
 
 package fleetspeak_stdinservice
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import fleetspeak_monitoring "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	fleetspeak_monitoring "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -18,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type InputMessage struct {
 	// The data to be forwarded to the service.
@@ -34,16 +36,17 @@ func (m *InputMessage) Reset()         { *m = InputMessage{} }
 func (m *InputMessage) String() string { return proto.CompactTextString(m) }
 func (*InputMessage) ProtoMessage()    {}
 func (*InputMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_messages_0dea43263330e4a8, []int{0}
+	return fileDescriptor_85001c8166630bdd, []int{0}
 }
+
 func (m *InputMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InputMessage.Unmarshal(m, b)
 }
 func (m *InputMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_InputMessage.Marshal(b, m, deterministic)
 }
-func (dst *InputMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InputMessage.Merge(dst, src)
+func (m *InputMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InputMessage.Merge(m, src)
 }
 func (m *InputMessage) XXX_Size() int {
 	return xxx_messageInfo_InputMessage.Size(m)
@@ -83,16 +86,17 @@ func (m *OutputMessage) Reset()         { *m = OutputMessage{} }
 func (m *OutputMessage) String() string { return proto.CompactTextString(m) }
 func (*OutputMessage) ProtoMessage()    {}
 func (*OutputMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_messages_0dea43263330e4a8, []int{1}
+	return fileDescriptor_85001c8166630bdd, []int{1}
 }
+
 func (m *OutputMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OutputMessage.Unmarshal(m, b)
 }
 func (m *OutputMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OutputMessage.Marshal(b, m, deterministic)
 }
-func (dst *OutputMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OutputMessage.Merge(dst, src)
+func (m *OutputMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OutputMessage.Merge(m, src)
 }
 func (m *OutputMessage) XXX_Size() int {
 	return xxx_messageInfo_OutputMessage.Size(m)
@@ -137,10 +141,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice/messages.proto", fileDescriptor_messages_0dea43263330e4a8)
+	proto.RegisterFile("fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice/messages.proto", fileDescriptor_85001c8166630bdd)
 }
 
-var fileDescriptor_messages_0dea43263330e4a8 = []byte{
+var fileDescriptor_85001c8166630bdd = []byte{
 	// 281 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0xbf, 0x4e, 0xf3, 0x30,
 	0x14, 0xc5, 0x95, 0xb6, 0x5f, 0xa5, 0xfa, 0x6b, 0x19, 0x2c, 0x04, 0x51, 0x16, 0xa2, 0x4e, 0x99,

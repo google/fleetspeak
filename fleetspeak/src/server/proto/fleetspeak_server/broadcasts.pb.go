@@ -3,12 +3,14 @@
 
 package fleetspeak_server
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -19,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // A Broadcast is a template to build messages to send to a number of machines.
 type Broadcast struct {
@@ -44,16 +46,17 @@ func (m *Broadcast) Reset()         { *m = Broadcast{} }
 func (m *Broadcast) String() string { return proto.CompactTextString(m) }
 func (*Broadcast) ProtoMessage()    {}
 func (*Broadcast) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broadcasts_83a60435fcad98b2, []int{0}
+	return fileDescriptor_878868d91aa912aa, []int{0}
 }
+
 func (m *Broadcast) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Broadcast.Unmarshal(m, b)
 }
 func (m *Broadcast) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Broadcast.Marshal(b, m, deterministic)
 }
-func (dst *Broadcast) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Broadcast.Merge(dst, src)
+func (m *Broadcast) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Broadcast.Merge(m, src)
 }
 func (m *Broadcast) XXX_Size() int {
 	return xxx_messageInfo_Broadcast.Size(m)
@@ -111,10 +114,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto", fileDescriptor_broadcasts_83a60435fcad98b2)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto", fileDescriptor_878868d91aa912aa)
 }
 
-var fileDescriptor_broadcasts_83a60435fcad98b2 = []byte{
+var fileDescriptor_878868d91aa912aa = []byte{
 	// 301 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0xc1, 0x6b, 0xc2, 0x30,
 	0x18, 0xc5, 0xa9, 0x3a, 0xc1, 0x54, 0x14, 0xbb, 0x1d, 0x32, 0x2f, 0xeb, 0x76, 0x2a, 0x0c, 0x52,

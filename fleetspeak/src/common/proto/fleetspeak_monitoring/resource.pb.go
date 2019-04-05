@@ -3,10 +3,12 @@
 
 package fleetspeak_monitoring
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type KillNotification_Reason int32
 
@@ -32,6 +34,7 @@ var KillNotification_Reason_name = map[int32]string{
 	1: "HEARTBEAT_FAILURE",
 	2: "MEMORY_EXCEEDED",
 }
+
 var KillNotification_Reason_value = map[string]int32{
 	"UNSPECIFIED":       0,
 	"HEARTBEAT_FAILURE": 1,
@@ -41,8 +44,9 @@ var KillNotification_Reason_value = map[string]int32{
 func (x KillNotification_Reason) String() string {
 	return proto.EnumName(KillNotification_Reason_name, int32(x))
 }
+
 func (KillNotification_Reason) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_resource_98ee7a613ec677ba, []int{2, 0}
+	return fileDescriptor_4363d2f9d96c68b4, []int{2, 0}
 }
 
 // Contains resource-usage metrics for Fleetspeak clients. The stats are
@@ -64,16 +68,17 @@ func (m *AggregatedResourceUsage) Reset()         { *m = AggregatedResourceUsage
 func (m *AggregatedResourceUsage) String() string { return proto.CompactTextString(m) }
 func (*AggregatedResourceUsage) ProtoMessage()    {}
 func (*AggregatedResourceUsage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_resource_98ee7a613ec677ba, []int{0}
+	return fileDescriptor_4363d2f9d96c68b4, []int{0}
 }
+
 func (m *AggregatedResourceUsage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AggregatedResourceUsage.Unmarshal(m, b)
 }
 func (m *AggregatedResourceUsage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AggregatedResourceUsage.Marshal(b, m, deterministic)
 }
-func (dst *AggregatedResourceUsage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AggregatedResourceUsage.Merge(dst, src)
+func (m *AggregatedResourceUsage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AggregatedResourceUsage.Merge(m, src)
 }
 func (m *AggregatedResourceUsage) XXX_Size() int {
 	return xxx_messageInfo_AggregatedResourceUsage.Size(m)
@@ -158,16 +163,17 @@ func (m *ResourceUsageData) Reset()         { *m = ResourceUsageData{} }
 func (m *ResourceUsageData) String() string { return proto.CompactTextString(m) }
 func (*ResourceUsageData) ProtoMessage()    {}
 func (*ResourceUsageData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_resource_98ee7a613ec677ba, []int{1}
+	return fileDescriptor_4363d2f9d96c68b4, []int{1}
 }
+
 func (m *ResourceUsageData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResourceUsageData.Unmarshal(m, b)
 }
 func (m *ResourceUsageData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResourceUsageData.Marshal(b, m, deterministic)
 }
-func (dst *ResourceUsageData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResourceUsageData.Merge(dst, src)
+func (m *ResourceUsageData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResourceUsageData.Merge(m, src)
 }
 func (m *ResourceUsageData) XXX_Size() int {
 	return xxx_messageInfo_ResourceUsageData.Size(m)
@@ -255,16 +261,17 @@ func (m *KillNotification) Reset()         { *m = KillNotification{} }
 func (m *KillNotification) String() string { return proto.CompactTextString(m) }
 func (*KillNotification) ProtoMessage()    {}
 func (*KillNotification) Descriptor() ([]byte, []int) {
-	return fileDescriptor_resource_98ee7a613ec677ba, []int{2}
+	return fileDescriptor_4363d2f9d96c68b4, []int{2}
 }
+
 func (m *KillNotification) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KillNotification.Unmarshal(m, b)
 }
 func (m *KillNotification) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_KillNotification.Marshal(b, m, deterministic)
 }
-func (dst *KillNotification) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KillNotification.Merge(dst, src)
+func (m *KillNotification) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KillNotification.Merge(m, src)
 }
 func (m *KillNotification) XXX_Size() int {
 	return xxx_messageInfo_KillNotification.Size(m)
@@ -318,17 +325,17 @@ func (m *KillNotification) GetReason() KillNotification_Reason {
 }
 
 func init() {
+	proto.RegisterEnum("fleetspeak.monitoring.KillNotification_Reason", KillNotification_Reason_name, KillNotification_Reason_value)
 	proto.RegisterType((*AggregatedResourceUsage)(nil), "fleetspeak.monitoring.AggregatedResourceUsage")
 	proto.RegisterType((*ResourceUsageData)(nil), "fleetspeak.monitoring.ResourceUsageData")
 	proto.RegisterType((*KillNotification)(nil), "fleetspeak.monitoring.KillNotification")
-	proto.RegisterEnum("fleetspeak.monitoring.KillNotification_Reason", KillNotification_Reason_name, KillNotification_Reason_value)
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak_monitoring/resource.proto", fileDescriptor_resource_98ee7a613ec677ba)
+	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak_monitoring/resource.proto", fileDescriptor_4363d2f9d96c68b4)
 }
 
-var fileDescriptor_resource_98ee7a613ec677ba = []byte{
+var fileDescriptor_4363d2f9d96c68b4 = []byte{
 	// 582 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x52, 0xdd, 0x4e, 0xdb, 0x30,
 	0x14, 0x5e, 0x5b, 0x28, 0xe0, 0x8e, 0x92, 0x1a, 0xd0, 0x2a, 0x6e, 0xc6, 0x7a, 0xc5, 0x34, 0x91,

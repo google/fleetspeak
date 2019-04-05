@@ -3,10 +3,12 @@
 
 package fleetspeak_server
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import duration "github.com/golang/protobuf/ptypes/duration"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Describes a server's configuration. If unset, all values default to values
 // reasonable for a unit test or small installation. Larger installations may
@@ -37,16 +39,17 @@ func (m *ServerConfig) Reset()         { *m = ServerConfig{} }
 func (m *ServerConfig) String() string { return proto.CompactTextString(m) }
 func (*ServerConfig) ProtoMessage()    {}
 func (*ServerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_server_2271f3b4a5c265fb, []int{0}
+	return fileDescriptor_3be2e06b5afd289d, []int{0}
 }
+
 func (m *ServerConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConfig.Unmarshal(m, b)
 }
 func (m *ServerConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerConfig.Marshal(b, m, deterministic)
 }
-func (dst *ServerConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerConfig.Merge(dst, src)
+func (m *ServerConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConfig.Merge(m, src)
 }
 func (m *ServerConfig) XXX_Size() int {
 	return xxx_messageInfo_ServerConfig.Size(m)
@@ -76,10 +79,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor_server_2271f3b4a5c265fb)
+	proto.RegisterFile("fleetspeak/src/server/proto/fleetspeak_server/server.proto", fileDescriptor_3be2e06b5afd289d)
 }
 
-var fileDescriptor_server_2271f3b4a5c265fb = []byte{
+var fileDescriptor_3be2e06b5afd289d = []byte{
 	// 204 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x4a, 0xcb, 0x49, 0x4d,
 	0x2d, 0x29, 0x2e, 0x48, 0x4d, 0xcc, 0xd6, 0x2f, 0x2e, 0x4a, 0xd6, 0x2f, 0x4e, 0x2d, 0x2a, 0x4b,
