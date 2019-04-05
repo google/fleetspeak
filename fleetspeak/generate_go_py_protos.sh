@@ -22,19 +22,20 @@ readonly ARGV0=${0}
 # Go to this script's directory.
 cd "$(/usr/bin/dirname "$(/bin/readlink -e "${ARGV0}")")"
 
-
 # We need to pin the version of protoc-gen-go used for proto compilation,
 # otherwise different developers might keep generating different, possibly
 # conflicting proto files.
 # See https://github.com/golang/protobuf/issues/763
 readonly PROTOC_GEN_GO_VERSION='v1.3.1'
-if [[ -z "git -C "$(go env GOPATH)"/src/github.com/golang/protobuf branch | grep ${PROTOC_GEN_GO_VERSION}" ]]; then
-  echo "Switching protoc-gen-go version to pinned version ${PROTOC_GEN_GO_VERSION}."
+readonly PROTOC_GEN_GO_DIR="$(go env GOPATH)"/src/github.com/golang/protobuf
+if [[ -z "$(git -C "${PROTOC_GEN_GO_DIR}" branch | grep "${PROTOC_GEN_GO_VERSION}")" ]]; then
+  echo "Fetching protoc-gen-go ${PROTOC_GEN_GO_VERSION}."
+  git -C "${PROTOC_GEN_GO_DIR}" checkout master --quiet
   go get -d -u github.com/golang/protobuf/protoc-gen-go
-  git -C "$(go env GOPATH)"/src/github.com/golang/protobuf checkout "${PROTOC_GEN_GO_VERSION}"
+  git -C "${PROTOC_GEN_GO_DIR}" checkout "${PROTOC_GEN_GO_VERSION}" --quiet
   go install github.com/golang/protobuf/protoc-gen-go
 else
-  echo "Using protoc-gen-go version ${PROTOC_GEN_GO_VERSION}."
+  echo "Using protoc-gen-go ${PROTOC_GEN_GO_VERSION}."
 fi
 
 # If SRC_PATH isn't set:
