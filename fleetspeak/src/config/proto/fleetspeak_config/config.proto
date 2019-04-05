@@ -56,4 +56,13 @@ message Config {
   // If you are creating your own server certificates, they will need to cover
   // these addresses.
   repeated string public_host_port = 8;
+
+  // If set, write a linux client configuration file for this installation.
+  string linux_client_configuration_file = 9;
+
+  // If set, write a linux client configuration file for this installation.
+  string darwin_client_configuration_file = 10;
+
+  // If set, write a linux client configuration file for this installation.
+  string windows_client_configuration_file = 11;
 }

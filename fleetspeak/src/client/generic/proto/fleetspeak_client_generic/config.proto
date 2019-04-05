@@ -19,6 +19,10 @@ message Config {
     FilesystemHandler filesystem_handler = 4;
     RegistryHandler registry_handler = 5;
   }
+
+  // If set, the client will use long running persistent connections, otherwise
+  // it will make regular short lived polls to the server. Recommended.
+  bool streaming = 6;
 }
 
 message FilesystemHandler {
