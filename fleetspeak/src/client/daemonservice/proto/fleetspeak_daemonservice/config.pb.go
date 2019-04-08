@@ -3,10 +3,12 @@
 
 package fleetspeak_daemonservice
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import duration "github.com/golang/protobuf/ptypes/duration"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // The configuration information expected by daemonservice.Factory in
 // ClientServiceConfig.config.
@@ -59,16 +61,17 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f5cbe9dfc7db35ca, []int{0}
+	return fileDescriptor_b9cbb158a44d4823, []int{0}
 }
+
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config.Unmarshal(m, b)
 }
 func (m *Config) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config.Marshal(b, m, deterministic)
 }
-func (dst *Config) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config.Merge(dst, src)
+func (m *Config) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config.Merge(m, src)
 }
 func (m *Config) XXX_Size() int {
 	return xxx_messageInfo_Config.Size(m)
@@ -175,16 +178,17 @@ func (m *Config_StdParams) Reset()         { *m = Config_StdParams{} }
 func (m *Config_StdParams) String() string { return proto.CompactTextString(m) }
 func (*Config_StdParams) ProtoMessage()    {}
 func (*Config_StdParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f5cbe9dfc7db35ca, []int{0, 0}
+	return fileDescriptor_b9cbb158a44d4823, []int{0, 0}
 }
+
 func (m *Config_StdParams) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config_StdParams.Unmarshal(m, b)
 }
 func (m *Config_StdParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config_StdParams.Marshal(b, m, deterministic)
 }
-func (dst *Config_StdParams) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config_StdParams.Merge(dst, src)
+func (m *Config_StdParams) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config_StdParams.Merge(m, src)
 }
 func (m *Config_StdParams) XXX_Size() int {
 	return xxx_messageInfo_Config_StdParams.Size(m)
@@ -222,10 +226,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto", fileDescriptor_config_f5cbe9dfc7db35ca)
+	proto.RegisterFile("fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice/config.proto", fileDescriptor_b9cbb158a44d4823)
 }
 
-var fileDescriptor_config_f5cbe9dfc7db35ca = []byte{
+var fileDescriptor_b9cbb158a44d4823 = []byte{
 	// 501 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0x5d, 0x6f, 0xd3, 0x30,
 	0x14, 0x86, 0x15, 0xba, 0x95, 0xe5, 0x94, 0x0b, 0xe6, 0x2b, 0x6f, 0x7c, 0x2c, 0x20, 0x01, 0x61,

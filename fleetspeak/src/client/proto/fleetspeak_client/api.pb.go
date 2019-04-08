@@ -3,10 +3,12 @@
 
 package fleetspeak_client
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ByteBlob struct {
 	Data                 []byte   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
@@ -30,16 +32,17 @@ func (m *ByteBlob) Reset()         { *m = ByteBlob{} }
 func (m *ByteBlob) String() string { return proto.CompactTextString(m) }
 func (*ByteBlob) ProtoMessage()    {}
 func (*ByteBlob) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_65a37ffc031fbeec, []int{0}
+	return fileDescriptor_9ad3854fcfbde66e, []int{0}
 }
+
 func (m *ByteBlob) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ByteBlob.Unmarshal(m, b)
 }
 func (m *ByteBlob) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ByteBlob.Marshal(b, m, deterministic)
 }
-func (dst *ByteBlob) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ByteBlob.Merge(dst, src)
+func (m *ByteBlob) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ByteBlob.Merge(m, src)
 }
 func (m *ByteBlob) XXX_Size() int {
 	return xxx_messageInfo_ByteBlob.Size(m)
@@ -69,16 +72,17 @@ func (m *APIMessage) Reset()         { *m = APIMessage{} }
 func (m *APIMessage) String() string { return proto.CompactTextString(m) }
 func (*APIMessage) ProtoMessage()    {}
 func (*APIMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_65a37ffc031fbeec, []int{1}
+	return fileDescriptor_9ad3854fcfbde66e, []int{1}
 }
+
 func (m *APIMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_APIMessage.Unmarshal(m, b)
 }
 func (m *APIMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_APIMessage.Marshal(b, m, deterministic)
 }
-func (dst *APIMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_APIMessage.Merge(dst, src)
+func (m *APIMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_APIMessage.Merge(m, src)
 }
 func (m *APIMessage) XXX_Size() int {
 	return xxx_messageInfo_APIMessage.Size(m)
@@ -109,10 +113,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/api.proto", fileDescriptor_api_65a37ffc031fbeec)
+	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/api.proto", fileDescriptor_9ad3854fcfbde66e)
 }
 
-var fileDescriptor_api_65a37ffc031fbeec = []byte{
+var fileDescriptor_9ad3854fcfbde66e = []byte{
 	// 173 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x32, 0x4f, 0xcb, 0x49, 0x4d,
 	0x2d, 0x29, 0x2e, 0x48, 0x4d, 0xcc, 0xd6, 0x2f, 0x2e, 0x4a, 0xd6, 0x4f, 0xce, 0xc9, 0x4c, 0xcd,

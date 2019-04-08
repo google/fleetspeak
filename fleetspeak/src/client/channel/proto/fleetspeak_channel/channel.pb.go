@@ -3,9 +3,11 @@
 
 package fleetspeak_channel
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Optional first message sent through a channel when it is created. It is meant
 // to contain info about the process that the other end of the channel might
@@ -35,16 +37,17 @@ func (m *StartupData) Reset()         { *m = StartupData{} }
 func (m *StartupData) String() string { return proto.CompactTextString(m) }
 func (*StartupData) ProtoMessage()    {}
 func (*StartupData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_channel_a8c531f6a2ef74d4, []int{0}
+	return fileDescriptor_e2fec3dda9579f51, []int{0}
 }
+
 func (m *StartupData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StartupData.Unmarshal(m, b)
 }
 func (m *StartupData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StartupData.Marshal(b, m, deterministic)
 }
-func (dst *StartupData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StartupData.Merge(dst, src)
+func (m *StartupData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartupData.Merge(m, src)
 }
 func (m *StartupData) XXX_Size() int {
 	return xxx_messageInfo_StartupData.Size(m)
@@ -74,10 +77,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/channel/proto/fleetspeak_channel/channel.proto", fileDescriptor_channel_a8c531f6a2ef74d4)
+	proto.RegisterFile("fleetspeak/src/client/channel/proto/fleetspeak_channel/channel.proto", fileDescriptor_e2fec3dda9579f51)
 }
 
-var fileDescriptor_channel_a8c531f6a2ef74d4 = []byte{
+var fileDescriptor_e2fec3dda9579f51 = []byte{
 	// 134 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x72, 0x49, 0xcb, 0x49, 0x4d,
 	0x2d, 0x29, 0x2e, 0x48, 0x4d, 0xcc, 0xd6, 0x2f, 0x2e, 0x4a, 0xd6, 0x4f, 0xce, 0xc9, 0x4c, 0xcd,

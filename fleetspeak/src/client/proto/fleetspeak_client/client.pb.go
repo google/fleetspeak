@@ -3,9 +3,11 @@
 
 package fleetspeak_client
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Parameters used to configure communicator plugins.
 type CommunicatorConfig struct {
@@ -50,16 +52,17 @@ func (m *CommunicatorConfig) Reset()         { *m = CommunicatorConfig{} }
 func (m *CommunicatorConfig) String() string { return proto.CompactTextString(m) }
 func (*CommunicatorConfig) ProtoMessage()    {}
 func (*CommunicatorConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_client_341421432342fac9, []int{0}
+	return fileDescriptor_08c4c149f3a848fa, []int{0}
 }
+
 func (m *CommunicatorConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommunicatorConfig.Unmarshal(m, b)
 }
 func (m *CommunicatorConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CommunicatorConfig.Marshal(b, m, deterministic)
 }
-func (dst *CommunicatorConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CommunicatorConfig.Merge(dst, src)
+func (m *CommunicatorConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommunicatorConfig.Merge(m, src)
 }
 func (m *CommunicatorConfig) XXX_Size() int {
 	return xxx_messageInfo_CommunicatorConfig.Size(m)
@@ -118,16 +121,17 @@ func (m *ClientState) Reset()         { *m = ClientState{} }
 func (m *ClientState) String() string { return proto.CompactTextString(m) }
 func (*ClientState) ProtoMessage()    {}
 func (*ClientState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_client_341421432342fac9, []int{1}
+	return fileDescriptor_08c4c149f3a848fa, []int{1}
 }
+
 func (m *ClientState) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientState.Unmarshal(m, b)
 }
 func (m *ClientState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientState.Marshal(b, m, deterministic)
 }
-func (dst *ClientState) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientState.Merge(dst, src)
+func (m *ClientState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientState.Merge(m, src)
 }
 func (m *ClientState) XXX_Size() int {
 	return xxx_messageInfo_ClientState.Size(m)
@@ -165,10 +169,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/client.proto", fileDescriptor_client_341421432342fac9)
+	proto.RegisterFile("fleetspeak/src/client/proto/fleetspeak_client/client.proto", fileDescriptor_08c4c149f3a848fa)
 }
 
-var fileDescriptor_client_341421432342fac9 = []byte{
+var fileDescriptor_08c4c149f3a848fa = []byte{
 	// 314 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x91, 0xcf, 0x4b, 0xc3, 0x30,
 	0x14, 0x80, 0xa9, 0xdb, 0xfc, 0x11, 0x07, 0x6a, 0xd4, 0xd1, 0x81, 0x42, 0xd9, 0xa9, 0x5e, 0x56,

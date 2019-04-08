@@ -3,11 +3,13 @@
 
 package fleetspeak
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -18,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // A MessageAck message is sent from the client to the server to acknowledge the
 // successful receipt of one or more messages. Messages from the server to the
@@ -34,16 +36,17 @@ func (m *MessageAckData) Reset()         { *m = MessageAckData{} }
 func (m *MessageAckData) String() string { return proto.CompactTextString(m) }
 func (*MessageAckData) ProtoMessage()    {}
 func (*MessageAckData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{0}
+	return fileDescriptor_d12f83539b35fb39, []int{0}
 }
+
 func (m *MessageAckData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MessageAckData.Unmarshal(m, b)
 }
 func (m *MessageAckData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MessageAckData.Marshal(b, m, deterministic)
 }
-func (dst *MessageAckData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MessageAckData.Merge(dst, src)
+func (m *MessageAckData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageAckData.Merge(m, src)
 }
 func (m *MessageAckData) XXX_Size() int {
 	return xxx_messageInfo_MessageAckData.Size(m)
@@ -75,16 +78,17 @@ func (m *MessageErrorData) Reset()         { *m = MessageErrorData{} }
 func (m *MessageErrorData) String() string { return proto.CompactTextString(m) }
 func (*MessageErrorData) ProtoMessage()    {}
 func (*MessageErrorData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{1}
+	return fileDescriptor_d12f83539b35fb39, []int{1}
 }
+
 func (m *MessageErrorData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MessageErrorData.Unmarshal(m, b)
 }
 func (m *MessageErrorData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MessageErrorData.Marshal(b, m, deterministic)
 }
-func (dst *MessageErrorData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MessageErrorData.Merge(dst, src)
+func (m *MessageErrorData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageErrorData.Merge(m, src)
 }
 func (m *MessageErrorData) XXX_Size() int {
 	return xxx_messageInfo_MessageErrorData.Size(m)
@@ -125,16 +129,17 @@ func (m *ClientInfoData) Reset()         { *m = ClientInfoData{} }
 func (m *ClientInfoData) String() string { return proto.CompactTextString(m) }
 func (*ClientInfoData) ProtoMessage()    {}
 func (*ClientInfoData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{2}
+	return fileDescriptor_d12f83539b35fb39, []int{2}
 }
+
 func (m *ClientInfoData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientInfoData.Unmarshal(m, b)
 }
 func (m *ClientInfoData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientInfoData.Marshal(b, m, deterministic)
 }
-func (dst *ClientInfoData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientInfoData.Merge(dst, src)
+func (m *ClientInfoData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientInfoData.Merge(m, src)
 }
 func (m *ClientInfoData) XXX_Size() int {
 	return xxx_messageInfo_ClientInfoData.Size(m)
@@ -174,16 +179,17 @@ func (m *ClientInfoData_ServiceID) Reset()         { *m = ClientInfoData_Service
 func (m *ClientInfoData_ServiceID) String() string { return proto.CompactTextString(m) }
 func (*ClientInfoData_ServiceID) ProtoMessage()    {}
 func (*ClientInfoData_ServiceID) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{2, 0}
+	return fileDescriptor_d12f83539b35fb39, []int{2, 0}
 }
+
 func (m *ClientInfoData_ServiceID) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientInfoData_ServiceID.Unmarshal(m, b)
 }
 func (m *ClientInfoData_ServiceID) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientInfoData_ServiceID.Marshal(b, m, deterministic)
 }
-func (dst *ClientInfoData_ServiceID) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientInfoData_ServiceID.Merge(dst, src)
+func (m *ClientInfoData_ServiceID) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientInfoData_ServiceID.Merge(m, src)
 }
 func (m *ClientInfoData_ServiceID) XXX_Size() int {
 	return xxx_messageInfo_ClientInfoData_ServiceID.Size(m)
@@ -221,16 +227,17 @@ func (m *RemoveServiceData) Reset()         { *m = RemoveServiceData{} }
 func (m *RemoveServiceData) String() string { return proto.CompactTextString(m) }
 func (*RemoveServiceData) ProtoMessage()    {}
 func (*RemoveServiceData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{3}
+	return fileDescriptor_d12f83539b35fb39, []int{3}
 }
+
 func (m *RemoveServiceData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoveServiceData.Unmarshal(m, b)
 }
 func (m *RemoveServiceData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RemoveServiceData.Marshal(b, m, deterministic)
 }
-func (dst *RemoveServiceData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RemoveServiceData.Merge(dst, src)
+func (m *RemoveServiceData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemoveServiceData.Merge(m, src)
 }
 func (m *RemoveServiceData) XXX_Size() int {
 	return xxx_messageInfo_RemoveServiceData.Size(m)
@@ -264,16 +271,17 @@ func (m *SignedClientServiceConfig) Reset()         { *m = SignedClientServiceCo
 func (m *SignedClientServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*SignedClientServiceConfig) ProtoMessage()    {}
 func (*SignedClientServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{4}
+	return fileDescriptor_d12f83539b35fb39, []int{4}
 }
+
 func (m *SignedClientServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SignedClientServiceConfig.Unmarshal(m, b)
 }
 func (m *SignedClientServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SignedClientServiceConfig.Marshal(b, m, deterministic)
 }
-func (dst *SignedClientServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SignedClientServiceConfig.Merge(dst, src)
+func (m *SignedClientServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignedClientServiceConfig.Merge(m, src)
 }
 func (m *SignedClientServiceConfig) XXX_Size() int {
 	return xxx_messageInfo_SignedClientServiceConfig.Size(m)
@@ -324,16 +332,17 @@ func (m *ClientServiceConfig) Reset()         { *m = ClientServiceConfig{} }
 func (m *ClientServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*ClientServiceConfig) ProtoMessage()    {}
 func (*ClientServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{5}
+	return fileDescriptor_d12f83539b35fb39, []int{5}
 }
+
 func (m *ClientServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientServiceConfig.Unmarshal(m, b)
 }
 func (m *ClientServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientServiceConfig.Marshal(b, m, deterministic)
 }
-func (dst *ClientServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientServiceConfig.Merge(dst, src)
+func (m *ClientServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientServiceConfig.Merge(m, src)
 }
 func (m *ClientServiceConfig) XXX_Size() int {
 	return xxx_messageInfo_ClientServiceConfig.Size(m)
@@ -390,16 +399,17 @@ func (m *ClientServiceConfigs) Reset()         { *m = ClientServiceConfigs{} }
 func (m *ClientServiceConfigs) String() string { return proto.CompactTextString(m) }
 func (*ClientServiceConfigs) ProtoMessage()    {}
 func (*ClientServiceConfigs) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{6}
+	return fileDescriptor_d12f83539b35fb39, []int{6}
 }
+
 func (m *ClientServiceConfigs) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientServiceConfigs.Unmarshal(m, b)
 }
 func (m *ClientServiceConfigs) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientServiceConfigs.Marshal(b, m, deterministic)
 }
-func (dst *ClientServiceConfigs) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientServiceConfigs.Merge(dst, src)
+func (m *ClientServiceConfigs) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientServiceConfigs.Merge(m, src)
 }
 func (m *ClientServiceConfigs) XXX_Size() int {
 	return xxx_messageInfo_ClientServiceConfigs.Size(m)
@@ -429,16 +439,17 @@ func (m *RevokedCertificateList) Reset()         { *m = RevokedCertificateList{}
 func (m *RevokedCertificateList) String() string { return proto.CompactTextString(m) }
 func (*RevokedCertificateList) ProtoMessage()    {}
 func (*RevokedCertificateList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_system_4386732c28984e72, []int{7}
+	return fileDescriptor_d12f83539b35fb39, []int{7}
 }
+
 func (m *RevokedCertificateList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RevokedCertificateList.Unmarshal(m, b)
 }
 func (m *RevokedCertificateList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RevokedCertificateList.Marshal(b, m, deterministic)
 }
-func (dst *RevokedCertificateList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RevokedCertificateList.Merge(dst, src)
+func (m *RevokedCertificateList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RevokedCertificateList.Merge(m, src)
 }
 func (m *RevokedCertificateList) XXX_Size() int {
 	return xxx_messageInfo_RevokedCertificateList.Size(m)
@@ -469,10 +480,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak/system.proto", fileDescriptor_system_4386732c28984e72)
+	proto.RegisterFile("fleetspeak/src/common/proto/fleetspeak/system.proto", fileDescriptor_d12f83539b35fb39)
 }
 
-var fileDescriptor_system_4386732c28984e72 = []byte{
+var fileDescriptor_d12f83539b35fb39 = []byte{
 	// 485 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xef, 0x8a, 0xd3, 0x4e,
 	0x14, 0x25, 0xbb, 0xbf, 0x5f, 0xd7, 0xdc, 0xd6, 0xea, 0x8e, 0x45, 0xb2, 0x45, 0x69, 0x09, 0x8a,

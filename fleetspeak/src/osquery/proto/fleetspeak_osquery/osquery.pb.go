@@ -3,9 +3,11 @@
 
 package fleetspeak_osquery
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type CompressionType int32
 
@@ -29,6 +31,7 @@ var CompressionType_name = map[int32]string{
 	0: "UNCOMPRESSED",
 	1: "ZCOMPRESSION",
 }
+
 var CompressionType_value = map[string]int32{
 	"UNCOMPRESSED": 0,
 	"ZCOMPRESSION": 1,
@@ -37,8 +40,9 @@ var CompressionType_value = map[string]int32{
 func (x CompressionType) String() string {
 	return proto.EnumName(CompressionType_name, int32(x))
 }
+
 func (CompressionType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{0}
+	return fileDescriptor_6def71a1a614c336, []int{0}
 }
 
 type LoggedResult_Type int32
@@ -60,6 +64,7 @@ var LoggedResult_Type_name = map[int32]string{
 	4: "INIT",
 	5: "STATUS",
 }
+
 var LoggedResult_Type_value = map[string]int32{
 	"UNKNOWN":  0,
 	"STRING":   1,
@@ -72,8 +77,9 @@ var LoggedResult_Type_value = map[string]int32{
 func (x LoggedResult_Type) String() string {
 	return proto.EnumName(LoggedResult_Type_name, int32(x))
 }
+
 func (LoggedResult_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{0, 0}
+	return fileDescriptor_6def71a1a614c336, []int{0, 0}
 }
 
 // A LoggedResult message contains data provided to an osquery Logger, containing
@@ -92,16 +98,17 @@ func (m *LoggedResult) Reset()         { *m = LoggedResult{} }
 func (m *LoggedResult) String() string { return proto.CompactTextString(m) }
 func (*LoggedResult) ProtoMessage()    {}
 func (*LoggedResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{0}
+	return fileDescriptor_6def71a1a614c336, []int{0}
 }
+
 func (m *LoggedResult) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoggedResult.Unmarshal(m, b)
 }
 func (m *LoggedResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LoggedResult.Marshal(b, m, deterministic)
 }
-func (dst *LoggedResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LoggedResult.Merge(dst, src)
+func (m *LoggedResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoggedResult.Merge(m, src)
 }
 func (m *LoggedResult) XXX_Size() int {
 	return xxx_messageInfo_LoggedResult.Size(m)
@@ -151,16 +158,17 @@ func (m *Queries) Reset()         { *m = Queries{} }
 func (m *Queries) String() string { return proto.CompactTextString(m) }
 func (*Queries) ProtoMessage()    {}
 func (*Queries) Descriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{1}
+	return fileDescriptor_6def71a1a614c336, []int{1}
 }
+
 func (m *Queries) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Queries.Unmarshal(m, b)
 }
 func (m *Queries) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Queries.Marshal(b, m, deterministic)
 }
-func (dst *Queries) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Queries.Merge(dst, src)
+func (m *Queries) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Queries.Merge(m, src)
 }
 func (m *Queries) XXX_Size() int {
 	return xxx_messageInfo_Queries.Size(m)
@@ -196,16 +204,17 @@ func (m *Row) Reset()         { *m = Row{} }
 func (m *Row) String() string { return proto.CompactTextString(m) }
 func (*Row) ProtoMessage()    {}
 func (*Row) Descriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{2}
+	return fileDescriptor_6def71a1a614c336, []int{2}
 }
+
 func (m *Row) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Row.Unmarshal(m, b)
 }
 func (m *Row) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Row.Marshal(b, m, deterministic)
 }
-func (dst *Row) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Row.Merge(dst, src)
+func (m *Row) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Row.Merge(m, src)
 }
 func (m *Row) XXX_Size() int {
 	return xxx_messageInfo_Row.Size(m)
@@ -234,16 +243,17 @@ func (m *Rows) Reset()         { *m = Rows{} }
 func (m *Rows) String() string { return proto.CompactTextString(m) }
 func (*Rows) ProtoMessage()    {}
 func (*Rows) Descriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{3}
+	return fileDescriptor_6def71a1a614c336, []int{3}
 }
+
 func (m *Rows) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Rows.Unmarshal(m, b)
 }
 func (m *Rows) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Rows.Marshal(b, m, deterministic)
 }
-func (dst *Rows) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Rows.Merge(dst, src)
+func (m *Rows) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Rows.Merge(m, src)
 }
 func (m *Rows) XXX_Size() int {
 	return xxx_messageInfo_Rows.Size(m)
@@ -279,16 +289,17 @@ func (m *QueryResults) Reset()         { *m = QueryResults{} }
 func (m *QueryResults) String() string { return proto.CompactTextString(m) }
 func (*QueryResults) ProtoMessage()    {}
 func (*QueryResults) Descriptor() ([]byte, []int) {
-	return fileDescriptor_osquery_1549c664eafab991, []int{4}
+	return fileDescriptor_6def71a1a614c336, []int{4}
 }
+
 func (m *QueryResults) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResults.Unmarshal(m, b)
 }
 func (m *QueryResults) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_QueryResults.Marshal(b, m, deterministic)
 }
-func (dst *QueryResults) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryResults.Merge(dst, src)
+func (m *QueryResults) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryResults.Merge(m, src)
 }
 func (m *QueryResults) XXX_Size() int {
 	return xxx_messageInfo_QueryResults.Size(m)
@@ -328,6 +339,8 @@ func (m *QueryResults) GetRows() []byte {
 }
 
 func init() {
+	proto.RegisterEnum("fleetspeak.osquery.CompressionType", CompressionType_name, CompressionType_value)
+	proto.RegisterEnum("fleetspeak.osquery.LoggedResult_Type", LoggedResult_Type_name, LoggedResult_Type_value)
 	proto.RegisterType((*LoggedResult)(nil), "fleetspeak.osquery.LoggedResult")
 	proto.RegisterType((*Queries)(nil), "fleetspeak.osquery.Queries")
 	proto.RegisterMapType((map[string]string)(nil), "fleetspeak.osquery.Queries.DiscoveryEntry")
@@ -336,15 +349,13 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "fleetspeak.osquery.Row.RowEntry")
 	proto.RegisterType((*Rows)(nil), "fleetspeak.osquery.Rows")
 	proto.RegisterType((*QueryResults)(nil), "fleetspeak.osquery.QueryResults")
-	proto.RegisterEnum("fleetspeak.osquery.CompressionType", CompressionType_name, CompressionType_value)
-	proto.RegisterEnum("fleetspeak.osquery.LoggedResult_Type", LoggedResult_Type_name, LoggedResult_Type_value)
 }
 
 func init() {
-	proto.RegisterFile("fleetspeak/src/osquery/proto/fleetspeak_osquery/osquery.proto", fileDescriptor_osquery_1549c664eafab991)
+	proto.RegisterFile("fleetspeak/src/osquery/proto/fleetspeak_osquery/osquery.proto", fileDescriptor_6def71a1a614c336)
 }
 
-var fileDescriptor_osquery_1549c664eafab991 = []byte{
+var fileDescriptor_6def71a1a614c336 = []byte{
 	// 486 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0x6d, 0x6b, 0xd3, 0x50,
 	0x14, 0xc7, 0x97, 0x87, 0xad, 0xed, 0x59, 0x98, 0x97, 0x83, 0x68, 0x28, 0x08, 0x25, 0x22, 0x94,
