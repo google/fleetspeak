@@ -36,7 +36,7 @@ import (
 // The port opened by this listener should not be exposed to public. Only other
 // Fleetspeak servers will need to be able to reach it.
 type HttpListener struct {
-	// The address that HttpListner should bind to.
+	// The address that HttpListener should bind to.
 	BindAddress string
 
 	// The address that other servers can find this one at. If unset, a best guess
@@ -65,7 +65,6 @@ func (l *HttpListener) Start() (<-chan common.ClientID, error) {
 	l.working.Add(1)
 	go l.runServer()
 	return c, nil
-
 }
 
 func (l *HttpListener) Stop() {
