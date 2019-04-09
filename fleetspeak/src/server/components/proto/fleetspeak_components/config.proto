@@ -35,10 +35,20 @@ message Config {
   // connect. Meant as a sanity check that the client and server are for the
   // same Fleetspeak installation.
   string required_label = 4;
+
+  // If set, the bind address to listen on to receive notifications from other
+  // fleetspeak servers. Optional, but strongly recommended for installations
+  // involving multiple servers. e.g. ":8080", "localhost:1234".
+  string notification_listen_address = 5;
+
+  // If set, other servers will be told to use this address in order to connect
+  // with this server's notification port. Has no effect when
+  // notification_listen_address is unset.
+  string notification_public_address = 6;
 }
 
 message HttpsConfig {
-  // The bind address to listen on for connections on, e.g. ":443" or
+  // The bind address to listen on for client connections, e.g. ":443" or
   // "localhost:1234". Required.
   string listen_address = 1;
 
