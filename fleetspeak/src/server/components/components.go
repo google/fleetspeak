@@ -30,9 +30,11 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
+	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
+	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
@@ -86,6 +88,16 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create communicator: %v", err)
 	}
+	// Notification setup.
+	var nn notifications.Notifier
+	var nl notifications.Listener
+	if cfg.NotificationListenAddress != "" {
+		nn = &cnotifications.HttpNotifier{}
+		nl = &cnotifications.HttpListener{
+			BindAddress:       cfg.NotificationListenAddress,
+			AdvertisedAddress: cfg.NotificationPublicAddress,
+		}
+	}
 
 	// Final assembly
 	return &server.Components{
@@ -96,5 +108,7 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		},
 		Communicators: []comms.Communicator{comm},
 		Authorizer:    auth,
+		Notifier:      nn,
+		Listener:      nl,
 	}, nil
 }
