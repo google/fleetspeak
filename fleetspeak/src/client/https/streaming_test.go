@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -124,7 +125,7 @@ func (s *streamingTestServer) Start() {
 		for {
 			size, err := binary.ReadUvarint(body)
 			if err != nil {
-				if err != io.EOF && err != io.ErrUnexpectedEOF {
+				if !(err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer")) {
 					s.t.Errorf("Unable to read size: %v", err)
 				}
 				return
