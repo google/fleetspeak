@@ -33,7 +33,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 	var err error
 	var conn net.Conn
 
-    retryDelay := time.Second
+	retryDelay := time.Second
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
 			log.Warningf("Failure checking perms of [%s], will retry: %v", socketPath, err)

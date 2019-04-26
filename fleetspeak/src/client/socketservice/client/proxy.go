@@ -30,8 +30,8 @@ import (
 // Back-off constants for retrying channel connections.
 // Current values will result in the following sequence of
 // delays (seconds, rounded off): [1, 1.5, 2.3, 3.4, 5.0, 7.6, 11.4, 15, 15, 15, ...]
-const(
-	maxChannelRetryDelay = 15 * time.Second
+const (
+	maxChannelRetryDelay      = 15 * time.Second
 	channelRetryBackoffFactor = 1.5
 )
 
