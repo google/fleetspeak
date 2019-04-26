@@ -33,12 +33,11 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 	var err error
 	var conn net.Conn
 
-	timeout := time.Second
+    retryDelay := time.Second
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
 			log.Warningf("Failure checking perms of [%s], will retry: %v", socketPath, err)
-			time.Sleep(timeout)
-		} else if conn, err = wnixsocket.Dial(socketPath, timeout); err != nil {
+		} else if conn, err = wnixsocket.Dial(socketPath, time.Second); err != nil {
 			log.Warningf("Failed to connect to [%s], will retry: %v", socketPath, err)
 		} else {
 			log.Infof("Connected to [%s]", socketPath)
@@ -49,5 +48,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 				conn.Close()
 			}
 		}
+		time.Sleep(retryDelay)
+		retryDelay = backOffChannelRetryDelay(retryDelay)
 	}
 }

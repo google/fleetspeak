@@ -32,6 +32,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 	var err error
 	var conn *net.UnixConn
 
+	retryDelay := time.Second
 	for {
 		if err = checks.CheckSocketFile(socketPath); err != nil {
 			log.Warningf("failure checking perms of [%s], will retry: %v", socketPath, err)
@@ -45,6 +46,7 @@ func buildChannel(socketPath string) (*channel.Channel, func()) {
 				conn.Close()
 			}
 		}
-		time.Sleep(time.Second)
+		time.Sleep(retryDelay)
+		retryDelay = backOffChannelRetryDelay(retryDelay)
 	}
 }
