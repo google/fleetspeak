@@ -67,6 +67,7 @@ func OpenChannel(socketPath string, version string) *channel.RelentlessChannel {
 				select {
 				case e := <-ch.Err:
 					log.Errorf("Channel failed with error: %v", e)
+					fin()
 					continue L
 				case ch.Out <- m:
 					return ch, fin
