@@ -46,3 +46,5 @@ test_script:
 - pip show fleetspeak
 - go test github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 90s
 - go test github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 90s
+# TODO(ogaro): Move src/windows to src/client.
+- go test github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 90s
