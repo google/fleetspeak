@@ -18,6 +18,8 @@ package regutil
 
 import (
 	"bytes"
+	"reflect"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/windows/registry"
@@ -143,6 +145,44 @@ func TestReadStringValue(t *testing.T) {
 
 	if g, w := s, value; g != w {
 		t.Fatalf("got %q, want %q", g, w)
+	}
+}
+
+func TestReadMultiStringValue(t *testing.T) {
+	defer tearDown()
+
+	valueName := "TestReadMultiStringValue"
+
+	if _, err := ReadMultiStringValue(tempRegPrefix, valueName); err != ErrKeyNotExist {
+		t.Errorf("Expected ErrKeyNotExist, instead got: %v", err)
+	}
+
+	if err := CreateKeyIfNotExist(tempRegPrefix); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReadMultiStringValue(tempRegPrefix, valueName); err != ErrValueNotExist {
+		t.Errorf("Expected ErrValueNotExist, instead got: %v", err)
+	}
+
+	k, err := registry.OpenKey(
+		registry.LOCAL_MACHINE, strings.TrimPrefix(tempRegPrefix, hkeyPrefix),
+		registry.SET_VALUE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer k.Close()
+
+	want := []string{"foo", "bar", "baz"}
+	k.SetStringsValue(valueName, want)
+
+	got, err := ReadMultiStringValue(tempRegPrefix, valueName)
+	if err != nil {
+		t.Fatalf("ReadMultiStringValue: %v", err)
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ReadMultiStringValue failed; got: %v, want: %v", got, want)
 	}
 }
 

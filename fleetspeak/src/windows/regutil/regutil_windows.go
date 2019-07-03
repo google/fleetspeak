@@ -51,6 +51,18 @@ func stripHKey(keypath string) (string, error) {
 	return filepath.Clean(keypath[len(hkeyPrefix):]), nil
 }
 
+// Thin wrapper over registry.OpenKey() with better error-reporting.
+func openKey(keypath string, access uint32) (registry.Key, error) {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, keypath, access)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return k, ErrKeyNotExist
+		}
+		return k, fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
+	}
+	return k, nil
+}
+
 // CreateKeyIfNotExist checks if a registry key exists, and if it does not, creates it (along with all its ancestors).
 func CreateKeyIfNotExist(keypath string) error {
 	p, err := stripHKey(keypath)
@@ -73,12 +85,9 @@ func WriteBinaryValue(keypath, valuename string, content []byte) error {
 		return err
 	}
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	k, err := openKey(p, registry.SET_VALUE)
 	if err != nil {
-		if err == registry.ErrNotExist {
-			return ErrKeyNotExist
-		}
-		return fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
+		return err
 	}
 	defer k.Close()
 
@@ -97,12 +106,9 @@ func ReadBinaryValue(keypath, valuename string) ([]byte, error) {
 		return nil, err
 	}
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+	k, err := openKey(p, registry.QUERY_VALUE)
 	if err != nil {
-		if err == registry.ErrNotExist {
-			return nil, ErrKeyNotExist
-		}
-		return nil, fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
+		return nil, err
 	}
 	defer k.Close()
 
@@ -124,12 +130,9 @@ func WriteStringValue(keypath, valuename string, content string) error {
 		return err
 	}
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.SET_VALUE)
+	k, err := openKey(p, registry.SET_VALUE)
 	if err != nil {
-		if err == registry.ErrNotExist {
-			return ErrKeyNotExist
-		}
-		return fmt.Errorf("unable to create registry keypath [%s]: %v", keypath, err)
+		return err
 	}
 	defer k.Close()
 
@@ -148,12 +151,9 @@ func ReadStringValue(keypath, valuename string) (string, error) {
 		return "", err
 	}
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+	k, err := openKey(p, registry.QUERY_VALUE)
 	if err != nil {
-		if err == registry.ErrNotExist {
-			return "", ErrKeyNotExist
-		}
-		return "", fmt.Errorf("unable to open registry keypath [%s]: %v", keypath, err)
+		return "", err
 	}
 	defer k.Close()
 
@@ -168,6 +168,30 @@ func ReadStringValue(keypath, valuename string) (string, error) {
 	return s, nil
 }
 
+// ReadMultiStringValue reads a REG_MULTI_SZ value from the given registry path.
+func ReadMultiStringValue(keypath, valuename string) ([]string, error) {
+	p, err := stripHKey(keypath)
+	if err != nil {
+		return nil, err
+	}
+
+	k, err := openKey(p, registry.QUERY_VALUE)
+	if err != nil {
+		return nil, err
+	}
+	defer k.Close()
+
+	vs, _, err := k.GetStringsValue(valuename)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return nil, ErrValueNotExist
+		}
+		return nil, fmt.Errorf("unable to read multi-string (REG_MULTI_SZ) registry value [%s -> %s]: %v", p, valuename, err)
+	}
+
+	return vs, nil
+}
+
 // Ls returns all the value names of the given key.
 func Ls(keypath string) ([]string, error) {
 	p, err := stripHKey(keypath)
@@ -175,12 +199,9 @@ func Ls(keypath string) ([]string, error) {
 		return nil, err
 	}
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+	k, err := openKey(p, registry.QUERY_VALUE)
 	if err != nil {
-		if err == registry.ErrNotExist {
-			return nil, ErrKeyNotExist
-		}
-		return nil, fmt.Errorf("unable to open key path [%s]: %v", p, err)
+		return nil, err
 	}
 	defer k.Close()
 

@@ -14,17 +14,23 @@ environment:
   GOPATH: C:\gopath
 
   # Make sure the gcc compiler is in the PATH (for cgo compilation).
-  PATH: '%PATH%;C:\mingw-w64\x86_64-7.2.0-posix-seh-rt_v5-rev1\mingw64\bin'
+  PATH: '%PATH%;%GOPATH%\bin;C:\mingw-w64\x86_64-7.2.0-posix-seh-rt_v5-rev1\mingw64\bin'
 
 install:
 - python --version
 - go version
 - ps: Write-Output $env:PATH
 - go get -v -t ./...  # Install go dependencies.
+- go get -u golang.org/x/lint/golint
 - virtualenv C:\fsenv
 - C:\fsenv\Scripts\activate.bat
 - pip install grpcio-tools
 - pip install -e .
+
+before_build:
+- ps: $lint_errors = (golint ./... | Select-String -NotMatch 'should have comment or be unexported')
+- ps: $lint_errors
+- ps: if ($lint_errors.Length -gt 9) { throw 'New lint errors introduced!' }
 
 # Build executables needed by tests.
 build_script:
@@ -40,3 +46,5 @@ test_script:
 - pip show fleetspeak
 - go test github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 90s
 - go test github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 90s
+# TODO(ogaro): Move src/windows to src/client.
+- go test github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 90s
