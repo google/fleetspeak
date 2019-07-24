@@ -388,6 +388,7 @@ func TestStopDoesNotBlock(t *testing.T) {
 	timer := time.AfterFunc(stopTimeout, func() {
 		panic(fmt.Sprintf("Socket service failed to stop after %v.", stopTimeout))
 	})
+	defer timer.Stop()
 
 	// Make sure Fleetspeak does not block waiting for the (non-existent)
 	// process on the other side of the socket to connect.
@@ -396,6 +397,4 @@ func TestStopDoesNotBlock(t *testing.T) {
 	if err != nil {
 		t.Errorf("socketservice.Stop(): %v", err)
 	}
-
-	timer.Stop()
 }
