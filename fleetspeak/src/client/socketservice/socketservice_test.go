@@ -353,3 +353,49 @@ func TestResourceMonitoring(t *testing.T) {
 		}
 	}
 }
+
+func TestStopDoesNotBlock(t *testing.T) {
+	tmpDir, cleanUpFn, err := getTempDir()
+	if err != nil {
+		t.Fatalf("Failed to create tempdir for test: %v", err)
+	}
+	defer cleanUpFn()
+	socketPath := path.Join(tmpDir, "Loopback")
+	stopTimeout := 10 * time.Second
+
+	ssc := sspb.Config{
+		ApiProxyPath: socketPath,
+	}
+	sscAny, err := ptypes.MarshalAny(&ssc)
+	if err != nil {
+		t.Fatalf("ptypes.MarshalAny(*socketservice.Config): %v", err)
+	}
+	s, err := Factory(&fspb.ClientServiceConfig{
+		Name:   "TestSocketService",
+		Config: sscAny,
+	})
+	if err != nil {
+		t.Fatalf("Factory(...): %v", err)
+	}
+
+	sc := clitesting.MockServiceContext{
+		OutChan: make(chan *fspb.Message, 5),
+	}
+	if err := s.Start(&sc); err != nil {
+		t.Fatalf("socketservice.Start(...): %v", err)
+	}
+
+	timer := time.AfterFunc(stopTimeout, func() {
+		panic(fmt.Sprintf("Socket service failed to stop after %v.", stopTimeout))
+	})
+
+	// Make sure Fleetspeak does not block waiting for the (non-existent)
+	// process on the other side of the socket to connect.
+	err = s.Stop()
+
+	if err != nil {
+		t.Errorf("socketservice.Stop(): %v", err)
+	}
+
+  timer.Stop()
+}
