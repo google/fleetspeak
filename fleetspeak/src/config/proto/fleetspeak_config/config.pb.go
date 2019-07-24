@@ -5,9 +5,10 @@ package fleetspeak_config
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	fleetspeak_components "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

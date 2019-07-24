@@ -5,11 +5,12 @@ package fleetspeak_server
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	any "github.com/golang/protobuf/ptypes/any"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
