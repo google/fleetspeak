@@ -397,5 +397,5 @@ func TestStopDoesNotBlock(t *testing.T) {
 		t.Errorf("socketservice.Stop(): %v", err)
 	}
 
-  timer.Stop()
+	timer.Stop()
 }
