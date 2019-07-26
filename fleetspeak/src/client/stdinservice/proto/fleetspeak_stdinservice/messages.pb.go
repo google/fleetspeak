@@ -5,10 +5,11 @@ package fleetspeak_stdinservice
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	fleetspeak_monitoring "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
