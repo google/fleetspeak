@@ -239,7 +239,7 @@ func (s *Service) accept() *chanInfo {
 
 func (s *Service) channelManagerLoop() {
 	defer s.routines.Done()
-	defer s.l.Close()
+
 	var msg *fspb.Message
 	for {
 		info := s.accept()
