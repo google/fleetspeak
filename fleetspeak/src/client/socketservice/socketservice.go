@@ -93,6 +93,10 @@ func (s *Service) Start(sc service.Context) error {
 
 func (s *Service) Stop() error {
 	close(s.stop)
+	err := s.l.Close()
+	if err != nil {
+		log.Errorf("Error while trying to close listener: %v", err)
+	}
 	s.routines.Wait()
 	return nil
 }
@@ -235,7 +239,7 @@ func (s *Service) accept() *chanInfo {
 
 func (s *Service) channelManagerLoop() {
 	defer s.routines.Done()
-	defer s.l.Close()
+
 	var msg *fspb.Message
 	for {
 		info := s.accept()
