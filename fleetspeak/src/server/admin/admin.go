@@ -185,13 +185,9 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 				lc = time.Time{}
 			}
 		}
-		// Enforce message-size limit for clients.
-		encoded, err := proto.Marshal(m)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal message: %v", err)
-		}
-		if len(encoded) > maxMsgSize {
-			return nil, fmt.Errorf("message intended for client %x is of size %d, which exceeds the %d-byte limit", m.Destination.ClientId, len(encoded), maxMsgSize)
+		msgSize := proto.Size(m)
+		if msgSize > maxMsgSize {
+			return nil, fmt.Errorf("message intended for client %x is of size %d, which exceeds the %d-byte limit", m.Destination.ClientId, msgSize, maxMsgSize)
 		}
 	}
 
