@@ -24,6 +24,7 @@ import (
 	"context"
 
 	log "github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -33,6 +34,11 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+)
+
+const (
+	// Max size of messages accepted by Fleetspeak clients.
+	maxMsgSize = 2 << 20 // 2MiB
 )
 
 // NewServer returns an admin_grpc.AdminServer which performs operations using
@@ -178,6 +184,14 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 				log.Errorf("Failed to convert last contact time from database: %v", err)
 				lc = time.Time{}
 			}
+		}
+		// Enforce message-size limit for clients.
+		encoded, err := proto.Marshal(m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal message: %v", err)
+		}
+		if len(encoded) > maxMsgSize {
+			return nil, fmt.Errorf("message intended for client %x is of size %d, which exceeds the %d-byte limit", m.Destination.ClientId, len(encoded), maxMsgSize)
 		}
 	}
 

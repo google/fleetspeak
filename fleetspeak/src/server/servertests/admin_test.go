@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"context"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
@@ -236,5 +238,49 @@ func TestInsertMessageAPI(t *testing.T) {
 	}
 	if len(msgs) != 1 || !proto.Equal(msgs[0], &m) {
 		t.Errorf("ClientMessagesForProcessing(%v) returned unexpected value, got: %v, want [%v]", id, msgs, m)
+	}
+}
+
+func TestInsertMessageAPI_LargeMessages(t *testing.T) {
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+	ctx := context.Background()
+
+	server := testserver.Make(t, "server", "AdminServer", nil)
+	defer server.S.Stop()
+
+	key, err := server.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
+
+	adminServer := admin.NewServer(server.DS, nil)
+
+	dummyProto, err := ptypes.MarshalAny(&fspb.Signature{
+		Signature: bytes.Repeat([]byte{0xa}, 2<<20+1),
+	})
+	if err != nil {
+		t.Fatalf("Unable to marshal dummy proto: %v", err)
+	}
+
+	msg := fspb.Message{
+		MessageId:    mid.Bytes(),
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+		MessageType:  "DummyType",
+		CreationTime: db.NowProto(),
+		Data:         dummyProto,
+	}
+
+	if _, err := adminServer.InsertMessage(ctx, &msg); err == nil {
+		t.Fatal("Expected InsertMessage to return an error.")
+	} else if !strings.Contains(err.Error(), "exceeds the 2097152-byte limit") {
+		t.Errorf("Unexpected error: [%v].", err)
 	}
 }
