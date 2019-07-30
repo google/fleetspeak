@@ -1,11 +1,12 @@
 matrix:
   include:
     - os: linux
+      # TODO(ogaro): Figure out why mysql tests fail on xenial: https://api.travis-ci.org/v3/job/565482328/log.txt
+      dist: trusty
       language: go
       go:
         - "1.11.6"
       python: 2.7
-      sudo: required
       services:
         - mysql
       addons:
