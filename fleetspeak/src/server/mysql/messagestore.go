@@ -386,7 +386,7 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 			"creation_time_nanos, " +
 			"processed_time_seconds, " +
 			"processed_time_nanos, " +
-			"validation_info " +
+			"validation_info, " +
 			"annotations " +
 			"FROM messages WHERE message_id=?")
 		var stmt2 *sql.Stmt
