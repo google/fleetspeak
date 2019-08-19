@@ -106,6 +106,29 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
 		},
+		// Message with annotations.
+		{
+			MessageId: []byte("11234567890123456789012345678903"),
+			Source: &fspb.Address{
+				ServiceName: "TestServiceName",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID2.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type 2",
+			CreationTime: &tpb.Timestamp{Seconds: 42},
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 2",
+				Value:   []byte("Test data proto 2"),
+			},
+			Annotations: &fspb.Annotations{
+				Entries: []*fspb.Annotations.Entry{
+					{Key: "session_id", Value: "123"},
+					{Key: "request_id", Value: "1"},
+			  }
+			},
+		},
 	}
 	// duplicate calls to StoreMessages shouldn't fail.
 	if err := ms.StoreMessages(ctx, msgs, ""); err != nil {

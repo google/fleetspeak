@@ -70,6 +70,11 @@ message Message {
   // poll the server. This flag should be set on messages which are unlikely to
   // trigger additional activity.
   bool background = 11;
+
+  // Optional debugging information provided by the originator of the
+  // message. Fleetspeak stores this information along with the message for
+  // later retrieval, but doesn't really do anything else with it.
+  Annotations annotations = 12;
 }
 
 message MessageResult {
@@ -81,6 +86,14 @@ message MessageResult {
 
   // A human readable error message, normally set when failed is true.
   string failed_reason = 4;
+}
+
+message Annotations {
+  message Entry {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Entry entries = 1;
 }
 
 // A Label is a tag assigned to a client by a plugin. Primary use is to limit
