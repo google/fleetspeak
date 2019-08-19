@@ -675,7 +675,7 @@ func (d *Datastore) internalServerMessagesForProcessing(ctx context.Context, lim
 		"message_type, "+
 		"creation_time_seconds, "+
 		"creation_time_nanos, "+
-		"validation_info "+
+		"validation_info, "+
 		"annotations "+
 		"FROM messages "+
 		"WHERE message_id = ?")
