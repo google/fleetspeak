@@ -26,7 +26,7 @@ cd "$(/usr/bin/dirname "$(/bin/readlink -e "${ARGV0}")")"
 # otherwise different developers might keep generating different, possibly
 # conflicting proto files.
 # See https://github.com/golang/protobuf/issues/763
-readonly PROTOC_GEN_GO_VERSION='v1.3.1'
+readonly PROTOC_GEN_GO_VERSION='v1.3.2'
 readonly PROTOC_GEN_GO_DIR="$(go env GOPATH)"/src/github.com/golang/protobuf
 if [[ -z "$(git -C "${PROTOC_GEN_GO_DIR}" branch | grep "${PROTOC_GEN_GO_VERSION}")" ]]; then
   echo "Fetching protoc-gen-go ${PROTOC_GEN_GO_VERSION}."

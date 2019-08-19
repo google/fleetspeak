@@ -6,11 +6,12 @@ package fleetspeak_frr
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -535,6 +536,17 @@ type MasterServer interface {
 	// RecordFileResponse records that a FileResponse message was received
 	// by the FS server.
 	RecordFileResponse(context.Context, *FileResponseInfo) (*fleetspeak.EmptyMessage, error)
+}
+
+// UnimplementedMasterServer can be embedded to have forward compatible implementations.
+type UnimplementedMasterServer struct {
+}
+
+func (*UnimplementedMasterServer) RecordTrafficResponse(ctx context.Context, req *MessageInfo) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecordTrafficResponse not implemented")
+}
+func (*UnimplementedMasterServer) RecordFileResponse(ctx context.Context, req *FileResponseInfo) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecordFileResponse not implemented")
 }
 
 func RegisterMasterServer(s *grpc.Server, srv MasterServer) {

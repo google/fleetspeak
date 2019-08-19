@@ -6,11 +6,12 @@ package fleetspeak_grpcservice
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -142,6 +143,14 @@ func (c *processorClient) Process(ctx context.Context, in *fleetspeak.Message, o
 type ProcessorServer interface {
 	// Process accepts message and processes it.
 	Process(context.Context, *fleetspeak.Message) (*fleetspeak.EmptyMessage, error)
+}
+
+// UnimplementedProcessorServer can be embedded to have forward compatible implementations.
+type UnimplementedProcessorServer struct {
+}
+
+func (*UnimplementedProcessorServer) Process(ctx context.Context, req *fleetspeak.Message) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Process not implemented")
 }
 
 func RegisterProcessorServer(s *grpc.Server, srv ProcessorServer) {

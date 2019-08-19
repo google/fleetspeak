@@ -6,12 +6,13 @@ package fleetspeak_server
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	fleetspeak "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -868,6 +869,38 @@ type AdminServer interface {
 	// BlacklistClient marks a client_id as invalid, forcing all Fleetspeak
 	// clients using it to rekey.
 	BlacklistClient(context.Context, *BlacklistClientRequest) (*fleetspeak.EmptyMessage, error)
+}
+
+// UnimplementedAdminServer can be embedded to have forward compatible implementations.
+type UnimplementedAdminServer struct {
+}
+
+func (*UnimplementedAdminServer) CreateBroadcast(ctx context.Context, req *CreateBroadcastRequest) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateBroadcast not implemented")
+}
+func (*UnimplementedAdminServer) ListActiveBroadcasts(ctx context.Context, req *ListActiveBroadcastsRequest) (*ListActiveBroadcastsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListActiveBroadcasts not implemented")
+}
+func (*UnimplementedAdminServer) ListClients(ctx context.Context, req *ListClientsRequest) (*ListClientsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
+}
+func (*UnimplementedAdminServer) ListClientContacts(ctx context.Context, req *ListClientContactsRequest) (*ListClientContactsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListClientContacts not implemented")
+}
+func (*UnimplementedAdminServer) GetMessageStatus(ctx context.Context, req *GetMessageStatusRequest) (*GetMessageStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMessageStatus not implemented")
+}
+func (*UnimplementedAdminServer) InsertMessage(ctx context.Context, req *fleetspeak.Message) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InsertMessage not implemented")
+}
+func (*UnimplementedAdminServer) StoreFile(ctx context.Context, req *StoreFileRequest) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreFile not implemented")
+}
+func (*UnimplementedAdminServer) KeepAlive(ctx context.Context, req *fleetspeak.EmptyMessage) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeepAlive not implemented")
+}
+func (*UnimplementedAdminServer) BlacklistClient(ctx context.Context, req *BlacklistClientRequest) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BlacklistClient not implemented")
 }
 
 func RegisterAdminServer(s *grpc.Server, srv AdminServer) {
