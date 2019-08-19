@@ -123,10 +123,10 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 				Value:   []byte("Test data proto 2"),
 			},
 			Annotations: &fspb.Annotations{
-				Entries: []*fspb.Annotations.Entry{
+				Entries: []*fspb.Annotations_Entry{
 					{Key: "session_id", Value: "123"},
 					{Key: "request_id", Value: "1"},
-			  }
+				},
 			},
 		},
 	}

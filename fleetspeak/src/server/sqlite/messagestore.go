@@ -54,6 +54,7 @@ type dbMessage struct {
 	retryCount             uint32
 	dataTypeURL            sql.NullString
 	dataValue              []byte
+	annotations            []byte
 }
 
 func toMicro(t time.Time) int64 {
@@ -161,6 +162,13 @@ func fromMessageProto(m *fspb.Message) (*dbMessage, error) {
 		}
 		dbm.validationInfo = b
 	}
+	if m.Annotations != nil {
+		b, err := proto.Marshal(m.Annotations)
+		if err != nil {
+			return nil, err
+		}
+		dbm.annotations = b
+	}
 	return dbm, nil
 }
 
@@ -221,6 +229,13 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 			return nil, err
 		}
 		pm.ValidationInfo = v
+	}
+	if len(m.annotations) > 0 {
+		a := &fspb.Annotations{}
+		if err := proto.Unmarshal(m.annotations, a); err != nil {
+			return nil, err
+		}
+		pm.Annotations = a
 	}
 	return pm, nil
 }
@@ -320,7 +335,8 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 		"processed_time_nanos, "+
 		"failed,"+
 		"failed_reason,"+
-		"validation_info) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"validation_info,"+
+		"annotations) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		dbm.messageID,
 		dbm.sourceClientID,
 		dbm.sourceServiceName,
@@ -334,7 +350,8 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 		dbm.processedTimeNanos,
 		dbm.failed,
 		dbm.failedReason,
-		dbm.validationInfo)
+		dbm.validationInfo,
+		dbm.annotations)
 	if err != nil {
 		return err
 	}
@@ -393,7 +410,8 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 			"creation_time_nanos, " +
 			"processed_time_seconds, " +
 			"processed_time_nanos, " +
-			"validation_info " +
+			"validation_info, " +
+			"annotations " +
 			"FROM messages WHERE message_id=?")
 		var stmt2 *sql.Stmt
 		if wantData {
@@ -420,7 +438,8 @@ func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wan
 				&dbm.creationTimeNanos,
 				&dbm.processedTimeSeconds,
 				&dbm.processedTimeNanos,
-				&dbm.validationInfo)
+				&dbm.validationInfo,
+				&dbm.annotations)
 			if err != nil {
 				return err
 			}
@@ -509,6 +528,7 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 			"m.creation_time_seconds, "+
 			"m.creation_time_nanos,"+
 			"m.validation_info,"+
+			"m.annotations,"+
 			"pm.retry_count, "+
 			"pm.data_type_url, "+
 			"pm.data_value "+
@@ -532,6 +552,7 @@ func (d *Datastore) internalMessagesForProcessing(ctx context.Context, id common
 				&dbm.creationTimeSeconds,
 				&dbm.creationTimeNanos,
 				&dbm.validationInfo,
+				&dbm.annotations,
 				&dbm.retryCount,
 				&dbm.dataTypeURL,
 				&dbm.dataValue,
