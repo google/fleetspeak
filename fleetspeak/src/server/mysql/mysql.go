@@ -170,6 +170,7 @@ processed_time_nanos INT,
 validation_info BLOB,
 failed INT1,
 failed_reason TEXT,
+annotations BLOB,
 PRIMARY KEY (message_id))`,
 		`CREATE TABLE IF NOT EXISTS pending_messages(
 for_server BOOL NOT NULL,

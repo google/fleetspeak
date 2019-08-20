@@ -151,6 +151,7 @@ processed_time_nanos INT4,
 validation_info BLOB,
 failed INT1,
 failed_reason TEXT,
+annotations BLOB,
 PRIMARY KEY (message_id))`,
 		`CREATE TABLE IF NOT EXISTS pending_messages(
 message_id TEXT(64) NOT NULL,
