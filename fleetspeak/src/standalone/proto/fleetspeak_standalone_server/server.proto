@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package fleetspeak.standalone.server;
+
+import "google/protobuf/duration.proto";
+
+import "fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice/grpcservice.proto";
+
+message ServiceConfig {
+  // The name that the service will be known as. Primary use is to address
+  // messages to the service. The service names 'server' and 'client' are
+  // reserved.
+  string name = 1;
+
+  // The maximum number of simultaneous calls to the service's ProcessMessage
+  // method. If unset, defaults to 100.
+  uint32 max_parallelism = 2;
+
+  // GRPC service configuration information.
+  fleetspeak.grpcservice.Config config = 3;
+}
+
+// Describes a standalone server's configuration. Standalone server is a
+// Fleetspeak server that is desgiend to have plugins talking through GRPC.
+// If unset, all values default to values reasonable for a unit test or
+// small installation. Larger installations may need to tune these.
+message StandaloneServerConfig {
+  // Bind address for the admin rpc server.
+  string admin_addr = 1;
+
+  // Bind address to listen for https connections from clients.
+  string https_addr = 2;
+
+  // Path to the CA certificate file used to sign server certificates.
+  string ca_cert = 3;
+
+  // Path to the CA key.
+  string ca_key = 4;
+
+  // Path to the certificate file to use to identify the server to clients.
+  string server_cert = 5;
+
+  // Path to the key file to use to identify the server to clients.
+  string server_key = 6;
+
+  // MySQL username to use.
+  string mysql_user = 7;
+
+  // MySQL password to use.
+  string mysql_password = 8;
+
+  // MySQL database to use.
+  string mysql_database = 9;
+
+  // MySQL address to use.
+  string mysql_addr = 10;
+
+  // The approximate time to wait between checking for new broadcasts. If unset,
+  // a default of 1 minute is used.
+  google.protobuf.Duration broadcast_poll_time = 11;
+
+  // The collection of services that this server should include.
+  repeated ServiceConfig services = 12;
+}
