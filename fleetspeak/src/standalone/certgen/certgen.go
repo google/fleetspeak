@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main implements a certificate and key generation tool. It is meant to be used
-// with the configurator tool to set up a CA based server identification scheme. It creates
-// the following files in the --config_dir directory:
+// Package main implements a certificate and key generation tool. It reads the
+// configuration file and, based on paths specified in that file, generates
+// keys/certs.
 //
-// ca_cert.pem     - A PEM encoded X509 CA certificate.
-// ca_key.pem      - The private key associated with ca_cert.pem.
-// server_cert.pem - A PEM encoded X509 CA certificate, signed by ca_cert.pem.
-// server_key.pem  - The private key associated with server_cert.pem.
+// ca_cert     - A PEM encoded X509 CA certificate.
+// ca_key      - The private key associated with ca_cert.pem.
+// server_cert - A PEM encoded X509 CA certificate, signed by ca_cert.pem.
+// server_key  - The private key associated with server_cert.pem.
 //
 // On execution, this program will perform the following operations:
 //
-// 1) If ca_cert.pem does not exist, a self signed certificate is created based
-//    on the flags ca_*, and the corresponding key is saved in ca_key.pem.
+// 1) If ca_cert does not exist, a self signed certificate is created and
+//    saved to ca_key and ca_cert paths specified in the configuration
+//    file.
 //
-// 2) If server_cert.pem does not exist, a certificate is created based on the
-//    flags server_* and signed by ca_key. The corresponding server key is saved
-//    in server_key.pem.
+// 2) If server_cert does not exist, a certificate is created and saved to
+//    server_key and server_cert paths specified in the configuration file.
 package main
 
 import (

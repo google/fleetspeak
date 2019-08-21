@@ -31,16 +31,16 @@ message StandaloneServerConfig {
   // Bind address to listen for https connections from clients.
   string https_addr = 2;
 
-  // Path to the CA certificate file used to sign server certificates.
+  // Path to the CA certificate.
   string ca_cert = 3;
 
-  // Path to the CA key.
+  // Path to the private CA key.
   string ca_key = 4;
 
-  // Path to the certificate file to use to identify the server to clients.
+  // Path to the server certificate file to use to identify the server to clients.
   string server_cert = 5;
 
-  // Path to the key file to use to identify the server to clients.
+  // Path to the private server key.
   string server_key = 6;
 
   // MySQL username to use.
