@@ -2,7 +2,7 @@ matrix:
   include:
     - os: linux
       # TODO(ogaro): Figure out why mysql tests fail on xenial: https://api.travis-ci.org/v3/job/565482328/log.txt
-      dist: xenial
+      dist: trusty
       language: go
       go:
         - "1.11.6"
