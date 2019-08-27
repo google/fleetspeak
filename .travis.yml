@@ -34,7 +34,7 @@ matrix:
         # doesn't error out.
         - cd fleetspeak
         - ./build-pkgs.sh
-        - sudo bash -c "./test-package.sh fleetspeak-server*.deb"
+        - sudo ./test-package.sh fleetspeak-server_$(cat ../VERSION)_amd64.deb
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.
