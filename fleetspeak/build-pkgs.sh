@@ -18,20 +18,23 @@ set -e
 /bin/echo >&2 ""
 /bin/echo >&2 "Building server.deb"
 
+DEB_DEST="server-pkg/debian/fleetspeak-server"
+
 fakeroot bash -c '
   rm -rf server-pkg
   cp -r server-pkg-tmpl server-pkg
 
   chmod 755 server-pkg/*
 
-  sed -i "s/<version>/$(cat ../VERSION)/" server-pkg/DEBIAN/control
+  sed -i "s/<version>/$(cat ../VERSION)/" server-pkg/debian/changelog
 
   mkdir -p server-pkg/usr/bin
   install -o root -g root src/server/server/server server-pkg/usr/bin/fleetspeak-server
   install -o root -g root src/config/fleetspeak_config server-pkg/usr/bin/fleetspeak-config
-  
-  dpkg-deb -b server-pkg server.deb
-  dpkg-deb -c server.deb
+
+  cd server-pkg
+  dpkg-buildpackage -us -uc
+  cd -
 '
 
 /bin/echo >&2 ""
@@ -50,6 +53,3 @@ fakeroot bash -c '
   dpkg-deb -b client-pkg client.deb
   dpkg-deb -c client.deb
 '
-
-
-

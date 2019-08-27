@@ -19,7 +19,7 @@ set -e
 dpkg -i $1
 
 /bin/echo 'Running fleetspeak-config'
-/usr/bin/fleetspeak-config --config_file=/usr/share/doc/fleetspeak-server/example.config
+/usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
 /bin/echo 'ls -l /etc/fleetspeak-server'
 ls -l /etc/fleetspeak-server

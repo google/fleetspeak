@@ -32,12 +32,12 @@ import (
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
-var componentConfigPath = flag.String("component_config_path", "/etc/fleetspeak-server/components.config", "File describing the server component configuration.")
-var serverConfigPath = flag.String("server_config_path", "/etc/fleetspeak-server/server.config", "File describing the overall server configuration.")
+var componentsConfigPath = flag.String("components_config", "/etc/fleetspeak-server/server.components.config", "File describing the server component configuration.")
+var servicesConfigPath = flag.String("services_config", "/etc/fleetspeak-server/server.services.config", "File describing the server services configuration.")
 
 func main() {
 	flag.Parse()
-	s, err := server.MakeServer(readConfig(), loadComponents())
+	s, err := server.MakeServer(readServicesConfig(), loadComponents())
 	if err != nil {
 		log.Exitf("Unable to initialize Fleetspeak server: %v", err)
 	}
@@ -52,13 +52,13 @@ func main() {
 }
 
 func loadComponents() server.Components {
-	b, err := ioutil.ReadFile(*componentConfigPath)
+	b, err := ioutil.ReadFile(*componentsConfigPath)
 	if err != nil {
-		log.Exitf("Unable to read component config file [%s]: %v", *componentConfigPath, err)
+		log.Exitf("Unable to read component config file [%s]: %v", *componentsConfigPath, err)
 	}
 	var c cpb.Config
 	if err := proto.UnmarshalText(string(b), &c); err != nil {
-		log.Exitf("Unable to parse component config file [%s]: %v", *componentConfigPath, err)
+		log.Exitf("Unable to parse component config file [%s]: %v", *componentsConfigPath, err)
 	}
 	r, err := components.MakeComponents(c)
 	if err != nil {
@@ -67,14 +67,14 @@ func loadComponents() server.Components {
 	return *r
 }
 
-func readConfig() *spb.ServerConfig {
-	cb, err := ioutil.ReadFile(*serverConfigPath)
+func readServicesConfig() *spb.ServerConfig {
+	cb, err := ioutil.ReadFile(*servicesConfigPath)
 	if err != nil {
-		log.Exitf("Unable to read server configuration file [%v]: %v", *serverConfigPath, err)
+		log.Exitf("Unable to read services configuration file [%v]: %v", *servicesConfigPath, err)
 	}
 	var conf spb.ServerConfig
 	if err := proto.UnmarshalText(string(cb), &conf); err != nil {
-		log.Exitf("Unable to parse server configuration file [%v]: %v", *serverConfigPath, err)
+		log.Exitf("Unable to parse services configuration file [%v]: %v", *servicesConfigPath, err)
 	}
 	return &conf
 }
