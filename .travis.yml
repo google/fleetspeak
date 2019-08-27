@@ -11,6 +11,8 @@ matrix:
       addons:
         apt:
           packages:
+            - debhelper
+            - dh-systemd
             - fakeroot
       env:
         - MYSQL_TEST_USER=travis
