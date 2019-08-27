@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package fleetspeak.messagesaver;
-
-message Config {
-  string path = 1;
-}
