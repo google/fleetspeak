@@ -13,24 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -ex
 
 /bin/echo 'Installing newly built server package.'
 apt install -y $1
-
-/bin/echo 'Running fleetspeak-config'
 /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
-/bin/echo 'ls -l /etc/fleetspeak-server'
+/bin/echo 'Checking that the installation was successful'
 ls -l /etc/fleetspeak-server
-
-# At this point the service is doen, since right after the installation it was
-# started without a configuration
-/bin/echo 'systemctl restart fleetspeak-server'
+find /etc/systemd/ -name 'fleetspeak*'
+# At this point the service is down, since right after the installation it was
+# started without a configuration.
 systemctl restart fleetspeak-server
-
 # Give the service a bit of time to start.
 sleep 1
-
-/bin/echo 'systemctl is-active fleetspeak-server'
+# Check that it's now up and running.
 systemctl is-active fleetspeak-server
