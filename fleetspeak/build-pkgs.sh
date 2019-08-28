@@ -18,7 +18,8 @@ set -e
 /bin/echo >&2 ""
 /bin/echo >&2 "Building server.deb"
 
-DEB_DEST="server-pkg/debian/fleetspeak-server"
+export DEB_DEST="server-pkg/debian/fleetspeak-server"
+export DEB_VERSION=$(cat ../VERSION)
 
 fakeroot bash -c '
   rm -rf server-pkg
@@ -26,7 +27,15 @@ fakeroot bash -c '
 
   chmod 755 server-pkg/*
 
-  sed -i "s/<version>/$(cat ../VERSION)/" server-pkg/debian/changelog
+  cd server-pkg
+  debchange --create \
+    --newversion "${DEB_VERSION}" \
+    --package fleetspeak-server \
+    --urgency low \
+    --controlmaint \
+    --distribution unstable \
+    "Built by Travis CI at ${TRAVIS_COMMIT}"
+  cd -
 
   mkdir -p server-pkg/usr/bin
   install -o root -g root src/server/server/server server-pkg/usr/bin/fleetspeak-server
@@ -45,7 +54,7 @@ fakeroot bash -c '
 
   chmod 755 client-pkg/*
 
-  sed -i "s/<version>/$(cat ../VERSION)/" client-pkg/DEBIAN/control
+  sed -i "s/<version>/${DEB_VERSION}/g" client-pkg/DEBIAN/control
 
   mkdir -p client-pkg/usr/bin
   install -o root -g root src/client/client/client client-pkg/usr/bin/fleetspeak-client

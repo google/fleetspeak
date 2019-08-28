@@ -1,5 +1,5 @@
 [Unit]
-Description=Fleetspeak Service
+Description=Fleetspeak Server Service
 After=syslog.target network.target
 Documentation=https://github.com/google/fleetspeak
 

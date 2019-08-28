@@ -23,3 +23,14 @@ apt install $1
 
 /bin/echo 'ls -l /etc/fleetspeak-server'
 ls -l /etc/fleetspeak-server
+
+# At this point the service is doen, since right after the installation it was
+# started without a configuration
+/bin/echo 'systemctl restart fleetspeak-server'
+systemctl restart fleetspeak-server
+
+# Give the service a bit of time to start.
+sleep 1
+
+/bin/echo 'systemctl is-active fleetspeak-server'
+systemctl is-active fleetspeak-server

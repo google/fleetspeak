@@ -31,7 +31,7 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 )
 
-var configFile = flag.String("config", "", "Configuration file to read. Should contain a text format fleetspeak.config.Config protocol buffer. See /etc/fleetspeak-server/configuration.config as a starting point.")
+var configFile = flag.String("config", "", "Configuration file to read. Should contain a text format fleetspeak.config.Config protocol buffer. See /etc/fleetspeak-server/configurator.config as a starting point.")
 
 func main() {
 	flag.Parse()
