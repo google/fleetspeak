@@ -1,6 +1,6 @@
 Source: fleetspeak-server
 Maintainer: GRR Dev <grr-dev@googlegroups.com>
-Build-Depends: debhelper (>= 9), dh-systemd (>= 1.5)
+Build-Depends: debhelper (>= 9), dh-systemd (>= 1.5), devscripts
 Standards-Version: 3.8.3
 Homepage: https://github.com/google/fleetspeak
 
