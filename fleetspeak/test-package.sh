@@ -16,7 +16,7 @@
 set -e
 
 /bin/echo 'Installing newly built server package.'
-apt install $1
+apt install -y $1
 
 /bin/echo 'Running fleetspeak-config'
 /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
