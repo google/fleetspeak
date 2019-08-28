@@ -22,6 +22,7 @@ export DEB_DEST="server-pkg/debian/fleetspeak-server"
 export DEB_VERSION=$(cat ../VERSION)
 
 fakeroot bash -c '
+  set -e
   rm -rf server-pkg
   cp -r server-pkg-tmpl server-pkg
 
@@ -49,6 +50,7 @@ fakeroot bash -c '
 /bin/echo >&2 ""
 /bin/echo >&2 "Building client.deb"
 fakeroot bash -c '
+  set -e
   rm -rf client-pkg
   cp -r client-pkg-tmpl client-pkg
 
