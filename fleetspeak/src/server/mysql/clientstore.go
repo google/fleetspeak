@@ -201,7 +201,7 @@ func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.
 
 func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.ClientData) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, 'FALSE', ?)", id.Bytes(), data.Key, db.Now().UnixNano()); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, FALSE, ?)", id.Bytes(), data.Key, db.Now().UnixNano()); err != nil {
 			return err
 		}
 		for _, l := range data.Labels {
