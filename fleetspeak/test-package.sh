@@ -23,7 +23,6 @@ apt install -y $1
 ls -l /etc/fleetspeak-server
 find /etc/systemd/ -name 'fleetspeak*'
 
-/usr/bin/fleetspeak-server --services_config /etc/fleetspeak-server/server.services.config --components_config /etc/fleetspeak-server/server.components.config
 # At this point the service is down, since right after the installation it was
 # started without a configuration.
 systemctl restart fleetspeak-server && true
