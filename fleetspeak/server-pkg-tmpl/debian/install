@@ -1,0 +1,4 @@
+etc/fleetspeak-server/server.services.config etc/fleetspeak-server
+etc/fleetspeak-server/configurator.config etc/fleetspeak-server
+usr/bin/fleetspeak-server usr/bin
+usr/bin/fleetspeak-config usr/bin

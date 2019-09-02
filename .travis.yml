@@ -11,7 +11,11 @@ matrix:
       addons:
         apt:
           packages:
+            - debhelper
+            - devscripts
+            - dh-systemd
             - fakeroot
+            - libparse-debcontrol-perl
       env:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
@@ -34,7 +38,7 @@ matrix:
         # doesn't error out.
         - cd fleetspeak
         - ./build-pkgs.sh
-        - sudo ./test-package.sh server.deb
+        - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.

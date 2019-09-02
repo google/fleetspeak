@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Post-installation script for the Fleetspeak server deb.
+#
+
+set -e
+
+# The token below is replaced with shellscript snippets generated
+# by debhelper commands. See http://manpages.ubuntu.com/dh_installdeb
+
+#DEBHELPER#
+
+case "$1" in
+    configure)
+      adduser --system --disabled-password --disabled-login --home /var/empty \
+        --no-create-home --quiet --force-badname fleetspeak
+      # Allow "fleetspeak" user to bind to a low port (443).
+      setcap 'cap_net_bind_service=+ep' /usr/bin/fleetspeak-server
+      ;;
+esac

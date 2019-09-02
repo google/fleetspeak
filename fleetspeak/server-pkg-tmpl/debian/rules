@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# See this article for ideas re Go packaging in Debian:
+# https://vincent.bernat.ch/en/blog/2016-pragmatic-debian-packaging
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
+
+%:
+	dh $@ --with systemd
