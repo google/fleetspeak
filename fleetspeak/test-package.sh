@@ -22,14 +22,11 @@ apt install -y $1
 /bin/echo 'Checking that the installation was successful'
 ls -l /etc/fleetspeak-server
 find /etc/systemd/ -name 'fleetspeak*'
-# TODO(mbushkov): uncomment the checks below as soon as Travis build is
-# Xenial- (and not Trusty-) based. See .travis.yml for more context re
-# why Trusty is still used as a build platform.
-#
-# # At this point the service is down, since right after the installation it was
-# # started without a configuration.
-# systemctl restart fleetspeak-server
-# # Give the service a bit of time to start.
-# sleep 1
-# # Check that it's now up and running.
-# systemctl is-active fleetspeak-server
+
+# At this point the service is down, since right after the installation it was
+# started without a configuration.
+systemctl restart fleetspeak-server
+# Give the service a bit of time to start.
+sleep 1
+# Check that it's now up and running.
+systemctl is-active fleetspeak-server
