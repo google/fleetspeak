@@ -27,6 +27,11 @@ matrix:
       install:
         - source "${HOME}/FSENV/bin/activate" && pip install grpcio-tools && pip install -e .
         - go get -v -t ./... # Install dependencies needed for tests.
+        # TODO: remove the code below when git.apache.org is back up or when
+        # osquery-go uses a correct version of the Thrift library (the one
+        # hosted on github.com and not on git.apache.org).
+        - mkdir -p "${HOME}/go/src/git.apache.org"
+        - git clone https://github.com/apache/thrift.git "${HOME}/go/src/git.apache.org/thrift.git"
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
