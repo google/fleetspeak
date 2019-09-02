@@ -23,6 +23,7 @@ matrix:
         - sudo pip install --upgrade pip virtualenv
         - virtualenv "${HOME}/FSENV"
         - mysql --print-defaults
+        - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
       install:
         - source "${HOME}/FSENV/bin/activate" && pip install grpcio-tools && pip install -e .
