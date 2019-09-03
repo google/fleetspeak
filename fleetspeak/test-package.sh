@@ -28,6 +28,5 @@ find /etc/systemd/ -name 'fleetspeak*'
 systemctl restart fleetspeak-server && true
 # Give the service a bit of time to start.
 sleep 10
-systemctl status fleetspeak-server -l
 # Check that it's now up and running.
 systemctl is-active fleetspeak-server
