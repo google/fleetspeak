@@ -4,9 +4,7 @@ After=syslog.target network.target
 Documentation=https://github.com/google/fleetspeak
 
 [Service]
-User=fleetspeak
-Group=fleetspeak
-ExecStart=/usr/bin/find /etc
+ExecStart=/usr/bin/fleetspeak-server --services_config /etc/fleetspeak-server/server.services.config --components_config /etc/fleetspeak-server/server.components.config
 Restart=always
 
 [Install]
