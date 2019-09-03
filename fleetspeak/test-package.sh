@@ -27,7 +27,7 @@ find /etc/systemd/ -name 'fleetspeak*'
 # started without a configuration.
 systemctl restart fleetspeak-server && true
 
-cat /var/log/syslog
+sudo -u fleetspeak cat /etc/fleetspeak-server/server.components.config
 
 # Check that it's now up and running.
 systemctl is-active fleetspeak-server
