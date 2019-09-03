@@ -6,7 +6,7 @@ Documentation=https://github.com/google/fleetspeak
 [Service]
 User=fleetspeak
 Group=fleetspeak
-ExecStart=find /
+ExecStart=/usr/bin/find /
 Restart=always
 
 [Install]
