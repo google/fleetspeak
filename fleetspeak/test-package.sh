@@ -17,17 +17,16 @@ set -ex
 
 /bin/echo 'Installing newly built server package.'
 apt install -y $1
-/usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
+sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
 /bin/echo 'Checking that the installation was successful'
 ls -l /etc/fleetspeak-server
 find /etc/systemd/ -name 'fleetspeak*'
 
-# TODO: fix permission issues with DEB-provided config files and uncomment:
-# # At this point the service is down, since right after the installation it was
-# # started without a configuration.
-# systemctl restart fleetspeak-server
-# # Give the service a bit of time to start.
-# sleep 1
-# # Check that it's now up and running.
-# systemctl is-active fleetspeak-server
+# At this point the service is down, since right after the installation it was
+# started without a configuration.
+systemctl restart fleetspeak-server
+# Give the service a bit of time to start.
+sleep 1
+# Check that it's now up and running.
+systemctl is-active fleetspeak-server
