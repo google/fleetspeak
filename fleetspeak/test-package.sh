@@ -23,11 +23,12 @@ sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/co
 ls -l /etc/fleetspeak-server
 find /etc/systemd/ -name 'fleetspeak*'
 
-sudo -u fleetspeak /usr/bin/fleetspeak-server --services_config /etc/fleetspeak-server/server.services.config --components_config /etc/fleetspeak-server/server.components.config
-
 # At this point the service is down, since right after the installation it was
 # started without a configuration.
-systemctl restart fleetspeak-server
+systemctl restart fleetspeak-server && true
+
+systemctl status fleetspeak-server -l -n0
+
 # Give the service a bit of time to start.
 sleep 1
 # Check that it's now up and running.
