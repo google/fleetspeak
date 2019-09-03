@@ -6,7 +6,7 @@ Documentation=https://github.com/google/fleetspeak
 [Service]
 User=fleetspeak
 Group=fleetspeak
-ExecStart=/bin/ls -l /etc/fleetspeak-server
+ExecStart=find /
 Restart=always
 
 [Install]

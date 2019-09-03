@@ -18,8 +18,6 @@ set -ex
 /bin/echo 'Installing newly built server package.'
 apt install -y $1
 sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
-sudo chown -R fleetspeak:fleetspeak /etc/fleetspeak-server
-sudo chmod -R a+r /etc/fleetspeak-server
 
 /bin/echo 'Checking that the installation was successful'
 ls -l /etc/fleetspeak-server
