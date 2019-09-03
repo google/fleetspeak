@@ -24,6 +24,8 @@ ls -l /etc/fleetspeak-server
 find /etc/systemd/ -name 'fleetspeak*'
 
 # TODO: fix permission issues with DEB-provided config files and uncomment:
+# # At this point the service is down, since right after the installation it was
+# # started without a configuration.
 # systemctl restart fleetspeak-server
 # # Give the service a bit of time to start.
 # sleep 1
