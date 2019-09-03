@@ -23,10 +23,16 @@ matrix:
         - sudo pip install --upgrade pip virtualenv
         - virtualenv "${HOME}/FSENV"
         - mysql --print-defaults
+        - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
       install:
         - source "${HOME}/FSENV/bin/activate" && pip install grpcio-tools && pip install -e .
-        - go get -v -t ./... # Install dependencies needed for tests.
+        # TODO: remove 2 lines below when git.apache.org is back up or when
+        # osquery-go uses a correct version of the Thrift library (the one
+        # hosted on github.com and not on git.apache.org).
+        - mkdir -p "$(go env GOPATH)/src/git.apache.org"
+        - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
+        - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
