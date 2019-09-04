@@ -25,6 +25,10 @@ find /etc/systemd/ -name 'fleetspeak*'
 
 # At this point the service is down, since right after the installation it was
 # started without a configuration.
+# Reset a list of failed services to ensure the restart below works fine.
+sudo systemctl reset-failed
+
+# Restart the service.
 sudo systemctl restart fleetspeak-server
 
 # Check that it's now up and running.
