@@ -12,8 +12,10 @@ set -e
 
 case "$1" in
     configure)
-      adduser --system --disabled-password --disabled-login --home /var/empty \
-        --no-create-home --quiet --force-badname fleetspeak
+      adduser --system fleetspeak
+      groupadd --system -f fleetspeak
+      chown -R fleetspeak:fleetspeak /etc/fleetspeak-server
+      
       # Allow "fleetspeak" user to bind to a low port (443).
       setcap 'cap_net_bind_service=+ep' /usr/bin/fleetspeak-server
       ;;
