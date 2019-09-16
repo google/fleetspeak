@@ -56,11 +56,20 @@ fakeroot bash -c '
 
   chmod 755 client-pkg/*
 
-  sed -i "s/<version>/${DEB_VERSION}/g" client-pkg/DEBIAN/control
+  cd client-pkg
+  debchange --create \
+    --newversion "${DEB_VERSION}" \
+    --package fleetspeak-client \
+    --urgency low \
+    --controlmaint \
+    --distribution unstable \
+    "Built by Travis CI at ${TRAVIS_COMMIT}"
+  cd -
 
   mkdir -p client-pkg/usr/bin
   install -o root -g root src/client/client/client client-pkg/usr/bin/fleetspeak-client
   
-  dpkg-deb -b client-pkg client.deb
-  dpkg-deb -c client.deb
+  cd client-pkg
+  dpkg-buildpackage -us -uc
+  cd -
 '

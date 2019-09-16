@@ -12,6 +12,5 @@ set -e
 
 case "$1" in
     configure)
-      mkdir -p /etc/fleetspeak-client
       ;;
 esac

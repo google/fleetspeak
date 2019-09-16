@@ -1,0 +1,9 @@
+# This is a text format fleetspeak.client.CommunicatorConfig and can be used
+# to tweak how often the fleetspeak client tries to ping the server.
+#
+# Example values for debugging:
+#
+# max_poll_delay_seconds: 10
+# max_buffer_delay_seconds: 1
+# min_failure_delay_seconds: 10
+

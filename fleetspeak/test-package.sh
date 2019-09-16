@@ -33,3 +33,13 @@ sudo systemctl restart fleetspeak-server
 
 # Check that it's now up and running.
 systemctl is-active fleetspeak-server
+
+# Now copy the linux client configuration to the expected location.
+sudo mkdir -p /etc/fleetspeak-client
+sudo cp /etc/fleetspeak-server/linux.client.configuration /etc/fleetspeak-client/client.config
+
+# Install the client package.
+apt install -y $2
+
+# Check that the client is up and running.
+systemctl is-active fleetspeak-client
