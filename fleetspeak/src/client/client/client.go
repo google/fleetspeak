@@ -21,7 +21,7 @@ import (
 	gpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
 )
 
-var configFile = flag.String("config_file", "", "Client configuration file, required.")
+var configFile = flag.String("config", "", "Client configuration file, required.")
 
 func main() {
 	flag.Parse()
