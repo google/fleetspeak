@@ -1,0 +1,12 @@
+[Unit]
+Description=Fleetspeak Client Service
+After=syslog.target network.target
+Documentation=https://github.com/google/fleetspeak
+
+[Service]
+User=root
+ExecStart=/usr/bin/fleetspeak-client --config /etc/fleetspeak-client/client.config
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

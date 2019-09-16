@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# Post-installation script for the Fleetspeak client deb.
+#
+
+set -e
+
+# The token below is replaced with shellscript snippets generated
+# by debhelper commands. See http://manpages.ubuntu.com/dh_installdeb
+
+#DEBHELPER#
+
+case "$1" in
+    configure)
+      ;;
+esac

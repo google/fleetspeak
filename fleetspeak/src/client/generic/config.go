@@ -24,6 +24,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"runtime"
+	"strings"
 
 	log "github.com/golang/glog"
 
@@ -50,6 +51,9 @@ func MakeConfiguration(cfg gpb.Config) (config.Configuration, error) {
 		{ServiceName: "client", Label: runtime.GOOS}}
 
 	for _, l := range cfg.ClientLabel {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
 		labels = append(labels, &fspb.Label{ServiceName: "client", Label: l})
 	}
 
