@@ -45,6 +45,24 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+    - os: windows
+      language: go
+      go:
+        - "1.11.6"
+      install:
+        - go version
+        - go get -v -t ./...
+      script:
+        - go build -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+    - os: osx
+      language: go
+      go:
+        - "1.11.6"
+      install:
+        - go version
+        - go get -v -t ./...
+      script:
+        - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.
