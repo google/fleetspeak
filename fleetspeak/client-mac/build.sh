@@ -40,7 +40,7 @@ chmod +x pkg_root/usr/local/bin/fleetspeakd
 # Create a component package containing files to be installed.
 pkgbuild \
   --root pkg_root \
-  --identifier com.google.corp.fleetspeak \
+  --identifier com.google.code.fleetspeak \
   --version "${FS_VERSION}" \
   --scripts install-scripts \
   "${COMPONENT_PKG_NAME}"
