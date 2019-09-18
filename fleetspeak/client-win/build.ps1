@@ -1,7 +1,5 @@
 #Requires -RunAsAdministrator
 
-refreshenv
-
 $ErrorActionPreference = 'Stop'
 
 # Print Powershell version. Some features e.g. enums are
@@ -38,7 +36,7 @@ function Build-BinaryPkg {
     -out "fleetspeakd.wixobj"
 
   # -sw1076 arg disables warning due to 'AllowDowngrades' setting in Wix config.
-  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe $cmd `
+  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" `
     "fleetspeakd.wixobj" `
     -ext WixUtilExtension `
     -sw1076 `
