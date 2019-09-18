@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?define UPGRADECODE="0D58409B-F48A-463A-80B8-654A69EC05F8"?>
+
+<!-- We want the installer to create Fleetspeak's log directory on
+     install. Wix requires us to have a static GUID for the directory. -->
+<?define LOGDIRGUID="0D58409B-F48A-463A-80B8-654A69EC05F8"?>
+
+<Wix
+    xmlns="http://schemas.microsoft.com/wix/2006/wi"
+    xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product
+      Name="Fleetspeak"
+      Id="*"
+      UpgradeCode="$(var.UPGRADECODE)"
+      Language="1033"
+      Version="$(var.VERSION)"
+      Manufacturer="Fleetspeak">
+
+    <Package
+        Id="*"
+        Keywords="Installer"
+        Description="Installer for Fleetspeak version $(var.VERSION)"
+        InstallerVersion="200"
+        InstallScope="perMachine"
+        Languages="1033"
+        Compressed="yes" />
+
+    <!-- Allow rolling back to old Fleetspeak versions. -->
+    <!-- If an upgrade fails, roll back to existing version of Fleetspeak. -->
+    <MajorUpgrade AllowDowngrades="yes" Schedule="afterInstallInitialize" />
+
+    <Media Id="1" Cabinet="fleetspeak.cab" EmbedCab="yes" />
+
+    <!-- Installation directories. -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <!-- See http://wixtoolset.org/documentation/manual/v3/bundle/bundle_built_in_variables.html -->
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="Fleetspeak" />
+      </Directory>
+
+      <!-- Custom directory where Fleetspeak will keep its logs. -->
+      <Directory Id="LOGDIR" />
+    </Directory>
+
+    <SetDirectory Id="LOGDIR" Value="[%SYSTEMROOT]\Temp\Fleetspeak" />
+
+    <DirectoryRef Id="INSTALLDIR">
+      <!-- It is recommended to have at most one file per component. -->
+      <!-- Note that service deletion does not occur on uninstall if we use
+           a fixed component-guid (so we generate a new one every time). -->
+      <Component Id="fleetspeak.exe" Guid="*">
+        <File
+            Id="fleetspeak.exe"
+            Name="fleetspeak.exe"
+            DiskId="1"
+            Source="$(var.FLEETSPEAK_EXECUTABLE)"
+            Checksum="yes"
+            KeyPath="yes" />
+        <!-- -stderrthreshold=3 turns off logging to stderr, which would
+             kill the Windows service. -->
+        <ServiceInstall
+            Arguments="-config_dir=HKEY_LOCAL_MACHINE\SOFTWARE\Fleetspeak -stderrthreshold=3 -log_dir=[%SYSTEMROOT]\Temp\Fleetspeak"
+            Id="ServiceInstaller"
+            Type="ownProcess"
+            Name="FleetspeakService"
+            DisplayName="FleetspeakService"
+            Description="Fleetspeak communication agent."
+            Start="auto"
+            Account="LOCALSYSTEM"
+            ErrorControl="normal"
+            Vital="yes">
+          <!-- See b/79732588 -->
+          <ServiceConfig
+              DelayedAutoStart="yes"
+              OnInstall="yes"
+              OnReinstall="yes" />
+          <!-- Restart the Fleetspeak service two minutes after every crash or
+               service termination. -->
+          <util:ServiceConfig
+              ResetPeriodInDays="1"
+              RestartServiceDelayInSeconds="120"
+              FirstFailureActionType="restart"
+              SecondFailureActionType="restart"
+              ThirdFailureActionType="restart" />
+        </ServiceInstall>
+        <ServiceControl
+            Id="FleetspeakService_ServiceControl"
+            Name="FleetspeakService"
+            Start="install"
+            Stop="both"
+            Remove="uninstall"
+            Wait="yes" />
+      </Component>
+
+    </DirectoryRef>
+
+    <DirectoryRef Id="LOGDIR">
+      <!-- Create the logs directory if it does not already exist. Setting
+           Permanent=yes means that we do not want the directory to be
+           deleted on uninstall. -->
+      <Component
+          Id="LogDirComponent"
+          Guid="$(var.LOGDIRGUID)"
+          KeyPath="no"
+          NeverOverwrite="yes"
+          Permanent="yes">
+        <CreateFolder />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="FleetspeakFeature" Level="1">
+      <ComponentRef Id="fleetspeak.exe" />
+      <ComponentRef Id="RegistryEntries" />
+      <ComponentRef Id="LogDirComponent" />
+    </Feature>
+
+  </Product>
+</Wix>

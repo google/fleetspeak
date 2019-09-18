@@ -1,6 +1,4 @@
 #!/bin/bash
-#
-# Post-installation script for the gMac Fleetspeak package (google-corp label).
 
 set -e
 
