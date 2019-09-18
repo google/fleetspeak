@@ -1,5 +1,7 @@
 #Requires -RunAsAdministrator
 
+refreshenv
+
 $ErrorActionPreference = 'Stop'
 
 # Print Powershell version. Some features e.g. enums are
