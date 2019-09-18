@@ -111,7 +111,6 @@
 
     <Feature Id="FleetspeakFeature" Level="1">
       <ComponentRef Id="fleetspeak.exe" />
-      <ComponentRef Id="RegistryEntries" />
       <ComponentRef Id="LogDirComponent" />
     </Feature>
 
