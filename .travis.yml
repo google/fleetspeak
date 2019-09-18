@@ -57,8 +57,8 @@ matrix:
         - go get -v -t ./...
       script:
         - go build -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
-        - cd .\fleetspeak\client-win
-        - powershell .\build.ps1
+        - cd fleetspeak/client-win
+        - powershell ./build.ps1
         
     - os: osx
       language: go
