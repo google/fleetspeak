@@ -45,6 +45,7 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+        
     - os: windows
       language: go
       go:
@@ -54,6 +55,7 @@ matrix:
         - go get -v -t ./...
       script:
         - go build -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+        
     - os: osx
       language: go
       go:
