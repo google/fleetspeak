@@ -28,8 +28,7 @@ function Build-BinaryPkg {
 
   # -sw1150 arg disables warning due to
   # https://github.com/oleg-shilo/wixsharp/issues/299
-  $cmd = "${env:WIX}bin\candle.exe"
-  & $cmd `
+  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" `
     $PKG_WIX_CONFIG `
     -arch x64 `
     -ext WixUtilExtension `
@@ -39,8 +38,7 @@ function Build-BinaryPkg {
     -out "fleetspeakd.wixobj"
 
   # -sw1076 arg disables warning due to 'AllowDowngrades' setting in Wix config.
-  $cmd = "${env:WIX}bin\light.exe"
-  & $cmd `
+  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe $cmd `
     "fleetspeakd.wixobj" `
     -ext WixUtilExtension `
     -sw1076 `
