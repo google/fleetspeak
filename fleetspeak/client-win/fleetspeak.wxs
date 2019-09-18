@@ -69,8 +69,7 @@
             Start="auto"
             Account="LOCALSYSTEM"
             ErrorControl="normal"
-            Vital="yes">
-          <!-- See b/79732588 -->
+            Vital="no">
           <ServiceConfig
               DelayedAutoStart="yes"
               OnInstall="yes"
