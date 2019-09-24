@@ -54,7 +54,7 @@ matrix:
         - powershell Install-WindowsFeature Net-Framework-Core
         - cinst -y wixtoolset --version 3.11.1
         - go version
-        - go get -v -t ./... || echo "go get update error"
+        - go get -v -t ./...
       script:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
@@ -66,11 +66,10 @@ matrix:
         - "1.11.6"
       install:
         - go version
-        - go get -v -t ./... || true
+        - go get -v -t ./...
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-mac
-        - ls ../..
         - ./build.sh ../../fletspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
 
