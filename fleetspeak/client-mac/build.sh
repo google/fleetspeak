@@ -17,8 +17,8 @@ mkdir work
 cd work
 
 mkdir -p pkg_root/Library/LaunchDaemons
-mkdir -p pkg_root/etc/fleetspeak/services
-mkdir -p pkg_root/etc/fleetspeak/textservices
+mkdir -p pkg_root/etc/fleetspeak-client/services
+mkdir -p pkg_root/etc/fleetspeak-client/textservices
 
 # We install the Fleetspeak binary in /usr/local/bin, and
 # not /usr/sbin (as we do for Linux), because MacOS won't let us:
@@ -31,7 +31,7 @@ cp "${CONFIGS_DIR}/postinstall" install-scripts
 chmod +x install-scripts/*
 
 cp "${CONFIGS_DIR}/com.google.code.fleetspeak.plist" pkg_root/Library/LaunchDaemons
-cp "${CONFIGS_DIR}/communicator.txt" pkg_root/etc/fleetspeak
+cp "${CONFIGS_DIR}/communicator.txt" pkg_root/etc/fleetspeak-client/
 cp "${FS_BINARY}" pkg_root/usr/local/bin/fleetspeak-client
 
 # Set permissions for files and directories in the payload.
