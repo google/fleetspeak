@@ -107,4 +107,4 @@ New-Item -Type Directory -Path $PKG_WORK_DIR | Out-Null
 
 Build-BinaryPkg
 
-Test-Installer "${PKG_WORK_DIR}\fleetspeak-${VERSION}.msi"
+Test-Installer "${PKG_WORK_DIR}\fleetspeak-client-${VERSION}.msi"
