@@ -49,12 +49,11 @@ matrix:
     - os: windows
       language: go
       go:
-        - "1.11.6"
+        - "1.13"
       install:
         - powershell Install-WindowsFeature Net-Framework-Core
         - cinst -y wixtoolset --version 3.11.1
         - go version
-        - SET GO111MODULE="on"
         - go get -v -t ./...
       script:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
@@ -64,10 +63,10 @@ matrix:
     - os: osx
       language: go
       go:
-        - "1.11.6"
+        - "1.13"
       install:
         - go version
-        - env GO111MODULE=on go get -v -t ./...
+        - go get -v -t ./...
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-mac
