@@ -56,7 +56,7 @@ matrix:
         - go version
         - go get -v -t ./... || echo "go get update error"
       script:
-        - go build -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+        - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
         - powershell -ExecutionPolicy Bypass -File ./build.ps1
         
@@ -70,6 +70,7 @@ matrix:
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-mac
+        - ls ../..
         - ./build.sh ../../fletspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
 
