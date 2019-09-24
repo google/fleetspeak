@@ -49,9 +49,9 @@
       <!-- It is recommended to have at most one file per component. -->
       <!-- Note that service deletion does not occur on uninstall if we use
            a fixed component-guid (so we generate a new one every time). -->
-      <Component Id="fleetspeak-client.exe" Guid="*">
+      <Component Id="FleetspeakClient" Guid="*">
         <File
-            Id="fleetspeak-client.exe"
+            Id="FleetspeakClient"
             Name="fleetspeak-client.exe"
             DiskId="1"
             Source="$(var.FLEETSPEAK_EXECUTABLE)"
@@ -109,7 +109,7 @@
     </DirectoryRef>
 
     <Feature Id="FleetspeakClientFeature" Level="1">
-      <ComponentRef Id="fleetspeak-client.exe" />
+      <ComponentRef Id="FleetspeakClient" />
       <ComponentRef Id="LogDirComponent" />
     </Feature>
 

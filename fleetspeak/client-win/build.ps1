@@ -33,14 +33,14 @@ function Build-BinaryPkg {
     "-dFLEETSPEAK_EXECUTABLE=${ROOT_WORK_DIR}\fleetspeak-client.exe" `
     "-dVERSION=$VERSION" `
     -sw1150 `
-    -out "fleetspeakd.wixobj"
+    -out "fleetspeak-client.wixobj"
 
   # -sw1076 arg disables warning due to 'AllowDowngrades' setting in Wix config.
   & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" `
-    "fleetspeakd.wixobj" `
+    "fleetspeak-client.wixobj" `
     -ext WixUtilExtension `
     -sw1076 `
-    -out "fleetspeak-${VERSION}.msi"
+    -out "fleetspeak-client-${VERSION}.msi"
 
   if (!$?) {
     throw "Failed to build binary package."
