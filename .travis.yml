@@ -54,6 +54,7 @@ matrix:
         - powershell Install-WindowsFeature Net-Framework-Core
         - cinst -y wixtoolset --version 3.11.1
         - go version
+        - SET GO111MODULE="on"
         - go get -v -t ./...
       script:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
@@ -66,11 +67,11 @@ matrix:
         - "1.11.6"
       install:
         - go version
-        - go get -v -t ./...
+        - env GO111MODULE=on go get -v -t ./...
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-mac
-        - ./build.sh ../../fletspeak-client
+        - ./build.sh ../../fleetspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
 
     # TODO: Find alternatives to Travis for MacOS testing.
