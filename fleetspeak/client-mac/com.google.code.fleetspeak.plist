@@ -10,7 +10,7 @@
 	<string>daemon</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/fleetspeakd</string>
+		<string>/usr/local/bin/fleetspeak-client</string>
 		<string>--config_dir=/etc/fleetspeak</string>
 		<string>--log_dir=/private/var/log</string>
 	</array>
@@ -21,7 +21,7 @@
 	<key>ThrottleInterval</key>
 	<integer>120</integer>
 	<key>ServiceDescription</key>
-	<string>Fleetspeak</string>
+	<string>Fleetspeak Client</string>
 	<key>StandardOutPath</key>
 	<string>/dev/null</string>
 	<key>StandardErrorPath</key>

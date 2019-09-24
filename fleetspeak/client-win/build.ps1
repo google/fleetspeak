@@ -20,7 +20,7 @@ function Build-BinaryPkg {
     Builds an installer for the Fleetspeak executable.
   #>
 
-  Write-Host "Building $Type binary package."
+  Write-Host "Building binary package."
 
   Set-Location $PKG_WORK_DIR
 
@@ -30,7 +30,7 @@ function Build-BinaryPkg {
     $PKG_WIX_CONFIG `
     -arch x64 `
     -ext WixUtilExtension `
-    "-dFLEETSPEAK_EXECUTABLE=${ROOT_WORK_DIR}\fleetspeak.exe" `
+    "-dFLEETSPEAK_EXECUTABLE=${ROOT_WORK_DIR}\fleetspeak-client.exe" `
     "-dVERSION=$VERSION" `
     -sw1150 `
     -out "fleetspeakd.wixobj"
@@ -43,7 +43,7 @@ function Build-BinaryPkg {
     -out "fleetspeak-${VERSION}.msi"
 
   if (!$?) {
-    throw "Failed to build $Type binary package."
+    throw "Failed to build binary package."
   }
 }
 
@@ -101,7 +101,7 @@ function Test-Installer {
 # Copy Fleetspeak executable to the root work dir and sign it.
 New-Item -Type Directory -Path $ROOT_WORK_DIR | Out-Null
 Copy-Item "..\..\fleetspeak-client.exe" `
-  "${ROOT_WORK_DIR}\fleetspeak.exe"
+  "${ROOT_WORK_DIR}\fleetspeak-client.exe"
 
 New-Item -Type Directory -Path $PKG_WORK_DIR | Out-Null
 

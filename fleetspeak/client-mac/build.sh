@@ -7,8 +7,8 @@ realpath() {
 CONFIGS_DIR=$(pwd)
 FS_BINARY=$(realpath $1)
 FS_VERSION=$(cat ../../VERSION)
-COMPONENT_PKG_NAME="fleetspeakd-component.xar"
-PRODUCT_ARCHIVE_NAME="fleetspeakd-${FS_VERSION}.pkg"
+COMPONENT_PKG_NAME="fleetspeak-client-component.xar"
+PRODUCT_ARCHIVE_NAME="fleetspeak-client-${FS_VERSION}.pkg"
 
 rm -rf ./work
 mkdir work
@@ -30,12 +30,12 @@ chmod +x install-scripts/*
 
 cp "${CONFIGS_DIR}/com.google.code.fleetspeak.plist" pkg_root/Library/LaunchDaemons
 cp "${CONFIGS_DIR}/communicator.txt" pkg_root/etc/fleetspeak
-cp "${FS_BINARY}" pkg_root/usr/local/bin/fleetspeakd
+cp "${FS_BINARY}" pkg_root/usr/local/bin/fleetspeak-client
 
 # Set permissions for files and directories in the payload.
 find pkg_root -type d -exec chmod 755 {} \;
 find pkg_root -type f -exec chmod 644 {} \;
-chmod +x pkg_root/usr/local/bin/fleetspeakd
+chmod +x pkg_root/usr/local/bin/fleetspeak-client
 
 # Create a component package containing files to be installed.
 pkgbuild \

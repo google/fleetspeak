@@ -7,24 +7,8 @@ set -e
 
 readonly DAEMON_PLIST=/Library/LaunchDaemons/com.google.code.fleetspeak.plist
 
-function clean_up_old_installations() {
-  # Fleetspeak used to install a new package with every upgrade,
-  # since the version number was included in the package name. We clean
-  # up such packages if they exist.
-  pkgutil --pkgs | grep com.google.code.fleetspeak.fleetspeak_ | while read -r pkg; do
-    pkgutil --forget "${pkg}" || true
-  done
-
-  # New install location for the binary is /usr/local/bin. Clean up
-  # versioned directories if they exist.
-  rm -rf /usr/local/lib/fleetspeak_*
-}
-
 # Restart the Fleetspeak process.
 if [[ -f "${DAEMON_PLIST}" ]]; then
   launchctl unload "${DAEMON_PLIST}" || true
-  clean_up_old_installations
   launchctl load -w "${DAEMON_PLIST}"
-else
-  clean_up_old_installations
 fi

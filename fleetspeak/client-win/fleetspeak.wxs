@@ -10,7 +10,7 @@
     xmlns="http://schemas.microsoft.com/wix/2006/wi"
     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product
-      Name="Fleetspeak"
+      Name="FleetspeakClient"
       Id="*"
       UpgradeCode="$(var.UPGRADECODE)"
       Language="1033"
@@ -36,7 +36,7 @@
     <Directory Id="TARGETDIR" Name="SourceDir">
       <!-- See http://wixtoolset.org/documentation/manual/v3/bundle/bundle_built_in_variables.html -->
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLDIR" Name="Fleetspeak" />
+        <Directory Id="INSTALLDIR" Name="FleetspeakClient" />
       </Directory>
 
       <!-- Custom directory where Fleetspeak will keep its logs. -->
@@ -49,10 +49,10 @@
       <!-- It is recommended to have at most one file per component. -->
       <!-- Note that service deletion does not occur on uninstall if we use
            a fixed component-guid (so we generate a new one every time). -->
-      <Component Id="fleetspeak.exe" Guid="*">
+      <Component Id="fleetspeak-client.exe" Guid="*">
         <File
-            Id="fleetspeak.exe"
-            Name="fleetspeak.exe"
+            Id="fleetspeak-client.exe"
+            Name="fleetspeak-client.exe"
             DiskId="1"
             Source="$(var.FLEETSPEAK_EXECUTABLE)"
             Checksum="yes"
@@ -60,11 +60,11 @@
         <!-- -stderrthreshold=3 turns off logging to stderr, which would
              kill the Windows service. -->
         <ServiceInstall
-            Arguments="-config_dir=HKEY_LOCAL_MACHINE\SOFTWARE\Fleetspeak -stderrthreshold=3 -log_dir=[%SYSTEMROOT]\Temp\Fleetspeak"
+            Arguments="-config_dir=HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakClient -stderrthreshold=3 -log_dir=[%SYSTEMROOT]\Temp\Fleetspeak"
             Id="ServiceInstaller"
             Type="ownProcess"
-            Name="FleetspeakService"
-            DisplayName="FleetspeakService"
+            Name="FleetspeakClientService"
+            DisplayName="FleetspeakClientService"
             Description="Fleetspeak communication agent."
             Start="auto"
             Account="LOCALSYSTEM"
@@ -84,8 +84,8 @@
               ThirdFailureActionType="restart" />
         </ServiceInstall>
         <ServiceControl
-            Id="FleetspeakService_ServiceControl"
-            Name="FleetspeakService"
+            Id="FleetspeakClientService_ServiceControl"
+            Name="FleetspeakClientService"
             Start="install"
             Stop="both"
             Remove="uninstall"
@@ -108,8 +108,8 @@
       </Component>
     </DirectoryRef>
 
-    <Feature Id="FleetspeakFeature" Level="1">
-      <ComponentRef Id="fleetspeak.exe" />
+    <Feature Id="FleetspeakClientFeature" Level="1">
+      <ComponentRef Id="fleetspeak-client.exe" />
       <ComponentRef Id="LogDirComponent" />
     </Feature>
 
