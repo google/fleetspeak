@@ -45,8 +45,8 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
-        - mkdir deploy
-        - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/
+        - mkdir -p deploy/${TRAVIS_REPO_SLUG}/${TRAVIS_BUILD_NUMBER}/${TRAVIS_JOB_NUMBER}
+        - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${TRAVIS_REPO_SLUG}/${TRAVIS_BUILD_NUMBER}/${TRAVIS_JOB_NUMBER}/
       deploy:
         skip_cleanup: true
         provider: gcs
@@ -56,6 +56,7 @@ matrix:
         bucket: autobuilds-fleetspeak
         local-dir: deploy
         on:
+          repo: google/fleetspeak
           all_branches: true
 
     - os: windows
