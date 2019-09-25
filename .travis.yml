@@ -45,6 +45,33 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+        
+    - os: windows
+      language: go
+      go:
+        - "1.13"
+      install:
+        - powershell Install-WindowsFeature Net-Framework-Core
+        - cinst -y wixtoolset --version 3.11.1
+        - go version
+        - go get -v -t ./...
+      script:
+        - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+        - cd fleetspeak/client-win
+        - powershell -ExecutionPolicy Bypass -File ./build.ps1
+        
+    - os: osx
+      language: go
+      go:
+        - "1.13"
+      install:
+        - go version
+        - go get -v -t ./...
+      script:
+        - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
+        - cd fleetspeak/client-mac
+        - ./build.sh ../../fleetspeak-client
+        - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.

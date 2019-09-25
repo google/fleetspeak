@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+  <title>Fleetspeak Client</title>
+  <organization>com.google.code</organization>
+  <pkg-ref id="com.google.code.fleetspeak"/>
+  <options customize="never" require-scripts="false" rootVolumeOnly="true"/>
+  <choices-outline>
+    <line choice="default">
+      <line choice="com.google.code.fleetspeak"/>
+    </line>
+  </choices-outline>
+  <choice id="default"/>
+  <choice id="com.google.code.fleetspeak" visible="false">
+    <pkg-ref id="com.google.code.fleetspeak"/>
+  </choice>
+  <pkg-ref id="com.google.code.fleetspeak" version="$VERSION" onConclusion="none">fleetspeak-client-component.xar</pkg-ref>
+</installer-gui-script>
+

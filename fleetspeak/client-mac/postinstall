@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+# Abort if package install is not happening on the running volume.
+[[ $3 != '/' ]] && exit 0
+
+readonly DAEMON_PLIST=/Library/LaunchDaemons/com.google.code.fleetspeak.plist
+
+# Restart the Fleetspeak process.
+if [[ -f "${DAEMON_PLIST}" ]]; then
+  launchctl unload "${DAEMON_PLIST}" || true
+  launchctl load -w "${DAEMON_PLIST}"
+fi
