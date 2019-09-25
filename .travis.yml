@@ -45,8 +45,9 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
-        - mkdir -p deploy/${TRAVIS_REPO_SLUG}/${TRAVIS_BUILD_NUMBER}/${TRAVIS_JOB_NUMBER}
-        - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${TRAVIS_REPO_SLUG}/${TRAVIS_BUILD_NUMBER}/${TRAVIS_JOB_NUMBER}/
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
+        - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
       deploy:
         skip_cleanup: true
         provider: gcs
