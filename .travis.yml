@@ -75,7 +75,7 @@ matrix:
         - powershell -ExecutionPolicy Bypass -File ./build.ps1
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
-        - cp ./fleetspeak-client_*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        - cp $TMP/fleetspeak-build-*/fleetspeak-client-*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
         skip_cleanup: true
         provider: gcs
@@ -102,7 +102,7 @@ matrix:
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
-        - cp ./fleetspeak-client_*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        - cp ./work/fleetspeak-client_*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
         skip_cleanup: true
         provider: gcs
