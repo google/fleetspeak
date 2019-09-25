@@ -73,6 +73,20 @@ matrix:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
         - powershell -ExecutionPolicy Bypass -File ./build.ps1
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
+        - cp ./fleetspeak-client_*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+      deploy:
+        skip_cleanup: true
+        provider: gcs
+        access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
+        secret_access_key:
+          secure: aD9kDPmH7dDHR0CZ1XAkrcyMMQvuT8MeyZ9gf2JksiDMh/ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
+        bucket: autobuilds-fleetspeak
+        local-dir: deploy
+        on:
+          repo: google/fleetspeak
+          all_branches: true
         
     - os: osx
       language: go
@@ -86,6 +100,20 @@ matrix:
         - cd fleetspeak/client-mac
         - ./build.sh ../../fleetspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
+        - cp ./fleetspeak-client_*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+      deploy:
+        skip_cleanup: true
+        provider: gcs
+        access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
+        secret_access_key:
+          secure: aD9kDPmH7dDHR0CZ1XAkrcyMMQvuT8MeyZ9gf2JksiDMh/ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
+        bucket: autobuilds-fleetspeak
+        local-dir: deploy
+        on:
+          repo: google/fleetspeak
+          all_branches: true
 
     # TODO: Find alternatives to Travis for MacOS testing.
     # Note that mysql is not available in OSX environments.
