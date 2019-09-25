@@ -45,7 +45,17 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
-        
+        - mkdir deploy
+        - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/
+      deploy:
+        skip_cleanup: true
+        provider: gcs
+        access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
+        secret_access_key:
+          secure: aD9kDPmH7dDHR0CZ1XAkrcyMMQvuT8MeyZ9gf2JksiDMh/ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
+        bucket: autobuilds-fleetspeak
+        local-dir: deploy
+
     - os: windows
       language: go
       go:
