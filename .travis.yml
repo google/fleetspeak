@@ -45,7 +45,7 @@ matrix:
         - cd fleetspeak
         - ./build-pkgs.sh
         - sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
@@ -73,7 +73,7 @@ matrix:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
         - powershell -ExecutionPolicy Bypass -File ./build.ps1
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
@@ -100,7 +100,7 @@ matrix:
         - cd fleetspeak/client-mac
         - ./build.sh ../../fleetspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e 's/ /_/g')
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ./work/fleetspeak-client-*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
