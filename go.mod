@@ -1,6 +1,6 @@
 module github.com/google/fleetspeak
 
-go 1.13
+go 1.12
 
 require (
 	cloud.google.com/go v0.26.0 // indirect
