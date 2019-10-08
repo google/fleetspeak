@@ -140,9 +140,9 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        "absl-py==0.6.1",
-        "grpcio==1.17.1",
-        "grpcio-tools>=1.7.0",
+        "absl-py==0.8.1",
+        "grpcio==1.24.1",
+        "grpcio-tools==1.24.1",
     ],
 
     # List additional groups of dependencies here (e.g. development
@@ -153,7 +153,7 @@ setup(
         "dev": [],
         "test": [],
         ":python_version == '2.7'": [
-            "futures==3.2.0",
+            "futures==3.3.0",
         ],
     },
 
