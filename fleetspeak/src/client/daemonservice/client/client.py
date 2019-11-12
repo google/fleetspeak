@@ -224,7 +224,7 @@ class FleetspeakConnection(object):
     Returns:
       string
     """
-    ret = ""
+    ret = b""
     while True:
       chunk = self._read_file.read(n - len(ret))
       ret += chunk
