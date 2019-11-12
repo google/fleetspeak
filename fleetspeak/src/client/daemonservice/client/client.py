@@ -18,6 +18,7 @@ to send and receive messages.  The low level protocol is described in
 daemonservice/channel/channel.go.
 """
 
+import io
 import os
 import platform
 import struct
@@ -68,7 +69,7 @@ def _EnvOpen(var, mode):
   if _WINDOWS:
     fd = msvcrt.open_osfhandle(fd, 0)
 
-  return os.fdopen(fd, mode)
+  return io.open(fd, mode)
 
 
 class FleetspeakConnection(object):
@@ -104,13 +105,13 @@ class FleetspeakConnection(object):
     """
     self._read_file = read_file
     if not self._read_file:
-      self._read_file = _EnvOpen(_INFD_VAR, "r")
+      self._read_file = _EnvOpen(_INFD_VAR, "rb")
 
     self._read_lock = threading.Lock()
 
     self._write_file = write_file
     if not self._write_file:
-      self._write_file = _EnvOpen(_OUTFD_VAR, "w")
+      self._write_file = _EnvOpen(_OUTFD_VAR, "wb")
 
     self._write_lock = threading.Lock()
 
