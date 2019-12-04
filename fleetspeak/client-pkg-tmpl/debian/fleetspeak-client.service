@@ -7,6 +7,7 @@ Documentation=https://github.com/google/fleetspeak
 User=root
 ExecStart=/usr/bin/fleetspeak-client --config /etc/fleetspeak-client/client.config
 Restart=always
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
