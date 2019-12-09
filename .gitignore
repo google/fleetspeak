@@ -39,3 +39,7 @@ fleetspeak/src/osquery/connector
 # fleetspeak/build-pkgs.sh
 fleetspeak/server-pkg/
 fleetspeak/client-pkg/
+
+# Ignore the virtualenv folder.
+.venv
+.venv3
