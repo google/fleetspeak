@@ -284,3 +284,55 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 		t.Errorf("Unexpected error: [%v].", err)
 	}
 }
+
+func TestDeletePendingMessages(t *testing.T) {
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+	ctx := context.Background()
+
+	ts := testserver.Make(t, "server", "AdminServer", nil)
+	defer ts.S.Stop()
+
+	key, err := ts.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
+
+	as := admin.NewServer(ts.DS, nil)
+
+	m := fspb.Message{
+		MessageId:    mid.Bytes(),
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+		MessageType:  "DummyType",
+		CreationTime: db.NowProto(),
+	}
+
+	if _, err := as.InsertMessage(ctx, proto.Clone(&m).(*fspb.Message)); err != nil {
+		t.Fatalf("InsertMessage returned error: %v", err)
+	}
+
+	// Delete the message from the pending messages list.
+	req := &spb.DeletePendingMessagesRequest{
+		ClientIds: [][]byte{id.Bytes()},
+	}
+	if _, err := as.DeletePendingMessages(ctx, req); err != nil {
+		t.Fatalf("DeletePendingMessages returned error: %v", err)
+	}
+
+	// ClientMessagesForProcessing should return nothing, since the message is
+	// supposed to be deleted from the pending mesages list.
+	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
+	if err != nil {
+		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
+	}
+	if len(msgs) != 0 {
+		t.Errorf("ClientMessagesForProcessing(%v) was expected to return 0 messages, got: %v", id, msgs)
+	}
+}

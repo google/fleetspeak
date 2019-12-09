@@ -207,6 +207,24 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	return &fspb.EmptyMessage{}, nil
 }
 
+func (s adminServer) DeletePendingMessages(ctx context.Context, r *spb.DeletePendingMessagesRequest) (*fspb.EmptyMessage, error) {
+	ids := make([]common.ClientID, len(r.ClientIds))
+	for i, b := range r.ClientIds {
+		bid, err := common.BytesToClientID(b)
+		if err != nil {
+			return nil, fmt.Errorf("Can't convert bytes to ClientID: %v", err)
+		}
+
+		ids[i] = bid
+	}
+
+	if err := s.store.DeletePendingMessages(ctx, ids); err != nil {
+		return nil, fmt.Errorf("Can't delete pending messages: %v", err)
+	}
+
+	return &fspb.EmptyMessage{}, nil
+}
+
 func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (*fspb.EmptyMessage, error) {
 	if req.ServiceName == "" || req.FileName == "" {
 		return nil, errors.New("file must have service_name and file_name")
