@@ -46,6 +46,7 @@ import (
 var clientID, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
 var clientID2, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 2})
 var clientID3, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 3})
+var clientID4, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 4})
 
 // MessageStoreTest tests a MessageStore.
 func MessageStoreTest(t *testing.T, ms db.Store) {
@@ -59,6 +60,9 @@ func MessageStoreTest(t *testing.T, ms db.Store) {
 	})
 	t.Run("StoreMessages", func(st *testing.T) {
 		storeMessagesTest(st, ms)
+	})
+	t.Run("DeletePendingMessages", func(st *testing.T) {
+		deletePendingMessagesTest(st, ms)
 	})
 	t.Run("ClientMessagesForProcessing", func(st *testing.T) {
 		clientMessagesForProcessingTest(st, ms)
@@ -463,6 +467,83 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 			erroredID: {
 				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
 		})
+}
+
+func deletePendingMessagesTest(t *testing.T, ms db.Store) {
+	fakeTime := sertesting.FakeNow(43)
+	defer fakeTime.Revert()
+
+	ctx := context.Background()
+
+	if err := ms.AddClient(ctx, clientID4, &db.ClientData{Key: []byte("test key")}); err != nil {
+		t.Fatalf("AddClient [%v] failed: %v", clientID4, err)
+	}
+	contact, err := ms.RecordClientContact(ctx, db.ContactData{
+		ClientID:      clientID4,
+		NonceSent:     42,
+		NonceReceived: 43,
+		Addr:          "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("RecordClientContact failed: %v", err)
+	}
+
+	// Create one message in each obvious state - new, processed, errored:
+	newID, _ := common.BytesToMessageID([]byte("91234567890123456789012345678907"))
+
+	msgs := []*fspb.Message{
+		{
+			MessageId: newID.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestSource",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID4.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type",
+			CreationTime: &tpb.Timestamp{Seconds: 42},
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 2",
+				Value:   []byte("Test data proto 2")},
+		},
+	}
+	if err := ms.StoreMessages(ctx, msgs, contact); err != nil {
+		t.Fatal(err)
+	}
+
+	mc, err := ms.GetMessages(ctx, []common.MessageID{newID}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mc) != 1 {
+		t.Fatalf("Written message should be present in the store, not %v", len(mc))
+	}
+
+	if err := ms.DeletePendingMessages(ctx, []common.ClientID{clientID4}); err != nil {
+		t.Fatal(err)
+	}
+
+	mc, err = ms.ClientMessagesForProcessing(ctx, clientID4, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mc) != 0 {
+		t.Fatalf("No messages for processing were expected, found: %v", mc)
+	}
+
+	mr, err := ms.GetMessageResult(ctx, newID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mr == nil {
+		t.Fatal("Message result must be in the store after pending message is deleted", mr)
+	}
+	if !mr.Failed {
+		t.Errorf("Expected the message to have failed=true, got: %v", mr.Failed)
+	}
+	if mr.FailedReason != "Removed by admin action." {
+		t.Errorf("Expected the message to have failure reason 'Removed by admin action', got: %v", mr.FailedReason)
+	}
 }
 
 type fakeMessageProcessor struct {
@@ -1070,7 +1151,7 @@ Cases:
 	}{
 		{
 			ids:             nil,
-			want:            map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
+			want:            map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true, clientID4: true},
 			wantBlacklisted: map[common.ClientID]bool{clientID3: true},
 		},
 		{

@@ -46,6 +46,10 @@ message GetMessageStatusRequest {
   bytes message_id = 1;
 }
 
+message DeletePendingMessagesRequest {
+  repeated bytes client_id = 1;
+}
+
 message GetMessageStatusResponse {
   google.protobuf.Timestamp creation_time = 1;
   MessageResult result = 2;
@@ -103,6 +107,10 @@ service Admin {
   // TODO: Have this method return the message that is written to the
   // datastore (or at least the id).
   rpc InsertMessage (fleetspeak.Message) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // DeletePendingMessages clears message queues for given clients.
+  rpc DeletePendingMessages (DeletePendingMessagesRequest) returns (fleetspeak.EmptyMessage) {
   }
 
   // StoreFile inserts a file into the Fleetspeak system.
