@@ -21,6 +21,7 @@ import grpc
 
 from fleetspeak.src.server.grpcservice.client import client
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
+from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2
 
 
 # More of a mock than a fake.
@@ -29,8 +30,12 @@ class FakeStub(object):
 
   def __init__(self):
     self.event = threading.Event()
+
     self.insert_done = False
     self.insert_errors = 1
+
+    self.delete_done = False
+    self.delete_errors = 1
 
   def KeepAlive(self, unused, timeout=None):
     del unused
@@ -44,6 +49,13 @@ class FakeStub(object):
       raise grpc.RpcError("insert_errors is positive, try again")
     self.insert_done = True
     self.message = message
+
+  def DeletePendingMessages(self, message, timeout=None):
+    del timeout
+    if self.delete_errors:
+      self.delete_errors -= 1
+      raise grpc.RpcError("delete_errors is positive, try again")
+    self.delete_done = True
 
 
 class ClientTest(absltest.TestCase):
@@ -61,6 +73,13 @@ class ClientTest(absltest.TestCase):
     self.assertTrue(t.insert_done)
     self.assertFalse(t.insert_errors)
     self.assertEqual(t.message.source.service_name, 'test')
+
+  def testDeletePendingMessages(self):
+    t = FakeStub()
+    s = client.OutgoingConnection(None, 'test', t)
+    s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
+    self.assertTrue(t.delete_done)
+    self.assertFalse(t.delete_errors)
 
 if __name__ == '__main__':
   absltest.main()
