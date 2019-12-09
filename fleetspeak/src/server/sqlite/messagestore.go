@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/golang/glog"
@@ -391,6 +392,67 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 		}
 	}
 	return nil
+}
+
+func genPlaceholders(num int) string {
+	es := make([]string, num)
+	for i := range es {
+		es[i] = "?"
+	}
+	return strings.Join(es, ", ")
+}
+
+func (d *Datastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
+	return d.runInTx(func(tx *sql.Tx) error {
+		squery := fmt.Sprintf("SELECT "+
+			"m.message_id "+
+			"FROM messages AS m, pending_messages AS pm "+
+			"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id ",
+			genPlaceholders((len(ids))))
+
+		args := make([]interface{}, len(ids))
+		for i, v := range ids {
+			args[i] = v.String()
+		}
+
+		idsToProc := make([]interface{}, 0)
+
+		rs, err := tx.QueryContext(ctx, squery, args...)
+		if err != nil {
+			return fmt.Errorf("Failed to fetch the list of messages to delete: %v", err)
+		}
+		defer rs.Close()
+		for rs.Next() {
+			var id string
+			if err := rs.Scan(&id); err != nil {
+				return err
+			}
+			idsToProc = append(idsToProc, id)
+		}
+
+		// If there are no messages to be deleted, just bail out.
+		if len(idsToProc) == 0 {
+			return nil
+		}
+
+		now := db.NowProto()
+		ptimeSecs := sql.NullInt64{Valid: true, Int64: now.Seconds}
+		ptimeNanoSecs := sql.NullInt64{Valid: true, Int64: int64(now.Nanos)}
+		failed := sql.NullBool{Valid: true, Bool: true}
+		failedReason := sql.NullString{Valid: true, String: "Removed by admin action."}
+
+		ps := genPlaceholders(len(idsToProc))
+		uquery := fmt.Sprintf("UPDATE messages SET failed=?, failed_reason=?, processed_time_seconds=?, processed_time_nanos=? WHERE message_id IN (%s)", ps)
+		_, err = tx.ExecContext(ctx, uquery, append([]interface{}{failed, failedReason, ptimeSecs, ptimeNanoSecs}, idsToProc...)...)
+		if err != nil {
+			return err
+		}
+
+		dquery := fmt.Sprintf("DELETE FROM pending_messages WHERE message_id IN (%s)", ps)
+		_, err = tx.ExecContext(ctx, dquery, idsToProc...)
+
+		return err
+	})
 }
 
 func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {

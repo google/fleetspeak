@@ -80,6 +80,13 @@ func (d MonitoredDatastore) StoreMessages(ctx context.Context, msgs []*fspb.Mess
 	return err
 }
 
+func (d MonitoredDatastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
+	s := ftime.Now()
+	err := d.D.DeletePendingMessages(ctx, ids)
+	d.C.DatastoreOperation(s, ftime.Now(), "DeletePendingMessages", err)
+	return err
+}
+
 func (d MonitoredDatastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
 	s := ftime.Now()
 	res, err := d.D.GetMessages(ctx, ids, wantData)

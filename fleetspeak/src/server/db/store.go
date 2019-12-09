@@ -122,6 +122,9 @@ type MessageStore interface {
 	// setting a Result will delete the message's Data field payload.
 	StoreMessages(ctx context.Context, msgs []*fspb.Message, contact ContactID) error
 
+	// DeletePendingMessages removes all pending messages for given clients.
+	DeletePendingMessages(ctx context.Context, ids []common.ClientID) error
+
 	// ClientMessagesForProcessing returns messages that are due to be
 	// processed by a client. It also increments the time at which the
 	// messages will again become overdue using rp.

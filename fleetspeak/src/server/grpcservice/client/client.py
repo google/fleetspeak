@@ -15,6 +15,7 @@
 """Python library to communicate with Fleetspeak over grpc."""
 
 import abc
+import collections
 import os
 import logging
 import threading
@@ -26,6 +27,7 @@ import grpc
 
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 from fleetspeak.src.server.grpcservice.proto.fleetspeak_grpcservice import grpcservice_pb2_grpc
+from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2_grpc
 
 FLAGS = flags.FLAGS
@@ -200,6 +202,15 @@ class OutgoingConnection(object):
 
     return self._RetryLoop(
         lambda t: self._stub.InsertMessage(message, timeout=t))
+
+  def DeletePendingMessages(self, request, timeout=None):
+    if not isinstance(request, admin_pb2.DeletePendingMessagesRequest):
+      raise TypeError("Expected fleetspeak.admin.DeletePendingMessagesRequest "
+        "as an argument.")
+
+    return self._RetryLoop(
+      lambda t: self._stub.DeletePendingMessages(request, timeout=t)
+    )
 
   def ListClients(self, request, timeout=None):
     """Provides basic information about Fleetspeak clients.
