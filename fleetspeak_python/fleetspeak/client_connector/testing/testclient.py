@@ -26,7 +26,7 @@ import time
 from absl import app
 from absl import flags
 
-import fleetspeak.src.client.daemonservice.client.client as clib
+from fleetspeak.client_conenctor import connector
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("mode", "loopback",
@@ -39,7 +39,7 @@ class FatalError(Exception):
 
 def Loopback():
   logging.info("starting loopback")
-  con = clib.FleetspeakConnection(version="0.5")
+  con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   while True:
     msg, _ = con.Recv()
@@ -50,7 +50,7 @@ def Loopback():
 def MemoryHog():
   """Takes 20MB of memory, then sleeps forever."""
   logging.info("starting memory leak")
-  con = clib.FleetspeakConnection(version="0.5")
+  con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   buf = "a" * (1024*1024*20)
   while True:
@@ -60,7 +60,7 @@ def MemoryHog():
 def Freezed():
   """Connects to Fleetspeak, then sleeps indefinitely."""
   logging.info("starting freezed")
-  con = clib.FleetspeakConnection(version="0.5")
+  con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   while True:
     time.sleep(1)
@@ -69,7 +69,7 @@ def Freezed():
 def Heartbeat():
   """Sends a heartbeat every second, indefinitely."""
   logging.info("starting heartbeat")
-  con = clib.FleetspeakConnection(version="0.5")
+  con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   while True:
     time.sleep(1)

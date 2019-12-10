@@ -19,7 +19,7 @@ import multiprocessing
 
 from absl import app
 
-from fleetspeak.src.client.daemonservice.testclient import testclient
+from fleetspeak.client_connector.testing import testclient
 
 def main(argv=None):
   del argv
