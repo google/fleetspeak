@@ -26,7 +26,7 @@ import time
 from absl import app
 from absl import flags
 
-from fleetspeak.client_conenctor import connector
+from fleetspeak.client_connector import connector
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("mode", "loopback",
