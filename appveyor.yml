@@ -24,7 +24,7 @@ install:
 - C:\Python36-x64\python.exe -m venv C:\fsenv
 - C:\fsenv\Scripts\activate.bat
 - pip install --user --upgrade pip
-- pip install --user -e .\fleetspeak_python
+- pip install -e .\fleetspeak_python
 
 before_build:
 - ps: $lint_errors = (golint ./... | Select-String -NotMatch 'should have comment or be unexported')
