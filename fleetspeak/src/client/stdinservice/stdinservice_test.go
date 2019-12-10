@@ -120,7 +120,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 		Args: []string{"-c", `
 try:
   while True:
-    print raw_input()
+    print(input())
 except EOFError:
   pass
 		`},

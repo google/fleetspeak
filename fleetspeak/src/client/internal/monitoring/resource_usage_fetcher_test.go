@@ -47,7 +47,7 @@ import os
 import time
 
 s = ""
-for i in xrange(5000):
+for i in range(5000):
   s += str(i)
 
 t0 = time.time()
@@ -86,7 +86,7 @@ import os
 import time
 
 s = ""
-for i in xrange(5000):
+for i in range(5000):
   s += str(i)
 
 t0 = time.time()
