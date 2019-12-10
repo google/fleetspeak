@@ -33,7 +33,7 @@
 # Exit on error.
 set -e
 
-readonly LOOPBACK='src/server/grpcservice/client/testing/loopback.py'
+readonly LOOPBACK_MODULE='fleetspeak.server_connector.testing.loopback'
 readonly TESTER='src/server/grpcservice/client/testing/tester'
 
 function randomize_tcp_port {
@@ -47,7 +47,7 @@ readonly ADMIN_PORT=$(randomize_tcp_port)
 
 # Start loopback in the background, kill when finished. We do not care about its
 # exit code.
-python "${LOOPBACK}" \
+python -m "${LOOPBACK_MODULE}" \
   --fleetspeak_message_listen_address="localhost:${MESSAGE_PORT}" \
   --fleetspeak_server="localhost:${ADMIN_PORT}" &
 readonly PID=${!}
