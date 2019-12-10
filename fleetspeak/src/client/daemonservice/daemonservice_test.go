@@ -44,19 +44,11 @@ func testClient() []string {
 }
 
 func testClientPY() []string {
-	if runtime.GOOS == "windows" {
-		return []string{"python", `testclient\testclient.py`}
-	}
-
-	return []string{"testclient/testclient.py"}
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
 }
 
 func testClientLauncherPY() []string {
-	if runtime.GOOS == "windows" {
-		return []string{"python", `testclient\testclient_launcher.py`}
-	}
-
-	return []string{"testclient/testclient_launcher.py"}
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {
@@ -129,9 +121,11 @@ func exerciseLoopback(t *testing.T, client []string) {
 }
 
 func TestLoopback(t *testing.T) {
-	for _, client := range [][]string{testClient(), testClientPY()} {
-		exerciseLoopback(t, client)
-	}
+	exerciseLoopback(t, testClient())
+}
+
+func TestLoopbackPY(t *testing.T) {
+	exerciseLoopback(t, testClientPY())
 }
 
 // Tests that Fleetspeak uses self-reported PIDs for monitoring resource-usage of
