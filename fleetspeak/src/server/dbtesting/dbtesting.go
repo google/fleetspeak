@@ -1,9 +1,10 @@
 package dbtesting
 
 import (
+	"testing"
+
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-	"testing"
 )
 
 // DbTestEnv has to be implemented for each datastore where data store tests are expected to run.
