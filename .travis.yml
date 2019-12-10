@@ -5,7 +5,6 @@ matrix:
       language: go
       go:
         - "1.11.6"
-      python: 3.6
       services:
         - mysql
       addons:
@@ -20,8 +19,9 @@ matrix:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
       before_install:
-        - python --version
-        - virtualenv "${HOME}/FSENV"
+        - sudo apt-get update
+        - sudo apt-get install python3-venv
+        - python3 -m venv "${HOME}/FSENV"
         - mysql --print-defaults
         - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
