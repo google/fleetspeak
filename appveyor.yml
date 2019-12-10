@@ -17,7 +17,6 @@ environment:
   PATH: '%PATH%;%GOPATH%\bin;C:\mingw-w64\x86_64-7.2.0-posix-seh-rt_v5-rev1\mingw64\bin'
 
 install:
-- python --version
 - go version
 - ps: Write-Output $env:PATH
 # TODO: remove 2 lines below when git.apache.org is back up or when
@@ -27,9 +26,9 @@ install:
 - git clone https://github.com/apache/thrift.git %GOPATH%\src\git.apache.org\thrift.git
 - go get -v -t ./...  # Install go dependencies.
 - go get -u golang.org/x/lint/golint
-- virtualenv C:\fsenv
+- c:\python3.6\python.exe -m venv C:\fsenv
 - C:\fsenv\Scripts\activate.bat
-- pip install grpcio-tools
+- pip install --upgrade pip
 - pip install -e .
 
 before_build:

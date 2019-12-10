@@ -5,7 +5,7 @@ matrix:
       language: go
       go:
         - "1.11.6"
-      python: 2.7
+      python: 3.6
       services:
         - mysql
       addons:
@@ -20,13 +20,12 @@ matrix:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
       before_install:
-        - sudo pip install --upgrade pip virtualenv
-        - virtualenv "${HOME}/FSENV"
+        - python -m venv "${HOME}/FSENV"
         - mysql --print-defaults
         - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
       install:
-        - source "${HOME}/FSENV/bin/activate" && pip install grpcio-tools && pip install -e .
+        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip && pip install -e ./fleetspeak_python
         # TODO: remove 2 lines below when git.apache.org is back up or when
         # osquery-go uses a correct version of the Thrift library (the one
         # hosted on github.com and not on git.apache.org).
@@ -87,7 +86,7 @@ matrix:
         on:
           repo: google/fleetspeak
           all_branches: true
-        
+
     - os: osx
       language: go
       go:
