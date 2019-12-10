@@ -15,48 +15,46 @@
 package sqlite
 
 import (
+	"fmt"
+	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"path"
 	"testing"
 
 	log "github.com/golang/glog"
 
-	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/dbtesting"
 )
 
-func setup(t *testing.T, caseName string) *Datastore {
-	dir, tmpDirCleanup := comtesting.GetTempDir("sqlite_test")
-	defer tmpDirCleanup()
-	p := path.Join(dir, caseName+".sqlite")
+type sqliteTestEnv struct {
+	tempDirCleanup func()
+	counter        int
+}
+
+func (e *sqliteTestEnv) Create() error {
+	return nil
+}
+
+func (e *sqliteTestEnv) Clean() (db.Store, error) {
+	dir, fn := comtesting.GetTempDir("sqlite_test")
+	e.tempDirCleanup = fn
+
+	p := path.Join(dir, fmt.Sprintf("%d.sqlite", e.counter))
+	e.counter++
+
 	log.Infof("Using database: %v", p)
 	s, err := MakeDatastore(p)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return s
+	return s, nil
 }
 
-func TestClientStore(t *testing.T) {
-	ds := setup(t, "TestClientStore")
-
-	dbtesting.ClientStoreTest(t, ds)
-	ds.Close()
+func (e *sqliteTestEnv) Destroy() error {
+	e.tempDirCleanup()
+	return nil
 }
 
-func TestMessageStore(t *testing.T) {
-	ms := setup(t, "TestMessageStore")
-	dbtesting.MessageStoreTest(t, ms)
-	ms.Close()
-}
-
-func TestBroadcastStore(t *testing.T) {
-	ms := setup(t, "TestBroadcastStore")
-	dbtesting.BroadcastStoreTest(t, ms)
-	ms.Close()
-}
-
-func TestFileStore(t *testing.T) {
-	ms := setup(t, "TestFileStore")
-	dbtesting.FileStoreTest(t, ms)
-	ms.Close()
+func TestSqliteStore(t *testing.T) {
+	dbtesting.DataStoreTestSuite(t, &sqliteTestEnv{})
 }
