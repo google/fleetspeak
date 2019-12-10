@@ -26,7 +26,7 @@ import time
 from absl import app
 from absl import flags
 
-from fleetspeak.src.server.grpcservice.client import client
+from fleetspeak.client_connector import connector
 
 FLAGS = flags.FLAGS
 
@@ -34,7 +34,7 @@ FLAGS = flags.FLAGS
 def main(argv=None):
   del argv  # Unused.
 
-  service_client = client.InsecureGRPCServiceClient("TestService")
+  service_client = connector.InsecureGRPCServiceClient("TestService")
   seen = set()
   seen_lock = threading.Lock()
 
