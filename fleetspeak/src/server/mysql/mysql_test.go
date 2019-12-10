@@ -152,7 +152,7 @@ func (e *mysqlTestEnv) Destroy() error {
 
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
-	if _, err := e.aconn.ExecContext(ctx, "DROP DATABASE ?", e.dbName); err != nil {
+	if _, err := e.aconn.ExecContext(ctx, "DROP DATABASE "+e.dbName); err != nil {
 		return fmt.Errorf("Unable to drop database [%s]: %v", e.dbName, err)
 	}
 	return e.aconn.Close()
