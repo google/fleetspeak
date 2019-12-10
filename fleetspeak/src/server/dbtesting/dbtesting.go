@@ -8,11 +8,15 @@ import (
 
 // DbTestEnv has to be implemented for each datastore where data store tests are expected to run.
 type DbTestEnv interface {
+	// Creates the database testing environment. Called once per database test suite.
 	Create() error
+	// Cleans the database testing environment before every test and returns a new Store instance to be used by the test.
 	Clean() (db.Store, error)
+	// Destroys the database testing environment after all the tests have run. Called once per database test suite.
 	Destroy() error
 }
 
+// Predefined client ids to be used in tests.
 var clientID, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
 var clientID2, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 2})
 var clientID3, _ = common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 3})

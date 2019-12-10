@@ -16,53 +16,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// func setup(t *testing.T, caseName string) (ds *Datastore, fin func()) {
-// 	if user == "" {
-// 		t.Skip("MYSQL_TEST_USER not set")
-// 	}
-// 	if addr == "" {
-// 		t.Skip("MYSQL_TEST_ADDR not set")
-// 	}
-// 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
-// 	defer fin()
-
-// 	cs := fmt.Sprintf("%s:%s@tcp(%s)/", user, pass, addr)
-// 	ac, err := sql.Open("mysql", cs)
-// 	if err != nil {
-// 		t.Fatalf("Unable to open connection [%s] to create database: %v", cs, err)
-// 	}
-// 	if _, err := ac.ExecContext(ctx, "DROP DATABASE IF EXISTS "+caseName); err != nil {
-// 		t.Fatalf("Unable to drop database [%s]: %v", caseName, err)
-// 	}
-// 	if _, err := ac.ExecContext(ctx, "CREATE DATABASE "+caseName); err != nil {
-// 		t.Fatalf("Unable to create database [%s]: %v", caseName, err)
-// 	}
-
-// 	cs = fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, addr, caseName)
-// 	c, err := sql.Open("mysql", cs)
-// 	if err != nil {
-// 		t.Fatalf("Unable to open connection [%s] to database: %v", cs, err)
-// 	}
-// 	s, err := MakeDatastore(c)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	return s, func() {
-// 		ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
-// 		defer fin()
-// 		if _, err := ac.ExecContext(ctx, "DROP DATABASE "+caseName); err != nil {
-// 			t.Errorf("Unable to drop database [%s]: %v", caseName, err)
-// 		}	if user == "" {
-// 			t.Skip("MYSQL_TEST_USER not set")
-// 		}
-// 		if addr == "" {
-// 			t.Skip("MYSQL_TEST_ADDR not set")
-// 		}
-// 		ac.Close()
-// 	}
-// }
-
 type mysqlTestEnv struct {
 	user string
 	pass string
