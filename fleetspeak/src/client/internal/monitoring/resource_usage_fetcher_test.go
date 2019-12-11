@@ -15,7 +15,6 @@
 package monitoring
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -55,13 +54,9 @@ t0 = time.time()
 while time.time() - t0 < 1.:
   os.listdir(".")
 	`)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
 	start := time.Now()
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("Unexpected error from Run(stdout=%q, stderr=%q): %v", stdout.String(), stderr.String(), err)
+		t.Fatalf("Unexpected error from Run(): %v", err)
 	}
 	runTime := time.Since(start)
 	ru := ruf.ResourceUsageFromFinishedCmd(cmd)
