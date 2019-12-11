@@ -15,7 +15,7 @@
 
 """Script that launches testclient.Loopback in another process."""
 
-import multiprocessing
+import subprocess
 
 from absl import app
 
@@ -23,9 +23,18 @@ from fleetspeak.client_connector.testing import testclient
 
 def main(argv=None):
   del argv
-  p = multiprocessing.Process(target=testclient.Loopback)
-  p.start()
-  p.join()
+  p = subprocess.Popen(
+    [
+      "python",
+      "-m",
+      "fleetspeak.src.client.daemonservice.testclient.testclient"
+    ],
+    # Make sure file descriptors passed from the parent Fleetspeak process are
+    # not closed. This is critical for inter-process communication between
+    # the Fleetspeak client and the test client.
+    close_fds=False)
+  p.communicate()
+  p.wait()
 
 
 if __name__ == "__main__":
