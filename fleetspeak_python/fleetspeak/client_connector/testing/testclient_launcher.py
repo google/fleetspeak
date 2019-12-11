@@ -19,15 +19,13 @@ import subprocess
 
 from absl import app
 
-from fleetspeak.client_connector.testing import testclient
-
 def main(argv=None):
   del argv
   p = subprocess.Popen(
     [
       "python",
       "-m",
-      "fleetspeak.src.client.daemonservice.testclient.testclient"
+      "fleetspeak.client_connector.testing.testclient"
     ],
     # Make sure file descriptors passed from the parent Fleetspeak process are
     # not closed. This is critical for inter-process communication between
