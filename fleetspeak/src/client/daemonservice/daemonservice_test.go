@@ -44,11 +44,11 @@ func testClient() []string {
 }
 
 func testClientPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient", "--"}
 }
 
 func testClientLauncherPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher", "--"}
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {

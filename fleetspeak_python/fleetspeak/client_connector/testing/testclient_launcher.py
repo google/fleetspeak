@@ -25,7 +25,9 @@ def main(argv=None):
     [
       "python",
       "-m",
-      "fleetspeak.client_connector.testing.testclient"
+      "fleetspeak.client_connector.testing.testclient",
+      "--",
+      "--mode=loopback"
     ],
     # Make sure file descriptors passed from the parent Fleetspeak process are
     # not closed. This is critical for inter-process communication between
