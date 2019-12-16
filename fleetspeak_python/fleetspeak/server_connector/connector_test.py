@@ -19,7 +19,7 @@ import threading
 from absl.testing import absltest
 import grpc
 
-from fleetspeak.src.server.grpcservice.client import client
+from fleetspeak.server_connector import connector
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2
 
@@ -62,13 +62,13 @@ class ClientTest(absltest.TestCase):
 
   def testKeepAlive(self):
     t = FakeStub()
-    s = client.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, 'test', t)
     self.assertTrue(t.event.wait(10))
     s.Shutdown()
 
   def testInsertMessage(self):
     t = FakeStub()
-    s = client.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, 'test', t)
     s.InsertMessage(common_pb2.Message())
     self.assertTrue(t.insert_done)
     self.assertFalse(t.insert_errors)
@@ -76,7 +76,7 @@ class ClientTest(absltest.TestCase):
 
   def testDeletePendingMessages(self):
     t = FakeStub()
-    s = client.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, 'test', t)
     s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
     self.assertTrue(t.delete_done)
     self.assertFalse(t.delete_errors)

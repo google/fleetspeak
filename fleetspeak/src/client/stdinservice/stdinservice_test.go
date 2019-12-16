@@ -55,7 +55,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	}
 
 	m := &sspb.InputMessage{
-		Args: []string{"-c", `print "foo bar"`},
+		Args: []string{"-c", `print("foo bar")`},
 	}
 	mAny, err := ptypes.MarshalAny(m)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 		Args: []string{"-c", `
 try:
   while True:
-    print raw_input()
+    print(input())
 except EOFError:
   pass
 		`},
