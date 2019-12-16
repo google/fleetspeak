@@ -219,6 +219,12 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 }
 
 func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
+	ctx := context.Background()
+
+	if err := ms.AddClient(ctx, clientID, &db.ClientData{Key: []byte("test key")}); err != nil {
+		t.Fatalf("AddClient [%v] failed: %v", clientID, err)
+	}
+	
 	// Create a backlog for 2 different services.
 	var toStore []*fspb.Message
 	for i := 0; i < 100; i++ {
@@ -255,7 +261,7 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 			CreationTime: db.NowProto(),
 		})
 	}
-	ctx := context.Background()
+
 	if err := ms.StoreMessages(ctx, toStore, ""); err != nil {
 		t.Errorf("StoreMessages returned error: %v", err)
 		return
