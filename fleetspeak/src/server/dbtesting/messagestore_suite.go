@@ -219,7 +219,7 @@ func clientMessagesForProcessingTest(t *testing.T, ms db.Store) {
 }
 
 func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
-        ctx := context.Background()
+	ctx := context.Background()
 
 	if err := ms.AddClient(ctx, clientID, &db.ClientData{Key: []byte("test key")}); err != nil {
 		t.Fatalf("AddClient [%v] failed: %v", clientID, err)
