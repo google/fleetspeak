@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -39,6 +40,11 @@ var (
 	// StatsSampleSize is the number of resource-usage query results that get aggregated into
 	// a single resource-usage report sent to Fleetspeak servers.
 	StatsSampleSize = 20
+)
+
+const (
+	// SuicideExitCode is used as a distinctive exit code to signify a client committing suicide.
+	SuicideExitCode = 7
 )
 
 // systemService implements Service. It handles messages for the built in
@@ -82,15 +88,50 @@ func (s *systemService) Start(sc service.Context) error {
 }
 
 func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error {
-	if m.MessageType == "RekeyRequest" {
+	switch m.MessageType {
+	case "RekeyRequest":
 		if err := s.client.config.Rekey(); err != nil {
 			// Very unlikely.
 			return fmt.Errorf("unable to rekey client: %v", err)
 		}
 		s.client.config.SendConfigUpdate()
-		return nil
+	case "Die":
+		dr := &fspb.DieRequest{}
+		if err := ptypes.UnmarshalAny(m.Data, dr); err != nil {
+			return fmt.Errorf("can't unmarshal DieRequest: %v", err)
+		}
+		if dr.Force {
+			log.Info("Committing forced suicide on request.")
+			os.Exit(SuicideExitCode)
+		} else {
+			log.Info("Committing graceful suicide on request.")
+			// Stop the service and exit in a goroutine. As the "system" service
+			// is currently processing the "Die" message, trying to stop it would
+			// deadlock. We have to let the ProcessMessage return in order for
+			// s.client.Stop() to complete.
+			go func() {
+				s.client.Stop()
+				os.Exit(SuicideExitCode)
+			}()
+		}
+
+	case "RestartService":
+		rs := &fspb.RestartServiceRequest{}
+		if err := ptypes.UnmarshalAny(m.Data, rs); err != nil {
+			return fmt.Errorf("can't unmarshal RestartServiceRequest: %v", err)
+		}
+		log.Infof("Restarting service %s (force: %v)", rs.Name, rs.Force)
+
+		if err := s.client.sc.RestartService(rs.Name); err != nil {
+			log.Errorf("Failed to restart service '%s': %v", rs.Name, err)
+			return err
+		}
+		log.Infof("Restarted service '%s'", rs.Name)
+	default:
+		return fmt.Errorf("unable to process message of type: %v", m.MessageType)
 	}
-	return fmt.Errorf("unable to process message of type: %v", m.MessageType)
+
+	return nil
 }
 
 func (s *systemService) Stop() error {
