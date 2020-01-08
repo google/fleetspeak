@@ -44,26 +44,23 @@ func testClient() []string {
 }
 
 func testClientPY() []string {
-	cmd := []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
-	if runtime.GOOS == "windows" {
-		return append(cmd, "--")
-	}
-	return cmd
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
 }
 
 func testClientLauncherPY() []string {
-	cmd := []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
-	if runtime.GOOS == "windows" {
-		return append(cmd, "--")
-	}
-	return cmd
+	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {
 	dsc.ResourceMonitoringSampleSize = 2
 	dsc.ResourceMonitoringSamplePeriodSeconds = 1
 	dsc.Argv = append(dsc.Argv, client...)
-	dsc.Argv = append(dsc.Argv, "--mode="+mode)
+	if runtime.GOOS == "windows" {
+		dsc.Argv = append(dsc.Argv, "--")
+	}
+	if mode != "" {
+		dsc.Argv = append(dsc.Argv, "--mode="+mode)
+	}
 
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
@@ -142,7 +139,7 @@ func TestSelfReportedPIDs(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientLauncherPY(), "loopback", &sc, dspb.Config{})
+	s := startTestClient(t, testClientLauncherPY(), "", &sc, dspb.Config{})
 
 	var ruMsgs []*mpb.ResourceUsageData
 	var lastRUMsg *mpb.ResourceUsageData
