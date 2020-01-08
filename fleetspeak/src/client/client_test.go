@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -240,8 +241,10 @@ func TestDie(t *testing.T) {
 			cmd := exec.Command(os.Args[0], "-test.run=TestDie")
 			cmd.Env = append(os.Environ(), "TRIGGER_DEATH=1", fmt.Sprintf("TRIGGER_DEATH_FORCE=%v", force))
 			err := cmd.Run()
-			if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == SuicideExitCode {
-				return
+			if e, ok := err.(*exec.ExitError); ok {
+				if status, ok := e.Sys().(syscall.WaitStatus); ok && status == SuicideExitCode {
+					return
+				}
 			}
 			t.Fatalf("process ran with err %v, want exit status %d", err, SuicideExitCode)
 		})
