@@ -242,7 +242,7 @@ func TestDie(t *testing.T) {
 			cmd.Env = append(os.Environ(), "TRIGGER_DEATH=1", fmt.Sprintf("TRIGGER_DEATH_FORCE=%v", force))
 			err := cmd.Run()
 			if e, ok := err.(*exec.ExitError); ok {
-				if status, ok := e.Sys().(syscall.WaitStatus); ok && status == SuicideExitCode {
+				if status, ok := e.Sys().(syscall.WaitStatus); ok && status.ExitStatus() == SuicideExitCode {
 					return
 				}
 			}
