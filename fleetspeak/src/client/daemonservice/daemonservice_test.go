@@ -44,11 +44,19 @@ func testClient() []string {
 }
 
 func testClientPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
+	cmd := []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
+	if runtime.GOOS == "windows" {
+		return append(cmd, "--")
+	}
+	return cmd
 }
 
 func testClientLauncherPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
+	cmd := []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
+	if runtime.GOOS == "windows" {
+		return append(cmd, "--")
+	}
+	return cmd
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {
