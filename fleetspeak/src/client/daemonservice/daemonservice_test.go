@@ -518,7 +518,7 @@ func TestHeartbeat(t *testing.T) {
 	s := startTestClient(t, testClientPY(), "heartbeat", &sc, dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds:  3,
+		HeartbeatUnresponsiveKillPeriodSeconds:  5,
 	})
 	defer func() {
 		// Drain the channel.
@@ -544,7 +544,7 @@ func TestHeartbeat(t *testing.T) {
 	}
 
 	// Ensure the process is not restarted in 10 seconds - the PID should not change.
-	deadline := time.Now().Add(4 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		m = <-sc.OutChan
 		if m.MessageType != "ResourceUsage" {
