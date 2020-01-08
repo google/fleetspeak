@@ -518,7 +518,7 @@ func TestHeartbeat(t *testing.T) {
 	s := startTestClient(t, testClientPY(), "heartbeat", &sc, dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds:  1,
+		HeartbeatUnresponsiveKillPeriodSeconds:  3,
 	})
 	defer func() {
 		// Drain the channel.
@@ -543,8 +543,8 @@ func TestHeartbeat(t *testing.T) {
 		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 	}
 
-	// Ensure the process is not restarted in 2 seconds - the PID should not change.
-	deadline := time.Now().Add(2 * time.Second)
+	// Ensure the process is not restarted in 10 seconds - the PID should not change.
+	deadline := time.Now().Add(4 * time.Second)
 	for time.Now().Before(deadline) {
 		m = <-sc.OutChan
 		if m.MessageType != "ResourceUsage" {
