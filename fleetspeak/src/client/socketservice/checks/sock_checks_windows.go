@@ -147,15 +147,5 @@ func getOwnership(filepath string) (string, string, error) {
 	)
 	windows.LocalFree(securityDescriptor)
 
-	o, err := psidOwner.String()
-	if err != nil {
-		return "", "", err
-	}
-
-	g, err := psidGroup.String()
-	if err != nil {
-		return "", "", err
-	}
-
-	return o, g, nil
+	return psidOwner.String(), psidGroup.String(), nil
 }
