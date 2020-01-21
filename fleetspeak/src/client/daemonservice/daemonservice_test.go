@@ -55,9 +55,6 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 	dsc.ResourceMonitoringSampleSize = 2
 	dsc.ResourceMonitoringSamplePeriodSeconds = 1
 	dsc.Argv = append(dsc.Argv, client...)
-	if runtime.GOOS == "windows" {
-		dsc.Argv = append(dsc.Argv, "--")
-	}
 	if mode != "" {
 		dsc.Argv = append(dsc.Argv, "--mode="+mode)
 	}

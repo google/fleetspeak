@@ -45,7 +45,7 @@ test_script:
 - C:\fsenv\Scripts\activate.bat
 - python --version
 - pip show fleetspeak
-- go test github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 90s
-- go test github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 90s
+- go test github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 180s
+- go test github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 180s
 # TODO(ogaro): Move src/windows to src/client.
-- go test github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 90s
+- go test github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 180s
