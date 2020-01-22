@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import sys
 
-from setuptools import find_namespace_packages
 from setuptools import setup
 from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
@@ -28,6 +27,25 @@ GRPCIO_TOOLS = "grpcio-tools==1.24.1"
 
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)
+
+
+def _is_package(path):
+  return (os.path.isdir(path) and
+          [f for f in os.listdir(path) if f.endswith(".py")])
+
+
+def _find_packages(path, base="fleetspeak"):
+  packages = {}
+  for item in os.listdir(path):
+    dir = os.path.join(path, item)
+    if _is_package( dir ):
+      if base:
+        module_name = "%(base)s.%(item)s" % vars()
+      else:
+        module_name = item
+      packages[module_name] = dir
+      packages.update(_find_packages(dir, module_name))
+  return packages
 
 
 def get_version():
@@ -119,7 +137,7 @@ class Develop(develop):
 class BuildPy(build_py):
 
   def find_all_modules(self):
-    self.packages = find_namespace_packages()
+    self.packages = _find_packages("fleetspeak")
     return build_py.find_all_modules(self)
 
 
@@ -158,7 +176,7 @@ setup(
     keywords="",
 
     # Packaging details.
-    packages=find_namespace_packages(),
+    packages=_find_packages("fleetspeak"),
     install_requires=[
         "absl-py>=0.8.0",
         "grpcio>=1.24.1",
