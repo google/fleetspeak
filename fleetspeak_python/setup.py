@@ -38,14 +38,15 @@ def _find_packages(path, base="fleetspeak"):
   packages = {}
   for item in os.listdir(path):
     dir = os.path.join(path, item)
-    if _is_package( dir ):
+    if os.path.isdir(dir):
       if base:
         module_name = "%(base)s.%(item)s" % vars()
       else:
         module_name = item
       packages[module_name] = dir
       packages.update(_find_packages(dir, module_name))
-  return packages
+
+  return {k: v for k, v in packages.items() if _is_package(v)}
 
 
 def get_version():
