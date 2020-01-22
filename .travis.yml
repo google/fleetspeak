@@ -26,7 +26,7 @@ matrix:
         - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
       install:
-        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip setuptools && pip install -e ./fleetspeak_python
+        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip && pip install -e ./fleetspeak_python
         # TODO: remove 2 lines below when git.apache.org is back up or when
         # osquery-go uses a correct version of the Thrift library (the one
         # hosted on github.com and not on git.apache.org).
