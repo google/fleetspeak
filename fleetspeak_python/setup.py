@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-from setuptools import find_packages
+from setuptools import find_namespace_packages
 from setuptools import setup
 from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
@@ -119,7 +119,7 @@ class Develop(develop):
 class BuildPy(build_py):
 
   def find_all_modules(self):
-    self.packages = find_packages()
+    self.packages = find_namespace_packages()
     return build_py.find_all_modules(self)
 
 
@@ -158,7 +158,7 @@ setup(
     keywords="",
 
     # Packaging details.
-    packages=find_packages(),
+    packages=find_namespace_packages(),
     install_requires=[
         "absl-py>=0.8.0",
         "grpcio>=1.24.1",
