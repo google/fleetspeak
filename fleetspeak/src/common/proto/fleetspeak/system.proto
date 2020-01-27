@@ -88,3 +88,11 @@ message ClientServiceConfigs {
 message RevokedCertificateList {
   repeated bytes serials = 1;
 }
+
+message DieRequest {
+  bool force = 1;
+}
+
+message RestartServiceRequest {
+  string name = 1;
+}

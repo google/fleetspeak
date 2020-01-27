@@ -19,13 +19,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clienttestutils"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -33,6 +37,11 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+)
+
+var (
+	fakeServiceStopCount  = 0
+	fakeServiceStartCount = 0
 )
 
 // A fakeService implements Service and passes all received messages into a channel.
@@ -43,6 +52,7 @@ type fakeService struct {
 
 func (s *fakeService) Start(sc service.Context) error {
 	s.sc = sc
+	fakeServiceStartCount++
 	return nil
 }
 
@@ -52,6 +62,7 @@ func (s *fakeService) ProcessMessage(ctx context.Context, m *fspb.Message) error
 }
 
 func (s *fakeService) Stop() error {
+	fakeServiceStopCount++
 	return nil
 }
 
@@ -159,6 +170,154 @@ func TestRekey(t *testing.T) {
 		}
 		if time.Since(start) > 20*time.Second {
 			t.Errorf("Timed out waiting for id to change.")
+			break
+		}
+	}
+}
+
+func triggerDeath(force bool, t *testing.T) {
+	cl, err := New(
+		config.Configuration{},
+		Components{})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	oid := cl.config.ClientID()
+
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+
+	data, err := ptypes.MarshalAny(&fspb.DieRequest{
+		Force: force,
+	})
+	if err != nil {
+		t.Fatalf("can't marshal the DieRequest: %v", err)
+	}
+
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "system"},
+				Destination: &fspb.Address{
+					ClientId:    oid.Bytes(),
+					ServiceName: "system"},
+				MessageType: "Die",
+				Data:        data,
+			},
+		}); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	tk := time.NewTicker(200 * time.Millisecond)
+	start := time.Now()
+	defer tk.Stop()
+	for range tk.C {
+		if time.Since(start) > 20*time.Second {
+			t.Errorf("Timed out waiting for the client to die.")
+			break
+		}
+	}
+}
+
+func TestDie(t *testing.T) {
+	// Using a workaround from https://talks.golang.org/2014/testing.slide#23 to test os.Exit behavior.
+	if os.Getenv("TRIGGER_DEATH") == "1" {
+		force, err := strconv.ParseBool(os.Getenv("TRIGGER_DEATH_FORCE"))
+		if err != nil {
+			t.Fatalf("Can't parse TRIGGER_DEATH_FORCE env variable: %v", err)
+		}
+		triggerDeath(force, t)
+		return
+	}
+
+	for _, force := range []bool{true, false} {
+		t.Run(fmt.Sprintf("TestDie[force=%v]", force), func(t *testing.T) {
+
+			cmd := exec.Command(os.Args[0], "-test.run=TestDie")
+			cmd.Env = append(os.Environ(), "TRIGGER_DEATH=1", fmt.Sprintf("TRIGGER_DEATH_FORCE=%v", force))
+			err := cmd.Run()
+			if e, ok := err.(*exec.ExitError); ok {
+				if status, ok := e.Sys().(syscall.WaitStatus); ok && status.ExitStatus() == SuicideExitCode {
+					return
+				}
+			}
+			t.Fatalf("process ran with err %v, want exit status %d", err, SuicideExitCode)
+		})
+	}
+}
+
+func TestRestartService(t *testing.T) {
+	prevStartCount := fakeServiceStartCount
+	prevStopCount := fakeServiceStopCount
+
+	msgs := make(chan *fspb.Message)
+	fs := fakeService{c: msgs}
+
+	fakeServiceFactory := func(*fspb.ClientServiceConfig) (service.Service, error) {
+		return &fs, nil
+	}
+
+	cl, err := New(
+		config.Configuration{
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "FakeService", Factory: "FakeService"}},
+		},
+		Components{
+			ServiceFactories: map[string]service.Factory{
+				"NOOP":        service.NOOPFactory,
+				"FakeService": fakeServiceFactory,
+			},
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	oid := cl.config.ClientID()
+
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+
+	data, err := ptypes.MarshalAny(&fspb.RestartServiceRequest{
+		Name: "FakeService",
+	})
+	if err != nil {
+		t.Fatalf("can't marshal the RestartServiceRequest: %v", err)
+	}
+
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "system"},
+				Destination: &fspb.Address{
+					ClientId:    oid.Bytes(),
+					ServiceName: "system"},
+				MessageType: "RestartService",
+				Data:        data,
+			},
+		}); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	tk := time.NewTicker(200 * time.Millisecond)
+	start := time.Now()
+	defer tk.Stop()
+	for range tk.C {
+		// fakeService is started once and then restarted, a restart is a Stop()
+		// followed by Start(), meaning that overall 2 starts and 1 stop are expected.
+		if (fakeServiceStartCount-prevStartCount) == 2 && (fakeServiceStopCount-prevStopCount) == 1 {
+			break
+		}
+
+		if time.Since(start) > 20*time.Second {
+			t.Errorf("Timed out waiting for the server restart.")
 			break
 		}
 	}

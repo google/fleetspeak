@@ -92,10 +92,16 @@ ll:
 	return c.InstallService(&cfg, sd.Signature)
 }
 
-func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig []byte) error {
+func validateServiceName(sname string) error {
+	if sname == "" || sname == "system" || sname == "client" {
+		return fmt.Errorf("illegal service name [%v]", sname)
+	}
+	return nil
+}
 
-	if cfg.Name == "" || cfg.Name == "system" || cfg.Name == "client" {
-		return fmt.Errorf("illegal service name [%v]", cfg.Name)
+func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig []byte) error {
+	if err := validateServiceName(cfg.Name); err != nil {
+		return fmt.Errorf("can't install service: %v", err)
 	}
 
 	f := c.factories[cfg.Factory]
@@ -108,10 +114,11 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	}
 
 	d := serviceData{
-		config:  c,
-		name:    cfg.Name,
-		service: s,
-		inbox:   make(chan *fspb.Message, inboxSize),
+		config:        c,
+		name:          cfg.Name,
+		serviceConfig: cfg,
+		service:       s,
+		inbox:         make(chan *fspb.Message, inboxSize),
 	}
 	if err := d.start(); err != nil {
 		return fmt.Errorf("unable to start service: %v", err)
@@ -131,6 +138,28 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	}
 
 	log.Infof("Started service %v with config:\n%s", cfg.Name, protoTexter.Text(cfg))
+	return nil
+}
+
+func (c *serviceConfiguration) RestartService(sname string) error {
+	if err := validateServiceName(sname); err != nil {
+		return fmt.Errorf("can't restart service: %v", err)
+	}
+
+	c.lock.Lock()
+	srv := c.services[sname]
+	if srv == nil {
+		return fmt.Errorf("service doesn't exist: %v", sname)
+	}
+	delete(c.services, sname)
+	c.lock.Unlock()
+
+	srv.stop()
+
+	if err := c.InstallService(srv.serviceConfig, nil); err != nil {
+		return fmt.Errorf("can't reinstall service '%s' on restart: %v", sname, err)
+	}
+
 	return nil
 }
 
@@ -165,11 +194,12 @@ func (c *serviceConfiguration) Stop() {
 // a Service interface and mediating communication between it and the rest of
 // the Fleetspeak client.
 type serviceData struct {
-	config  *serviceConfiguration
-	name    string
-	working sync.WaitGroup
-	service service.Service
-	inbox   chan *fspb.Message
+	config        *serviceConfiguration
+	name          string
+	serviceConfig *fspb.ClientServiceConfig
+	working       sync.WaitGroup
+	service       service.Service
+	inbox         chan *fspb.Message
 
 	countLock                   sync.Mutex // Protects acceptCount, processCount
 	acceptCount, processedCount uint64
