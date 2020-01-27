@@ -120,7 +120,7 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 		if err := ptypes.UnmarshalAny(m.Data, rs); err != nil {
 			return fmt.Errorf("can't unmarshal RestartServiceRequest: %v", err)
 		}
-		log.Infof("Restarting service %s (force: %v)", rs.Name, rs.Force)
+		log.Infof("Restarting service %s", rs.Name)
 
 		if err := s.client.sc.RestartService(rs.Name); err != nil {
 			log.Errorf("Failed to restart service '%s': %v", rs.Name, err)
