@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -40,8 +41,9 @@ import (
 )
 
 var (
-	fakeServiceStopCount  = 0
-	fakeServiceStartCount = 0
+	fakeServiceStopCount     = 0
+	fakeServiceStartCount    = 0
+	fakeServiceCountersMutex = &sync.Mutex{}
 )
 
 // A fakeService implements Service and passes all received messages into a channel.
@@ -52,7 +54,9 @@ type fakeService struct {
 
 func (s *fakeService) Start(sc service.Context) error {
 	s.sc = sc
+	fakeServiceCountersMutex.Lock()
 	fakeServiceStartCount++
+	fakeServiceCountersMutex.Unlock()
 	return nil
 }
 
@@ -62,7 +66,9 @@ func (s *fakeService) ProcessMessage(ctx context.Context, m *fspb.Message) error
 }
 
 func (s *fakeService) Stop() error {
+	fakeServiceCountersMutex.Lock()
 	fakeServiceStopCount++
+	fakeServiceCountersMutex.Unlock()
 	return nil
 }
 
@@ -252,8 +258,10 @@ func TestDie(t *testing.T) {
 }
 
 func TestRestartService(t *testing.T) {
+	fakeServiceCountersMutex.Lock()
 	prevStartCount := fakeServiceStartCount
 	prevStopCount := fakeServiceStopCount
+	fakeServiceCountersMutex.Unlock()
 
 	msgs := make(chan *fspb.Message)
 	fs := fakeService{c: msgs}
@@ -310,9 +318,14 @@ func TestRestartService(t *testing.T) {
 	start := time.Now()
 	defer tk.Stop()
 	for range tk.C {
+		fakeServiceCountersMutex.Lock()
+		startDiff := fakeServiceStartCount - prevStartCount
+		stopDiff := fakeServiceStopCount - prevStopCount
+		fakeServiceCountersMutex.Unlock()
+
 		// fakeService is started once and then restarted, a restart is a Stop()
 		// followed by Start(), meaning that overall 2 starts and 1 stop are expected.
-		if (fakeServiceStartCount-prevStartCount) == 2 && (fakeServiceStopCount-prevStopCount) == 1 {
+		if startDiff == 2 && stopDiff == 1 {
 			break
 		}
 
