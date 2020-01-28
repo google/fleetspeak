@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 
 	log "github.com/golang/glog"
@@ -23,10 +24,13 @@ func TestListenNotify(t *testing.T) {
 	defer l.Stop()
 	log.Infof("Started [locahost:] listener, reports address: %v", l.Address())
 
+	mtx := &sync.Mutex{}
 	var gotIDs []common.ClientID
 	go func() {
 		for id := range c {
+			mtx.Lock()
 			gotIDs = append(gotIDs, id)
+			mtx.Unlock()
 		}
 	}()
 
@@ -40,6 +44,8 @@ func TestListenNotify(t *testing.T) {
 		}
 	}
 
+	mtx.Lock()
+	defer mtx.Unlock()
 	if !reflect.DeepEqual(gotIDs, []common.ClientID{id1, id2}) {
 		t.Errorf("Unexpected ids received got: %v want: %v", gotIDs, []common.ClientID{id1, id2})
 	}
