@@ -20,17 +20,20 @@
 package components
 
 import (
+	"google.golang.org/grpc"
 	"database/sql"
 	"errors"
 	"fmt"
 	"net"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
@@ -38,6 +41,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 func MakeComponents(cfg cpb.Config) (*server.Components, error) {
@@ -97,6 +101,28 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 			BindAddress:       cfg.NotificationListenAddress,
 			AdvertisedAddress: cfg.NotificationPublicAddress,
 		}
+	} else {
+		llc := inotifications.LocalListenerNotifier{}
+		nn = &llc
+		nl = &llc
+	}
+
+	var admSrv *grpc.Server
+	if cfg.AdminConfig != nil {
+		as := admin.NewServer(db, nn)
+		admSrv := grpc.NewServer()
+		spb.RegisterAdminServer(admSrv, as)
+		aas, err := net.ResolveTCPAddr("tcp", cfg.AdminConfig.ListenAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize admin server: %v", err)
+		}
+		asl, err := net.ListenTCP("tcp", aas)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize admin server: %v", err)
+		}
+		go func() {
+			admSrv.Serve(asl)
+		}()
 	}
 
 	// Final assembly
@@ -110,5 +136,6 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		Authorizer:    auth,
 		Notifier:      nn,
 		Listener:      nl,
+		Admin:				 admSrv,
 	}, nil
 }

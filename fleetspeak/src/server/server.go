@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc"
+
 	log "github.com/golang/glog"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -52,6 +54,8 @@ type Components struct {
 	// streaming connections with multiple servers.
 	Notifier notifications.Notifier
 	Listener notifications.Listener
+
+	Admin *grpc.Server
 }
 
 // A Server is an active fleetspeak server instance.
@@ -69,6 +73,7 @@ type Server struct {
 	notifier         notifications.Notifier
 	listener         notifications.Listener
 	dispatcher       *inotifications.Dispatcher
+	admin            *grpc.Server
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -103,6 +108,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		notifier:       sc.Notifier,
 		listener:       sc.Listener,
 		dispatcher:     inotifications.NewDispatcher(),
+		admin:          sc.Admin,
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
@@ -146,6 +152,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	s.broadcastManager = bm
 
 	s.dataStore.RegisterMessageProcessor(s.serviceConfig)
+
 	return &s, nil
 }
 
@@ -166,6 +173,9 @@ func (s *Server) Stop() {
 		log.Errorf("Error closing datastore: %v", err)
 	}
 	s.clientCache.Stop()
+	if s.admin != nil {
+		s.admin.Stop()
+	}
 }
 
 func (s *Server) processClientNotifications(c <-chan common.ClientID) {

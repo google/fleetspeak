@@ -25,6 +25,10 @@ message Config {
   // The parameters required to stand up an https server. Required.
   HttpsConfig https_config = 2;
 
+  // Parameters required to stand up an admin server. Either this or
+  // "https_config", or both, have to be specified.
+  AdminConfig admin_config = 7;
+
   // If set, expects connections to arrive through a load balance implementing
   // the PROXY protocol.
   //
@@ -64,4 +68,10 @@ message HttpsConfig {
   // connection causes more active connections but can reduce database load and
   // server->client communications latency.
   bool disable_streaming = 4;
+}
+
+message AdminConfig {
+  // The bind address to listen on for connections, e.g. ":443" or
+  // "localhost:1234". Required.
+  string listen_address = 1;
 }
