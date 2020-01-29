@@ -20,10 +20,10 @@
 package components
 
 import (
-	"google.golang.org/grpc"
 	"database/sql"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
 	"net"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
@@ -33,9 +33,9 @@ import (
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
-	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -44,6 +44,7 @@ import (
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
+// MakeComponents creates server components from a given config.
 func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	if cfg.MysqlDataSourceName == "" {
 		return nil, errors.New("mysql_data_source_name is required")
@@ -136,6 +137,6 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		Authorizer:    auth,
 		Notifier:      nn,
 		Listener:      nl,
-		Admin:				 admSrv,
+		Admin:         admSrv,
 	}, nil
 }
