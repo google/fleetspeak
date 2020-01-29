@@ -57,6 +57,11 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		return nil, errors.New("https_config requires listen_address, certificates and key")
 	}
 
+	acfg := cfg.AdminConfig
+	if acfg != nil && acfg.ListenAddress == "" {
+		return nil, errors.New("admin_config.listen_address can't be empty")
+	}
+
 	// Database setup
 	con, err := sql.Open("mysql", cfg.MysqlDataSourceName)
 	if err != nil {
@@ -109,11 +114,11 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	}
 
 	var admSrv *grpc.Server
-	if cfg.AdminConfig != nil {
+	if acfg != nil {
 		as := admin.NewServer(db, nn)
 		admSrv := grpc.NewServer()
 		spb.RegisterAdminServer(admSrv, as)
-		aas, err := net.ResolveTCPAddr("tcp", cfg.AdminConfig.ListenAddress)
+		aas, err := net.ResolveTCPAddr("tcp", acfg.ListenAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize admin server: %v", err)
 		}
