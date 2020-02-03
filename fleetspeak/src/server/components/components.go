@@ -23,9 +23,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
 	"net"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
@@ -33,13 +35,16 @@ import (
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
+	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
+// MakeComponents creates server components from a given config.
 func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	if cfg.MysqlDataSourceName == "" {
 		return nil, errors.New("mysql_data_source_name is required")
@@ -50,6 +55,11 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	hcfg := cfg.HttpsConfig
 	if hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "" {
 		return nil, errors.New("https_config requires listen_address, certificates and key")
+	}
+
+	acfg := cfg.AdminConfig
+	if acfg != nil && acfg.ListenAddress == "" {
+		return nil, errors.New("admin_config.listen_address can't be empty")
 	}
 
 	// Database setup
@@ -97,6 +107,28 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 			BindAddress:       cfg.NotificationListenAddress,
 			AdvertisedAddress: cfg.NotificationPublicAddress,
 		}
+	} else {
+		llc := inotifications.LocalListenerNotifier{}
+		nn = &llc
+		nl = &llc
+	}
+
+	var admSrv *grpc.Server
+	if acfg != nil {
+		as := admin.NewServer(db, nn)
+		admSrv := grpc.NewServer()
+		spb.RegisterAdminServer(admSrv, as)
+		aas, err := net.ResolveTCPAddr("tcp", acfg.ListenAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize admin server: %v", err)
+		}
+		asl, err := net.ListenTCP("tcp", aas)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize admin server: %v", err)
+		}
+		go func() {
+			admSrv.Serve(asl)
+		}()
 	}
 
 	// Final assembly
@@ -110,5 +142,6 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		Authorizer:    auth,
 		Notifier:      nn,
 		Listener:      nl,
+		Admin:         admSrv,
 	}, nil
 }

@@ -44,6 +44,18 @@ func TestValidation(t *testing.T) {
 			},
 			wantErr: "https_config requires listen_address, certificates and key",
 		},
+		{
+			cfg: cpb.Config{
+				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
+				HttpsConfig: &cpb.HttpsConfig{
+					ListenAddress: "localhost:443",
+					Certificates:  "<>",
+					Key:           "<>",
+				},
+				AdminConfig: &cpb.AdminConfig{},
+			},
+			wantErr: "admin_config.listen_address can't be empty",
+		},
 	} {
 		_, err := MakeComponents(tc.cfg)
 		if err == nil || err.Error() != tc.wantErr {
