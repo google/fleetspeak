@@ -19,10 +19,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,7 +94,7 @@ func (s *blockingService) ProcessMessage(ctx context.Context, m *fspb.Message) e
 	return nil
 }
 
-func TestCommunicator(t *testing.T) {
+func testCommunicator(t *testing.T, proxy *url.URL) {
 	// Create a local https server for the client to talk to.
 	pemCert, pemKey, err := common_util.ServerCert()
 	if err != nil {
@@ -191,6 +195,7 @@ func TestCommunicator(t *testing.T) {
 			MaxBufferDelaySeconds:  1,
 			MinFailureDelaySeconds: 1,
 		},
+		Proxy: proxy,
 	}
 	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
 		t.Fatal("unable to add server cert to pool")
@@ -370,6 +375,83 @@ G:
 	// The most graceful way to shut down a http.Server is to close the associated listener.
 	tl.Close()
 	cl.Stop()
+}
+
+func TestCommunicator(t *testing.T) {
+	testCommunicator(t, nil)
+}
+
+// A simple HTTP handler implementing a HTTPS proxy.
+// It implements the connect method only.
+type proxyHandler struct {
+	t *testing.T
+	// Number of requests handled.
+	numRequests uint32
+}
+
+func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t := ph.t
+	d, err := httputil.DumpRequest(r, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Got proxy request: %s.", string(d))
+	if r.Method != http.MethodConnect {
+		t.Fatalf("Proxy received invalid method: %s.", r.Method)
+	}
+	conn, err := net.Dial("tcp", r.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.WriteHeader(http.StatusOK)
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		t.Fatal("Failed to hijack HTTP connection.")
+	}
+	httpConn, _, err := hijacker.Hijack()
+	if err != nil {
+		t.Fatal(err)
+	}
+	atomic.AddUint32(&ph.numRequests, 1)
+	c := make(chan bool)
+	copyFromTo := func(from net.Conn, to net.Conn) {
+		_, err := io.Copy(to, from)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c <- true
+	}
+	go copyFromTo(conn, httpConn)
+	go copyFromTo(httpConn, conn)
+	_, _ = <-c, <-c
+	conn.Close()
+	httpConn.Close()
+}
+
+func TestCommunicatorWithProxy(t *testing.T) {
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl, err := net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := tl.Addr().String()
+	ph := &proxyHandler{t: t}
+	server := &http.Server{
+		Addr:    addr,
+		Handler: ph,
+	}
+	go server.Serve(tl)
+
+	url := &url.URL{
+		Host: addr,
+	}
+
+	testCommunicator(t, url)
+
+	tl.Close()
 }
 
 func TestErrorDelay(t *testing.T) {

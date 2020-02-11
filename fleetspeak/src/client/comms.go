@@ -138,6 +138,7 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 	return comms.ServerInfo{
 		TrustedCerts: cfg.TrustedCerts,
 		Servers:      cfg.Servers,
+		Proxy:        cfg.Proxy,
 	}, nil
 }
 

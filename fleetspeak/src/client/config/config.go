@@ -17,6 +17,7 @@ package config
 
 import (
 	"crypto/x509"
+	"net/url"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -66,6 +67,10 @@ type Configuration struct {
 	// Intended for testing and specialized applications - should be hardcoded nil
 	// in normal deployments.
 	RevokedCertSerials [][]byte
+
+	// If non-nil, proxy used for connecting to the server.
+	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
+	Proxy *url.URL
 }
 
 // PersistenceHandler manages client's configuration storage.

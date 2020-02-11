@@ -23,6 +23,11 @@ message Config {
   // If set, the client will use long running persistent connections, otherwise
   // it will make regular short lived polls to the server. Recommended.
   bool streaming = 6;
+
+  // If provided, proxy used for connecting to the server.
+  // The format is an URL.
+  // See https://golang.org/pkg/net/http/#Transport.Proxy for details.
+  string proxy = 7;
 }
 
 message FilesystemHandler {
