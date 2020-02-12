@@ -80,8 +80,15 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		}).DialContext
 	}
 
+	var proxy func(*http.Request) (*url.URL, error)
+	if si.Proxy == nil {
+		proxy = http.ProxyFromEnvironment
+	} else {
+		proxy = http.ProxyURL(si.Proxy)
+	}
+
 	return ci.ID, &http.Transport{
-		Proxy: http.ProxyURL(si.Proxy),
+		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
 			RootCAs: si.TrustedCerts,
 			Certificates: []tls.Certificate{{

@@ -381,20 +381,49 @@ func TestCommunicator(t *testing.T) {
 	testCommunicator(t, nil)
 }
 
-// A simple HTTP handler implementing a HTTPS proxy.
-// It implements the connect method only.
-type proxyHandler struct {
-	t *testing.T
+// A simple HTTPS proxy.
+type httpsProxy struct {
+	t  *testing.T
+	tl net.Listener
 	// Number of requests handled.
 	numRequests uint32
 }
 
-// Implements a HTTPS proxy.
+// Sets up and starts a HTTPS proxy.
+func newHttpsProxy(t *testing.T) *httpsProxy {
+	hp := &httpsProxy{
+		t: t,
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hp.tl, err = net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{
+		Addr:    hp.addr(),
+		Handler: hp,
+	}
+	go server.Serve(hp.tl)
+	return hp
+}
+
+func (hp *httpsProxy) addr() string {
+	return hp.tl.Addr().String()
+}
+
+func (hp *httpsProxy) close() {
+	hp.tl.Close()
+}
+
+// Request handler for HTTPS proxy.
 // Accepts only the HTTP connect method.
 // Handles the request by hijacking the HTTP connection, opening a second connection to the host of
 // the request and copying data between the two connections.
-func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t := ph.t
+func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t := hp.t
 	d, err := httputil.DumpRequest(r, false)
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +445,7 @@ func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	atomic.AddUint32(&ph.numRequests, 1)
+	atomic.AddUint32(&hp.numRequests, 1)
 	c := make(chan struct{})
 	copyFromTo := func(from net.Conn, to net.Conn) {
 		_, err := io.Copy(to, from)
@@ -432,30 +461,19 @@ func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	httpConn.Close()
 }
 
-func TestCommunicatorWithProxy(t *testing.T) {
-	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tl, err := net.ListenTCP("tcp", ad)
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := tl.Addr().String()
-	ph := &proxyHandler{t: t}
-	server := &http.Server{
-		Addr:    addr,
-		Handler: ph,
-	}
-	go server.Serve(tl)
+func TestCommunicatorWithProxyFromConfig(t *testing.T) {
+	hp := newHttpsProxy(t)
+	defer hp.close()
 
 	url := &url.URL{
-		Host: addr,
+		Host: hp.addr(),
 	}
 
 	testCommunicator(t, url)
 
-	tl.Close()
+	if hp.numRequests == 0 {
+		t.Fatalf("Expected to receive proxy requests.")
+	}
 }
 
 func TestErrorDelay(t *testing.T) {
