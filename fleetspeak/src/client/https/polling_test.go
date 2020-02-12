@@ -417,13 +417,13 @@ func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		t.Fatal(err)
 	}
 	atomic.AddUint32(&ph.numRequests, 1)
-	c := make(chan bool)
+	c := make(chan struct{})
 	copyFromTo := func(from net.Conn, to net.Conn) {
 		_, err := io.Copy(to, from)
 		if err != nil {
 			t.Fatal(err)
 		}
-		c <- true
+		c <- struct{}{}
 	}
 	go copyFromTo(conn, httpConn)
 	go copyFromTo(httpConn, conn)
