@@ -390,7 +390,7 @@ type httpsProxy struct {
 }
 
 // Sets up and starts a HTTPS proxy.
-func newHttpsProxy(t *testing.T) *httpsProxy {
+func newHTTPSProxy(t *testing.T) *httpsProxy {
 	hp := &httpsProxy{
 		t: t,
 	}
@@ -462,7 +462,7 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestCommunicatorWithProxyFromConfig(t *testing.T) {
-	hp := newHttpsProxy(t)
+	hp := newHTTPSProxy(t)
 	defer hp.close()
 
 	url := &url.URL{
