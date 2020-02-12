@@ -19,10 +19,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,7 +94,7 @@ func (s *blockingService) ProcessMessage(ctx context.Context, m *fspb.Message) e
 	return nil
 }
 
-func TestCommunicator(t *testing.T) {
+func testCommunicator(t *testing.T, proxy *url.URL) {
 	// Create a local https server for the client to talk to.
 	pemCert, pemKey, err := common_util.ServerCert()
 	if err != nil {
@@ -191,6 +195,7 @@ func TestCommunicator(t *testing.T) {
 			MaxBufferDelaySeconds:  1,
 			MinFailureDelaySeconds: 1,
 		},
+		Proxy: proxy,
 	}
 	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
 		t.Fatal("unable to add server cert to pool")
@@ -370,6 +375,109 @@ G:
 	// The most graceful way to shut down a http.Server is to close the associated listener.
 	tl.Close()
 	cl.Stop()
+}
+
+func TestCommunicator(t *testing.T) {
+	testCommunicator(t, nil)
+}
+
+// A simple HTTPS proxy.
+type httpsProxy struct {
+	t  *testing.T
+	tl net.Listener
+	// Number of requests handled.
+	atomicNumRequests uint32
+}
+
+// Sets up and starts a HTTPS proxy.
+func newHTTPSProxy(t *testing.T) *httpsProxy {
+	hp := &httpsProxy{
+		t: t,
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hp.tl, err = net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{
+		Addr:    hp.addr(),
+		Handler: hp,
+	}
+	go server.Serve(hp.tl)
+	return hp
+}
+
+func (hp *httpsProxy) addr() string {
+	return hp.tl.Addr().String()
+}
+
+func (hp *httpsProxy) numRequests() uint32 {
+	return atomic.LoadUint32(&hp.atomicNumRequests)
+}
+
+func (hp *httpsProxy) close() {
+	hp.tl.Close()
+}
+
+// Request handler for HTTPS proxy.
+// Accepts only the HTTP connect method.
+// Handles the request by hijacking the HTTP connection, opening a second connection to the host of
+// the request and copying data between the two connections.
+func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t := hp.t
+	d, err := httputil.DumpRequest(r, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Got proxy request: %s.", string(d))
+	if r.Method != http.MethodConnect {
+		t.Fatalf("Proxy received invalid method: %s.", r.Method)
+	}
+	conn, err := net.Dial("tcp", r.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.WriteHeader(http.StatusOK)
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		t.Fatal("Failed to hijack HTTP connection.")
+	}
+	httpConn, _, err := hijacker.Hijack()
+	if err != nil {
+		t.Fatal(err)
+	}
+	atomic.AddUint32(&hp.atomicNumRequests, 1)
+	c := make(chan struct{})
+	copyFromTo := func(from net.Conn, to net.Conn) {
+		_, err := io.Copy(to, from)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c <- struct{}{}
+	}
+	go copyFromTo(conn, httpConn)
+	go copyFromTo(httpConn, conn)
+	_, _ = <-c, <-c
+	conn.Close()
+	httpConn.Close()
+}
+
+func TestCommunicatorWithProxyFromConfig(t *testing.T) {
+	hp := newHTTPSProxy(t)
+	defer hp.close()
+
+	url := &url.URL{
+		Host: hp.addr(),
+	}
+
+	testCommunicator(t, url)
+
+	if hp.numRequests() == 0 {
+		t.Fatalf("Expected to receive proxy requests.")
+	}
 }
 
 func TestErrorDelay(t *testing.T) {

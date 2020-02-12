@@ -23,6 +23,7 @@ package generic
 import (
 	"crypto/x509"
 	"errors"
+	"net/url"
 	"runtime"
 	"strings"
 
@@ -62,10 +63,19 @@ func MakeConfiguration(cfg gpb.Config) (config.Configuration, error) {
 		return config.Configuration{}, err
 	}
 
+	var proxy *url.URL
+	if cfg.Proxy != "" {
+		proxy, err = url.Parse(cfg.Proxy)
+		if err != nil {
+			return config.Configuration{}, err
+		}
+	}
+
 	return config.Configuration{
 		TrustedCerts:       trustedCerts,
 		Servers:            cfg.Server,
 		PersistenceHandler: ph,
 		ClientLabels:       labels,
+		Proxy:              proxy,
 	}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"io"
+	"net/url"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -70,6 +71,10 @@ type ServerInfo struct {
 	// The servers (in the form "<host>:<port>") that the Communicator should
 	// attempt to communicate with.
 	Servers []string
+
+	// If non-nil, proxy used for connecting to the server.
+	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
+	Proxy *url.URL
 }
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.
