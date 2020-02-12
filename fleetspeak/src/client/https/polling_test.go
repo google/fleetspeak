@@ -386,7 +386,7 @@ type httpsProxy struct {
 	t  *testing.T
 	tl net.Listener
 	// Number of requests handled.
-	numRequests uint32
+	atomicNumRequests uint32
 }
 
 // Sets up and starts a HTTPS proxy.
@@ -412,6 +412,10 @@ func newHTTPSProxy(t *testing.T) *httpsProxy {
 
 func (hp *httpsProxy) addr() string {
 	return hp.tl.Addr().String()
+}
+
+func (hp *httpsProxy) numRequests() uint32 {
+  return atomic.LoadUint32(&hp.atomicNumRequests)
 }
 
 func (hp *httpsProxy) close() {
@@ -445,7 +449,7 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	atomic.AddUint32(&hp.numRequests, 1)
+	atomic.AddUint32(&hp.atomicNumRequests, 1)
 	c := make(chan struct{})
 	copyFromTo := func(from net.Conn, to net.Conn) {
 		_, err := io.Copy(to, from)
@@ -471,7 +475,7 @@ func TestCommunicatorWithProxyFromConfig(t *testing.T) {
 
 	testCommunicator(t, url)
 
-	if hp.numRequests == 0 {
+	if hp.numRequests() == 0 {
 		t.Fatalf("Expected to receive proxy requests.")
 	}
 }
