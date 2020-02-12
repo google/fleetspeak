@@ -389,6 +389,10 @@ type proxyHandler struct {
 	numRequests uint32
 }
 
+// Implements a HTTPS proxy.
+// Accepts only the HTTP connect method.
+// Handles the request by hijacking the HTTP connection, opening a second connection to the host of
+// the request and copying data between the two connections.
 func (ph *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t := ph.t
 	d, err := httputil.DumpRequest(r, false)

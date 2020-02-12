@@ -25,7 +25,7 @@ message Config {
   bool streaming = 6;
 
   // If provided, proxy used for connecting to the server.
-  // The format is an URL.
+  // The format is a URL.
   // See https://golang.org/pkg/net/http/#Transport.Proxy for details.
   string proxy = 7;
 }
