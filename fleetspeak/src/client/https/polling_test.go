@@ -415,7 +415,7 @@ func (hp *httpsProxy) addr() string {
 }
 
 func (hp *httpsProxy) numRequests() uint32 {
-  return atomic.LoadUint32(&hp.atomicNumRequests)
+	return atomic.LoadUint32(&hp.atomicNumRequests)
 }
 
 func (hp *httpsProxy) close() {

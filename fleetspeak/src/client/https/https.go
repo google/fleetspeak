@@ -82,6 +82,9 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 
 	var proxy func(*http.Request) (*url.URL, error)
 	if si.Proxy == nil {
+		// TODO: This path is not tested in unit tests, it will have to be tested in an integration test.
+		// - ProxyFromEnvironment caches the value of the environment variable, so it can't be overriden in a unit test.
+		// - ProxyFromEnvironment doesn't use the proxy for requests to localhost.
 		proxy = http.ProxyFromEnvironment
 	} else {
 		proxy = http.ProxyURL(si.Proxy)
