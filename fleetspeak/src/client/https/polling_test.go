@@ -437,7 +437,7 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Infof("Got proxy request: %s.", string(d))
 
 	if r.Method != http.MethodConnect {
-		http.Error(w, fmt.Sprintf("Proxy received invalid method: %s.", r.Method), http.StatusInternalServerError)
+		returnError(fmt.Errorf("Proxy received invalid method: %s.", r.Method))
 		return
 	}
 	conn, err := net.Dial("tcp", r.Host)
@@ -449,12 +449,12 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
-		log.Error("Failed to hijack HTTP connection.")
+		log.Error("Failed to get hijacker for HTTP connection.")
 		return
 	}
 	httpConn, _, err := hijacker.Hijack()
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to hijack HTTP connection: %s.", err)
 		return
 	}
 	defer httpConn.Close()
@@ -463,7 +463,7 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copyFromTo := func(from net.Conn, to net.Conn) {
 		_, err := io.Copy(to, from)
 		if err != nil {
-			log.Error(err)
+			log.Errorf("Failed to copy to/from proxied connection: %s.", err)
 		}
 		c <- struct{}{}
 	}
