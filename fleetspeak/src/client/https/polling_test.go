@@ -437,7 +437,7 @@ func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Infof("Got proxy request: %s.", string(d))
 
 	if r.Method != http.MethodConnect {
-		returnError(fmt.Errorf("Proxy received invalid method: %s.", r.Method))
+		returnError(fmt.Errorf("Proxy received invalid method: %s", r.Method))
 		return
 	}
 	conn, err := net.Dial("tcp", r.Host)
