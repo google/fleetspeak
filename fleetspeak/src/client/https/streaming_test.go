@@ -367,12 +367,10 @@ func TestStreamingCommunicator(t *testing.T) {
 	var granted uint64
 F:
 	for {
-		select {
-		case rcb := <-received:
-			granted += rcb.AllowedMessages["NOOPService"]
-			if granted >= 32 {
-				break F
-			}
+		rcb := <-received
+		granted += rcb.AllowedMessages["NOOPService"]
+		if granted >= 32 {
+			break F
 		}
 	}
 	if granted > 35 {

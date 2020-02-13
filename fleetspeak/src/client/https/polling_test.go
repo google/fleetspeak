@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -383,31 +384,28 @@ func TestCommunicator(t *testing.T) {
 
 // A simple HTTPS proxy.
 type httpsProxy struct {
-	t  *testing.T
 	tl net.Listener
 	// Number of requests handled.
 	atomicNumRequests uint32
 }
 
 // Sets up and starts a HTTPS proxy.
-func newHTTPSProxy(t *testing.T) *httpsProxy {
-	hp := &httpsProxy{
-		t: t,
-	}
+func newHTTPSProxy() (*httpsProxy, error) {
+	hp := &httpsProxy{}
 	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	hp.tl, err = net.ListenTCP("tcp", ad)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	server := &http.Server{
 		Addr:    hp.addr(),
 		Handler: hp,
 	}
 	go server.Serve(hp.tl)
-	return hp
+	return hp, nil
 }
 
 func (hp *httpsProxy) addr() string {
@@ -427,46 +425,59 @@ func (hp *httpsProxy) close() {
 // Handles the request by hijacking the HTTP connection, opening a second connection to the host of
 // the request and copying data between the two connections.
 func (hp *httpsProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t := hp.t
+	returnError := func(err error) {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 	d, err := httputil.DumpRequest(r, false)
 	if err != nil {
-		t.Fatal(err)
+		returnError(err)
+		return
 	}
-	t.Logf("Got proxy request: %s.", string(d))
+	log.Infof("Got proxy request: %s.", string(d))
+
 	if r.Method != http.MethodConnect {
-		t.Fatalf("Proxy received invalid method: %s.", r.Method)
+		http.Error(w, fmt.Sprintf("Proxy received invalid method: %s.", r.Method), http.StatusInternalServerError)
+		return
 	}
 	conn, err := net.Dial("tcp", r.Host)
 	if err != nil {
-		t.Fatal(err)
+		returnError(err)
+		return
 	}
+	defer conn.Close()
 	w.WriteHeader(http.StatusOK)
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
-		t.Fatal("Failed to hijack HTTP connection.")
+		log.Error("Failed to hijack HTTP connection.")
+		return
 	}
 	httpConn, _, err := hijacker.Hijack()
 	if err != nil {
-		t.Fatal(err)
+		log.Error(err)
+		return
 	}
+	defer httpConn.Close()
 	atomic.AddUint32(&hp.atomicNumRequests, 1)
 	c := make(chan struct{})
 	copyFromTo := func(from net.Conn, to net.Conn) {
 		_, err := io.Copy(to, from)
 		if err != nil {
-			t.Fatal(err)
+			log.Error(err)
 		}
 		c <- struct{}{}
 	}
 	go copyFromTo(conn, httpConn)
 	go copyFromTo(httpConn, conn)
-	_, _ = <-c, <-c
-	conn.Close()
-	httpConn.Close()
+	<-c
+	<-c
 }
 
 func TestCommunicatorWithProxyFromConfig(t *testing.T) {
-	hp := newHTTPSProxy(t)
+	hp, err := newHTTPSProxy()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer hp.close()
 
 	url := &url.URL{
@@ -511,7 +522,6 @@ func TestErrorDelay(t *testing.T) {
 	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "This server is broken.", http.StatusInternalServerError)
 		errors <- time.Now()
-		return
 	})
 
 	server := http.Server{

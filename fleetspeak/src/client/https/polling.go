@@ -242,7 +242,7 @@ func (c *Communicator) processingLoop() {
 				poll()
 			}
 			return
-		case _ = <-t.C:
+		case <-t.C:
 			poll()
 		case m := <-c.cctx.Outbox():
 			t.Stop()
