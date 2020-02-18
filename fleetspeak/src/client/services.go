@@ -141,18 +141,26 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 	return nil
 }
 
+func (c *serviceConfiguration) removeService(sname string) (*serviceData, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	srv := c.services[sname]
+	if srv == nil {
+		return nil, fmt.Errorf("falied to remove non-existent service: %v", sname)
+	}
+	delete(c.services, sname)
+	return srv, nil
+}
+
 func (c *serviceConfiguration) RestartService(sname string) error {
 	if err := validateServiceName(sname); err != nil {
 		return fmt.Errorf("can't restart service: %v", err)
 	}
 
-	c.lock.Lock()
-	srv := c.services[sname]
-	if srv == nil {
-		return fmt.Errorf("service doesn't exist: %v", sname)
+	srv, err := c.removeService(sname)
+	if err != nil {
+		return err
 	}
-	delete(c.services, sname)
-	c.lock.Unlock()
 
 	srv.stop()
 
