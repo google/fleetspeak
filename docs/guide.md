@@ -239,7 +239,7 @@ need a wrapper script that runs it. Save the following somewhere, e.g.
 
 ```
 #!/usr/bin/env bash
-$HOME/.venv/FLEETSPEAK/bin/python "$HOME/Desktop/fleetspeak/hello.py"
+$HOME/.venv/FLEETSPEAK/bin/python "$HOME/hello.py"
 ```
 
 This script should be an executable:
