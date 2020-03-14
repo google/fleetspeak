@@ -67,6 +67,11 @@ We will start by creating a basic configuration file for the Fleetspeak
 configurator—a binary that generates more specific configuration files,
 certificates and keys.
 
+Note that the configurator is currently not able to expand variables. Because of
+this, all the paths provided in the configuration files need to be absolute and
+already fully expanded. In all the examples below we will assume that your
+`$HOME` expands to `/home/user`, so make sure to adjust it accordingly.
+
 Save the following in some file, e.g. `$HOME/.config/fleetspeak.textproto`:
 
 ```
@@ -87,22 +92,18 @@ components_config {
 
 public_host_port: "localhost:9090"
 
-trusted_cert_file: "$HOME/.config/fleetspeak-server/ca.pem"
-trusted_cert_key_file: "$HOME/.config/fleetspeak-server/ca-key.pem"
+trusted_cert_file: "/home/user/.config/fleetspeak-server/ca.pem"
+trusted_cert_key_file: "/home/user/.config/fleetspeak-server/ca-key.pem"
 
-server_cert_file: "$HOME/.config/fleetspeak-server/server.pem"
-server_cert_key_file: "$HOME/.config/fleetspeak-server/server-key.pem"
+server_cert_file: "/home/user/.config/fleetspeak-server/server.pem"
+server_cert_key_file: "/home/user/.config/fleetspeak-server/server-key.pem"
 
-server_component_configuration_file: "$HOME/.config/fleetspeak-server/components.textproto"
-linux_client_configuration_file: "$HOME/.config/fleetspeak-client/config.textproto"
+server_component_configuration_file: "/home/user/.config/fleetspeak-server/components.textproto"
+linux_client_configuration_file: "/home/user/.config/fleetspeak-client/config.textproto"
 ```
 
 Refer to the schema for details about each of these preferences and other
 possible options.
-
-Note that the configurator is currently not able to expand variables. If you
-plan to store the configuration files in your home directory, you should expand
-`$HOME` manually.
 
 Create the directories if needed and run the configurator:
 
@@ -145,8 +146,8 @@ of the filesystem handler, e.g.:
 ```
 (...)
 filesystem_handler: <
-  configuration_directory: "$HOME/.config/fleetspeak-client/"
-  state_file: "$HOME/.local/share/fleetspeak.state"
+  configuration_directory: "/home/user/.config/fleetspeak-client/"
+  state_file: "/home/user/.local/share/fleetspeak.state"
 >
 (...)
 ```
