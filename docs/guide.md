@@ -316,7 +316,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-  app.run(main)
+    app.run(main)
 ```
 
 In an infinite loop, we read the user input with the `input` function and send
