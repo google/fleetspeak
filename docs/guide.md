@@ -200,8 +200,9 @@ Create the following Python script and save it somewhere, e.g. `$HOME/hello.py`:
 
 ```python
 from absl import app
-from fleetspeak.src.common.proto.fleetspeak.common_pb2 import Label, Message
+from fleetspeak.src.common.proto.fleetspeak.common_pb2 import Message
 from fleetspeak.client_connector.connector import FleetspeakConnection
+from google.protobuf.wrappers_pb2 import StringValue
 
 
 def main(argv):
@@ -211,10 +212,10 @@ def main(argv):
     while True:
         request, _ = conn.Recv()
 
-        data = Label()
+        data = StringValue()
         request.data.Unpack(data)
 
-        data.label = f"Hello {data.label}!"
+        data.value = f"Hello {data.value}!"
 
         response = Message()
         response.destination.service_name = request.source.service_name
@@ -230,7 +231,7 @@ if __name__ == "__main__":
 The program simply creates a connection to the Fleetspeak client and loops
 waiting for messages indefinitely. In this example, to avoid writing boilerplate
 involved with creating custom Protocol Buffer message definitions, we simply
-re-use the ones from the Fleetspeak package (in this case: `Label`).
+use the `StringValue` message—a standard wrapper around the `string` type.
 
 Because this program makes sense only within the virtual environment, we also
 need a wrapper script that runs it. Save the following somewhere, e.g.
@@ -276,7 +277,8 @@ import logging
 from absl import app
 from absl import flags
 from fleetspeak.server_connector.connector import InsecureGRPCServiceClient
-from fleetspeak.src.common.proto.fleetspeak.common_pb2 import Label, Message
+from fleetspeak.src.common.proto.fleetspeak.common_pb2 import Message
+from google.protobuf.wrappers_pb2 import StringValue
 
 
 FLAGS = flags.FLAGS
@@ -290,9 +292,9 @@ flags.DEFINE_string(
 def listener(message, context):
     del context  # Unused
 
-    data = Label()
+    data = StringValue()
     message.data.Unpack(data)
-    logging.info(f"RESPONSE: {data.label}")
+    logging.info(f"RESPONSE: {data.value}")
 
 
 def main(argv=None):
@@ -302,8 +304,8 @@ def main(argv=None):
     service_client.Listen(listener)
 
     while True:
-        data = Label()
-        data.label = input("Enter your name: ")
+        data = StringValue()
+        data.value = input("Enter your name: ")
 
         request = Message()
         request.destination.client_id = binascii.unhexlify(FLAGS.client_id)
