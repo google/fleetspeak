@@ -361,7 +361,7 @@ In a separate terminal, launch the client and note down the client identifier:
 Finally, in yet another terminal, run the server service with the appropriate
 client identifier:
 
-    $ HOME/.venv/FLEETSPEAK/bin/python $HOME/greeter.py \
+    $ $HOME/.venv/FLEETSPEAK/bin/python $HOME/greeter.py \
         --client_id="d741e09e257bf4ba" \
         --fleetspeak_message_listen_address="localhost:1337" \
         --fleetspeak_server="localhost:9091" \
