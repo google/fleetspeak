@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/Microsoft/go-winio"
@@ -60,7 +61,7 @@ func Chmod(name string, mode os.FileMode) error {
 }
 
 // Listen prepares a net.Listener bound to the given filesystem path.
-func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
+func Listen(socketPath string) (net.Listener, error) {
 	// Allow Administrators and SYSTEM. See:
 	// - SDDL format:
 	//   https://msdn.microsoft.com/en-us/library/windows/desktop/aa379570(v=vs.85).aspx
@@ -95,11 +96,24 @@ func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
 		return nil, fmt.Errorf("error while truncating a Wnix socket file; ioutil.WriteFile(%q, ...): %v", socketPath, err)
 	}
 
-	// WriteFile doesn't set mode as expected on Windows, so we make
-	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so we
-	// use go-acl.
-	if err := Chmod(socketPath, mode); err != nil {
-		return nil, fmt.Errorf("failed to chmod a Wnix pipe: %v", err)
+	// WriteFile doesn't set mode as expected on Windows, so we make sure
+	// with Chmod. Note that os.Chmod also doesn't work as expected. We used
+	// to use go-acl to deal with this but b/151408185 happened and now we
+	// just shell out to the icacls command.
+	//
+	// You can think of these two commands as being much like `chmod 700
+	// $socketPath`
+	//
+	// As per
+	// https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
+	// "S-1-3-0" is the owner of the file in question. The rest is documented here:
+	// https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
+	if err := exec.Command("icacls", socketPath, "/reset").Run(); err != nil {
+
+		return nil, fmt.Errorf("resetting socket file access: %w", err)
+	}
+	if err := exec.Command("icacls", socketPath, "/grant", "*S-1-3-0:F").Run(); err != nil {
+		return nil, fmt.Errorf("granting socket file access: %w", err)
 	}
 
 	// Note that we only write the pipeFSPath to a file after we've reserved the

@@ -48,7 +48,7 @@ func listen(socketPath string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to chmod a Wnix domain listener's parent directory: %v", err)
 	}
 
-	l, err := wnixsocket.Listen(socketPath, 0600)
+	l, err := wnixsocket.Listen(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Wnix domain listener: %v", err)
 	}
