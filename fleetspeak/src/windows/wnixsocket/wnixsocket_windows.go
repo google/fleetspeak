@@ -90,8 +90,17 @@ func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to listen on a hashpipe: %v", err)
 	}
 
+	// Previous versions of Fleetspeak had a bug where on go1.14 the above
+	// WriteFile would create a read-only file. Clear that attribute if
+	// such a file has been left behind.
+	if _, err := os.Stat(socketPath); !os.IsNotExist(err) {
+		if err := windows.Chmod(socketPath, windows.S_IWRITE); err != nil {
+			return nil, fmt.Errorf("clearing read-only bit on wnix socket: %w", err)
+		}
+	}
+
 	// The socket file will be truncated if it exists.
-	if err := ioutil.WriteFile(socketPath, []byte{}, 0); err != nil {
+	if err := ioutil.WriteFile(socketPath, []byte{}, 0600); err != nil {
 		return nil, fmt.Errorf("error while truncating a Wnix socket file; ioutil.WriteFile(%q, ...): %v", socketPath, err)
 	}
 
