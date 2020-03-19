@@ -31,34 +31,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// TODO(ogaro): Remove this function after https://github.com/hectane/go-acl/pull/9/files
-// is merged (go-acl's Chmod() is currently broken; the repo's Appveyor tests have been
-// failing for a month now).
-func Chmod(name string, mode os.FileMode) error {
-	// https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
-	creatorOwnerSID, err := windows.StringToSid("S-1-3-0")
-	if err != nil {
-		return err
-	}
-	creatorGroupSID, err := windows.StringToSid("S-1-3-1")
-	if err != nil {
-		return err
-	}
-	everyoneSID, err := windows.StringToSid("S-1-1-0")
-	if err != nil {
-		return err
-	}
-
-	return acl.Apply(
-		name,
-		true,
-		false,
-		acl.GrantSid((uint32(mode)&0700)<<23, creatorOwnerSID),
-		acl.GrantSid((uint32(mode)&0070)<<26, creatorGroupSID),
-		acl.GrantSid((uint32(mode)&0007)<<29, everyoneSID),
-	)
-}
-
 // Listen prepares a net.Listener bound to the given filesystem path.
 func Listen(socketPath string) (net.Listener, error) {
 	// Allow Administrators and SYSTEM. See:
@@ -108,7 +80,7 @@ func Listen(socketPath string) (net.Listener, error) {
 	// WriteFile doesn't set ACLs as expected on Windows, so we make
 	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so we
 	// use go-acl.
-	if err := Chmod(socketPath, 0600); err != nil {
+	if err := acl.Chmod(socketPath, 0600); err != nil {
 		return nil, fmt.Errorf("failed to chmod a Wnix pipe: %v", err)
 	}
 
