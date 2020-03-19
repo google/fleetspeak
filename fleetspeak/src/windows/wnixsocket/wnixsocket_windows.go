@@ -113,7 +113,7 @@ func Listen(socketPath string) (net.Listener, error) {
 
 	// Note that we only write the pipeFSPath to a file after we've reserved the
 	// pipe name and chmoded it. The order is important for hardening purposes.
-	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0); err != nil {
+	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0600); err != nil {
 		return nil, fmt.Errorf("failed to initialize a Wnix socket: %v", err)
 	}
 
