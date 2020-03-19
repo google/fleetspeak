@@ -90,21 +90,22 @@ func Listen(socketPath string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to listen on a hashpipe: %v", err)
 	}
 
-	// Previous versions of Fleetspeak had a bug where on go1.14 the above
-	// WriteFile would create a read-only file. Clear that attribute if
-	// such a file has been left behind.
+	// Previous versions of Fleetspeak had a bug where on go1.14 the
+	// WriteFile below would create a read-only file. Clear that attribute
+	// if such a file has been left behind.
 	if _, err := os.Stat(socketPath); !os.IsNotExist(err) {
 		if err := windows.Chmod(socketPath, windows.S_IWRITE); err != nil {
 			return nil, fmt.Errorf("clearing read-only bit on wnix socket: %w", err)
 		}
 	}
 
-	// The socket file will be truncated if it exists.
+	// The socket file will be truncated if it exists. Otherwise it wil be
+	// created with the attributes described by the permission bits.
 	if err := ioutil.WriteFile(socketPath, []byte{}, 0600); err != nil {
 		return nil, fmt.Errorf("error while truncating a Wnix socket file; ioutil.WriteFile(%q, ...): %v", socketPath, err)
 	}
 
-	// WriteFile doesn't set mode as expected on Windows, so we make
+	// WriteFile doesn't set ACLs as expected on Windows, so we make
 	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so we
 	// use go-acl.
 	if err := Chmod(socketPath, 0600); err != nil {
@@ -113,6 +114,9 @@ func Listen(socketPath string) (net.Listener, error) {
 
 	// Note that we only write the pipeFSPath to a file after we've reserved the
 	// pipe name and chmoded it. The order is important for hardening purposes.
+	// Note that the third param _is_ significant here even though the file
+	// already exists - if it was 0 this call would set the read-only
+	// attribute.
 	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0600); err != nil {
 		return nil, fmt.Errorf("failed to initialize a Wnix socket: %v", err)
 	}
