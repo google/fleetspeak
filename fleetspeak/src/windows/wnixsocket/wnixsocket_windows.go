@@ -31,36 +31,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// TODO(ogaro): Remove this function after https://github.com/hectane/go-acl/pull/9/files
-// is merged (go-acl's Chmod() is currently broken; the repo's Appveyor tests have been
-// failing for a month now).
-func Chmod(name string, mode os.FileMode) error {
-	// https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
-	creatorOwnerSID, err := windows.StringToSid("S-1-3-0")
-	if err != nil {
-		return err
-	}
-	creatorGroupSID, err := windows.StringToSid("S-1-3-1")
-	if err != nil {
-		return err
-	}
-	everyoneSID, err := windows.StringToSid("S-1-1-0")
-	if err != nil {
-		return err
-	}
-
-	return acl.Apply(
-		name,
-		true,
-		false,
-		acl.GrantSid((uint32(mode)&0700)<<23, creatorOwnerSID),
-		acl.GrantSid((uint32(mode)&0070)<<26, creatorGroupSID),
-		acl.GrantSid((uint32(mode)&0007)<<29, everyoneSID),
-	)
-}
-
 // Listen prepares a net.Listener bound to the given filesystem path.
-func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
+func Listen(socketPath string) (net.Listener, error) {
 	// Allow Administrators and SYSTEM. See:
 	// - SDDL format:
 	//   https://msdn.microsoft.com/en-us/library/windows/desktop/aa379570(v=vs.85).aspx
@@ -90,30 +62,34 @@ func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to listen on a hashpipe: %v", err)
 	}
 
-	// Previous versions of Fleetspeak had a bug where on go1.14 the above
-	// WriteFile would create a read-only file. Clear that attribute if
-	// such a file has been left behind.
+	// Previous versions of Fleetspeak had a bug where on go1.14 the
+	// WriteFile below would create a read-only file. Clear that attribute
+	// if such a file has been left behind.
 	if _, err := os.Stat(socketPath); !os.IsNotExist(err) {
 		if err := windows.Chmod(socketPath, windows.S_IWRITE); err != nil {
 			return nil, fmt.Errorf("clearing read-only bit on wnix socket: %w", err)
 		}
 	}
 
-	// The socket file will be truncated if it exists.
+	// The socket file will be truncated if it exists. Otherwise it wil be
+	// created with the attributes described by the permission bits.
 	if err := ioutil.WriteFile(socketPath, []byte{}, 0600); err != nil {
 		return nil, fmt.Errorf("error while truncating a Wnix socket file; ioutil.WriteFile(%q, ...): %v", socketPath, err)
 	}
 
-	// WriteFile doesn't set mode as expected on Windows, so we make
+	// WriteFile doesn't set ACLs as expected on Windows, so we make
 	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so we
 	// use go-acl.
-	if err := Chmod(socketPath, mode); err != nil {
+	if err := acl.Chmod(socketPath, 0600); err != nil {
 		return nil, fmt.Errorf("failed to chmod a Wnix pipe: %v", err)
 	}
 
 	// Note that we only write the pipeFSPath to a file after we've reserved the
 	// pipe name and chmoded it. The order is important for hardening purposes.
-	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0); err != nil {
+	// Note that the third param _is_ significant here even though the file
+	// already exists - if it was 0 this call would set the read-only
+	// attribute.
+	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0600); err != nil {
 		return nil, fmt.Errorf("failed to initialize a Wnix socket: %v", err)
 	}
 
