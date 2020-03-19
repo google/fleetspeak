@@ -31,7 +31,7 @@ func TestWnixsocket(t *testing.T) {
 	defer tmpDirCleanup()
 	socketPath := tmpDir + `\TestWnixsocketSocket`
 
-	l, err := Listen(socketPath, 0600)
+	l, err := Listen(socketPath)
 	if err != nil {
 		t.Error(err)
 	}

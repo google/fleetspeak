@@ -60,7 +60,7 @@ func Chmod(name string, mode os.FileMode) error {
 }
 
 // Listen prepares a net.Listener bound to the given filesystem path.
-func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
+func Listen(socketPath string) (net.Listener, error) {
 	// Allow Administrators and SYSTEM. See:
 	// - SDDL format:
 	//   https://msdn.microsoft.com/en-us/library/windows/desktop/aa379570(v=vs.85).aspx
@@ -107,7 +107,7 @@ func Listen(socketPath string, mode os.FileMode) (net.Listener, error) {
 	// WriteFile doesn't set mode as expected on Windows, so we make
 	// sure with Chmod. Note that os.Chmod also doesn't work as expected, so we
 	// use go-acl.
-	if err := Chmod(socketPath, mode); err != nil {
+	if err := Chmod(socketPath, 0600); err != nil {
 		return nil, fmt.Errorf("failed to chmod a Wnix pipe: %v", err)
 	}
 
