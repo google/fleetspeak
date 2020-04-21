@@ -14,6 +14,12 @@ class BdistWheel(bdist_wheel):
 
   def get_tag(self):
     impl, abi_tag, plat_name = bdist_wheel.get_tag(self)
+    if plat_name == "linux_x86_64":
+      # pypi doesn't support linux_x86_64
+      # HTTPError: 400 Client Error: Binary wheel
+      # 'fleetspeak_server_bin-0.1.7-py2.py3-none-linux_x86_64.whl'
+      # has an unsupported platform tag 'linux_x86_64'.
+      plat_name = "manylinux2010_x86_64"
     return "py2.py3", "none", plat_name
 
 
