@@ -26,7 +26,7 @@ matrix:
         - mysql -u travis -e 'CREATE DATABASE db;'
         #- go get -u golang.org/x/lint/golint
       install:
-        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip && pip install -e ./fleetspeak_python
+        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip wheel && pip install -e ./fleetspeak_python
         # TODO: remove 2 lines below when git.apache.org is back up or when
         # osquery-go uses a correct version of the Thrift library (the one
         # hosted on github.com and not on git.apache.org).
@@ -48,6 +48,14 @@ matrix:
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        # Create client wheel
+        - dpkg --extract ./fleetspeak-client_$(cat ../VERSION)_amd64.deb client-package-root
+        - python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) bdist_wheel
+        # Create server wheel
+        - dpkg --extract ./fleetspeak-server_$(cat ../VERSION)_amd64.deb server-package-root
+        - python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) bdist_wheel
+        # Copy wheels
+        - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
         skip_cleanup: true
         provider: gcs
@@ -64,6 +72,10 @@ matrix:
       language: go
       go:
         - "1.13"
+      before_install:
+        - choco install python3 --version 3.7.5
+        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        - pip install wheel
       install:
         - powershell Install-WindowsFeature Net-Framework-Core
         - cinst -y wixtoolset --version 3.11.1
@@ -73,10 +85,18 @@ matrix:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
         - powershell -ExecutionPolicy Bypass -File ./build.ps1
+        - cd ../..
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        # Build client wheel
+        - mkdir pkg-root
+        - cp fleetspeak-client.exe pkg-root
+        - python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
+        - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
+        # The windows uploads appear truncated on GCS
+        # https://github.com/travis-ci/dpl/issues/990
         skip_cleanup: true
         provider: gcs
         access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
@@ -95,14 +115,19 @@ matrix:
       install:
         - go version
         - go get -v -t ./...
+        - pip3 install wheel
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
+        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
+        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cd fleetspeak/client-mac
         - ./build.sh ../../fleetspeak-client
         - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
-        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
-        - cp ./work/fleetspeak-client-*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        - cd ../..
+        - cp ./fleetspeak/client-mac/work/fleetspeak-client-*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        # Build client wheel
+        - python3 fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
+        - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
         skip_cleanup: true
         provider: gcs
