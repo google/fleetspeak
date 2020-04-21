@@ -14,6 +14,8 @@ class BdistWheel(bdist_wheel):
 
   def get_tag(self):
     impl, abi_tag, plat_name = bdist_wheel.get_tag(self)
+    if plat_name == "linux_x86_64":
+      plat_name = "manylinux2010_x86_64"
     return "py2.py3", "none", plat_name
 
 
