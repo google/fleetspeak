@@ -34,13 +34,13 @@ def GetOptions():
   return options
 
 
-def DataFiles(root_dir):
+def DataFiles(prefix_in_pkg, root_dir):
   result = []
   for path in pathlib.Path(root_dir).glob("**/*"):
     if path.is_dir():
       continue
     relative = path.relative_to(root_dir)
-    result.append((str(relative.parent), [str(path)]))
+    result.append((str(prefix_in_pkg / relative.parent), [str(path)]))
   return result
 
 
@@ -52,5 +52,5 @@ setup(
     cmdclass={
         "bdist_wheel": BdistWheel,
     },
-    data_files=DataFiles(options.package_root),
+    data_files=DataFiles("fleetspeak-server-bin", options.package_root),
 )
