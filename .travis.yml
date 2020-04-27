@@ -48,12 +48,16 @@ matrix:
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        # pypi doesn't support linux_x86_64, which is the plafrom name targeted by default.
+        # We generate manylinux1_x86_64 manylinux2010_x86_64 packages, which are supported.
         # Create client wheel
         - dpkg --extract ./fleetspeak-client_$(cat ../VERSION)_amd64.deb client-package-root
-        - python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) bdist_wheel
+        - python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+        - python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
         # Create server wheel
         - dpkg --extract ./fleetspeak-server_$(cat ../VERSION)_amd64.deb server-package-root
-        - python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) bdist_wheel
+        - python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+        - python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
         # Copy wheels
         - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       deploy:
