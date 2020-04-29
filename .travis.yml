@@ -48,6 +48,7 @@ matrix:
         - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
         - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
         - cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
+        - cp ./fleetspeak-server_$(cat ../VERSION)_amd64.deb deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
         # pypi doesn't support linux_x86_64, which is the plafrom name targeted by default.
         # We generate manylinux1_x86_64 manylinux2010_x86_64 packages, which are supported.
         # Create client wheel
