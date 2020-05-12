@@ -85,11 +85,14 @@ ll:
 					continue ll
 				}
 			}
-			return fmt.Errorf("service config requires label %v", l)
+			return fmt.Errorf("service config [%s] requires label %v", cfg.Name, l)
 		}
 	}
 
-	return c.InstallService(&cfg, sd.Signature)
+	if err := c.InstallService(&cfg, sd.Signature); err != nil {
+		return fmt.Errorf("installing [%s]: %w", cfg.Name, err)
+	}
+	return nil
 }
 
 func validateServiceName(sname string) error {
