@@ -179,7 +179,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	} else {
 		for _, s := range ss {
 			if err := ret.sc.InstallService(s, nil); err != nil {
-				log.Warningf("Unable to install service, ignoring: %v", err)
+				log.Warningf("Unable to install service [%s], ignoring: %v", s.Name, err)
 			}
 		}
 	}
