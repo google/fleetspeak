@@ -135,7 +135,7 @@ func checkOwnership(filepath string) error {
 func getOwnership(filepath string) (string, string, error) {
 	var psidOwner, psidGroup *windows.SID
 	var securityDescriptor windows.Handle
-	api.GetNamedSecurityInfo(
+	err := api.GetNamedSecurityInfo(
 		filepath,
 		api.SE_FILE_OBJECT,
 		api.OWNER_SECURITY_INFORMATION|api.GROUP_SECURITY_INFORMATION,
@@ -145,6 +145,10 @@ func getOwnership(filepath string) (string, string, error) {
 		nil,
 		&securityDescriptor,
 	)
+	if err != nil {
+		return "", "", err
+	}
+
 	windows.LocalFree(securityDescriptor)
 
 	return psidOwner.String(), psidGroup.String(), nil
