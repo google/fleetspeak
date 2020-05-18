@@ -1,6 +1,7 @@
 [Unit]
 Description=Fleetspeak Server Service
 After=syslog.target network.target
+After=mysql.service
 Documentation=https://github.com/google/fleetspeak
 ConditionPathExists=!/etc/fleetspeak-server/disabled
 
