@@ -25,6 +25,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -57,6 +60,132 @@ func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb
 }
 
 func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+}
+
+
+var (
+	// Metric collectors for prometheusStatsCollector struct
+	messagesIngested = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_ingested_total",
+		Help: "The total number of messages ingested by Fleetspeak server",
+	})
+
+	backlogMessagesFromDatastore = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_ingested_backlog_messages_from_datastore",
+		Help: "The number of backlog messages received from datastore by Fleetspeak server",
+	})
+
+	messagesReceivedFromClient = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_ingested_messages_received_from_client",
+		Help: "The number of messages received from a client by Fleetspeak server",
+	})
+
+	messagesSaved = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_saved_total",
+		Help: "The total number of messages saved by Fleetspeak server",
+	})
+
+	messagesSavedSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_saved_payload_size",
+		Help: "The total payload size of messages saved by Fleetspeak server (in bytes)",
+	})
+
+	messagesProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_messages_processed_total",
+		Help: "The total number of messages processed by Fleetspeak server",
+	})
+
+	messagesErrored = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_messages_errored_total",
+		Help: "The total number of message processings that returned an error (temporary, or permanent)",
+	})
+
+	messagesErroredTemp = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_messages_errored_temporary",
+		Help: "The total number of message processings that returned an error (temporary)",
+	})
+
+	messagesErroredPerm = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_messages_errored_permanent",
+		Help: "The total number of message processings that returned an error (permanent)",
+	})
+
+	messagesDropped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_messages_dropped_total",
+		Help: "The total number of messages dropped by Fleetspeak server when too many messages for the sevices are being processed.",
+	})
+
+	clientPolls = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_client_polls_total",
+		Help: "The total number of times a client polls the Fleetspeak server.",
+	})
+
+	datastoreOperationsCompleted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_datastore_operations_completed_total",
+		Help: "The total number of datastore operations completed.",
+	})
+
+	resourcesUsageDataReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_total",
+		Help: "The total number of times a client-resource-usage proto is received.",
+	})
+
+	killNotificationsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fleetspeak_server_kill_notifications_received_total",
+		Help: "The total number of times a kill notification is received from a client.",
+	})
+)
+
+// A prometheusStatsCollector is an implementation of a Collector interface.
+// It exports stats to a Prometheus HTTP handler, which are exposed at :2112/metrics
+// and are scrapable by Prometheus.
+type prometheusStatsCollector struct{}
+
+func (s prometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+	messagesIngested.Inc()
+	if backlogged {
+		backlogMessagesFromDatastore.Inc()
+	} else {
+		messagesReceivedFromClient.Inc()
+	}
+}
+
+func (s prometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+	messagesSaved.Inc()
+	messagesSavedSize.Add(float64(savedPayloadBytes))
+}
+
+func (s prometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+	messagesProcessed.Inc()
+}
+
+func (s prometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+	messagesErrored.Inc()
+	if isTemp {
+		messagesErroredTemp.Inc()
+	} else {
+		messagesErroredPerm.Inc()
+	}
+}
+
+func (s prometheusStatsCollector) MessageDropped(service, messageType string) {
+	messagesDropped.Inc()
+}
+
+func (s prometheusStatsCollector) ClientPoll(info stats.PollInfo) {
+	clientPolls.Inc()
+}
+
+func (s prometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
+	datastoreOperationsCompleted.Inc()
+}
+
+func (s prometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+	resourcesUsageDataReceived.Inc()
+}
+
+func (s prometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+	killNotificationsReceived.Inc()
 }
 
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
