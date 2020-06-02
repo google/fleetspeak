@@ -64,7 +64,7 @@ func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.K
 
 
 var (
-	// Metric collectors for prometheusStatsCollector struct
+	// Metric collectors for PrometheusStatsCollector struct
 	messagesIngested = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_ingested_total",
 		Help: "The total number of messages ingested by Fleetspeak server",
@@ -136,12 +136,12 @@ var (
 	})
 )
 
-// A prometheusStatsCollector is an implementation of a Collector interface.
+// A PrometheusStatsCollector is an implementation of a Collector interface.
 // It exports stats to a Prometheus HTTP handler, which are exposed at :2112/metrics
 // and are scrapable by Prometheus.
-type prometheusStatsCollector struct{}
+type PrometheusStatsCollector struct{}
 
-func (s prometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 	messagesIngested.Inc()
 	if backlogged {
 		backlogMessagesFromDatastore.Inc()
@@ -150,16 +150,16 @@ func (s prometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Messa
 	}
 }
 
-func (s prometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
 	messagesSaved.Inc()
 	messagesSavedSize.Add(float64(savedPayloadBytes))
 }
 
-func (s prometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
 	messagesProcessed.Inc()
 }
 
-func (s prometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
 	messagesErrored.Inc()
 	if isTemp {
 		messagesErroredTemp.Inc()
@@ -168,23 +168,23 @@ func (s prometheusStatsCollector) MessageErrored(start, end time.Time, service, 
 	}
 }
 
-func (s prometheusStatsCollector) MessageDropped(service, messageType string) {
+func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
 	messagesDropped.Inc()
 }
 
-func (s prometheusStatsCollector) ClientPoll(info stats.PollInfo) {
+func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
 	clientPolls.Inc()
 }
 
-func (s prometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
+func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 	datastoreOperationsCompleted.Inc()
 }
 
-func (s prometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	resourcesUsageDataReceived.Inc()
 }
 
-func (s prometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
 	killNotificationsReceived.Inc()
 }
 

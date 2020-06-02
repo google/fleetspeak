@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"net"
+	"net/http"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
@@ -39,6 +40,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -131,6 +135,21 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		}()
 	}
 
+	// Stats setup
+	scfg := cfg.StatsConfig
+	var statsCollector stats.Collector
+	if scfg != nil {
+		portToExportStats := scfg.Port
+		if portToExportStats == "" {
+			portToExportStats = "2112" // default port
+		}
+		if scfg.Collector == "prometheus" {
+			statsCollector = server.PrometheusStatsCollector{}
+			http.Handle("/metrics", promhttp.Handler())
+			go http.ListenAndServe(":" + portToExportStats, nil)
+		}
+	}
+
 	// Final assembly
 	return &server.Components{
 		Datastore: db,
@@ -140,6 +159,7 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		},
 		Communicators: []comms.Communicator{comm},
 		Authorizer:    auth,
+		Stats:		   statsCollector,
 		Notifier:      nn,
 		Listener:      nl,
 		Admin:         admSrv,
