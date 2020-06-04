@@ -139,14 +139,11 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	scfg := cfg.StatsConfig
 	var statsCollector stats.Collector
 	if scfg != nil {
-		portToExportStats := scfg.Port
-		if portToExportStats == "" {
-			portToExportStats = "2112" // default port
-		}
-		if scfg.Collector == "prometheus" {
+		addressToExportStats := scfg.Address
+		if addressToExportStats != "" {
 			statsCollector = server.PrometheusStatsCollector{}
 			http.Handle("/metrics", promhttp.Handler())
-			go http.ListenAndServe(":" + portToExportStats, nil)
+			go http.ListenAndServe(addressToExportStats, nil)
 		}
 	}
 

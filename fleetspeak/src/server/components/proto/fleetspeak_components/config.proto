@@ -80,11 +80,9 @@ message AdminConfig {
 }
 
 message StatsConfig {
-  // Stats collector to be used. Optional, but recommended.
-  // Defaults to no stats collector.
-  string collector = 1;
-
-  // The bind address to listen on for connections, e.g. ":443" or
-  // "localhost:1234". Optional, defaults to ":2112".
-  string port = 2;
+  // The bind address to listen on for connections in the
+  // form "<host>:<port>", e.g. "localhost:2112".
+  // Optional; if no address is configured, then no stats collector
+  // will be used (i.e. noopStatsCollector).
+  string address = 1;
 }
