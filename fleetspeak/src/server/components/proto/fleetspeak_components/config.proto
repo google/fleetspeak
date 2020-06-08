@@ -80,7 +80,7 @@ message AdminConfig {
 }
 
 message StatsConfig {
-  // The bind address to listen on for connections in the
+  // The bind address to listen on for Prometheus http metric collection in the
   // form "<host>:<port>", e.g. "localhost:2112".
   // Optional; if no address is configured, then no stats collector
   // will be used (i.e. noopStatsCollector).
