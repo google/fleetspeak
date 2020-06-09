@@ -29,6 +29,9 @@ message Config {
   // "https_config", or both, have to be specified.
   AdminConfig admin_config = 7;
 
+  // Parameters required to set up a stats collector.
+  StatsConfig stats_config = 8;
+
   // If set, expects connections to arrive through a load balance implementing
   // the PROXY protocol.
   //
@@ -74,4 +77,12 @@ message AdminConfig {
   // The bind address to listen on for connections, e.g. ":443" or
   // "localhost:1234". Required.
   string listen_address = 1;
+}
+
+message StatsConfig {
+  // The bind address to listen on for Prometheus http metric collection in the
+  // form "<host>:<port>", e.g. "localhost:2112".
+  // Optional; if no address is configured, then no stats collector
+  // will be used (i.e. noopStatsCollector).
+  string address = 1;
 }
