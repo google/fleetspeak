@@ -157,7 +157,7 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		},
 		Communicators: []comms.Communicator{comm},
 		Authorizer:    auth,
-		Stats:		   statsCollector,
+		Stats:         statsCollector,
 		Notifier:      nn,
 		Listener:      nl,
 		Admin:         admSrv,
