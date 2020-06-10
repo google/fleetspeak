@@ -35,31 +35,31 @@ import (
 
 type noopStatsCollector struct{}
 
-func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+func (s *noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s *noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
 }
 
-func (s noopStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+func (s *noopStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
 }
 
-func (s noopStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (s *noopStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
 }
 
-func (s noopStatsCollector) MessageDropped(service, messageType string) {
+func (s *noopStatsCollector) MessageDropped(service, messageType string) {
 }
 
-func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {
+func (s *noopStatsCollector) ClientPoll(info stats.PollInfo) {
 }
 
-func (s noopStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
+func (s *noopStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 }
 
-func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s *noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
-func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s *noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
 }
 
 
@@ -112,7 +112,7 @@ var (
 
 	messagesDropped = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_server_messages_dropped_total",
-		Help: "The total number of messages dropped by Fleetspeak server when too many messages for the sevices are being processed.",
+		Help: "The total number of messages dropped by Fleetspeak server when too many messages for the services are being processed.",
 	})
 
 	clientPolls = promauto.NewCounter(prometheus.CounterOpts{
@@ -141,7 +141,7 @@ var (
 // and are scrapable by Prometheus.
 type PrometheusStatsCollector struct{}
 
-func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+func (s *PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 	messagesIngested.Inc()
 	if backlogged {
 		backlogMessagesFromDatastore.Inc()
@@ -150,16 +150,16 @@ func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Messa
 	}
 }
 
-func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s *PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
 	messagesSaved.Inc()
 	messagesSavedSize.Add(float64(savedPayloadBytes))
 }
 
-func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+func (s *PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
 	messagesProcessed.Inc()
 }
 
-func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (s *PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
 	messagesErrored.Inc()
 	if isTemp {
 		messagesErroredTemp.Inc()
@@ -168,23 +168,23 @@ func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, 
 	}
 }
 
-func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
+func (s *PrometheusStatsCollector) MessageDropped(service, messageType string) {
 	messagesDropped.Inc()
 }
 
-func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
+func (s *PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
 	clientPolls.Inc()
 }
 
-func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
+func (s *PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 	datastoreOperationsCompleted.Inc()
 }
 
-func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s *PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	resourcesUsageDataReceived.Inc()
 }
 
-func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s *PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
 	killNotificationsReceived.Inc()
 }
 
@@ -195,56 +195,56 @@ type MonitoredDatastore struct {
 	C stats.Collector
 }
 
-func (d MonitoredDatastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
+func (d *MonitoredDatastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
 	s := ftime.Now()
 	res, err := d.D.ClientMessagesForProcessing(ctx, id, lim, serviceLimits)
 	d.C.DatastoreOperation(s, ftime.Now(), "ClientMessagesForProcessing", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, contact db.ContactID) error {
+func (d *MonitoredDatastore) StoreMessages(ctx context.Context, msgs []*fspb.Message, contact db.ContactID) error {
 	s := ftime.Now()
 	err := d.D.StoreMessages(ctx, msgs, contact)
 	d.C.DatastoreOperation(s, ftime.Now(), "StoreMessages", err)
 	return err
 }
 
-func (d MonitoredDatastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
+func (d *MonitoredDatastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
 	s := ftime.Now()
 	err := d.D.DeletePendingMessages(ctx, ids)
 	d.C.DatastoreOperation(s, ftime.Now(), "DeletePendingMessages", err)
 	return err
 }
 
-func (d MonitoredDatastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
+func (d *MonitoredDatastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
 	s := ftime.Now()
 	res, err := d.D.GetMessages(ctx, ids, wantData)
 	d.C.DatastoreOperation(s, ftime.Now(), "GetMessages", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
+func (d *MonitoredDatastore) SetMessageResult(ctx context.Context, dest common.ClientID, id common.MessageID, res *fspb.MessageResult) error {
 	s := ftime.Now()
 	err := d.D.SetMessageResult(ctx, dest, id, res)
 	d.C.DatastoreOperation(s, ftime.Now(), "SetMessageResult", err)
 	return err
 }
 
-func (d MonitoredDatastore) GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error) {
+func (d *MonitoredDatastore) GetMessageResult(ctx context.Context, id common.MessageID) (*fspb.MessageResult, error) {
 	s := ftime.Now()
 	res, err := d.D.GetMessageResult(ctx, id)
 	d.C.DatastoreOperation(s, ftime.Now(), "GetMessageResult", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
+func (d *MonitoredDatastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	s := ftime.Now()
 	res, err := d.D.ListClients(ctx, ids)
 	d.C.DatastoreOperation(s, ftime.Now(), "ListClients", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
+func (d *MonitoredDatastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	s := ftime.Now()
 	res, err := d.D.GetClientData(ctx, id)
 	e := err
@@ -255,142 +255,142 @@ func (d MonitoredDatastore) GetClientData(ctx context.Context, id common.ClientI
 	return res, err
 }
 
-func (d MonitoredDatastore) AddClient(ctx context.Context, id common.ClientID, data *db.ClientData) error {
+func (d *MonitoredDatastore) AddClient(ctx context.Context, id common.ClientID, data *db.ClientData) error {
 	s := ftime.Now()
 	err := d.D.AddClient(ctx, id, data)
 	d.C.DatastoreOperation(s, ftime.Now(), "AddClient", err)
 	return err
 }
 
-func (d MonitoredDatastore) AddClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
+func (d *MonitoredDatastore) AddClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	s := ftime.Now()
 	err := d.D.AddClientLabel(ctx, id, l)
 	d.C.DatastoreOperation(s, ftime.Now(), "AddClientLabel", err)
 	return err
 }
 
-func (d MonitoredDatastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
+func (d *MonitoredDatastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l *fspb.Label) error {
 	s := ftime.Now()
 	err := d.D.RemoveClientLabel(ctx, id, l)
 	d.C.DatastoreOperation(s, ftime.Now(), "RemoveClientLabel", err)
 	return err
 }
 
-func (d MonitoredDatastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
+func (d *MonitoredDatastore) BlacklistClient(ctx context.Context, id common.ClientID) error {
 	s := ftime.Now()
 	err := d.D.BlacklistClient(ctx, id)
 	d.C.DatastoreOperation(s, ftime.Now(), "BlacklistClient", err)
 	return err
 }
 
-func (d MonitoredDatastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
+func (d *MonitoredDatastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
 	s := ftime.Now()
 	res, err := d.D.RecordClientContact(ctx, data)
 	d.C.DatastoreOperation(s, ftime.Now(), "RecordClientContact", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+func (d *MonitoredDatastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
 	s := ftime.Now()
 	res, err := d.D.ListClientContacts(ctx, id)
 	d.C.DatastoreOperation(s, ftime.Now(), "ListClientContacts", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
+func (d *MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
 	s := ftime.Now()
 	err := d.D.RecordResourceUsageData(ctx, id, rud)
 	d.C.DatastoreOperation(s, ftime.Now(), "RecordResourceUsageData", err)
 	return err
 }
 
-func (d MonitoredDatastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+func (d *MonitoredDatastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
 	s := ftime.Now()
 	res, err := d.D.FetchResourceUsageRecords(ctx, id, limit)
 	d.C.DatastoreOperation(s, ftime.Now(), "FetchResourceUsageRecords", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, msgs []common.MessageID) error {
+func (d *MonitoredDatastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, msgs []common.MessageID) error {
 	s := ftime.Now()
 	err := d.D.LinkMessagesToContact(ctx, contact, msgs)
 	d.C.DatastoreOperation(s, ftime.Now(), "LinkMessagesToContact", err)
 	return err
 }
 
-func (d MonitoredDatastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit uint64) error {
+func (d *MonitoredDatastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit uint64) error {
 	s := ftime.Now()
 	err := d.D.CreateBroadcast(ctx, b, limit)
 	d.C.DatastoreOperation(s, ftime.Now(), "CreateBroadcast", err)
 	return err
 }
 
-func (d MonitoredDatastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error {
+func (d *MonitoredDatastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error {
 	s := ftime.Now()
 	err := d.D.SetBroadcastLimit(ctx, id, limit)
 	d.C.DatastoreOperation(s, ftime.Now(), "SetBroadcastLimit", err)
 	return err
 }
 
-func (d MonitoredDatastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error {
+func (d *MonitoredDatastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error {
 	s := ftime.Now()
 	err := d.D.SaveBroadcastMessage(ctx, msg, bid, cid, aid)
 	d.C.DatastoreOperation(s, ftime.Now(), "SaveBroadcastMessage", err)
 	return err
 }
 
-func (d MonitoredDatastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
+func (d *MonitoredDatastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
 	s := ftime.Now()
 	res, err := d.D.ListActiveBroadcasts(ctx)
 	d.C.DatastoreOperation(s, ftime.Now(), "ListActiveBroadcasts", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) ([]ids.BroadcastID, error) {
+func (d *MonitoredDatastore) ListSentBroadcasts(ctx context.Context, id common.ClientID) ([]ids.BroadcastID, error) {
 	s := ftime.Now()
 	res, err := d.D.ListSentBroadcasts(ctx, id)
 	d.C.DatastoreOperation(s, ftime.Now(), "ListSentBroadcasts", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, frac float32, expiry time.Time) (*db.AllocationInfo, error) {
+func (d *MonitoredDatastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, frac float32, expiry time.Time) (*db.AllocationInfo, error) {
 	s := ftime.Now()
 	res, err := d.D.CreateAllocation(ctx, id, frac, expiry)
 	d.C.DatastoreOperation(s, ftime.Now(), "CreateAllocation", err)
 	return res, err
 }
 
-func (d MonitoredDatastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID) error {
+func (d *MonitoredDatastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID) error {
 	s := ftime.Now()
 	err := d.D.CleanupAllocation(ctx, bid, aid)
 	d.C.DatastoreOperation(s, ftime.Now(), "CleanupAllocation", err)
 	return err
 }
 
-func (d MonitoredDatastore) RegisterMessageProcessor(mp db.MessageProcessor) {
+func (d *MonitoredDatastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 	d.D.RegisterMessageProcessor(mp)
 }
 
-func (d MonitoredDatastore) StopMessageProcessor() {
+func (d *MonitoredDatastore) StopMessageProcessor() {
 	d.D.StopMessageProcessor()
 }
 
-func (d MonitoredDatastore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
+func (d *MonitoredDatastore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
 	return d.D.StoreFile(ctx, service, name, data)
 }
 
-func (d MonitoredDatastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
+func (d *MonitoredDatastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
 	return d.D.StatFile(ctx, service, name)
 }
 
-func (d MonitoredDatastore) ReadFile(ctx context.Context, service, name string) (db.ReadSeekerCloser, time.Time, error) {
+func (d *MonitoredDatastore) ReadFile(ctx context.Context, service, name string) (db.ReadSeekerCloser, time.Time, error) {
 	return d.D.ReadFile(ctx, service, name)
 }
 
-func (d MonitoredDatastore) IsNotFound(err error) bool {
+func (d *MonitoredDatastore) IsNotFound(err error) bool {
 	return d.D.IsNotFound(err)
 }
 
-func (d MonitoredDatastore) Close() error {
+func (d *MonitoredDatastore) Close() error {
 	return d.D.Close()
 }

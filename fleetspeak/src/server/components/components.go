@@ -141,7 +141,7 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	if scfg != nil {
 		addressToExportStats := scfg.Address
 		if addressToExportStats != "" {
-			statsCollector = server.PrometheusStatsCollector{}
+			statsCollector = &server.PrometheusStatsCollector{}
 			statsMux := http.NewServeMux()
 			statsMux.Handle("/metrics", promhttp.Handler())
 			go http.ListenAndServe(addressToExportStats, statsMux)

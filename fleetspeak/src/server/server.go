@@ -79,9 +79,9 @@ type Server struct {
 // MakeServer builds and initializes a fleetspeak server using the provided components.
 func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 	if sc.Stats == nil {
-		sc.Stats = noopStatsCollector{}
+		sc.Stats = &noopStatsCollector{}
 	} else {
-		sc.Datastore = MonitoredDatastore{
+		sc.Datastore = &MonitoredDatastore{
 			D: sc.Datastore,
 			C: sc.Stats,
 		}
