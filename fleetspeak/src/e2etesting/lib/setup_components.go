@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -45,53 +44,25 @@ func (sp *startedProcessesPids) init() {
 }
 
 func killProcess(pid int) {
-	syscall.Kill(pid, syscall.SIGTERM)
-	for {
-		process, err := os.FindProcess(pid)
-		if err != nil {
-			continue
-		}
-		err = process.Signal(syscall.Signal(0))
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return
 	}
+	process.Kill()
 }
 
 func (sp *startedProcessesPids) killAll() {
-	pids := make([]int, 0)
 	close(sp.server_pid)
 	close(sp.client_pid)
 	close(sp.service_pid)
 	for pid := range sp.server_pid {
-		pids = append(pids, pid)
+		killProcess(pid)
 	}
 	for pid := range sp.client_pid {
-		pids = append(pids, pid)
+		killProcess(pid)
 	}
 	for pid := range sp.service_pid {
-		pids = append(pids, pid)
-	}
-
-	for _, pid := range pids {
-		syscall.Kill(pid, syscall.SIGTERM)
-	}
-	for {
-		finished := true
-		for _, pid := range pids {
-			process, err := os.FindProcess(pid)
-			if err != nil {
-				continue
-			}
-			err = process.Signal(syscall.Signal(0))
-			if err == nil {
-				finished = false
-				break
-			} else {
-				fmt.Println(pid, err)
-			}
-		}
-		if finished {
-			break
-		}
-		time.Sleep(time.Second)
+		killProcess(pid)
 	}
 }
 
