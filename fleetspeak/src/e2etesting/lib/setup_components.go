@@ -7,14 +7,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	ptypes "github.com/golang/protobuf/ptypes"
 	duration "github.com/golang/protobuf/ptypes/duration"
-	daemonservice_pb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
-	client_config_pb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
+	daemonservicePb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
+	clientConfigPb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	spb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
-	grpcservice_pb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
-	services_pb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	grpcServicePb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
+	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -26,21 +26,21 @@ import (
 )
 
 var (
-	mysql_database = flag.String("mysql_database", "", "MySQL database name to use")
-	mysql_username = flag.String("mysql_username", "", "MySQL username to use")
-	mysql_password = flag.String("mysql_password", "", "MySQL password to use")
+	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
+	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
+	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
 )
 
 type startedProcessesPids struct {
-	server_pid  chan int
-	client_pid  chan int
-	service_pid chan int
+	serverPid  chan int
+	clientPid  chan int
+	servicePid chan int
 }
 
 func (sp *startedProcessesPids) init() {
-	sp.server_pid = make(chan int, 1)
-	sp.client_pid = make(chan int, 1)
-	sp.service_pid = make(chan int, 1)
+	sp.serverPid = make(chan int, 1)
+	sp.clientPid = make(chan int, 1)
+	sp.servicePid = make(chan int, 1)
 }
 
 func killProcess(pid int) {
@@ -52,22 +52,22 @@ func killProcess(pid int) {
 }
 
 func (sp *startedProcessesPids) killAll() {
-	close(sp.server_pid)
-	close(sp.client_pid)
-	close(sp.service_pid)
-	for pid := range sp.server_pid {
+	close(sp.serverPid)
+	close(sp.clientPid)
+	close(sp.servicePid)
+	for pid := range sp.serverPid {
 		killProcess(pid)
 	}
-	for pid := range sp.client_pid {
+	for pid := range sp.clientPid {
 		killProcess(pid)
 	}
-	for pid := range sp.service_pid {
+	for pid := range sp.servicePid {
 		killProcess(pid)
 	}
 }
 
 // Starts a command and redirects its output to main stdout
-func startProcess(cmd *exec.Cmd, pid_chan chan int) {
+func startProcess(cmd *exec.Cmd, pidChan chan int) {
 	CopyAndCapture := func(w io.Writer, r io.Reader) ([]byte, error) {
 		var out []byte
 		buf := make([]byte, 1024, 1024)
@@ -97,7 +97,7 @@ func startProcess(cmd *exec.Cmd, pid_chan chan int) {
 	if err != nil {
 		fmt.Println("cmd.Start() failed: " + err.Error())
 	}
-	pid_chan <- cmd.Process.Pid
+	pidChan <- cmd.Process.Pid
 
 	// cmd.Wait() should be called only after we finish reading
 	// from stdoutIn and stderrIn.
@@ -114,13 +114,13 @@ func startProcess(cmd *exec.Cmd, pid_chan chan int) {
 	cmd.Wait()
 }
 
-func getNewClientId(admin_port int, start_time time.Time) string {
-	admin_addr := fmt.Sprintf("localhost:%v", admin_port)
-	conn, err := grpc.Dial(admin_addr, grpc.WithInsecure())
+func getNewClientID(adminPort int, startTime time.Time) string {
+	adminAddr := fmt.Sprintf("localhost:%v", adminPort)
+	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Unable to connect to fleetspeak admin interface [%v]: %v", admin_addr, err)
+		fmt.Printf("Unable to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
 	}
-	admin := services_pb.NewAdminClient(conn)
+	admin := servicesPb.NewAdminClient(conn)
 	ctx := context.Background()
 	var ids [][]byte
 	for i := 1; i <= 10; i++ {
@@ -128,7 +128,7 @@ func getNewClientId(admin_port int, start_time time.Time) string {
 			time.Sleep(time.Second * 1)
 		}
 		res, err := admin.ListClients(ctx,
-			&services_pb.ListClientsRequest{ClientIds: ids},
+			&servicesPb.ListClientsRequest{ClientIds: ids},
 			grpc.MaxCallRecvMsgSize(1024*1024*1024))
 		if err != nil {
 			fmt.Printf("ListClients RPC failed: %v", err)
@@ -139,12 +139,12 @@ func getNewClientId(admin_port int, start_time time.Time) string {
 			continue
 		}
 		client := res.Clients[0]
-		last_visit_time, _ := ptypes.Timestamp(client.LastContactTime)
+		lastVisitTime, _ := ptypes.Timestamp(client.LastContactTime)
 		for _, cl := range res.Clients {
-			cur_last_visit_time, _ := ptypes.Timestamp(cl.LastContactTime)
-			if cur_last_visit_time.After(last_visit_time) {
+			curLastVisitTime, _ := ptypes.Timestamp(cl.LastContactTime)
+			if curLastVisitTime.After(lastVisitTime) {
 				client = cl
-				last_visit_time = cur_last_visit_time
+				lastVisitTime = curLastVisitTime
 			}
 		}
 
@@ -154,114 +154,114 @@ func getNewClientId(admin_port int, start_time time.Time) string {
 			continue
 		}
 		ts, err := ptypes.Timestamp(client.LastContactTime)
-		if ts.After(start_time) {
+		if ts.After(startTime) {
 			return fmt.Sprintf("%v", id)
 		}
 	}
 	return ""
 }
 
-func configureFleetspeak(temp_path string, fs_frontend_port, fs_admin_port int) {
+func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
 	config.ComponentsConfig = new(fcpb.Config)
 	config.ComponentsConfig.MysqlDataSourceName =
-		fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/%v", *mysql_username, *mysql_password, *mysql_database)
+		fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/%v", *mysqlUsername, *mysqlPassword, *mysqlDatabase)
 
 	config.ComponentsConfig.HttpsConfig = new(fcpb.HttpsConfig)
 	config.ComponentsConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:6060")
 	config.ComponentsConfig.HttpsConfig.DisableStreaming = true
 
 	config.ComponentsConfig.AdminConfig = new(fcpb.AdminConfig)
-	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:%v", fs_admin_port)
+	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsAdminPort)
 
 	config.PublicHostPort =
 		append(config.PublicHostPort, config.ComponentsConfig.HttpsConfig.ListenAddress)
 
-	config.ServerComponentConfigurationFile = path.Join(temp_path, "server.config")
-	config.TrustedCertFile = path.Join(temp_path, "trusted_cert.pem")
-	config.TrustedCertKeyFile = path.Join(temp_path, "trusted_cert_key.pem")
-	config.ServerCertFile = path.Join(temp_path, "server_cert.pem")
-	config.ServerCertKeyFile = path.Join(temp_path, "server_cert_key.pem")
-	config.LinuxClientConfigurationFile = path.Join(temp_path, "linux_client.config")
-	config.WindowsClientConfigurationFile = path.Join(temp_path, "windows_client.config")
-	config.DarwinClientConfigurationFile = path.Join(temp_path, "darwin_client.config")
+	config.ServerComponentConfigurationFile = path.Join(tempPath, "server.config")
+	config.TrustedCertFile = path.Join(tempPath, "trusted_cert.pem")
+	config.TrustedCertKeyFile = path.Join(tempPath, "trusted_cert_key.pem")
+	config.ServerCertFile = path.Join(tempPath, "server_cert.pem")
+	config.ServerCertKeyFile = path.Join(tempPath, "server_cert_key.pem")
+	config.LinuxClientConfigurationFile = path.Join(tempPath, "linux_client.config")
+	config.WindowsClientConfigurationFile = path.Join(tempPath, "windows_client.config")
+	config.DarwinClientConfigurationFile = path.Join(tempPath, "darwin_client.config")
 
-	built_configurator_config_path := path.Join(temp_path, "configurator.config")
-	ioutil.WriteFile(built_configurator_config_path, []byte(proto.MarshalTextString(&config)), 0644)
+	builtConfiguratorConfigPath := path.Join(tempPath, "configurator.config")
+	ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
 
 	// Build fleetspeak configurations
-	_, err := exec.Command("config", "-config", built_configurator_config_path).Output()
+	_, err := exec.Command("config", "-config", builtConfiguratorConfigPath).Output()
 	if err != nil {
 		fmt.Println("error: " + err.Error())
 	}
 
 	// Adjust client config
-	var client_config client_config_pb.Config
-	client_config_data, err := ioutil.ReadFile(config.LinuxClientConfigurationFile)
-	proto.UnmarshalText(string(client_config_data), &client_config)
-	client_config.GetFilesystemHandler().ConfigurationDirectory = temp_path
-	client_config.GetFilesystemHandler().StateFile = path.Join(temp_path, "client.state")
-	os.Create(client_config.GetFilesystemHandler().StateFile)
-	ioutil.WriteFile(config.LinuxClientConfigurationFile, []byte(proto.MarshalTextString(&client_config)), 0644)
+	var clientConfig clientConfigPb.Config
+	clientConfigData, err := ioutil.ReadFile(config.LinuxClientConfigurationFile)
+	proto.UnmarshalText(string(clientConfigData), &clientConfig)
+	clientConfig.GetFilesystemHandler().ConfigurationDirectory = tempPath
+	clientConfig.GetFilesystemHandler().StateFile = path.Join(tempPath, "client.state")
+	os.Create(clientConfig.GetFilesystemHandler().StateFile)
+	ioutil.WriteFile(config.LinuxClientConfigurationFile, []byte(proto.MarshalTextString(&clientConfig)), 0644)
 
 	// Client services configuration
-	client_service_conf := spb.ClientServiceConfig{Name: "FRR_client", Factory: "Daemon"}
-	var payload daemonservice_pb.Config
+	clientServiceConf := spb.ClientServiceConfig{Name: "FRR_client", Factory: "Daemon"}
+	var payload daemonservicePb.Config
 	payload.Argv = append(payload.Argv, "python", "../../../../frr_python/frr_client.py")
-	client_service_conf.Config, _ = ptypes.MarshalAny(&payload)
-	os.Mkdir(path.Join(temp_path, "textservices"), 0777)
-	os.Mkdir(path.Join(temp_path, "services"), 0777)
-	os.Create(path.Join(temp_path, "communicator.txt"))
-	ioutil.WriteFile(path.Join(temp_path, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&client_service_conf)), 0644)
+	clientServiceConf.Config, _ = ptypes.MarshalAny(&payload)
+	os.Mkdir(path.Join(tempPath, "textservices"), 0777)
+	os.Mkdir(path.Join(tempPath, "services"), 0777)
+	os.Create(path.Join(tempPath, "communicator.txt"))
+	ioutil.WriteFile(path.Join(tempPath, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConf)), 0644)
 
 	// Server services configuration
-	server_service_conf := services_pb.ServiceConfig{Name: "FRR_server", Factory: "GRPC"}
-	grpc_config := grpcservice_pb.Config{Target: fmt.Sprintf("localhost:%v", fs_frontend_port), Insecure: true}
-	server_service_conf.Config, _ = ptypes.MarshalAny(&grpc_config)
-	server_conf := services_pb.ServerConfig{Services: []*services_pb.ServiceConfig{&server_service_conf}, BroadcastPollTime: new(duration.Duration)}
-	server_conf.BroadcastPollTime.Seconds = 1
-	built_server_services_config_path := path.Join(temp_path, "server.services.config")
-	ioutil.WriteFile(built_server_services_config_path, []byte(proto.MarshalTextString(&server_conf)), 0644)
+	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR_server", Factory: "GRPC"}
+	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("localhost:%v", fsFrontendPort), Insecure: true}
+	serverServiceConf.Config, _ = ptypes.MarshalAny(&grpcConfig)
+	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: new(duration.Duration)}
+	serverConf.BroadcastPollTime.Seconds = 1
+	builtServerServicesConfigPath := path.Join(tempPath, "server.services.config")
+	ioutil.WriteFile(builtServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
 }
 
-func startProcesses(started_processes *startedProcessesPids, temp_path string, fs_frontend_port, fs_admin_port int) {
+func startProcesses(startedProcesses *startedProcessesPids, tempPath string, fsFrontendPort, fsAdminPort int) {
 	// Start server
-	server_run_cmd := exec.Command("server", "-logtostderr", "-components_config", path.Join(temp_path, "server.config"), "-services_config", path.Join(temp_path, "server.services.config"))
-	go startProcess(server_run_cmd, started_processes.server_pid)
+	serverRunCmd := exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
+	go startProcess(serverRunCmd, startedProcesses.serverPid)
 
-	server_start_time := time.Now()
+	serverStartTime := time.Now()
 
 	// Sleep and start client
 	time.Sleep(time.Second * 1)
-	client_run_cmd := exec.Command("client", "-logtostderr", "-config", path.Join(temp_path, "linux_client.config"))
-	go startProcess(client_run_cmd, started_processes.client_pid)
+	clientRunCmd := exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
+	go startProcess(clientRunCmd, startedProcesses.clientPid)
 
 	// Get new client's id and start service in current process
-	client_id := getNewClientId(fs_admin_port, server_start_time)
-	fmt.Println("Enrolled client_id: ", client_id)
-	service_run_cmd := exec.Command(
+	clientID := getNewClientID(fsAdminPort, serverStartTime)
+	fmt.Println("Enrolled client_id: ", clientID)
+	serviceRunCmd := exec.Command(
 		"python",
 		"../../../../frr_python/frr_server.py",
-		fmt.Sprintf("--client_id=%v", client_id),
-		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fs_frontend_port),
-		fmt.Sprintf("--fleetspeak_server=localhost:%v", fs_admin_port))
-	startProcess(service_run_cmd, started_processes.service_pid)
+		fmt.Sprintf("--client_id=%v", clientID),
+		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
+		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
+	startProcess(serviceRunCmd, startedProcesses.servicePid)
 }
 
 func main() {
 	flag.Parse()
 
-	temp_path, _ := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
-	fs_frontend_port := 6062
-	fs_admin_port := 6061
+	tempPath, _ := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
+	fsFrontendPort := 6062
+	fsAdminPort := 6061
 
-	configureFleetspeak(temp_path, fs_frontend_port, fs_admin_port)
+	configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort)
 
-	var started_processes startedProcessesPids
-	started_processes.init()
-	defer started_processes.killAll()
+	var startedProcesses startedProcessesPids
+	startedProcesses.init()
+	defer startedProcesses.killAll()
 
-	startProcesses(&started_processes, temp_path, fs_frontend_port, fs_admin_port)
+	startProcesses(&startedProcesses, tempPath, fsFrontendPort, fsAdminPort)
 }
