@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -31,16 +32,14 @@ var (
 	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
 )
 
-type startedProcessesPids struct {
-	serverPid  chan int
-	clientPid  chan int
-	servicePid chan int
+type componentPids struct {
+	serverPid  int
+	clientPid  int
+	servicePid int
 }
 
-func (sp *startedProcessesPids) init() {
-	sp.serverPid = make(chan int, 1)
-	sp.clientPid = make(chan int, 1)
-	sp.servicePid = make(chan int, 1)
+func newComponentPids() componentPids {
+	return componentPids{-1, -1, -1}
 }
 
 func killProcess(pid int) {
@@ -51,53 +50,34 @@ func killProcess(pid int) {
 	process.Kill()
 }
 
-func (sp *startedProcessesPids) killAll() {
-	close(sp.serverPid)
-	close(sp.clientPid)
-	close(sp.servicePid)
-	for pid := range sp.serverPid {
-		killProcess(pid)
+func (cp *componentPids) killAll() {
+	if cp.serverPid != -1 {
+		killProcess(cp.serverPid)
 	}
-	for pid := range sp.clientPid {
-		killProcess(pid)
+	if cp.clientPid != -1 {
+		killProcess(cp.clientPid)
 	}
-	for pid := range sp.servicePid {
-		killProcess(pid)
+	if cp.servicePid != -1 {
+		killProcess(cp.servicePid)
 	}
 }
 
 // Starts a command and redirects its output to main stdout
-func startProcess(cmd *exec.Cmd, pidChan chan int) {
-	CopyAndCapture := func(w io.Writer, r io.Reader) ([]byte, error) {
-		var out []byte
-		buf := make([]byte, 1024, 1024)
-		for {
-			n, err := r.Read(buf[:])
-			if n > 0 {
-				d := buf[:n]
-				out = append(out, d...)
-				_, err := w.Write(d)
-				if err != nil {
-					return out, err
-				}
-			}
-			if err != nil {
-				// Read returns io.EOF at the end of file, which is not an error for us
-				if err == io.EOF {
-					err = nil
-				}
-				return out, err
-			}
-		}
-	}
-
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-	err := cmd.Start()
+func startProcess(cmd *exec.Cmd, pidChan chan int) error {
+	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println("cmd.Start() failed: " + err.Error())
+		return err
+	}
+	stderrIn, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	err = cmd.Start()
+	if err != nil {
+		return fmt.Errorf("cmd.Start() failed: %v", err)
 	}
 	pidChan <- cmd.Process.Pid
+	close(pidChan)
 
 	// cmd.Wait() should be called only after we finish reading
 	// from stdoutIn and stderrIn.
@@ -105,63 +85,73 @@ func startProcess(cmd *exec.Cmd, pidChan chan int) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		CopyAndCapture(os.Stdout, stdoutIn)
+		io.Copy(os.Stdout, stdoutIn)
 		wg.Done()
 	}()
 
-	CopyAndCapture(os.Stderr, stderrIn)
+	_, err = io.Copy(os.Stderr, stderrIn)
+	if err != nil {
+		return fmt.Errorf("Copy streams error: %v", err)
+	}
+
 	wg.Wait()
 	cmd.Wait()
+	return nil
 }
 
-func getNewClientID(adminPort int, startTime time.Time) string {
+func getNewClientID(admin servicesPb.AdminClient, startTime time.Time) (string, error) {
+	var ids [][]byte
+	ctx := context.Background()
+	res, err := admin.ListClients(ctx,
+		&servicesPb.ListClientsRequest{ClientIds: ids},
+		grpc.MaxCallRecvMsgSize(1024*1024*1024))
+	if err != nil {
+		return "", fmt.Errorf("ListClients RPC failed: %v", err)
+	}
+	if len(res.Clients) == 0 {
+		return "", errors.New("No new clients")
+	}
+	client := res.Clients[0]
+	lastVisitTime, _ := ptypes.Timestamp(client.LastContactTime)
+	for _, cl := range res.Clients {
+		curLastVisitTime, _ := ptypes.Timestamp(cl.LastContactTime)
+		if curLastVisitTime.After(lastVisitTime) {
+			client = cl
+			lastVisitTime = curLastVisitTime
+		}
+	}
+
+	id, err := common.BytesToClientID(client.ClientId)
+	if err != nil {
+		return "", fmt.Errorf("Invalid client id [%v]: %v", client.ClientId, err)
+	}
+	ts, err := ptypes.Timestamp(client.LastContactTime)
+	if ts.After(startTime) {
+		return fmt.Sprintf("%v", id), nil
+	}
+	return "", errors.New("No new clients")
+}
+
+func waitForNewClientID(adminPort int, startTime time.Time) (string, error) {
 	adminAddr := fmt.Sprintf("localhost:%v", adminPort)
 	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Unable to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
+		return "", fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
 	}
 	admin := servicesPb.NewAdminClient(conn)
-	ctx := context.Background()
-	var ids [][]byte
-	for i := 1; i <= 10; i++ {
-		if i > 1 {
-			time.Sleep(time.Second * 1)
+	for i := 0; i < 10; i++ {
+		if i > 0 {
+			time.Sleep(time.Second)
 		}
-		res, err := admin.ListClients(ctx,
-			&servicesPb.ListClientsRequest{ClientIds: ids},
-			grpc.MaxCallRecvMsgSize(1024*1024*1024))
-		if err != nil {
-			fmt.Printf("ListClients RPC failed: %v", err)
-			continue
-		}
-		if len(res.Clients) == 0 {
-			fmt.Printf("No new clients yet")
-			continue
-		}
-		client := res.Clients[0]
-		lastVisitTime, _ := ptypes.Timestamp(client.LastContactTime)
-		for _, cl := range res.Clients {
-			curLastVisitTime, _ := ptypes.Timestamp(cl.LastContactTime)
-			if curLastVisitTime.After(lastVisitTime) {
-				client = cl
-				lastVisitTime = curLastVisitTime
-			}
-		}
-
-		id, err := common.BytesToClientID(client.ClientId)
-		if err != nil {
-			fmt.Printf("Ignoring invalid client id [%v], %v", client.ClientId, err)
-			continue
-		}
-		ts, err := ptypes.Timestamp(client.LastContactTime)
-		if ts.After(startTime) {
-			return fmt.Sprintf("%v", id)
+		id, err := getNewClientID(admin, startTime)
+		if err == nil {
+			return id, nil
 		}
 	}
-	return ""
+	return "", errors.New("No connected clients")
 }
 
-func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) {
+func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
@@ -189,79 +179,140 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) {
 	config.DarwinClientConfigurationFile = path.Join(tempPath, "darwin_client.config")
 
 	builtConfiguratorConfigPath := path.Join(tempPath, "configurator.config")
-	ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
+	err := ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write configurator file: %v", err)
+	}
 
 	// Build fleetspeak configurations
-	_, err := exec.Command("config", "-config", builtConfiguratorConfigPath).Output()
+	_, err = exec.Command("config", "-config", builtConfiguratorConfigPath).Output()
 	if err != nil {
-		fmt.Println("error: " + err.Error())
+		return fmt.Errorf("Failed to build Fleetspeak configurations: %v", err)
 	}
 
 	// Adjust client config
 	var clientConfig clientConfigPb.Config
 	clientConfigData, err := ioutil.ReadFile(config.LinuxClientConfigurationFile)
-	proto.UnmarshalText(string(clientConfigData), &clientConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to read LinuxClientConfigurationFile: %v", err)
+	}
+	err = proto.UnmarshalText(string(clientConfigData), &clientConfig)
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal clientConfigData: %v", err)
+	}
 	clientConfig.GetFilesystemHandler().ConfigurationDirectory = tempPath
 	clientConfig.GetFilesystemHandler().StateFile = path.Join(tempPath, "client.state")
-	os.Create(clientConfig.GetFilesystemHandler().StateFile)
-	ioutil.WriteFile(config.LinuxClientConfigurationFile, []byte(proto.MarshalTextString(&clientConfig)), 0644)
+	_, err = os.Create(clientConfig.GetFilesystemHandler().StateFile)
+	if err != nil {
+		return fmt.Errorf("Failed to create client state file: %v", err)
+	}
+	err = ioutil.WriteFile(config.LinuxClientConfigurationFile, []byte(proto.MarshalTextString(&clientConfig)), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to update LinuxClientConfigurationFile: %v", err)
+	}
 
 	// Client services configuration
 	clientServiceConf := spb.ClientServiceConfig{Name: "FRR_client", Factory: "Daemon"}
 	var payload daemonservicePb.Config
-	payload.Argv = append(payload.Argv, "python", "../../../../frr_python/frr_client.py")
-	clientServiceConf.Config, _ = ptypes.MarshalAny(&payload)
-	os.Mkdir(path.Join(tempPath, "textservices"), 0777)
-	os.Mkdir(path.Join(tempPath, "services"), 0777)
-	os.Create(path.Join(tempPath, "communicator.txt"))
-	ioutil.WriteFile(path.Join(tempPath, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConf)), 0644)
+	payload.Argv = append(payload.Argv, "python", "frr_python/frr_client.py")
+	clientServiceConf.Config, err = ptypes.MarshalAny(&payload)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal client service configuration: %v", err)
+	}
+	err = os.Mkdir(path.Join(tempPath, "textservices"), 0777)
+	if err != nil {
+		return fmt.Errorf("Unable to create textservices directory: %v", err)
+	}
+	err = os.Mkdir(path.Join(tempPath, "services"), 0777)
+	if err != nil {
+		return fmt.Errorf("Unable to create services directory: %v", err)
+	}
+	_, err = os.Create(path.Join(tempPath, "communicator.txt"))
+	if err != nil {
+		return fmt.Errorf("Unable to create communicator.txt: %v", err)
+	}
+	err = ioutil.WriteFile(path.Join(tempPath, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConf)), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
+	}
 
 	// Server services configuration
 	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR_server", Factory: "GRPC"}
 	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("localhost:%v", fsFrontendPort), Insecure: true}
-	serverServiceConf.Config, _ = ptypes.MarshalAny(&grpcConfig)
+	serverServiceConf.Config, err = ptypes.MarshalAny(&grpcConfig)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
+	}
 	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: new(duration.Duration)}
 	serverConf.BroadcastPollTime.Seconds = 1
 	builtServerServicesConfigPath := path.Join(tempPath, "server.services.config")
-	ioutil.WriteFile(builtServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
+	err = ioutil.WriteFile(builtServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write server.services.config: %v", err)
+	}
+	return nil
 }
 
-func startProcesses(startedProcesses *startedProcessesPids, tempPath string, fsFrontendPort, fsAdminPort int) {
+func (cp *componentPids) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
 	// Start server
 	serverRunCmd := exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	go startProcess(serverRunCmd, startedProcesses.serverPid)
+	serverPidChan := make(chan int, 1)
+	go func() {
+		cp.serverPid = <-serverPidChan
+	}()
+	go startProcess(serverRunCmd, serverPidChan)
 
 	serverStartTime := time.Now()
 
-	// Sleep and start client
-	time.Sleep(time.Second * 1)
+	// Start client
 	clientRunCmd := exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	go startProcess(clientRunCmd, startedProcesses.clientPid)
+	clientPidChan := make(chan int, 1)
+	go func() {
+		cp.clientPid = <-clientPidChan
+	}()
+	go startProcess(clientRunCmd, clientPidChan)
 
 	// Get new client's id and start service in current process
-	clientID := getNewClientID(fsAdminPort, serverStartTime)
-	fmt.Println("Enrolled client_id: ", clientID)
+	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
+	if err != nil {
+		return fmt.Errorf("No new clients have connected: %v", err)
+	}
 	serviceRunCmd := exec.Command(
 		"python",
-		"../../../../frr_python/frr_server.py",
+		"frr_python/frr_server.py",
 		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	startProcess(serviceRunCmd, startedProcesses.servicePid)
+	servicePidChan := make(chan int, 1)
+	go func() {
+		cp.servicePid = <-servicePidChan
+	}()
+	startProcess(serviceRunCmd, servicePidChan)
+	return nil
 }
 
 func main() {
 	flag.Parse()
 
-	tempPath, _ := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	fsFrontendPort := 6062
 	fsAdminPort := 6061
+	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
+	if err != nil {
+		fmt.Printf("Failed to create temporary dir: %v\n", err)
+		os.Exit(1)
+	}
 
-	configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort)
+	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort)
+	if err != nil {
+		fmt.Printf("Failed to configure Fleetspeak: %v\n", err)
+		os.Exit(1)
+	}
 
-	var startedProcesses startedProcessesPids
-	startedProcesses.init()
-	defer startedProcesses.killAll()
-
-	startProcesses(&startedProcesses, tempPath, fsFrontendPort, fsAdminPort)
+	cp := newComponentPids()
+	defer cp.killAll()
+	err = cp.start(tempPath, fsFrontendPort, fsAdminPort)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
 }
