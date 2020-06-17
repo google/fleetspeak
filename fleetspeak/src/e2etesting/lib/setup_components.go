@@ -32,38 +32,29 @@ var (
 	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
 )
 
-type componentPids struct {
-	serverPid  int
-	clientPid  int
-	servicePid int
+type componentCmds struct {
+	serverCmd  *exec.Cmd
+	clientCmd  *exec.Cmd
+	serviceCmd *exec.Cmd
 }
 
-func newComponentPids() componentPids {
-	return componentPids{-1, -1, -1}
-}
-
-func killProcess(pid int) {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return
+func (cc *componentCmds) killAll() {
+	if cc.serverCmd != nil {
+		cc.serverCmd.Process.Kill()
+		cc.serverCmd.Process.Wait()
 	}
-	process.Kill()
-}
-
-func (cp *componentPids) killAll() {
-	if cp.serverPid != -1 {
-		killProcess(cp.serverPid)
+	if cc.clientCmd != nil {
+		cc.clientCmd.Process.Kill()
+		cc.clientCmd.Process.Wait()
 	}
-	if cp.clientPid != -1 {
-		killProcess(cp.clientPid)
-	}
-	if cp.servicePid != -1 {
-		killProcess(cp.servicePid)
+	if cc.serviceCmd != nil {
+		cc.serviceCmd.Process.Kill()
+		cc.serviceCmd.Process.Wait()
 	}
 }
 
 // Starts a command and redirects its output to main stdout
-func startProcess(cmd *exec.Cmd, pidChan chan int) error {
+func startProcess(cmd *exec.Cmd) error {
 	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -76,8 +67,6 @@ func startProcess(cmd *exec.Cmd, pidChan chan int) error {
 	if err != nil {
 		return fmt.Errorf("cmd.Start() failed: %v", err)
 	}
-	pidChan <- cmd.Process.Pid
-	close(pidChan)
 
 	// cmd.Wait() should be called only after we finish reading
 	// from stdoutIn and stderrIn.
@@ -111,25 +100,26 @@ func getNewClientID(admin servicesPb.AdminClient, startTime time.Time) (string, 
 	if len(res.Clients) == 0 {
 		return "", errors.New("No new clients")
 	}
-	client := res.Clients[0]
-	lastVisitTime, _ := ptypes.Timestamp(client.LastContactTime)
+	var client *servicesPb.Client
+	lastVisitTime := startTime
 	for _, cl := range res.Clients {
-		curLastVisitTime, _ := ptypes.Timestamp(cl.LastContactTime)
+		curLastVisitTime, err := ptypes.Timestamp(cl.LastContactTime)
+		if err != nil {
+			continue
+		}
 		if curLastVisitTime.After(lastVisitTime) {
 			client = cl
 			lastVisitTime = curLastVisitTime
 		}
 	}
-
+	if client == nil {
+		return "", errors.New("No new clients after startTime")
+	}
 	id, err := common.BytesToClientID(client.ClientId)
 	if err != nil {
 		return "", fmt.Errorf("Invalid client id [%v]: %v", client.ClientId, err)
 	}
-	ts, err := ptypes.Timestamp(client.LastContactTime)
-	if ts.After(startTime) {
-		return fmt.Sprintf("%v", id), nil
-	}
-	return "", errors.New("No new clients")
+	return fmt.Sprintf("%v", id), nil
 }
 
 func waitForNewClientID(adminPort int, startTime time.Time) (string, error) {
@@ -253,66 +243,60 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 	return nil
 }
 
-func (cp *componentPids) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
+func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
 	// Start server
-	serverRunCmd := exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	serverPidChan := make(chan int, 1)
-	go func() {
-		cp.serverPid = <-serverPidChan
-	}()
-	go startProcess(serverRunCmd, serverPidChan)
+	cc.serverCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
+	go startProcess(cc.serverCmd)
 
 	serverStartTime := time.Now()
 
 	// Start client
-	clientRunCmd := exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	clientPidChan := make(chan int, 1)
-	go func() {
-		cp.clientPid = <-clientPidChan
-	}()
-	go startProcess(clientRunCmd, clientPidChan)
+	cc.clientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
+	go startProcess(cc.clientCmd)
 
 	// Get new client's id and start service in current process
 	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
 	if err != nil {
 		return fmt.Errorf("No new clients have connected: %v", err)
 	}
-	serviceRunCmd := exec.Command(
+	cc.serviceCmd = exec.Command(
 		"python",
 		"frr_python/frr_server.py",
 		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	servicePidChan := make(chan int, 1)
-	go func() {
-		cp.servicePid = <-servicePidChan
-	}()
-	startProcess(serviceRunCmd, servicePidChan)
+	startProcess(cc.serviceCmd)
 	return nil
 }
 
-func main() {
+func run() error {
 	flag.Parse()
 
 	fsFrontendPort := 6062
 	fsAdminPort := 6061
 	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
-		fmt.Printf("Failed to create temporary dir: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
 	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort)
 	if err != nil {
-		fmt.Printf("Failed to configure Fleetspeak: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to configure Fleetspeak: %v", err)
 	}
 
-	cp := newComponentPids()
-	defer cp.killAll()
-	err = cp.start(tempPath, fsFrontendPort, fsAdminPort)
+	var cc componentCmds
+	defer cc.killAll()
+	err = cc.start(tempPath, fsFrontendPort, fsAdminPort)
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		return err
+	}
+	return nil
+}
+
+func main() {
+	err := run()
+	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
