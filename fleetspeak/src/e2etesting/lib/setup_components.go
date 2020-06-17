@@ -39,22 +39,16 @@ type componentCmds struct {
 }
 
 func (cc *componentCmds) killAll() {
-	if cc.serverCmd != nil {
+	if cc.serverCmd != nil && cc.serverCmd.Process != nil {
 		cc.serverCmd.Process.Kill()
-		cc.serverCmd.Process.Wait()
 	}
-	if cc.clientCmd != nil {
+	if cc.clientCmd != nil && cc.clientCmd.Process != nil {
 		cc.clientCmd.Process.Kill()
-		cc.clientCmd.Process.Wait()
-	}
-	if cc.serviceCmd != nil {
-		cc.serviceCmd.Process.Kill()
-		cc.serviceCmd.Process.Wait()
 	}
 }
 
-// Starts a command and redirects its output to main stdout
-func startProcess(cmd *exec.Cmd) error {
+// Runs a command and redirects its output to main stdout
+func runCommand(cmd *exec.Cmd) error {
 	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -246,13 +240,13 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
 	// Start server
 	cc.serverCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	go startProcess(cc.serverCmd)
+	go runCommand(cc.serverCmd)
 
 	serverStartTime := time.Now()
 
 	// Start client
 	cc.clientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	go startProcess(cc.clientCmd)
+	go runCommand(cc.clientCmd)
 
 	// Get new client's id and start service in current process
 	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
@@ -265,7 +259,7 @@ func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int)
 		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	startProcess(cc.serviceCmd)
+	runCommand(cc.serviceCmd)
 	return nil
 }
 
