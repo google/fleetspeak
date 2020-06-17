@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"sync"
 	"time"
 )
 
@@ -39,16 +38,21 @@ type componentCmds struct {
 }
 
 func (cc *componentCmds) killAll() {
-	if cc.serverCmd != nil && cc.serverCmd.Process != nil {
-		cc.serverCmd.Process.Kill()
+	if cc.serviceCmd != nil {
+		cc.serviceCmd.Wait()
 	}
-	if cc.clientCmd != nil && cc.clientCmd.Process != nil {
+	if cc.serverCmd != nil {
+		cc.serverCmd.Process.Kill()
+		cc.serverCmd.Wait()
+	}
+	if cc.clientCmd != nil {
 		cc.clientCmd.Process.Kill()
+		cc.clientCmd.Wait()
 	}
 }
 
-// Runs a command and redirects its output to main stdout
-func runCommand(cmd *exec.Cmd) error {
+// Starts a command and redirects its output to main stdout
+func startCommand(cmd *exec.Cmd) error {
 	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -62,23 +66,12 @@ func runCommand(cmd *exec.Cmd) error {
 		return fmt.Errorf("cmd.Start() failed: %v", err)
 	}
 
-	// cmd.Wait() should be called only after we finish reading
-	// from stdoutIn and stderrIn.
-	// wg ensures that we finish
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
 		io.Copy(os.Stdout, stdoutIn)
-		wg.Done()
 	}()
-
-	_, err = io.Copy(os.Stderr, stderrIn)
-	if err != nil {
-		return fmt.Errorf("Copy streams error: %v", err)
-	}
-
-	wg.Wait()
-	cmd.Wait()
+	go func() {
+		io.Copy(os.Stderr, stderrIn)
+	}()
 	return nil
 }
 
@@ -240,13 +233,13 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
 	// Start server
 	cc.serverCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	go runCommand(cc.serverCmd)
+	startCommand(cc.serverCmd)
 
 	serverStartTime := time.Now()
 
 	// Start client
 	cc.clientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	go runCommand(cc.clientCmd)
+	startCommand(cc.clientCmd)
 
 	// Get new client's id and start service in current process
 	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
@@ -259,7 +252,7 @@ func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int)
 		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	runCommand(cc.serviceCmd)
+	startCommand(cc.serviceCmd)
 	return nil
 }
 
