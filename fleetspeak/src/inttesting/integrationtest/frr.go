@@ -224,13 +224,14 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	// a hunt.  Because the number of messages coming at once is larger than
 	// 3*MaxParallelism, messages tend to end up backlogged.
 	completed := masterServer.WatchCompleted()
-	if err := masterServer.CreateHunt(ctx,
-		&fpb.TrafficRequestData{
-			RequestId:      0,
-			NumMessages:    20,
-			MessageDelayMs: 20,
-			Jitter:         1.0},
-		numClients); err != nil {
+	if _, err := masterServer.CreateHunt(ctx,
+		&fpb.HuntRequest{
+			Data: &fpb.TrafficRequestData{
+				RequestId:      0,
+				NumMessages:    20,
+				MessageDelayMs: 20,
+				Jitter:         1.0},
+			Limit: numClients}); err != nil {
 		t.Errorf("unable to create hunt: %v", err)
 	}
 
