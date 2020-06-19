@@ -80,15 +80,15 @@ message FileResponseInfo {
   FileResponseData data = 2;
 }
 
-message ClientID {
-  string id = 1;
+message CompletedRequestsRequest {
+  string client_id = 1;
 }
 
-message CompletedRequestsIds {
-  repeated int64 ids = 1;
+message CompletedRequestsResponse {
+  repeated int64 request_ids = 1;
 }
 
-message HuntRequest {
+message CreateHuntRequest {
   TrafficRequestData data = 1;
   uint64 limit = 2;
 }
@@ -108,11 +108,11 @@ service Master {
 
   // CompletedRequests returns a list of requests made to a client which have been
   // completed.
-  rpc CompletedRequests(ClientID) returns (CompletedRequestsIds) {
+  rpc CompletedRequests(CompletedRequestsRequest) returns (CompletedRequestsResponse) {
   }
 
   // CreateHunt initiates a hunt which sends the provided TrafficRequestData to
   // every client, up to limit.
-  rpc CreateHunt(HuntRequest) returns (fleetspeak.EmptyMessage) {
+  rpc CreateHunt(CreateHuntRequest) returns (fleetspeak.EmptyMessage) {
   }
 }

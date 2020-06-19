@@ -424,22 +424,17 @@ func (s *MasterServer) AllRequests(id common.ClientID) []int64 {
 	return r
 }
 
-// CompletedRequests implements fgrpc.MasterServer and returns a list of
-// requests made to a client which have been completed.
-func (s *MasterServer) CompletedRequests(ctx context.Context, id *fpb.ClientID) (*fpb.CompletedRequestsIds, error) {
-	var r fpb.CompletedRequestsIds
+// GetCompletedRequests returns a list of requests made to a client which have been
+// completed.
+func (s *MasterServer) GetCompletedRequests(id common.ClientID) []int64 {
+	var r []int64
 
 	s.lock.RLock()
-
-	cc, err := common.StringToClientID(id.Id)
-	if err != nil {
-		return &r, err
-	}
-	ci := s.clients[cc]
+	ci := s.clients[id]
 	s.lock.RUnlock()
 
 	if ci == nil {
-		return &r, nil
+		return r
 	}
 
 	ci.lock.Lock()
@@ -447,9 +442,23 @@ func (s *MasterServer) CompletedRequests(ctx context.Context, id *fpb.ClientID) 
 
 	for id, info := range ci.requests {
 		if info.completed() {
-			r.Ids = append(r.Ids, id)
+			r = append(r, id)
 		}
 	}
+	return r
+}
+
+// CompletedRequests implements fgrpc.MasterServer and returns a list of
+// requests made to a client which have been completed.
+func (s *MasterServer) CompletedRequests(ctx context.Context, id *fpb.CompletedRequestsRequest) (*fpb.CompletedRequestsResponse, error) {
+	var r fpb.CompletedRequestsResponse
+
+	cid, err := common.StringToClientID(id.ClientId)
+	if err != nil {
+		return &r, err
+	}
+
+	r.RequestIds = s.GetCompletedRequests(cid)
 	return &r, nil
 }
 
@@ -465,17 +474,17 @@ func (s *MasterServer) WatchCompleted() <-chan common.ClientID {
 	return s.completed
 }
 
-// CreateHunt implements fgrpc.MasterServer and initiates a hunt which
-// sends the provided TrafficRequestData to every client, up to limit.
-func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.HuntRequest) (*fspb.EmptyMessage, error) {
-	hr.Data.MasterId = s.masterID
-	d, err := ptypes.MarshalAny(hr.Data)
+// CreateBroadcastRequest initiates a hunt which sends the provided TrafficRequestData to
+// every client, up to limit.
+func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.TrafficRequestData, limit uint64) error {
+	rd.MasterId = s.masterID
+	d, err := ptypes.MarshalAny(rd)
 	if err != nil {
-		return &fspb.EmptyMessage{}, fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
+		return fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
 	}
 	bid, err := ids.RandomBroadcastID()
 	if err != nil {
-		return &fspb.EmptyMessage{}, fmt.Errorf("unable to create BroadcastID: %v", err)
+		return fmt.Errorf("unable to create BroadcastID: %v", err)
 	}
 	req := srpb.CreateBroadcastRequest{
 		Broadcast: &srpb.Broadcast{
@@ -484,7 +493,7 @@ func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.HuntRequest) (*fs
 			MessageType: "TrafficRequest",
 			Data:        d,
 		},
-		Limit: hr.Limit,
+		Limit: limit,
 	}
 	for {
 		_, err := s.admin.CreateBroadcast(ctx, &req)
@@ -496,9 +505,15 @@ func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.HuntRequest) (*fs
 			time.Sleep(retryDelay)
 			continue
 		}
-		return &fspb.EmptyMessage{}, fmt.Errorf("CreateBroadcast(%v) failed: %v", req, err)
+		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req, err)
 	}
-	return &fspb.EmptyMessage{}, nil
+	return nil
+}
+
+// CreateHunt implements fgrpc.MasterServer and initiates a hunt which
+// sends the provided TrafficRequestData to every client, up to limit.
+func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fspb.EmptyMessage, error) {
+	return &fspb.EmptyMessage{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
 }
 
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download

@@ -226,11 +226,11 @@ func (s fakeMasterServer) RecordFileResponse(ctx context.Context, i *fpb.FileRes
 	return &fspb.EmptyMessage{}, nil
 }
 
-func (s fakeMasterServer) CompletedRequests(ctx context.Context, c *fpb.ClientID) (*fpb.CompletedRequestsIds, error) {
-	return &fpb.CompletedRequestsIds{}, nil
+func (s fakeMasterServer) CompletedRequests(ctx context.Context, c *fpb.CompletedRequestsRequest) (*fpb.CompletedRequestsResponse, error) {
+	return &fpb.CompletedRequestsResponse{}, nil
 }
 
-func (s fakeMasterServer) CreateHunt(ctx context.Context, hr *fpb.HuntRequest) (*fspb.EmptyMessage, error) {
+func (s fakeMasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fspb.EmptyMessage, error) {
 	return &fspb.EmptyMessage{}, nil
 }
 
@@ -484,11 +484,7 @@ func TestMasterServer(t *testing.T) {
 		}
 	}
 
-	cr, err := ms.CompletedRequests(ctx, &fpb.ClientID{Id: id.String()})
-	if err != nil {
-		t.Errorf("Unable to get completed requests for client %v: %v", id.String(), err)
-	}
-	c := cr.GetIds()
+	c := ms.GetCompletedRequests(id)
 	sort.Sort(Int64Slice(c))
 	wantCompleted := []int64{0, 1, 2, 3}
 	if !reflect.DeepEqual(c, wantCompleted) {

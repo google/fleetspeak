@@ -495,16 +495,16 @@ func (x *FileResponseInfo) GetData() *FileResponseData {
 	return nil
 }
 
-type ClientID struct {
+type CompletedRequestsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 }
 
-func (x *ClientID) Reset() {
-	*x = ClientID{}
+func (x *CompletedRequestsRequest) Reset() {
+	*x = CompletedRequestsRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -512,13 +512,13 @@ func (x *ClientID) Reset() {
 	}
 }
 
-func (x *ClientID) String() string {
+func (x *CompletedRequestsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ClientID) ProtoMessage() {}
+func (*CompletedRequestsRequest) ProtoMessage() {}
 
-func (x *ClientID) ProtoReflect() protoreflect.Message {
+func (x *CompletedRequestsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -530,28 +530,28 @@ func (x *ClientID) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ClientID.ProtoReflect.Descriptor instead.
-func (*ClientID) Descriptor() ([]byte, []int) {
+// Deprecated: Use CompletedRequestsRequest.ProtoReflect.Descriptor instead.
+func (*CompletedRequestsRequest) Descriptor() ([]byte, []int) {
 	return file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *ClientID) GetId() string {
+func (x *CompletedRequestsRequest) GetClientId() string {
 	if x != nil {
-		return x.Id
+		return x.ClientId
 	}
 	return ""
 }
 
-type CompletedRequestsIds struct {
+type CompletedRequestsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ids []int64 `protobuf:"varint,1,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	RequestIds []int64 `protobuf:"varint,1,rep,packed,name=request_ids,json=requestIds,proto3" json:"request_ids,omitempty"`
 }
 
-func (x *CompletedRequestsIds) Reset() {
-	*x = CompletedRequestsIds{}
+func (x *CompletedRequestsResponse) Reset() {
+	*x = CompletedRequestsResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -559,13 +559,13 @@ func (x *CompletedRequestsIds) Reset() {
 	}
 }
 
-func (x *CompletedRequestsIds) String() string {
+func (x *CompletedRequestsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CompletedRequestsIds) ProtoMessage() {}
+func (*CompletedRequestsResponse) ProtoMessage() {}
 
-func (x *CompletedRequestsIds) ProtoReflect() protoreflect.Message {
+func (x *CompletedRequestsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -577,19 +577,19 @@ func (x *CompletedRequestsIds) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CompletedRequestsIds.ProtoReflect.Descriptor instead.
-func (*CompletedRequestsIds) Descriptor() ([]byte, []int) {
+// Deprecated: Use CompletedRequestsResponse.ProtoReflect.Descriptor instead.
+func (*CompletedRequestsResponse) Descriptor() ([]byte, []int) {
 	return file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *CompletedRequestsIds) GetIds() []int64 {
+func (x *CompletedRequestsResponse) GetRequestIds() []int64 {
 	if x != nil {
-		return x.Ids
+		return x.RequestIds
 	}
 	return nil
 }
 
-type HuntRequest struct {
+type CreateHuntRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -598,8 +598,8 @@ type HuntRequest struct {
 	Limit uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
-func (x *HuntRequest) Reset() {
-	*x = HuntRequest{}
+func (x *CreateHuntRequest) Reset() {
+	*x = CreateHuntRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -607,13 +607,13 @@ func (x *HuntRequest) Reset() {
 	}
 }
 
-func (x *HuntRequest) String() string {
+func (x *CreateHuntRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*HuntRequest) ProtoMessage() {}
+func (*CreateHuntRequest) ProtoMessage() {}
 
-func (x *HuntRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateHuntRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -625,19 +625,19 @@ func (x *HuntRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use HuntRequest.ProtoReflect.Descriptor instead.
-func (*HuntRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateHuntRequest.ProtoReflect.Descriptor instead.
+func (*CreateHuntRequest) Descriptor() ([]byte, []int) {
 	return file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *HuntRequest) GetData() *TrafficRequestData {
+func (x *CreateHuntRequest) GetData() *TrafficRequestData {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-func (x *HuntRequest) GetLimit() uint64 {
+func (x *CreateHuntRequest) GetLimit() uint64 {
 	if x != nil {
 		return x.Limit
 	}
@@ -704,39 +704,44 @@ var file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_rawDesc = 
 	0x64, 0x12, 0x34, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
 	0x20, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72,
 	0x2e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x44, 0x61, 0x74,
-	0x61, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x1a, 0x0a, 0x08, 0x43, 0x6c, 0x69, 0x65, 0x6e,
-	0x74, 0x49, 0x44, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x02, 0x69, 0x64, 0x22, 0x28, 0x0a, 0x14, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x49, 0x64, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x69,
-	0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x03, 0x52, 0x03, 0x69, 0x64, 0x73, 0x22, 0x5b, 0x0a,
-	0x0b, 0x48, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x36, 0x0a, 0x04,
-	0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x66, 0x6c, 0x65,
-	0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x54, 0x72, 0x61, 0x66,
-	0x66, 0x69, 0x63, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x44, 0x61, 0x74, 0x61, 0x52, 0x04,
-	0x64, 0x61, 0x74, 0x61, 0x12, 0x14, 0x0a, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x04, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x32, 0xcc, 0x02, 0x0a, 0x06, 0x4d,
-	0x61, 0x73, 0x74, 0x65, 0x72, 0x12, 0x50, 0x0a, 0x15, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x54,
-	0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b,
-	0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e,
-	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x1a, 0x18, 0x2e, 0x66, 0x6c,
-	0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x4d, 0x65,
-	0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x12, 0x52, 0x0a, 0x12, 0x52, 0x65, 0x63, 0x6f, 0x72,
-	0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x20, 0x2e,
-	0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x46,
-	0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x1a,
+	0x61, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x37, 0x0a, 0x18, 0x43, 0x6f, 0x6d, 0x70, 0x6c,
+	0x65, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x64,
+	0x22, 0x3c, 0x0a, 0x19, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1f, 0x0a,
+	0x0b, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x5f, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x03, 0x52, 0x0a, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x49, 0x64, 0x73, 0x22, 0x61,
+	0x0a, 0x11, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x48, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x36, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x22, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66,
+	0x72, 0x72, 0x2e, 0x54, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x44, 0x61, 0x74, 0x61, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x14, 0x0a, 0x05, 0x6c,
+	0x69, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69,
+	0x74, 0x32, 0xe7, 0x02, 0x0a, 0x06, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x12, 0x50, 0x0a, 0x15,
+	0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x54, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65,
+	0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49, 0x6e,
+	0x66, 0x6f, 0x1a, 0x18, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e,
+	0x45, 0x6d, 0x70, 0x74, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x12, 0x52,
+	0x0a, 0x12, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x20, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61,
+	0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x1a, 0x18, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70,
+	0x65, 0x61, 0x6b, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
+	0x22, 0x00, 0x12, 0x6a, 0x0a, 0x11, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x12, 0x28, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73,
+	0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74,
+	0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x29, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66,
+	0x72, 0x72, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x4b,
+	0x0a, 0x0a, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x48, 0x75, 0x6e, 0x74, 0x12, 0x21, 0x2e, 0x66,
+	0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x43, 0x72,
+	0x65, 0x61, 0x74, 0x65, 0x48, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
 	0x18, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x45, 0x6d, 0x70,
-	0x74, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x12, 0x55, 0x0a, 0x11, 0x43,
-	0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73,
-	0x12, 0x18, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72,
-	0x72, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x44, 0x1a, 0x24, 0x2e, 0x66, 0x6c, 0x65,
-	0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72, 0x72, 0x2e, 0x43, 0x6f, 0x6d, 0x70,
-	0x6c, 0x65, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x49, 0x64, 0x73,
-	0x22, 0x00, 0x12, 0x45, 0x0a, 0x0a, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x48, 0x75, 0x6e, 0x74,
-	0x12, 0x1b, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x66, 0x72,
-	0x72, 0x2e, 0x48, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e,
-	0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79,
-	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x74, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -753,29 +758,29 @@ func file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_rawDescGZ
 
 var file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_goTypes = []interface{}{
-	(*Config)(nil),                  // 0: fleetspeak.frr.Config
-	(*TrafficRequestData)(nil),      // 1: fleetspeak.frr.TrafficRequestData
-	(*TrafficResponseData)(nil),     // 2: fleetspeak.frr.TrafficResponseData
-	(*FileRequestData)(nil),         // 3: fleetspeak.frr.FileRequestData
-	(*FileResponseData)(nil),        // 4: fleetspeak.frr.FileResponseData
-	(*MessageInfo)(nil),             // 5: fleetspeak.frr.MessageInfo
-	(*FileResponseInfo)(nil),        // 6: fleetspeak.frr.FileResponseInfo
-	(*ClientID)(nil),                // 7: fleetspeak.frr.ClientID
-	(*CompletedRequestsIds)(nil),    // 8: fleetspeak.frr.CompletedRequestsIds
-	(*HuntRequest)(nil),             // 9: fleetspeak.frr.HuntRequest
-	(*fleetspeak.EmptyMessage)(nil), // 10: fleetspeak.EmptyMessage
+	(*Config)(nil),                    // 0: fleetspeak.frr.Config
+	(*TrafficRequestData)(nil),        // 1: fleetspeak.frr.TrafficRequestData
+	(*TrafficResponseData)(nil),       // 2: fleetspeak.frr.TrafficResponseData
+	(*FileRequestData)(nil),           // 3: fleetspeak.frr.FileRequestData
+	(*FileResponseData)(nil),          // 4: fleetspeak.frr.FileResponseData
+	(*MessageInfo)(nil),               // 5: fleetspeak.frr.MessageInfo
+	(*FileResponseInfo)(nil),          // 6: fleetspeak.frr.FileResponseInfo
+	(*CompletedRequestsRequest)(nil),  // 7: fleetspeak.frr.CompletedRequestsRequest
+	(*CompletedRequestsResponse)(nil), // 8: fleetspeak.frr.CompletedRequestsResponse
+	(*CreateHuntRequest)(nil),         // 9: fleetspeak.frr.CreateHuntRequest
+	(*fleetspeak.EmptyMessage)(nil),   // 10: fleetspeak.EmptyMessage
 }
 var file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_depIdxs = []int32{
 	2,  // 0: fleetspeak.frr.MessageInfo.data:type_name -> fleetspeak.frr.TrafficResponseData
 	4,  // 1: fleetspeak.frr.FileResponseInfo.data:type_name -> fleetspeak.frr.FileResponseData
-	1,  // 2: fleetspeak.frr.HuntRequest.data:type_name -> fleetspeak.frr.TrafficRequestData
+	1,  // 2: fleetspeak.frr.CreateHuntRequest.data:type_name -> fleetspeak.frr.TrafficRequestData
 	5,  // 3: fleetspeak.frr.Master.RecordTrafficResponse:input_type -> fleetspeak.frr.MessageInfo
 	6,  // 4: fleetspeak.frr.Master.RecordFileResponse:input_type -> fleetspeak.frr.FileResponseInfo
-	7,  // 5: fleetspeak.frr.Master.CompletedRequests:input_type -> fleetspeak.frr.ClientID
-	9,  // 6: fleetspeak.frr.Master.CreateHunt:input_type -> fleetspeak.frr.HuntRequest
+	7,  // 5: fleetspeak.frr.Master.CompletedRequests:input_type -> fleetspeak.frr.CompletedRequestsRequest
+	9,  // 6: fleetspeak.frr.Master.CreateHunt:input_type -> fleetspeak.frr.CreateHuntRequest
 	10, // 7: fleetspeak.frr.Master.RecordTrafficResponse:output_type -> fleetspeak.EmptyMessage
 	10, // 8: fleetspeak.frr.Master.RecordFileResponse:output_type -> fleetspeak.EmptyMessage
-	8,  // 9: fleetspeak.frr.Master.CompletedRequests:output_type -> fleetspeak.frr.CompletedRequestsIds
+	8,  // 9: fleetspeak.frr.Master.CompletedRequests:output_type -> fleetspeak.frr.CompletedRequestsResponse
 	10, // 10: fleetspeak.frr.Master.CreateHunt:output_type -> fleetspeak.EmptyMessage
 	7,  // [7:11] is the sub-list for method output_type
 	3,  // [3:7] is the sub-list for method input_type
@@ -875,7 +880,7 @@ func file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_init() {
 			}
 		}
 		file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ClientID); i {
+			switch v := v.(*CompletedRequestsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -887,7 +892,7 @@ func file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_init() {
 			}
 		}
 		file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompletedRequestsIds); i {
+			switch v := v.(*CompletedRequestsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -899,7 +904,7 @@ func file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_init() {
 			}
 		}
 		file_fleetspeak_src_inttesting_frr_proto_fleetspeak_frr_frr_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HuntRequest); i {
+			switch v := v.(*CreateHuntRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -951,10 +956,10 @@ type MasterClient interface {
 	RecordFileResponse(ctx context.Context, in *FileResponseInfo, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// CompletedRequests returns a list of requests made to a client which have been
 	// completed.
-	CompletedRequests(ctx context.Context, in *ClientID, opts ...grpc.CallOption) (*CompletedRequestsIds, error)
+	CompletedRequests(ctx context.Context, in *CompletedRequestsRequest, opts ...grpc.CallOption) (*CompletedRequestsResponse, error)
 	// CreateHunt initiates a hunt which sends the provided TrafficRequestData to
 	// every client, up to limit.
-	CreateHunt(ctx context.Context, in *HuntRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
+	CreateHunt(ctx context.Context, in *CreateHuntRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 }
 
 type masterClient struct {
@@ -983,8 +988,8 @@ func (c *masterClient) RecordFileResponse(ctx context.Context, in *FileResponseI
 	return out, nil
 }
 
-func (c *masterClient) CompletedRequests(ctx context.Context, in *ClientID, opts ...grpc.CallOption) (*CompletedRequestsIds, error) {
-	out := new(CompletedRequestsIds)
+func (c *masterClient) CompletedRequests(ctx context.Context, in *CompletedRequestsRequest, opts ...grpc.CallOption) (*CompletedRequestsResponse, error) {
+	out := new(CompletedRequestsResponse)
 	err := c.cc.Invoke(ctx, "/fleetspeak.frr.Master/CompletedRequests", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -992,7 +997,7 @@ func (c *masterClient) CompletedRequests(ctx context.Context, in *ClientID, opts
 	return out, nil
 }
 
-func (c *masterClient) CreateHunt(ctx context.Context, in *HuntRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
+func (c *masterClient) CreateHunt(ctx context.Context, in *CreateHuntRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
 	out := new(fleetspeak.EmptyMessage)
 	err := c.cc.Invoke(ctx, "/fleetspeak.frr.Master/CreateHunt", in, out, opts...)
 	if err != nil {
@@ -1011,10 +1016,10 @@ type MasterServer interface {
 	RecordFileResponse(context.Context, *FileResponseInfo) (*fleetspeak.EmptyMessage, error)
 	// CompletedRequests returns a list of requests made to a client which have been
 	// completed.
-	CompletedRequests(context.Context, *ClientID) (*CompletedRequestsIds, error)
+	CompletedRequests(context.Context, *CompletedRequestsRequest) (*CompletedRequestsResponse, error)
 	// CreateHunt initiates a hunt which sends the provided TrafficRequestData to
 	// every client, up to limit.
-	CreateHunt(context.Context, *HuntRequest) (*fleetspeak.EmptyMessage, error)
+	CreateHunt(context.Context, *CreateHuntRequest) (*fleetspeak.EmptyMessage, error)
 }
 
 // UnimplementedMasterServer can be embedded to have forward compatible implementations.
@@ -1027,10 +1032,10 @@ func (*UnimplementedMasterServer) RecordTrafficResponse(context.Context, *Messag
 func (*UnimplementedMasterServer) RecordFileResponse(context.Context, *FileResponseInfo) (*fleetspeak.EmptyMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RecordFileResponse not implemented")
 }
-func (*UnimplementedMasterServer) CompletedRequests(context.Context, *ClientID) (*CompletedRequestsIds, error) {
+func (*UnimplementedMasterServer) CompletedRequests(context.Context, *CompletedRequestsRequest) (*CompletedRequestsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompletedRequests not implemented")
 }
-func (*UnimplementedMasterServer) CreateHunt(context.Context, *HuntRequest) (*fleetspeak.EmptyMessage, error) {
+func (*UnimplementedMasterServer) CreateHunt(context.Context, *CreateHuntRequest) (*fleetspeak.EmptyMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateHunt not implemented")
 }
 
@@ -1075,7 +1080,7 @@ func _Master_RecordFileResponse_Handler(srv interface{}, ctx context.Context, de
 }
 
 func _Master_CompletedRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClientID)
+	in := new(CompletedRequestsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1087,13 +1092,13 @@ func _Master_CompletedRequests_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/fleetspeak.frr.Master/CompletedRequests",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).CompletedRequests(ctx, req.(*ClientID))
+		return srv.(MasterServer).CompletedRequests(ctx, req.(*CompletedRequestsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Master_CreateHunt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HuntRequest)
+	in := new(CreateHuntRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1105,7 +1110,7 @@ func _Master_CreateHunt_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: "/fleetspeak.frr.Master/CreateHunt",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).CreateHunt(ctx, req.(*HuntRequest))
+		return srv.(MasterServer).CreateHunt(ctx, req.(*CreateHuntRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
