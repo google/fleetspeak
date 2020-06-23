@@ -93,6 +93,9 @@ message CreateHuntRequest {
   uint64 limit = 2;
 }
 
+message CreateHuntResponse {
+}
+
 // The service implemented by the FRR master server to collect data from the FRR
 // Fleetspeak server services.
 service Master {
@@ -113,6 +116,6 @@ service Master {
 
   // CreateHunt initiates a hunt which sends the provided TrafficRequestData to
   // every client, up to limit.
-  rpc CreateHunt(CreateHuntRequest) returns (fleetspeak.EmptyMessage) {
+  rpc CreateHunt(CreateHuntRequest) returns (CreateHuntResponse) {
   }
 }

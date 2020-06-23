@@ -230,8 +230,8 @@ func (s fakeMasterServer) CompletedRequests(ctx context.Context, c *fpb.Complete
 	return &fpb.CompletedRequestsResponse{}, nil
 }
 
-func (s fakeMasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fspb.EmptyMessage, error) {
-	return &fspb.EmptyMessage{}, nil
+func (s fakeMasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
+	return &fpb.CreateHuntResponse{}, nil
 }
 
 type fakeServiceContext struct {
