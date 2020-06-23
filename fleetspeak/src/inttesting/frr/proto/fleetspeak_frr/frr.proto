@@ -80,6 +80,22 @@ message FileResponseInfo {
   FileResponseData data = 2;
 }
 
+message CompletedRequestsRequest {
+  string client_id = 1;
+}
+
+message CompletedRequestsResponse {
+  repeated int64 request_ids = 1;
+}
+
+message CreateHuntRequest {
+  TrafficRequestData data = 1;
+  uint64 limit = 2;
+}
+
+message CreateHuntResponse {
+}
+
 // The service implemented by the FRR master server to collect data from the FRR
 // Fleetspeak server services.
 service Master {
@@ -91,5 +107,15 @@ service Master {
   // RecordFileResponse records that a FileResponse message was received
   // by the FS server.
   rpc RecordFileResponse(FileResponseInfo) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // CompletedRequests returns a list of requests made to a client which have been
+  // completed.
+  rpc CompletedRequests(CompletedRequestsRequest) returns (CompletedRequestsResponse) {
+  }
+
+  // CreateHunt initiates a hunt which sends the provided TrafficRequestData to
+  // every client, up to limit.
+  rpc CreateHunt(CreateHuntRequest) returns (CreateHuntResponse) {
   }
 }

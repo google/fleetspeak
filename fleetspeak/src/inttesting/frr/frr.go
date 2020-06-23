@@ -424,9 +424,9 @@ func (s *MasterServer) AllRequests(id common.ClientID) []int64 {
 	return r
 }
 
-// CompletedRequests returns a list of requests made to a client which have been
+// GetCompletedRequests returns a list of requests made to a client which have been
 // completed.
-func (s *MasterServer) CompletedRequests(id common.ClientID) []int64 {
+func (s *MasterServer) GetCompletedRequests(id common.ClientID) []int64 {
 	var r []int64
 
 	s.lock.RLock()
@@ -448,6 +448,20 @@ func (s *MasterServer) CompletedRequests(id common.ClientID) []int64 {
 	return r
 }
 
+// CompletedRequests implements fgrpc.MasterServer and returns a list of
+// requests made to a client which have been completed.
+func (s *MasterServer) CompletedRequests(ctx context.Context, id *fpb.CompletedRequestsRequest) (*fpb.CompletedRequestsResponse, error) {
+	var r fpb.CompletedRequestsResponse
+
+	cid, err := common.StringToClientID(id.ClientId)
+	if err != nil {
+		return &r, err
+	}
+
+	r.RequestIds = s.GetCompletedRequests(cid)
+	return &r, nil
+}
+
 // WatchCompleted creates, and returns a channel which notifies when a request
 // to a client is completed. Repeated calls return the same channel. Should only
 // be called before the server is exported. (i.e. when it is idle)
@@ -460,9 +474,9 @@ func (s *MasterServer) WatchCompleted() <-chan common.ClientID {
 	return s.completed
 }
 
-// CreateHunt initiates a hunt which sends the provided TrafficRequestData to
+// CreateBroadcastRequest initiates a hunt which sends the provided TrafficRequestData to
 // every client, up to limit.
-func (s *MasterServer) CreateHunt(ctx context.Context, rd *fpb.TrafficRequestData, limit uint64) error {
+func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.TrafficRequestData, limit uint64) error {
 	rd.MasterId = s.masterID
 	d, err := ptypes.MarshalAny(rd)
 	if err != nil {
@@ -494,6 +508,12 @@ func (s *MasterServer) CreateHunt(ctx context.Context, rd *fpb.TrafficRequestDat
 		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req, err)
 	}
 	return nil
+}
+
+// CreateHunt implements fgrpc.MasterServer and initiates a hunt which
+// sends the provided TrafficRequestData to every client, up to limit.
+func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
+	return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
 }
 
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download

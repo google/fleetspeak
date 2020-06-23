@@ -226,6 +226,14 @@ func (s fakeMasterServer) RecordFileResponse(ctx context.Context, i *fpb.FileRes
 	return &fspb.EmptyMessage{}, nil
 }
 
+func (s fakeMasterServer) CompletedRequests(ctx context.Context, c *fpb.CompletedRequestsRequest) (*fpb.CompletedRequestsResponse, error) {
+	return &fpb.CompletedRequestsResponse{}, nil
+}
+
+func (s fakeMasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
+	return &fpb.CreateHuntResponse{}, nil
+}
+
 type fakeServiceContext struct {
 	service.Context
 }
@@ -476,7 +484,7 @@ func TestMasterServer(t *testing.T) {
 		}
 	}
 
-	c := ms.CompletedRequests(id)
+	c := ms.GetCompletedRequests(id)
 	sort.Sort(Int64Slice(c))
 	wantCompleted := []int64{0, 1, 2, 3}
 	if !reflect.DeepEqual(c, wantCompleted) {
