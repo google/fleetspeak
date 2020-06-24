@@ -98,10 +98,12 @@ var (
 		[]string{"message_type", "is_temp"},
 	)
 
-	messagesDropped = promauto.NewCounter(prometheus.CounterOpts{
+	messagesDropped = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_server_messages_dropped_total",
 		Help: "The total number of messages dropped by Fleetspeak server when too many messages for the sevices are being processed.",
-	})
+	},
+		[]string{"service", "message_type"},
+	)
 
 	clientPolls = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_server_client_polls_total",
@@ -147,7 +149,7 @@ func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, 
 }
 
 func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
-	messagesDropped.Inc()
+	messagesIngested.WithLabelValues(service, messageType).Inc()
 }
 
 func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
