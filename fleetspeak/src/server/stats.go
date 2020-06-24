@@ -91,20 +91,12 @@ var (
 		[]string{"message_type"},
 	)
 
-	messagesErrored = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_messages_errored_total",
-		Help: "The total number of message processings that returned an error (temporary, or permanent)",
-	})
-
-	messagesErroredTemp = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_messages_errored_temporary",
-		Help: "The total number of message processings that returned an error (temporary)",
-	})
-
-	messagesErroredPerm = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_messages_errored_permanent",
-		Help: "The total number of message processings that returned an error (permanent)",
-	})
+	messagesErrored = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_messages_errored",
+		Help: "The number of message processings that returned an error",
+	},
+		[]string{"message_type", "is_temp"},
+	)
 
 	messagesDropped = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_server_messages_dropped_total",
@@ -151,12 +143,7 @@ func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service
 }
 
 func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
-	messagesErrored.Inc()
-	if isTemp {
-		messagesErroredTemp.Inc()
-	} else {
-		messagesErroredPerm.Inc()
-	}
+	messagesProcessed.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
 func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
