@@ -72,10 +72,12 @@ var (
 		[]string{"backlogged", "source_service_name", "destination_service_name", "message_type"},
 	)
 
-	messagesSaved = promauto.NewCounter(prometheus.CounterOpts{
+	messagesSaved = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_saved_total",
 		Help: "The total number of messages saved by Fleetspeak server",
-	})
+	},
+		[]string{"service", "message_type", "for_client"},
+	)
 
 	messagesSavedSize = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_saved_payload_size",
@@ -138,7 +140,7 @@ func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Messa
 }
 
 func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
-	messagesSaved.Inc()
+	messagesSaved.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Inc()
 	messagesSavedSize.Add(float64(savedPayloadBytes))
 }
 
