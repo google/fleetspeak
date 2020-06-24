@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -62,23 +63,14 @@ func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb
 func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
 }
 
-
 var (
 	// Metric collectors for PrometheusStatsCollector struct
-	messagesIngested = promauto.NewCounter(prometheus.CounterOpts{
+	messagesIngested = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_ingested_total",
 		Help: "The total number of messages ingested by Fleetspeak server",
-	})
-
-	backlogMessagesFromDatastore = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_messages_ingested_backlog_messages_from_datastore",
-		Help: "The number of backlog messages received from datastore by Fleetspeak server",
-	})
-
-	messagesReceivedFromClient = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_messages_ingested_messages_received_from_client",
-		Help: "The number of messages received from a client by Fleetspeak server",
-	})
+	},
+		[]string{"backlogged", "source_service_name", "destination_service_name", "message_type"},
+	)
 
 	messagesSaved = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_saved_total",
@@ -142,12 +134,7 @@ var (
 type PrometheusStatsCollector struct{}
 
 func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
-	messagesIngested.Inc()
-	if backlogged {
-		backlogMessagesFromDatastore.Inc()
-	} else {
-		messagesReceivedFromClient.Inc()
-	}
+	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
 }
 
 func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
