@@ -84,10 +84,12 @@ var (
 		Help: "The total payload size of messages saved by Fleetspeak server (in bytes)",
 	})
 
-	messagesProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_messages_processed_total",
-		Help: "The total number of messages processed by Fleetspeak server",
-	})
+	messagesProcessed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_messages_processed",
+		Help: "The number of messages processed by Fleetspeak server",
+	},
+		[]string{"message_type"},
+	)
 
 	messagesErrored = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_server_messages_errored_total",
@@ -145,7 +147,7 @@ func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forC
 }
 
 func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
-	messagesProcessed.Inc()
+	messagesProcessed.WithLabelValues(messageType).Observe(end.Sub(start).Seconds())
 }
 
 func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
