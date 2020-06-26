@@ -15,15 +15,15 @@ var (
 )
 
 func run() error {
-	var startedClientID string
 	msPort := 6059
-	componentCmds, err := fleetspeaksetup.StartComponents(fleetspeaksetup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, &startedClientID, msPort)
+	var componentCmds setup.ComponentCmds
+	err := componentCmds.ConfigureAndStart(setup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort)
 	defer componentCmds.KillAll()
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
 	}
 
-	err = endtoendtests.RunTest(msPort, startedClientID)
+	err = endtoendtests.RunTest(msPort, componentCmds.StartedClientID)
 	if err != nil {
 		return fmt.Errorf("Failed to run tests: %v", err)
 	}

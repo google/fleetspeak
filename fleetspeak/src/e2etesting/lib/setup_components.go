@@ -1,4 +1,4 @@
-package fleetspeaksetup
+package setup
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 type ComponentCmds struct {
 	ServerCmd       *exec.Cmd
 	ClientCmd       *exec.Cmd
+	StartedClientID string
 	ServiceCmd      *exec.Cmd
 	MasterServerCmd *exec.Cmd
 }
@@ -239,7 +240,7 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysql
 	return nil
 }
 
-func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msPort int, startedClientID *string) error {
+func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msPort int) error {
 	// Start Master server
 	cc.MasterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", fsAdminPort))
 	startCommand(cc.MasterServerCmd)
@@ -258,12 +259,11 @@ func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msP
 	if err != nil {
 		return fmt.Errorf("No new clients have connected: %v", err)
 	}
+	cc.StartedClientID = clientID
 
-	*startedClientID = clientID
 	cc.ServiceCmd = exec.Command(
 		"python",
 		"frr_python/frr_server.py",
-		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
 	startCommand(cc.ServiceCmd)
@@ -271,25 +271,25 @@ func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msP
 	return nil
 }
 
-// StartComponents configure and start fleetspeak server, client, their services and FRR master server
-func StartComponents(mysqlCredentials MysqlCredentials, startedClientID *string, msPort int) (ComponentCmds, error) {
+// ConfigureAndStart configures and starts fleetspeak server, client, their services and FRR master server
+func (cc *ComponentCmds) ConfigureAndStart(mysqlCredentials MysqlCredentials, msPort int) error {
 	fsFrontendPort := 6062
 	fsAdminPort := 6061
 
 	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
-		return ComponentCmds{}, fmt.Errorf("Failed to create temporary dir: %v", err)
+		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
 	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort, mysqlCredentials)
 	if err != nil {
-		return ComponentCmds{}, fmt.Errorf("Failed to configure Fleetspeak: %v", err)
+		return fmt.Errorf("Failed to configure Fleetspeak: %v", err)
 	}
 
-	var cc ComponentCmds
-	err = cc.start(tempPath, fsFrontendPort, fsAdminPort, msPort, startedClientID)
+	err = cc.start(tempPath, fsFrontendPort, fsAdminPort, msPort)
 	if err != nil {
-		return cc, err
+		cc.KillAll()
+		return err
 	}
-	return cc, nil
+	return nil
 }
