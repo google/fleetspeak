@@ -1,9 +1,8 @@
-package main
+package setup
 
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	ptypes "github.com/golang/protobuf/ptypes"
@@ -25,29 +24,32 @@ import (
 	"time"
 )
 
-var (
-	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
-	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
-	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
-)
-
-type componentCmds struct {
-	serverCmd  *exec.Cmd
-	clientCmd  *exec.Cmd
-	serviceCmd *exec.Cmd
+// ComponentCmds contains exec.Cmds for Fleetspeak server, its service, client and master server
+type ComponentCmds struct {
+	ServerCmd       *exec.Cmd
+	ClientCmd       *exec.Cmd
+	StartedClientID string
+	ServiceCmd      *exec.Cmd
+	MasterServerCmd *exec.Cmd
 }
 
-func (cc *componentCmds) killAll() {
-	if cc.serviceCmd != nil {
-		cc.serviceCmd.Wait()
+// KillAll kills all running processes
+func (cc *ComponentCmds) KillAll() {
+	if cc.ServiceCmd != nil {
+		cc.ServiceCmd.Process.Kill()
+		cc.ServiceCmd.Wait()
 	}
-	if cc.serverCmd != nil {
-		cc.serverCmd.Process.Kill()
-		cc.serverCmd.Wait()
+	if cc.ServerCmd != nil {
+		cc.ServerCmd.Process.Kill()
+		cc.ServerCmd.Wait()
 	}
-	if cc.clientCmd != nil {
-		cc.clientCmd.Process.Kill()
-		cc.clientCmd.Wait()
+	if cc.ClientCmd != nil {
+		cc.ClientCmd.Process.Kill()
+		cc.ClientCmd.Wait()
+	}
+	if cc.MasterServerCmd != nil {
+		cc.MasterServerCmd.Process.Kill()
+		cc.MasterServerCmd.Wait()
 	}
 }
 
@@ -112,6 +114,7 @@ func getNewClientID(admin servicesPb.AdminClient, startTime time.Time) (string, 
 func waitForNewClientID(adminPort int, startTime time.Time) (string, error) {
 	adminAddr := fmt.Sprintf("localhost:%v", adminPort)
 	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
+	defer conn.Close()
 	if err != nil {
 		return "", fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
 	}
@@ -128,13 +131,20 @@ func waitForNewClientID(adminPort int, startTime time.Time) (string, error) {
 	return "", errors.New("No connected clients")
 }
 
-func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error {
+// MysqlCredentials contains username, password and database
+type MysqlCredentials struct {
+	Username string
+	Password string
+	Database string
+}
+
+func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysqlCredentials MysqlCredentials) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
 	config.ComponentsConfig = new(fcpb.Config)
 	config.ComponentsConfig.MysqlDataSourceName =
-		fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/%v", *mysqlUsername, *mysqlPassword, *mysqlDatabase)
+		fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/%v", mysqlCredentials.Username, mysqlCredentials.Password, mysqlCredentials.Database)
 
 	config.ComponentsConfig.HttpsConfig = new(fcpb.HttpsConfig)
 	config.ComponentsConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:6060")
@@ -189,7 +199,7 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 	}
 
 	// Client services configuration
-	clientServiceConf := spb.ClientServiceConfig{Name: "FRR_client", Factory: "Daemon"}
+	clientServiceConf := spb.ClientServiceConfig{Name: "FRR", Factory: "Daemon"}
 	var payload daemonservicePb.Config
 	payload.Argv = append(payload.Argv, "python", "frr_python/frr_client.py")
 	clientServiceConf.Config, err = ptypes.MarshalAny(&payload)
@@ -214,7 +224,7 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 	}
 
 	// Server services configuration
-	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR_server", Factory: "GRPC"}
+	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
 	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("localhost:%v", fsFrontendPort), Insecure: true}
 	serverServiceConf.Config, err = ptypes.MarshalAny(&grpcConfig)
 	if err != nil {
@@ -230,60 +240,56 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int) error
 	return nil
 }
 
-func (cc *componentCmds) start(tempPath string, fsFrontendPort, fsAdminPort int) error {
-	// Start server
-	cc.serverCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	startCommand(cc.serverCmd)
+func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msPort int) error {
+	// Start Master server
+	cc.MasterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", fsAdminPort))
+	startCommand(cc.MasterServerCmd)
 
+	// Start server
+	cc.ServerCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
+	startCommand(cc.ServerCmd)
 	serverStartTime := time.Now()
 
 	// Start client
-	cc.clientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	startCommand(cc.clientCmd)
+	cc.ClientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
+	startCommand(cc.ClientCmd)
 
 	// Get new client's id and start service in current process
 	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
 	if err != nil {
 		return fmt.Errorf("No new clients have connected: %v", err)
 	}
-	cc.serviceCmd = exec.Command(
+	cc.StartedClientID = clientID
+
+	cc.ServiceCmd = exec.Command(
 		"python",
 		"frr_python/frr_server.py",
-		fmt.Sprintf("--client_id=%v", clientID),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	startCommand(cc.serviceCmd)
+	startCommand(cc.ServiceCmd)
+
 	return nil
 }
 
-func run() error {
-	flag.Parse()
-
+// ConfigureAndStart configures and starts fleetspeak server, client, their services and FRR master server
+func (cc *ComponentCmds) ConfigureAndStart(mysqlCredentials MysqlCredentials, msPort int) error {
 	fsFrontendPort := 6062
 	fsAdminPort := 6061
+
 	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
 		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
-	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort)
+	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort, mysqlCredentials)
 	if err != nil {
 		return fmt.Errorf("Failed to configure Fleetspeak: %v", err)
 	}
 
-	var cc componentCmds
-	defer cc.killAll()
-	err = cc.start(tempPath, fsFrontendPort, fsAdminPort)
+	err = cc.start(tempPath, fsFrontendPort, fsAdminPort, msPort)
 	if err != nil {
+		cc.KillAll()
 		return err
 	}
 	return nil
-}
-
-func main() {
-	err := run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 }
