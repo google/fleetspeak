@@ -242,7 +242,7 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysql
 
 func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msPort int) error {
 	// Start Master server
-	cc.MasterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", fsAdminPort))
+	cc.MasterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", fsAdminPort))
 	startCommand(cc.MasterServerCmd)
 
 	// Start server
