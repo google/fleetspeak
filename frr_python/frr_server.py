@@ -8,6 +8,7 @@ import time
 import grpc
 
 from absl import app
+from absl import flags
 
 from fleetspeak.server_connector.connector import InsecureGRPCServiceClient
 # TODO(Alexandr-TS): Add setup.py to compile fleetspeak_frr protos.
@@ -16,8 +17,16 @@ from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2 import MessageIn
 from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2_grpc import MasterStub
 
 
-# TODO(Alexandr-TS): Make master server port passed in a flag.
-channel = grpc.insecure_channel('localhost:6059')
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string(
+    name="master_server_address",
+    default="localhost:6059",
+    help="Address of master server to forward clients' messages")
+
+
+FLAGS(["master_server_address"])
+channel = grpc.insecure_channel(FLAGS.master_server_address)
 stub = MasterStub(channel)
 
 def Listener(message, context):

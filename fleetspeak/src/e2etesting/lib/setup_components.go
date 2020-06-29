@@ -264,6 +264,7 @@ func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msP
 	cc.ServiceCmd = exec.Command(
 		"python",
 		"frr_python/frr_server.py",
+		fmt.Sprintf("--master_server_address=localhost:%v", msPort),
 		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
 		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
 	startCommand(cc.ServiceCmd)
