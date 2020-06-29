@@ -25,35 +25,37 @@ flags.DEFINE_string(
     help="Address of master server to forward clients' messages")
 
 
-FLAGS(["master_server_address"])
-channel = grpc.insecure_channel(FLAGS.master_server_address)
-stub = MasterStub(channel)
+class Listener:
+    """Connects to master server and processes messages from clients"""
 
-def Listener(message, context):
-    """Receives a message from a client, prints it and forwards to master server."""
+    def __init__(self):
+        channel = grpc.insecure_channel(FLAGS.master_server_address)
+        self.stub = MasterStub(channel)
 
-    del context  # Unused
+    def __call__(self, message, context):
+        del context  # Unused
 
-    if message.message_type != "TrafficResponse":
-        logging.info(f"Unknown message type: {message.message_type}")
-        return
+        if message.message_type != "TrafficResponse":
+            logging.info(f"Unknown message type: {message.message_type}")
+            return
 
-    response_data = TrafficResponseData()
-    message.data.Unpack(response_data)
-    logging.info(
-        f"RESPONSE - master_id: {response_data.master_id}, "
-        f"request_id: {response_data.request_id}, "
-        f"response_index: {response_data.response_index}, "
-        f"text: {response_data.data}")
+        response_data = TrafficResponseData()
+        message.data.Unpack(response_data)
+        logging.info(
+            f"RESPONSE - master_id: {response_data.master_id}, "
+            f"request_id: {response_data.request_id}, "
+            f"response_index: {response_data.response_index}, "
+            f"text: {response_data.data}")
 
-    stub.RecordTrafficResponse(MessageInfo(client_id=message.source.client_id, data=response_data))
+        self.stub.RecordTrafficResponse(
+            MessageInfo(client_id=message.source.client_id, data=response_data))
 
 
 def main(argv=None):
     del argv  # Unused.
 
     service_client = InsecureGRPCServiceClient("FRR")
-    service_client.Listen(Listener)
+    service_client.Listen(Listener())
 
     while True:
         time.sleep(1)
