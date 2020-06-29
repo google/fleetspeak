@@ -8,6 +8,7 @@ import time
 import grpc
 
 from absl import app
+from absl import flags
 
 from fleetspeak.server_connector.connector import InsecureGRPCServiceClient
 # TODO(Alexandr-TS): Add setup.py to compile fleetspeak_frr protos.
@@ -16,35 +17,45 @@ from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2 import MessageIn
 from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2_grpc import MasterStub
 
 
-# TODO(Alexandr-TS): Make master server port passed in a flag.
-channel = grpc.insecure_channel('localhost:6059')
-stub = MasterStub(channel)
+FLAGS = flags.FLAGS
 
-def Listener(message, context):
-    """Receives a message from a client, prints it and forwards to master server."""
+flags.DEFINE_string(
+    name="master_server_address",
+    default="localhost:6059",
+    help="Address of master server to forward clients' messages")
 
-    del context  # Unused
 
-    if message.message_type != "TrafficResponse":
-        logging.info(f"Unknown message type: {message.message_type}")
-        return
+class Listener:
+    """Connects to master server and processes messages from clients"""
 
-    response_data = TrafficResponseData()
-    message.data.Unpack(response_data)
-    logging.info(
-        f"RESPONSE - master_id: {response_data.master_id}, "
-        f"request_id: {response_data.request_id}, "
-        f"response_index: {response_data.response_index}, "
-        f"text: {response_data.data}")
+    def __init__(self):
+        channel = grpc.insecure_channel(FLAGS.master_server_address)
+        self.stub = MasterStub(channel)
 
-    stub.RecordTrafficResponse(MessageInfo(client_id=message.source.client_id, data=response_data))
+    def __call__(self, message, context):
+        del context  # Unused
+
+        if message.message_type != "TrafficResponse":
+            logging.info(f"Unknown message type: {message.message_type}")
+            return
+
+        response_data = TrafficResponseData()
+        message.data.Unpack(response_data)
+        logging.info(
+            f"RESPONSE - master_id: {response_data.master_id}, "
+            f"request_id: {response_data.request_id}, "
+            f"response_index: {response_data.response_index}, "
+            f"text: {response_data.data}")
+
+        self.stub.RecordTrafficResponse(
+            MessageInfo(client_id=message.source.client_id, data=response_data))
 
 
 def main(argv=None):
     del argv  # Unused.
 
     service_client = InsecureGRPCServiceClient("FRR")
-    service_client.Listen(Listener)
+    service_client.Listen(Listener())
 
     while True:
         time.sleep(1)
