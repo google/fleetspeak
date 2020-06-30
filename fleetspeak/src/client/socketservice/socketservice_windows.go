@@ -22,6 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
+	log "github.com/golang/glog"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice/checks"
 	"github.com/google/fleetspeak/fleetspeak/src/windows/wnixsocket"
 	"github.com/hectane/go-acl"
@@ -32,10 +34,12 @@ func listen(socketPath string) (net.Listener, error) {
 
 	// Ensure that the parent directory exists. wnixsocket.Listen ensures the
 	// socket file exists and is truncated.
-	if _, err := os.Lstat(parent); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("os.Lstat failed: %v", err)
-		}
+	stat, err := os.Lstat(parent)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("os.Lstat failed: %v", err)
+	}
+	if err == nil {
+		log.Infof("wnix socket parent %v already exists (IsDir: %v)", parent, stat.Mode().IsDir())
 	}
 
 	if err := os.MkdirAll(parent, 0); err != nil {
