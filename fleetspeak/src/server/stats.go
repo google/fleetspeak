@@ -140,8 +140,12 @@ var (
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
+	datastoreOperationsCompleted = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_datastore_operations_completed",
 		Help: "The total number of datastore operations completed.",
-	})
+	},
+		[]string{"operation", "errored"},
+	)
 
 	resourcesUsageDataReceived = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_total",
@@ -189,7 +193,9 @@ func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
 }
 
 func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
-	datastoreOperationsCompleted.Inc()
+	datastoreOperationsCompleted.WithLabelValues(operation, strconv.FormatBool(result != nil)).Observe(end.Sub(start).Seconds())
+}
+
 }
 
 func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
