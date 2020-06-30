@@ -225,11 +225,11 @@ func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service
 }
 
 func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
-	messagesProcessed.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
+	messagesErrored.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
 func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
-	messagesIngested.WithLabelValues(service, messageType).Inc()
+	messagesDropped.WithLabelValues(service, messageType).Inc()
 }
 
 func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
