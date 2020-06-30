@@ -18,7 +18,6 @@ package checks
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -125,7 +124,7 @@ func checkOwnership(filepath string) error {
 	// gets assigned; it's not clear whether we actually want to do this.
 
 	if fg != cg {
-		return errors.New("unexpected group SID")
+		return fmt.Errorf("unexpected group SID (got %v want %v)", fg, cg)
 	}
 
 	return nil
