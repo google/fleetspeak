@@ -198,9 +198,12 @@ var (
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
+	killNotificationsReceived = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_server_kill_notifications_received_total",
 		Help: "The total number of times a kill notification is received from a client.",
-	})
+	},
+		[]string{"client_data_labels", "blacklisted", "kill_notification_service_name", "kill_notification_reason"},
+	)
 )
 
 // A PrometheusStatsCollector is an implementation of a Collector interface.
@@ -266,7 +269,8 @@ func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, r
 }
 
 func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
-	killNotificationsReceived.Inc()
+	clientDataLabels := getClientDataLabelsConcatenated(cd)
+	killNotificationsReceived.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), kn.Service, kn.Reason.String()).Inc()
 }
 
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
