@@ -107,6 +107,13 @@ var (
 		[]string{"service", "message_type"},
 	)
 
+	clientPolls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "fleetspeak_server_client_polls_total",
+		Help: "The total number of times a client polls the Fleetspeak server.",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
+
 	clientPollsOpTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_client_polls_operation_time_latency",
 		Help: "The latency distribution of times a client polls the Fleetspeak server (based on when the operation started and ended).",
@@ -233,6 +240,7 @@ func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
 }
 
 func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
+	clientPolls.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Inc()
 	clientPollsOpTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.End.Sub(info.Start).Seconds())
 	clientPollsReadTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.ReadTime.Seconds())
 	clientPollsWriteTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.WriteTime.Seconds())
