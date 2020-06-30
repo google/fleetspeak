@@ -105,13 +105,41 @@ var (
 		[]string{"service", "message_type"},
 	)
 
-	clientPolls = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_client_polls_total",
-		Help: "The total number of times a client polls the Fleetspeak server.",
-	})
+	clientPollsOpTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_operation_time",
+		Help: "The total number of times a client polls the Fleetspeak server (based on when the operation started and ended).",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
 
-	datastoreOperationsCompleted = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fleetspeak_server_datastore_operations_completed_total",
+	clientPollsReadTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_read_time",
+		Help: "The total number of times a client polls the Fleetspeak server (based on the time spent reading messages).",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
+
+	clientPollsWriteTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_write_time",
+		Help: "The total number of times a client polls the Fleetspeak server (based on the time spent writing messages).",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
+
+	clientPollsReadBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_read_bytes",
+		Help: "The total number of times a client polls the Fleetspeak server (based on Megabytes read).",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
+
+	clientPollsWriteBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_write_bytes",
+		Help: "The total number of times a client polls the Fleetspeak server (based on Megabytes written).",
+	},
+		[]string{"http_status_code", "poll_type", "cache_hit"},
+	)
+
 		Help: "The total number of datastore operations completed.",
 	})
 
@@ -153,7 +181,11 @@ func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
 }
 
 func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
-	clientPolls.Inc()
+	clientPollsOpTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.End.Sub(info.Start).Seconds())
+	clientPollsReadTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.ReadTime.Seconds())
+	clientPollsWriteTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.WriteTime.Seconds())
+	clientPollsReadBytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes / 1000000))
+	clientPollsWriteBytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes / 1000000))
 }
 
 func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
