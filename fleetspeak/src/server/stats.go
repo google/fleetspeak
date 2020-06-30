@@ -17,7 +17,9 @@ package server
 import (
 	"context"
 	"io"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -147,12 +149,55 @@ var (
 		[]string{"operation", "errored"},
 	)
 
-	resourcesUsageDataReceived = promauto.NewCounter(prometheus.CounterOpts{
+	resourcesUsageDataReceivedCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_total",
 		Help: "The total number of times a client-resource-usage proto is received.",
-	})
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
 
-	killNotificationsReceived = promauto.NewCounter(prometheus.CounterOpts{
+	resourcesUsageDataReceivedByMeanUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_mean_user_cpu_rate",
+		Help: "The total number of times a client-resource-usage proto is received (by the mean user CPU rate).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
+	resourcesUsageDataReceivedByMaxUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_max_user_cpu_rate",
+		Help: "The total number of times a client-resource-usage proto is received (by the max user CPU rate).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
+	resourcesUsageDataReceivedByMeanSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_mean_system_cpu_rate",
+		Help: "The total number of times a client-resource-usage proto is received (by the mean system CPU rate).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
+	resourcesUsageDataReceivedByMaxSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_max_system_cpu_rate",
+		Help: "The total number of times a client-resource-usage proto is received (by the max system CPU rate).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
+	resourcesUsageDataReceivedByMeanResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_mean_resident_memory",
+		Help: "The total number of times a client-resource-usage proto is received (by the mean resident memory).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
+	resourcesUsageDataReceivedByMaxResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_resource_usage_data_received_max_resident_memory",
+		Help: "The total number of times a client-resource-usage proto is received (by the max resident memory).",
+	},
+		[]string{"client_data_labels", "blacklisted", "scope", "version"},
+	)
+
 		Name: "fleetspeak_server_kill_notifications_received_total",
 		Help: "The total number of times a kill notification is received from a client.",
 	})
@@ -196,10 +241,28 @@ func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, opera
 	datastoreOperationsCompleted.WithLabelValues(operation, strconv.FormatBool(result != nil)).Observe(end.Sub(start).Seconds())
 }
 
+func getClientDataLabelsConcatenated(cd *db.ClientData) string {
+	var clientDataLabels []string
+	for _, labelStruct := range cd.Labels {
+		clientDataLabels = append(clientDataLabels, labelStruct.GetLabel())
+	}
+	sort.Strings(clientDataLabels)
+	return strings.Join(clientDataLabels[:], ",")
 }
 
 func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
-	resourcesUsageDataReceived.Inc()
+	clientDataLabels := getClientDataLabelsConcatenated(cd)
+
+	// Counter
+	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Inc()
+
+	// Historgrams
+	resourcesUsageDataReceivedByMeanUserCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
+	resourcesUsageDataReceivedByMaxUserCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
+	resourcesUsageDataReceivedByMeanSystemCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
+	resourcesUsageDataReceivedByMaxSystemCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
+	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanResidentMemory())
+	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
 }
 
 func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
