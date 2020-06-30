@@ -163,28 +163,28 @@ var (
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
-	resourcesUsageDataReceivedByMeanUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	resourcesUsageDataReceivedByMeanUserCPURate = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_mean_user_cpu_rate_distribution",
 		Help: "The distribution of times a client-resource-usage proto is received (based on mean user CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
-	resourcesUsageDataReceivedByMaxUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	resourcesUsageDataReceivedByMaxUserCPURate = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_max_user_cpu_rate_distribution",
 		Help: "The distribution of times a client-resource-usage proto is received (based on max user CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
-	resourcesUsageDataReceivedByMeanSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	resourcesUsageDataReceivedByMeanSystemCPURate = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_mean_system_cpu_rate_distribution",
 		Help: "The distribution of times a client-resource-usage proto is received (based on mean system CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
-	resourcesUsageDataReceivedByMaxSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	resourcesUsageDataReceivedByMaxSystemCPURate = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_max_system_cpu_rate",
 		Help: "The total number of times a client-resource-usage proto is received (based on max system CPU rate).",
 	},
@@ -268,10 +268,10 @@ func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, r
 	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Inc()
 
 	// Historgrams
-	resourcesUsageDataReceivedByMeanUserCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
-	resourcesUsageDataReceivedByMaxUserCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
-	resourcesUsageDataReceivedByMeanSystemCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
-	resourcesUsageDataReceivedByMaxSystemCpuRate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
+	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
+	resourcesUsageDataReceivedByMaxUserCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
+	resourcesUsageDataReceivedByMeanSystemCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
+	resourcesUsageDataReceivedByMaxSystemCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
 	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanResidentMemory())
 	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
 }
