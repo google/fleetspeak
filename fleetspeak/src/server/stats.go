@@ -87,15 +87,15 @@ var (
 	})
 
 	messagesProcessed = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_messages_processed",
-		Help: "The number of messages processed by Fleetspeak server",
+		Name: "fleetspeak_server_messages_processed_latency",
+		Help: "The latency distribution of messages processed by Fleetspeak server",
 	},
 		[]string{"message_type"},
 	)
 
 	messagesErrored = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_messages_errored",
-		Help: "The number of message processings that returned an error",
+		Name: "fleetspeak_server_messages_errored_latency",
+		Help: "The latency distribution of message processings that returned an error",
 	},
 		[]string{"message_type", "is_temp"},
 	)
@@ -108,43 +108,43 @@ var (
 	)
 
 	clientPollsOpTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_operation_time",
-		Help: "The total number of times a client polls the Fleetspeak server (based on when the operation started and ended).",
+		Name: "fleetspeak_server_client_polls_operation_time_latency",
+		Help: "The latency distribution of times a client polls the Fleetspeak server (based on when the operation started and ended).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
 	clientPollsReadTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_read_time",
-		Help: "The total number of times a client polls the Fleetspeak server (based on the time spent reading messages).",
+		Name: "fleetspeak_server_client_polls_read_time_latency",
+		Help: "The latency distribution of times a client polls the Fleetspeak server (based on the time spent reading messages).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
 	clientPollsWriteTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_write_time",
-		Help: "The total number of times a client polls the Fleetspeak server (based on the time spent writing messages).",
+		Name: "fleetspeak_server_client_polls_write_time_latency",
+		Help: "The latency distribution of times a client polls the Fleetspeak server (based on the time spent writing messages).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
 	clientPollsReadBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_read_bytes",
-		Help: "The total number of times a client polls the Fleetspeak server (based on Megabytes read).",
+		Name: "fleetspeak_server_client_polls_read_bytes_size_distribution",
+		Help: "The size distribution of times a client polls the Fleetspeak server (based on Megabytes read).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
 	clientPollsWriteBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_write_bytes",
-		Help: "The total number of times a client polls the Fleetspeak server (based on Megabytes written).",
+		Name: "fleetspeak_server_client_polls_write_bytes_size_distribution",
+		Help: "The size distribution of times a client polls the Fleetspeak server (based on Megabytes written).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
 	datastoreOperationsCompleted = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_datastore_operations_completed",
-		Help: "The total number of datastore operations completed.",
+		Name: "fleetspeak_server_datastore_operations_completed_latency",
+		Help: "The latency distribution of datastore operations completed.",
 	},
 		[]string{"operation", "errored"},
 	)
@@ -157,43 +157,43 @@ var (
 	)
 
 	resourcesUsageDataReceivedByMeanUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_mean_user_cpu_rate",
-		Help: "The total number of times a client-resource-usage proto is received (by the mean user CPU rate).",
+		Name: "fleetspeak_server_resource_usage_data_received_mean_user_cpu_rate_distribution",
+		Help: "The distribution of times a client-resource-usage proto is received (based on mean user CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMaxUserCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_max_user_cpu_rate",
-		Help: "The total number of times a client-resource-usage proto is received (by the max user CPU rate).",
+		Name: "fleetspeak_server_resource_usage_data_received_max_user_cpu_rate_distribution",
+		Help: "The distribution of times a client-resource-usage proto is received (based on max user CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMeanSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_mean_system_cpu_rate",
-		Help: "The total number of times a client-resource-usage proto is received (by the mean system CPU rate).",
+		Name: "fleetspeak_server_resource_usage_data_received_mean_system_cpu_rate_distribution",
+		Help: "The distribution of times a client-resource-usage proto is received (based on mean system CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMaxSystemCpuRate = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_resource_usage_data_received_max_system_cpu_rate",
-		Help: "The total number of times a client-resource-usage proto is received (by the max system CPU rate).",
+		Help: "The total number of times a client-resource-usage proto is received (based on max system CPU rate).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMeanResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_mean_resident_memory",
-		Help: "The total number of times a client-resource-usage proto is received (by the mean resident memory).",
+		Name: "fleetspeak_server_resource_usage_data_received_mean_resident_memory_distribution",
+		Help: "The distribution of times a client-resource-usage proto is received (based on mean resident memory).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMaxResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_max_resident_memory",
-		Help: "The total number of times a client-resource-usage proto is received (by the max resident memory).",
+		Name: "fleetspeak_server_resource_usage_data_received_max_resident_memory_distribution",
+		Help: "The distribution of times a client-resource-usage proto is received (based on max resident memory).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
