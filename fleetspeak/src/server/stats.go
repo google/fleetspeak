@@ -246,8 +246,8 @@ func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
 	clientPollsOpTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.End.Sub(info.Start).Seconds())
 	clientPollsReadTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.ReadTime.Seconds())
 	clientPollsWriteTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.WriteTime.Seconds())
-	clientPollsReadMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes / 1000000))
-	clientPollsWriteMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes / 1000000))
+	clientPollsReadMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes) / 1000000.0)
+	clientPollsWriteMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes) / 1000000.0)
 }
 
 func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
