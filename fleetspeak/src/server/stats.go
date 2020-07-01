@@ -137,15 +137,15 @@ var (
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
-	clientPollsReadBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_read_bytes_size_distribution",
+	clientPollsReadMegabytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_read_megabytes_size_distribution",
 		Help: "The size distribution of times a client polls the Fleetspeak server (based on Megabytes read).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
 	)
 
-	clientPollsWriteBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_client_polls_write_bytes_size_distribution",
+	clientPollsWriteMegabytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fleetspeak_server_client_polls_write_megabytes_size_distribution",
 		Help: "The size distribution of times a client polls the Fleetspeak server (based on Megabytes written).",
 	},
 		[]string{"http_status_code", "poll_type", "cache_hit"},
@@ -246,8 +246,8 @@ func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
 	clientPollsOpTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.End.Sub(info.Start).Seconds())
 	clientPollsReadTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.ReadTime.Seconds())
 	clientPollsWriteTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.WriteTime.Seconds())
-	clientPollsReadBytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes / 1000000))
-	clientPollsWriteBytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes / 1000000))
+	clientPollsReadMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes / 1000000))
+	clientPollsWriteMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes / 1000000))
 }
 
 func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
