@@ -242,12 +242,19 @@ func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
 }
 
 func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
-	clientPolls.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Inc()
-	clientPollsOpTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.End.Sub(info.Start).Seconds())
-	clientPollsReadTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.ReadTime.Seconds())
-	clientPollsWriteTime.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(info.WriteTime.Seconds())
-	clientPollsReadMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.ReadBytes) / 1000000.0)
-	clientPollsWriteMegabytes.WithLabelValues(strconv.Itoa(info.Status), info.Type.String(), strconv.FormatBool(info.CacheHit)).Observe(float64(info.WriteBytes) / 1000000.0)
+	httpStatusCode := strconv.Itoa(info.Status)
+	pollType := info.Type.String()
+	cacheHit := strconv.FormatBool(info.CacheHit)
+
+	// CounterVec
+	clientPolls.WithLabelValues(httpStatusCode, pollType, cacheHit).Inc()
+
+	// HistogramVecs
+	clientPollsOpTime.WithLabelValues(httpStatusCode, pollType, cacheHit).Observe(info.End.Sub(info.Start).Seconds())
+	clientPollsReadTime.WithLabelValues(httpStatusCode, pollType, cacheHit).Observe(info.ReadTime.Seconds())
+	clientPollsWriteTime.WithLabelValues(httpStatusCode, pollType, cacheHit).Observe(info.WriteTime.Seconds())
+	clientPollsReadMegabytes.WithLabelValues(httpStatusCode, pollType, cacheHit).Observe(float64(info.ReadBytes) / 1000000.0)
+	clientPollsWriteMegabytes.WithLabelValues(httpStatusCode, pollType, cacheHit).Observe(float64(info.WriteBytes) / 1000000.0)
 }
 
 func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
@@ -265,17 +272,20 @@ func getClientDataLabelsConcatenated(cd *db.ClientData) string {
 
 func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
+	blacklisted := strconv.FormatBool(cd.Blacklisted)
+	scope := rud.Scope
+	version := rud.Version
 
-	// Counter
-	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Inc()
+	// CounterVec
+	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), scope, rud.Version).Inc()
 
-	// Historgrams
-	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
-	resourcesUsageDataReceivedByMaxUserCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
-	resourcesUsageDataReceivedByMeanSystemCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
-	resourcesUsageDataReceivedByMaxSystemCPURate.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
-	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(rud.ResourceUsage.GetMeanResidentMemory())
-	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), rud.Scope, rud.Version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
+	// HistorgramVecs
+	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
+	resourcesUsageDataReceivedByMaxUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
+	resourcesUsageDataReceivedByMeanSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
+	resourcesUsageDataReceivedByMaxSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
+	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanResidentMemory())
+	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
 }
 
 func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
