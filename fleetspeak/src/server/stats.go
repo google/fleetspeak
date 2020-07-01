@@ -82,7 +82,7 @@ var (
 	)
 
 	messagesSavedSize = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "fleetspeak_messages_saved_payload_size",
+		Name: "fleetspeak_messages_saved_payload_bytes_size",
 		Help: "The total payload size of messages saved by Fleetspeak server (in bytes)",
 	},
 		[]string{"service", "message_type", "for_client"},
@@ -194,14 +194,14 @@ var (
 	)
 
 	resourcesUsageDataReceivedByMeanResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_mean_resident_memory_distribution",
+		Name: "fleetspeak_server_resource_usage_data_received_mean_resident_memory_bytes_distribution",
 		Help: "The distribution of times a client-resource-usage proto is received (based on mean resident memory).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
 	)
 
 	resourcesUsageDataReceivedByMaxResidentMemory = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fleetspeak_server_resource_usage_data_received_max_resident_memory_distribution",
+		Name: "fleetspeak_server_resource_usage_data_received_max_resident_memory_bytes_distribution",
 		Help: "The distribution of times a client-resource-usage proto is received (based on max resident memory).",
 	},
 		[]string{"client_data_labels", "blacklisted", "scope", "version"},
