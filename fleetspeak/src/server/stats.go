@@ -71,7 +71,7 @@ var (
 		Name: "fleetspeak_messages_ingested_total",
 		Help: "The total number of messages ingested by Fleetspeak server",
 	},
-		[]string{"backlogged", "source_service_name", "destination_service_name", "message_type"},
+		[]string{"backlogged", "source_service", "destination_service", "message_type"},
 	)
 
 	messagesSaved = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -211,7 +211,7 @@ var (
 		Name: "fleetspeak_server_kill_notifications_received_total",
 		Help: "The total number of times a kill notification is received from a client.",
 	},
-		[]string{"client_data_labels", "blacklisted", "kill_notification_service_name", "kill_notification_reason"},
+		[]string{"client_data_labels", "blacklisted", "service", "reason"},
 	)
 )
 
