@@ -38,7 +38,7 @@ type noopStatsCollector struct{}
 func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int, isProcessed bool) {
 }
 
 func (s noopStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
@@ -150,7 +150,7 @@ func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Messa
 	}
 }
 
-func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int, isProcessed bool) {
 	messagesSaved.Inc()
 	messagesSavedSize.Add(float64(savedPayloadBytes))
 }

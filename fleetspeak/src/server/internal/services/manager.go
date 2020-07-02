@@ -275,7 +275,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 		if m.Data != nil {
 			s = len(m.Data.TypeUrl) + len(m.Data.Value)
 		}
-		c.stats.MessageSaved(m.Destination.ServiceName, m.MessageType, false, s)
+		c.stats.MessageSaved(m.Destination.ServiceName, m.MessageType, false, s, m.Data == nil)
 	}
 	ctx2, fin2 := context.WithTimeout(ctx, 30*time.Second)
 	defer fin2()
