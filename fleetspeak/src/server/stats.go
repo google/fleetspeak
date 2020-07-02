@@ -92,7 +92,7 @@ var (
 		Name: "fleetspeak_server_messages_processed_latency",
 		Help: "The latency distribution of messages processed by Fleetspeak server",
 	},
-		[]string{"message_type"},
+		[]string{"message_type", "service"},
 	)
 
 	messagesErrored = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -230,7 +230,7 @@ func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forC
 }
 
 func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
-	messagesProcessed.WithLabelValues(messageType).Observe(end.Sub(start).Seconds())
+	messagesProcessed.WithLabelValues(messageType, service).Observe(end.Sub(start).Seconds())
 }
 
 func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
