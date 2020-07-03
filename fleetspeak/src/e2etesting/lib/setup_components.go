@@ -112,7 +112,7 @@ func getNewClientIDs(admin servicesPb.AdminClient, startTime time.Time) ([]strin
 	return newClients, nil
 }
 
-func waitForNewClientID(adminPort int, startTime time.Time, numClients int) ([]string, error) {
+func waitForNewClientIDs(adminPort int, startTime time.Time, numClients int) ([]string, error) {
 	adminAddr := fmt.Sprintf("localhost:%v", adminPort)
 	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
 	defer conn.Close()
@@ -145,7 +145,7 @@ type MysqlCredentials struct {
 	Database string
 }
 
-func buildBaseConfiguration(tempPath string, mysqlCredentials MysqlCredentials) error {
+func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
@@ -163,16 +163,16 @@ func buildBaseConfiguration(tempPath string, mysqlCredentials MysqlCredentials) 
 	config.PublicHostPort =
 		append(config.PublicHostPort, config.ComponentsConfig.HttpsConfig.ListenAddress)
 
-	config.ServerComponentConfigurationFile = path.Join(tempPath, "server.config")
-	config.TrustedCertFile = path.Join(tempPath, "trusted_cert.pem")
-	config.TrustedCertKeyFile = path.Join(tempPath, "trusted_cert_key.pem")
-	config.ServerCertFile = path.Join(tempPath, "server_cert.pem")
-	config.ServerCertKeyFile = path.Join(tempPath, "server_cert_key.pem")
-	config.LinuxClientConfigurationFile = path.Join(tempPath, "linux_client.config")
-	config.WindowsClientConfigurationFile = path.Join(tempPath, "windows_client.config")
-	config.DarwinClientConfigurationFile = path.Join(tempPath, "darwin_client.config")
+	config.ServerComponentConfigurationFile = path.Join(configDir, "server.config")
+	config.TrustedCertFile = path.Join(configDir, "trusted_cert.pem")
+	config.TrustedCertKeyFile = path.Join(configDir, "trusted_cert_key.pem")
+	config.ServerCertFile = path.Join(configDir, "server_cert.pem")
+	config.ServerCertKeyFile = path.Join(configDir, "server_cert_key.pem")
+	config.LinuxClientConfigurationFile = path.Join(configDir, "linux_client.config")
+	config.WindowsClientConfigurationFile = path.Join(configDir, "windows_client.config")
+	config.DarwinClientConfigurationFile = path.Join(configDir, "darwin_client.config")
 
-	builtConfiguratorConfigPath := path.Join(tempPath, "configurator.config")
+	builtConfiguratorConfigPath := path.Join(configDir, "configurator.config")
 	err := ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write configurator file: %v", err)
@@ -192,28 +192,28 @@ func buildBaseConfiguration(tempPath string, mysqlCredentials MysqlCredentials) 
 	if err != nil {
 		return fmt.Errorf("Failed to marshal client service configuration: %v", err)
 	}
-	err = os.Mkdir(path.Join(tempPath, "textservices"), 0777)
+	err = os.Mkdir(path.Join(configDir, "textservices"), 0777)
 	if err != nil {
 		return fmt.Errorf("Unable to create textservices directory: %v", err)
 	}
-	err = os.Mkdir(path.Join(tempPath, "services"), 0777)
+	err = os.Mkdir(path.Join(configDir, "services"), 0777)
 	if err != nil {
 		return fmt.Errorf("Unable to create services directory: %v", err)
 	}
-	_, err = os.Create(path.Join(tempPath, "communicator.txt"))
+	_, err = os.Create(path.Join(configDir, "communicator.txt"))
 	if err != nil {
 		return fmt.Errorf("Unable to create communicator.txt: %v", err)
 	}
-	err = ioutil.WriteFile(path.Join(tempPath, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConfig)), 0644)
+	err = ioutil.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConfig)), 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
 	}
 	return nil
 }
 
-func configureFleetspeakServer(tempPath string, fsFrontendPort, fsHTTPSListenPort, fsAdminPort int, serverConfigPath, serverServicesConfigPath string) error {
+func modifyFleetspeakServerConfig(configDir string, fsFrontendPort, fsHTTPSListenPort, fsAdminPort int, newServerConfigPath, newServerServicesConfigPath string) error {
 	// Update server addresses
-	serverBaseConfigurationPath := path.Join(tempPath, "server.config")
+	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
 	var serverConfig fcpb.Config
 	serverConfigData, err := ioutil.ReadFile(serverBaseConfigurationPath)
@@ -226,7 +226,7 @@ func configureFleetspeakServer(tempPath string, fsFrontendPort, fsHTTPSListenPor
 	}
 	serverConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsHTTPSListenPort)
 	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsAdminPort)
-	err = ioutil.WriteFile(serverConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
+	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
 
 	// Server services configuration
 	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
@@ -237,15 +237,15 @@ func configureFleetspeakServer(tempPath string, fsFrontendPort, fsHTTPSListenPor
 	}
 	serverServiceConf.Config = serviceConfig
 	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: &duration.Duration{Seconds: 1}}
-	err = ioutil.WriteFile(serverServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
+	err = ioutil.WriteFile(newServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write server.services.config: %v", err)
 	}
 	return nil
 }
 
-func configureFleetspeakClient(tempPath string, httpsListenPort int, linuxConfigPath, stateFilePath string) error {
-	linuxBaseConfigPath := path.Join(tempPath, "linux_client.config")
+func modifyFleetspeakClientConfig(configDir string, httpsListenPort int, newLinuxConfigPath, newStateFilePath string) error {
+	linuxBaseConfigPath := path.Join(configDir, "linux_client.config")
 
 	var clientConfig clientConfigPb.Config
 	clientConfigData, err := ioutil.ReadFile(linuxBaseConfigPath)
@@ -256,14 +256,14 @@ func configureFleetspeakClient(tempPath string, httpsListenPort int, linuxConfig
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal clientConfigData: %v", err)
 	}
-	clientConfig.GetFilesystemHandler().ConfigurationDirectory = tempPath
-	clientConfig.GetFilesystemHandler().StateFile = stateFilePath
+	clientConfig.GetFilesystemHandler().ConfigurationDirectory = configDir
+	clientConfig.GetFilesystemHandler().StateFile = newStateFilePath
 	clientConfig.Server = []string{fmt.Sprintf("localhost:%v", httpsListenPort)}
 	_, err = os.Create(clientConfig.GetFilesystemHandler().StateFile)
 	if err != nil {
 		return fmt.Errorf("Failed to create client state file: %v", err)
 	}
-	err = ioutil.WriteFile(linuxConfigPath, []byte(proto.MarshalTextString(&clientConfig)), 0644)
+	err = ioutil.WriteFile(newLinuxConfigPath, []byte(proto.MarshalTextString(&clientConfig)), 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to update LinuxClientConfigurationFile: %v", err)
 	}
@@ -271,7 +271,7 @@ func configureFleetspeakClient(tempPath string, httpsListenPort int, linuxConfig
 	return nil
 }
 
-func (cc *ComponentsInfo) start(tempPath string, msPort int, numServers, numClients int) error {
+func (cc *ComponentsInfo) start(configDir string, msPort int, numServers, numClients int) error {
 	firstAdminPort := 6060
 
 	// Start Master server
@@ -283,23 +283,23 @@ func (cc *ComponentsInfo) start(tempPath string, msPort int, numServers, numClie
 		adminPort := firstAdminPort + i*3
 		httpsListenPort := adminPort + 1
 		frontendPort := adminPort + 2
-		cc.servers = append(cc.servers, serverInfo{httpsListenPort: httpsListenPort})
-		serverConfigPath := path.Join(tempPath, fmt.Sprintf("server%v.config", i))
-		serverServicesConfigPath := path.Join(tempPath, fmt.Sprintf("server%v.services.config", i))
-		err := configureFleetspeakServer(tempPath, frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
+		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
+		err := modifyFleetspeakServerConfig(configDir, frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
-		cc.servers[len(cc.servers)-1].serverCmd = exec.Command("server", "-logtostderr", "-components_config", serverConfigPath, "-services_config", serverServicesConfigPath)
-		startCommand(cc.servers[len(cc.servers)-1].serverCmd)
 
-		cc.servers[len(cc.servers)-1].serviceCmd = exec.Command(
+		serverCmd := exec.Command("server", "-logtostderr", "-components_config", serverConfigPath, "-services_config", serverServicesConfigPath)
+		serviceCmd := exec.Command(
 			"python",
 			"frr_python/frr_server.py",
 			fmt.Sprintf("--master_server_address=localhost:%v", msPort),
 			fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", frontendPort),
 			fmt.Sprintf("--fleetspeak_server=localhost:%v", adminPort))
-		startCommand(cc.servers[len(cc.servers)-1].serviceCmd)
+		cc.servers = append(cc.servers, serverInfo{httpsListenPort: httpsListenPort, serverCmd: serverCmd, serviceCmd: serviceCmd})
+		startCommand(serverCmd)
+		startCommand(serviceCmd)
 	}
 
 	serversStartTime := time.Now()
@@ -307,17 +307,18 @@ func (cc *ComponentsInfo) start(tempPath string, msPort int, numServers, numClie
 	// Start clients
 	for i := 0; i < numClients; i++ {
 		httpsServerPort := cc.servers[i%numServers].httpsListenPort
-		linuxConfigPath := path.Join(tempPath, fmt.Sprintf("linux_client%v.config", i))
-		stateFilePath := path.Join(tempPath, fmt.Sprintf("client%v.state", i))
-		err := configureFleetspeakClient(tempPath, httpsServerPort, linuxConfigPath, stateFilePath)
+		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
+		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
+		err := modifyFleetspeakClientConfig(configDir, httpsServerPort, linuxConfigPath, stateFilePath)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS client configurations: %v", err)
 		}
-		cc.clientCmds = append(cc.clientCmds, exec.Command("client", "-logtostderr", "-config", linuxConfigPath))
-		startCommand(cc.clientCmds[len(cc.clientCmds)-1])
+		cmd := exec.Command("client", "-logtostderr", "-config", linuxConfigPath)
+		cc.clientCmds = append(cc.clientCmds, cmd)
+		startCommand(cmd)
 	}
 
-	newIDs, err := waitForNewClientID(firstAdminPort, serversStartTime, numClients)
+	newIDs, err := waitForNewClientIDs(firstAdminPort, serversStartTime, numClients)
 	if err != nil {
 		return fmt.Errorf("Error in waiting for clients: %v", err)
 	}
@@ -327,17 +328,17 @@ func (cc *ComponentsInfo) start(tempPath string, msPort int, numServers, numClie
 
 // ConfigureAndStart configures and starts fleetspeak servers, clients, their services and FRR master server
 func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, msPort int, numServers, numClients int) error {
-	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
+	configDir, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
 		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
-	err = buildBaseConfiguration(tempPath, mysqlCredentials)
+	err = buildBaseConfiguration(configDir, mysqlCredentials)
 	if err != nil {
 		return fmt.Errorf("Failed to build base Fleetspeak configuration: %v", err)
 	}
 
-	err = cc.start(tempPath, msPort, numServers, numClients)
+	err = cc.start(configDir, msPort, numServers, numClients)
 	if err != nil {
 		cc.KillAll()
 		return err

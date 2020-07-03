@@ -36,13 +36,10 @@ func RunTest(msPort int, clientIDs []string) error {
 	}
 
 	respondedClients := make(map[string]bool)
-	for _, clientID := range clientIDs {
-		respondedClients[clientID] = false
-	}
 
 	for i := 0; i < 30; i++ {
-		for clientID, responded := range respondedClients {
-			if responded {
+		for _, clientID := range clientIDs {
+			if _, ok := respondedClients[clientID]; ok {
 				continue
 			}
 			response, err := client.CompletedRequests(ctx, &fgrpc.CompletedRequestsRequest{ClientId: clientID})
@@ -51,13 +48,13 @@ func RunTest(msPort int, clientIDs []string) error {
 			}
 			for _, reqID := range response.RequestIds {
 				if reqID == requestID {
-					delete(respondedClients, clientID)
+					respondedClients[clientID] = true
 					break
 				}
 			}
 		}
 
-		if len(respondedClients) == 0 {
+		if len(respondedClients) == len(clientIDs) {
 			return nil
 		}
 		time.Sleep(time.Second)

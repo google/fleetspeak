@@ -6,30 +6,21 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/lib"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 	"os"
-	"strconv"
 )
 
 var (
 	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
 	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
 	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
-	numClientsStr = flag.String("num_clients", "1", "Number of clients to test")
-	numServersStr = flag.String("num_servers", "1", "Number of servers to test")
+	numClients    = flag.Int("num_clients", 1, "Number of clients to test")
+	numServers    = flag.Int("num_servers", 1, "Number of servers to test")
 )
 
 func run() error {
 	msPort := 6059
-	numClients, err := strconv.Atoi(*numClientsStr)
-	if err != nil {
-		return fmt.Errorf("Unable to parse num_clients flag. Should be integer, got: %v", *numClientsStr)
-	}
-	numServers, err := strconv.Atoi(*numServersStr)
-	if err != nil {
-		return fmt.Errorf("Unable to parse num_servers flag. Should be integer, got: %v", *numServersStr)
-	}
 
 	var componentsInfo setup.ComponentsInfo
-	err = componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort, numServers, numClients)
+	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort, *numServers, *numClients)
 	defer componentsInfo.KillAll()
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
