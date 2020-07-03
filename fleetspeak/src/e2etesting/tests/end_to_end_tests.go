@@ -59,5 +59,5 @@ func RunTest(msPort int, clientIDs []string) error {
 		}
 		time.Sleep(time.Second)
 	}
-	return fmt.Errorf("Received responses from %v clients out of %v", len(clientIDs)-len(respondedClients), len(clientIDs))
+	return fmt.Errorf("Received responses from %v clients out of %v", len(respondedClients), len(clientIDs))
 }

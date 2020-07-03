@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -106,25 +105,31 @@ func CheckSocketPipe(pipeFSPath string) error {
 }
 
 func checkOwnership(filepath string) error {
-	c, err := user.Current()
-	if err != nil {
-		return err
-	}
-
-	cg := c.Gid
-
-	_, fg, err := getOwnership(filepath)
-	if err != nil {
-		return err
-	}
-
 	// Owner SID of a created directory is not the same as returned by
 	// os/user.Current(), so we can't check against that. This can be worked
 	// around by creating a directory and recording what owner and group it
-	// gets assigned; it's not clear whether we actually want to do this.
+	// gets assigned.
+	tmpdir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return fmt.Errorf("creating tmpdir to get user SID: %w", err)
+	}
+	defer os.RemoveAll(tmpdir)
 
-	if fg != cg {
-		return fmt.Errorf("unexpected group SID (got %v want %v)", fg, cg)
+	sid, groupSID, err := getOwnership(tmpdir)
+	if err != nil {
+		return fmt.Errorf("getting user/group SID: %w", err)
+	}
+
+	ownerSID, ownerGroupSID, err := getOwnership(filepath)
+	if err != nil {
+		return err
+	}
+
+	if ownerSID != sid {
+		return fmt.Errorf("unexpected owner SID (got %v want %v)", ownerSID, sid)
+	}
+	if ownerGroupSID != groupSID {
+		return fmt.Errorf("unexpected group SID (got %v want %v)", ownerGroupSID, groupSID)
 	}
 
 	return nil
