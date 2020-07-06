@@ -187,8 +187,8 @@ var (
 )
 
 // A PrometheusStatsCollector is an implementation of a Collector interface.
-// It exports stats to a Prometheus HTTP handler, which are exposed at :2112/metrics
-// and are scrapable by Prometheus.
+// It exports stats to a Prometheus HTTP handler, which are exposed at :<configured_port>/metrics
+// and are scrapable by Prometheus (The port is configured in the server components config file).
 type PrometheusStatsCollector struct{}
 
 func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
