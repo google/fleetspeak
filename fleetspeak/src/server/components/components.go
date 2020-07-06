@@ -34,6 +34,7 @@ import (
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
+	"github.com/google/fleetspeak/fleetspeak/src/server/components/prometheus"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
@@ -141,7 +142,7 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 	if scfg != nil {
 		addressToExportStats := scfg.Address
 		if addressToExportStats != "" {
-			statsCollector = server.PrometheusStatsCollector{}
+			statsCollector = prometheus.PrometheusStatsCollector{}
 			statsMux := http.NewServeMux()
 			statsMux.Handle("/metrics", promhttp.Handler())
 			go http.ListenAndServe(addressToExportStats, statsMux)
