@@ -11,7 +11,6 @@ from absl import app
 from absl import flags
 
 from fleetspeak.server_connector.connector import InsecureGRPCServiceClient
-# TODO(Alexandr-TS): Add setup.py to compile fleetspeak_frr protos.
 from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2 import TrafficResponseData
 from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2 import MessageInfo
 from fleetspeak.src.inttesting.frr.proto.fleetspeak_frr.frr_pb2_grpc import MasterStub
