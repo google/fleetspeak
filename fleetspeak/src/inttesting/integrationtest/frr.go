@@ -79,7 +79,7 @@ func (c *statsCounter) MessageSaved(forClient bool, m *fspb.Message) {
 	}
 }
 
-func (c *statsCounter) MessageProcessed(start, end time.Time, service, messageType string) {
+func (c *statsCounter) MessageProcessed(start, end time.Time, service string, m *fspb.Message) {
 	if service == "FRR" {
 		atomic.AddInt64(&c.messagesProcessed, 1)
 	}

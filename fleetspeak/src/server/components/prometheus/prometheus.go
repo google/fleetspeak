@@ -211,8 +211,8 @@ func (s StatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
 	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
 }
 
-func (s StatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
-	messagesProcessed.WithLabelValues(messageType, service).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageProcessed(start, end time.Time, service string, m *fspb.Message) {
+	messagesProcessed.WithLabelValues(m.MessageType, service).Observe(end.Sub(start).Seconds())
 }
 
 func (s StatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {

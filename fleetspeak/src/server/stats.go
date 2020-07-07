@@ -38,7 +38,7 @@ func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+func (s noopStatsCollector) MessageProcessed(start, end time.Time, service string, m *fspb.Message) {
 }
 
 func (s noopStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
