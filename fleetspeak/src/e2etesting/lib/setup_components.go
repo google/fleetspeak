@@ -104,9 +104,10 @@ func getNewClientIDs(admin servicesPb.AdminClient, startTime time.Time) ([]strin
 		}
 		if lastContactTime.After(startTime) {
 			id, err := common.BytesToClientID(cl.ClientId)
-			if err == nil {
-				newClients = append(newClients, fmt.Sprintf("%v", id))
+			if err != nil {
+				return nil, fmt.Errorf("Invalid clientID: %v", err)
 			}
+			newClients = append(newClients, fmt.Sprintf("%v", id))
 		}
 	}
 	return newClients, nil
