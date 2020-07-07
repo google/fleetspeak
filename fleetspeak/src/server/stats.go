@@ -44,7 +44,7 @@ func (s noopStatsCollector) MessageProcessed(start, end time.Time, service strin
 func (s noopStatsCollector) MessageErrored(start, end time.Time, service string, isTemp bool, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageDropped(service, messageType string) {
+func (s noopStatsCollector) MessageDropped(service string, m *fspb.Message) {
 }
 
 func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {

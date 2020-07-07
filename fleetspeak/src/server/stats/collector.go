@@ -105,7 +105,7 @@ type Collector interface {
 	// MessageDropped is called when a message has been dropped because too many
 	// messages for the services are being processed. Like a temporary error, the
 	// message will be retried after some minutes.
-	MessageDropped(service, messageType string)
+	MessageDropped(service string, m *fspb.Message)
 
 	// ClientPoll is called every time a client polls the server.
 	ClientPoll(info PollInfo)
