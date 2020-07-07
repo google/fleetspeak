@@ -85,7 +85,7 @@ func (c *statsCounter) MessageProcessed(start, end time.Time, service string, m 
 	}
 }
 
-func (c *statsCounter) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (c *statsCounter) MessageErrored(start, end time.Time, service string, isTemp bool, m *fspb.Message) {
 	if service == "FRR" {
 		atomic.AddInt64(&c.messagesErrored, 1)
 	}

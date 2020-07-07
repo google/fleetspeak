@@ -215,8 +215,8 @@ func (s StatsCollector) MessageProcessed(start, end time.Time, service string, m
 	messagesProcessed.WithLabelValues(m.MessageType, service).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
-	messagesErrored.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageErrored(start, end time.Time, service string, isTemp bool, m *fspb.Message) {
+	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
 func (s StatsCollector) MessageDropped(service, messageType string) {

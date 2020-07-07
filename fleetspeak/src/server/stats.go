@@ -41,7 +41,7 @@ func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
 func (s noopStatsCollector) MessageProcessed(start, end time.Time, service string, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (s noopStatsCollector) MessageErrored(start, end time.Time, service string, isTemp bool, m *fspb.Message) {
 }
 
 func (s noopStatsCollector) MessageDropped(service, messageType string) {
