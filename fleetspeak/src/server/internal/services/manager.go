@@ -268,8 +268,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 		return ctx.Err()
 	}
 
-	// Record that we are saving messages, data will have been set to nil for
-	// fully processed messages.
+	// Record that we are saving messages.
 	for _, m := range msgs {
 		var s int
 		if m.Data != nil {

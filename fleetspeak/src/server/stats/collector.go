@@ -91,6 +91,7 @@ type Collector interface {
 	MessageIngested(backlogged bool, m *fspb.Message)
 
 	// MessageSaved is called when a message is first saved to the database.
+	// m.Data will have been set to nil for fully processed messages.
 	MessageSaved(forClient bool, m *fspb.Message)
 
 	// MessageProcessed is called when a message is successfully processed by the
