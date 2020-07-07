@@ -189,9 +189,9 @@ var (
 // A PrometheusStatsCollector is an implementation of a Collector interface.
 // It exports stats to a Prometheus HTTP handler, which are exposed at :<configured_port>/metrics
 // and are scrapable by Prometheus (The port is configured in the server components config file).
-type PrometheusStatsCollector struct{}
+type StatsCollector struct{}
 
-func (s PrometheusStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+func (s StatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
 	payloadBytes := calculateIngestedPayloadBytes(m)
 	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Add(float64(payloadBytes))
@@ -205,24 +205,24 @@ func calculateIngestedPayloadBytes(m *fspb.Message) int {
 	return payloadBytes
 }
 
-func (s PrometheusStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s StatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
 	messagesSaved.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Inc()
 	messagesSavedSize.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
 }
 
-func (s PrometheusStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
+func (s StatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
 	messagesProcessed.WithLabelValues(messageType, service).Observe(end.Sub(start).Seconds())
 }
 
-func (s PrometheusStatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
+func (s StatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
 	messagesErrored.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
-func (s PrometheusStatsCollector) MessageDropped(service, messageType string) {
+func (s StatsCollector) MessageDropped(service, messageType string) {
 	messagesDropped.WithLabelValues(service, messageType).Inc()
 }
 
-func (s PrometheusStatsCollector) ClientPoll(info stats.PollInfo) {
+func (s StatsCollector) ClientPoll(info stats.PollInfo) {
 	httpStatusCode := strconv.Itoa(info.Status)
 	pollType := info.Type.String()
 	cacheHit := strconv.FormatBool(info.CacheHit)
@@ -242,7 +242,7 @@ func convertBytesToMegabytes(bytes int) float64 {
 	return float64(bytes) / 1000000.0
 }
 
-func (s PrometheusStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
+func (s StatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 	datastoreOperationsCompleted.WithLabelValues(operation, strconv.FormatBool(result != nil)).Observe(end.Sub(start).Seconds())
 }
 
@@ -255,7 +255,7 @@ func getClientDataLabelsConcatenated(cd *db.ClientData) string {
 	return strings.Join(clientDataLabels[:], ",")
 }
 
-func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
 	blacklisted := strconv.FormatBool(cd.Blacklisted)
 	scope := rud.Scope
@@ -273,7 +273,7 @@ func (s PrometheusStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, r
 	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
 }
 
-func (s PrometheusStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s StatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
 	killNotificationsReceived.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), kn.Service, kn.Reason.String()).Inc()
 }
