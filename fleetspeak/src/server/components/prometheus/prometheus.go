@@ -193,11 +193,11 @@ type StatsCollector struct{}
 
 func (s StatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
-	payloadBytes := calculateIngestedPayloadBytes(m)
+	payloadBytes := calculatePayloadBytes(m)
 	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Add(float64(payloadBytes))
 }
 
-func calculateIngestedPayloadBytes(m *fspb.Message) int {
+func calculatePayloadBytes(m *fspb.Message) int {
 	payloadBytes := 0
 	if m.Data != nil {
 		payloadBytes = len(m.Data.TypeUrl) + len(m.Data.Value)
