@@ -12,21 +12,25 @@ var (
 	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
 	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
 	mysqlPassword = flag.String("mysql_password", "", "MySQL password to use")
+	numClients    = flag.Int("num_clients", 1, "Number of clients to test")
+	numServers    = flag.Int("num_servers", 1, "Number of servers to test")
 )
 
 func run() error {
 	msPort := 6059
-	var componentCmds setup.ComponentCmds
-	err := componentCmds.ConfigureAndStart(setup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort)
-	defer componentCmds.KillAll()
+
+	var componentsInfo setup.ComponentsInfo
+	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort, *numServers, *numClients)
+	defer componentsInfo.KillAll()
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
 	}
 
-	err = endtoendtests.RunTest(msPort, componentCmds.StartedClientID)
+	err = endtoendtests.RunTest(msPort, componentsInfo.ClientIDs)
 	if err != nil {
 		return fmt.Errorf("Failed to run tests: %v", err)
 	}
+
 	return nil
 }
 
