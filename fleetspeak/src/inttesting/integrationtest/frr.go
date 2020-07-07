@@ -69,8 +69,12 @@ func (c *statsCounter) MessageIngested(backlogged bool, m *fspb.Message) {
 	}
 }
 
-func (c *statsCounter) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (c *statsCounter) MessageSaved(forClient bool, m *fspb.Message) {
 	if service == "FRR" {
+		savedPayloadBytes := 0
+		if m.Data != nil {
+			savedPayloadBytes = len(m.Data.TypeUrl) + len(m.Data.Value)
+		}
 		atomic.AddInt64(&c.payloadBytesSaved, int64(savedPayloadBytes))
 	}
 }

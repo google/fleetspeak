@@ -205,9 +205,10 @@ func calculateIngestedPayloadBytes(m *fspb.Message) int {
 	return payloadBytes
 }
 
-func (s StatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
-	messagesSaved.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Inc()
-	messagesSavedSize.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
+func (s StatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
+	messagesSaved.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient)).Inc()
+	savedPayloadBytes := calculatePayloadBytes(m)
+	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
 }
 
 func (s StatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {

@@ -35,7 +35,7 @@ type noopStatsCollector struct{}
 func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 }
 
-func (s noopStatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
+func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
 }
 
 func (s noopStatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
