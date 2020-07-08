@@ -24,32 +24,41 @@ import (
 	"time"
 )
 
-// ComponentCmds contains exec.Cmds for Fleetspeak server, its service, client and master server
-type ComponentCmds struct {
-	ServerCmd       *exec.Cmd
-	ClientCmd       *exec.Cmd
-	StartedClientID string
-	ServiceCmd      *exec.Cmd
-	MasterServerCmd *exec.Cmd
+type serverInfo struct {
+	serverCmd       *exec.Cmd
+	serviceCmd      *exec.Cmd
+	httpsListenPort int
+}
+
+// ComponentsInfo contains IDs of connected clients and exec.Cmds for all components
+type ComponentsInfo struct {
+	masterServerCmd *exec.Cmd
+	servers         []serverInfo
+	clientCmds      []*exec.Cmd
+	ClientIDs       []string
 }
 
 // KillAll kills all running processes
-func (cc *ComponentCmds) KillAll() {
-	if cc.ServiceCmd != nil {
-		cc.ServiceCmd.Process.Kill()
-		cc.ServiceCmd.Wait()
+func (cc *ComponentsInfo) KillAll() {
+	for _, cl := range cc.clientCmds {
+		if cl != nil {
+			cl.Process.Kill()
+			cl.Wait()
+		}
 	}
-	if cc.ServerCmd != nil {
-		cc.ServerCmd.Process.Kill()
-		cc.ServerCmd.Wait()
+	for _, s := range cc.servers {
+		if s.serverCmd != nil {
+			s.serverCmd.Process.Kill()
+			s.serverCmd.Wait()
+		}
+		if s.serviceCmd != nil {
+			s.serviceCmd.Process.Kill()
+			s.serviceCmd.Wait()
+		}
 	}
-	if cc.ClientCmd != nil {
-		cc.ClientCmd.Process.Kill()
-		cc.ClientCmd.Wait()
-	}
-	if cc.MasterServerCmd != nil {
-		cc.MasterServerCmd.Process.Kill()
-		cc.MasterServerCmd.Wait()
+	if cc.masterServerCmd != nil {
+		cc.masterServerCmd.Process.Kill()
+		cc.masterServerCmd.Wait()
 	}
 }
 
@@ -77,58 +86,57 @@ func startCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
-func getNewClientID(admin servicesPb.AdminClient, startTime time.Time) (string, error) {
+func getNewClientIDs(admin servicesPb.AdminClient, startTime time.Time) ([]string, error) {
 	var ids [][]byte
 	ctx := context.Background()
 	res, err := admin.ListClients(ctx,
 		&servicesPb.ListClientsRequest{ClientIds: ids},
 		grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
-		return "", fmt.Errorf("ListClients RPC failed: %v", err)
+		return nil, fmt.Errorf("ListClients RPC failed: %v", err)
 	}
-	if len(res.Clients) == 0 {
-		return "", errors.New("No new clients")
-	}
-	var client *servicesPb.Client
-	lastVisitTime := startTime
+
+	var newClients []string
 	for _, cl := range res.Clients {
-		curLastVisitTime, err := ptypes.Timestamp(cl.LastContactTime)
+		lastContactTime, err := ptypes.Timestamp(cl.LastContactTime)
 		if err != nil {
 			continue
 		}
-		if curLastVisitTime.After(lastVisitTime) {
-			client = cl
-			lastVisitTime = curLastVisitTime
+		if lastContactTime.After(startTime) {
+			id, err := common.BytesToClientID(cl.ClientId)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid clientID: %v", err)
+			}
+			newClients = append(newClients, fmt.Sprintf("%v", id))
 		}
 	}
-	if client == nil {
-		return "", errors.New("No new clients after startTime")
-	}
-	id, err := common.BytesToClientID(client.ClientId)
-	if err != nil {
-		return "", fmt.Errorf("Invalid client id [%v]: %v", client.ClientId, err)
-	}
-	return fmt.Sprintf("%v", id), nil
+	return newClients, nil
 }
 
-func waitForNewClientID(adminPort int, startTime time.Time) (string, error) {
+func waitForNewClientIDs(adminPort int, startTime time.Time, numClients int) ([]string, error) {
 	adminAddr := fmt.Sprintf("localhost:%v", adminPort)
 	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
-		return "", fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
+		return nil, fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddr, err)
 	}
 	admin := servicesPb.NewAdminClient(conn)
 	for i := 0; i < 10; i++ {
 		if i > 0 {
 			time.Sleep(time.Second)
 		}
-		id, err := getNewClientID(admin, startTime)
-		if err == nil {
-			return id, nil
+		ids, err := getNewClientIDs(admin, startTime)
+		if err != nil {
+			continue
+		}
+		if len(ids) > numClients {
+			return nil, fmt.Errorf("Too many clients connected (expected: %v, connected: %v)", numClients, len(ids))
+		}
+		if len(ids) == numClients {
+			return ids, nil
 		}
 	}
-	return "", errors.New("No connected clients")
+	return nil, errors.New("Not all clients connected")
 }
 
 // MysqlCredentials contains username, password and database
@@ -138,7 +146,7 @@ type MysqlCredentials struct {
 	Database string
 }
 
-func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysqlCredentials MysqlCredentials) error {
+func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
@@ -148,24 +156,24 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysql
 
 	config.ComponentsConfig.HttpsConfig = new(fcpb.HttpsConfig)
 	config.ComponentsConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:6060")
-	config.ComponentsConfig.HttpsConfig.DisableStreaming = true
+	config.ComponentsConfig.HttpsConfig.DisableStreaming = false
 
 	config.ComponentsConfig.AdminConfig = new(fcpb.AdminConfig)
-	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsAdminPort)
+	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:6061")
 
 	config.PublicHostPort =
 		append(config.PublicHostPort, config.ComponentsConfig.HttpsConfig.ListenAddress)
 
-	config.ServerComponentConfigurationFile = path.Join(tempPath, "server.config")
-	config.TrustedCertFile = path.Join(tempPath, "trusted_cert.pem")
-	config.TrustedCertKeyFile = path.Join(tempPath, "trusted_cert_key.pem")
-	config.ServerCertFile = path.Join(tempPath, "server_cert.pem")
-	config.ServerCertKeyFile = path.Join(tempPath, "server_cert_key.pem")
-	config.LinuxClientConfigurationFile = path.Join(tempPath, "linux_client.config")
-	config.WindowsClientConfigurationFile = path.Join(tempPath, "windows_client.config")
-	config.DarwinClientConfigurationFile = path.Join(tempPath, "darwin_client.config")
+	config.ServerComponentConfigurationFile = path.Join(configDir, "server.config")
+	config.TrustedCertFile = path.Join(configDir, "trusted_cert.pem")
+	config.TrustedCertKeyFile = path.Join(configDir, "trusted_cert_key.pem")
+	config.ServerCertFile = path.Join(configDir, "server_cert.pem")
+	config.ServerCertKeyFile = path.Join(configDir, "server_cert_key.pem")
+	config.LinuxClientConfigurationFile = path.Join(configDir, "linux_client.config")
+	config.WindowsClientConfigurationFile = path.Join(configDir, "windows_client.config")
+	config.DarwinClientConfigurationFile = path.Join(configDir, "darwin_client.config")
 
-	builtConfiguratorConfigPath := path.Join(tempPath, "configurator.config")
+	builtConfiguratorConfigPath := path.Join(configDir, "configurator.config")
 	err := ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write configurator file: %v", err)
@@ -177,9 +185,71 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysql
 		return fmt.Errorf("Failed to build Fleetspeak configurations: %v", err)
 	}
 
-	// Adjust client config
+	// Client services configuration
+	clientServiceConfig := spb.ClientServiceConfig{Name: "FRR", Factory: "Daemon"}
+	var payload daemonservicePb.Config
+	payload.Argv = append(payload.Argv, "python", "frr_python/frr_client.py")
+	clientServiceConfig.Config, err = ptypes.MarshalAny(&payload)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal client service configuration: %v", err)
+	}
+	err = os.Mkdir(path.Join(configDir, "textservices"), 0777)
+	if err != nil {
+		return fmt.Errorf("Unable to create textservices directory: %v", err)
+	}
+	err = os.Mkdir(path.Join(configDir, "services"), 0777)
+	if err != nil {
+		return fmt.Errorf("Unable to create services directory: %v", err)
+	}
+	_, err = os.Create(path.Join(configDir, "communicator.txt"))
+	if err != nil {
+		return fmt.Errorf("Unable to create communicator.txt: %v", err)
+	}
+	err = ioutil.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConfig)), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
+	}
+	return nil
+}
+
+func modifyFleetspeakServerConfig(configDir string, fsFrontendPort, fsHTTPSListenPort, fsAdminPort int, newServerConfigPath, newServerServicesConfigPath string) error {
+	// Update server addresses
+	serverBaseConfigurationPath := path.Join(configDir, "server.config")
+
+	var serverConfig fcpb.Config
+	serverConfigData, err := ioutil.ReadFile(serverBaseConfigurationPath)
+	if err != nil {
+		return fmt.Errorf("Unable to read server.config: %v", err)
+	}
+	err = proto.UnmarshalText(string(serverConfigData), &serverConfig)
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
+	}
+	serverConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsHTTPSListenPort)
+	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:%v", fsAdminPort)
+	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
+
+	// Server services configuration
+	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
+	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("localhost:%v", fsFrontendPort), Insecure: true}
+	serviceConfig, err := ptypes.MarshalAny(&grpcConfig)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
+	}
+	serverServiceConf.Config = serviceConfig
+	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: &duration.Duration{Seconds: 1}}
+	err = ioutil.WriteFile(newServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write server.services.config: %v", err)
+	}
+	return nil
+}
+
+func modifyFleetspeakClientConfig(configDir string, httpsListenPort int, newLinuxConfigPath, newStateFilePath string) error {
+	linuxBaseConfigPath := path.Join(configDir, "linux_client.config")
+
 	var clientConfig clientConfigPb.Config
-	clientConfigData, err := ioutil.ReadFile(config.LinuxClientConfigurationFile)
+	clientConfigData, err := ioutil.ReadFile(linuxBaseConfigPath)
 	if err != nil {
 		return fmt.Errorf("Unable to read LinuxClientConfigurationFile: %v", err)
 	}
@@ -187,107 +257,89 @@ func configureFleetspeak(tempPath string, fsFrontendPort, fsAdminPort int, mysql
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal clientConfigData: %v", err)
 	}
-	clientConfig.GetFilesystemHandler().ConfigurationDirectory = tempPath
-	clientConfig.GetFilesystemHandler().StateFile = path.Join(tempPath, "client.state")
+	clientConfig.GetFilesystemHandler().ConfigurationDirectory = configDir
+	clientConfig.GetFilesystemHandler().StateFile = newStateFilePath
+	clientConfig.Server = []string{fmt.Sprintf("localhost:%v", httpsListenPort)}
 	_, err = os.Create(clientConfig.GetFilesystemHandler().StateFile)
 	if err != nil {
 		return fmt.Errorf("Failed to create client state file: %v", err)
 	}
-	err = ioutil.WriteFile(config.LinuxClientConfigurationFile, []byte(proto.MarshalTextString(&clientConfig)), 0644)
+	err = ioutil.WriteFile(newLinuxConfigPath, []byte(proto.MarshalTextString(&clientConfig)), 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to update LinuxClientConfigurationFile: %v", err)
 	}
 
-	// Client services configuration
-	clientServiceConf := spb.ClientServiceConfig{Name: "FRR", Factory: "Daemon"}
-	var payload daemonservicePb.Config
-	payload.Argv = append(payload.Argv, "python", "frr_python/frr_client.py")
-	clientServiceConf.Config, err = ptypes.MarshalAny(&payload)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal client service configuration: %v", err)
-	}
-	err = os.Mkdir(path.Join(tempPath, "textservices"), 0777)
-	if err != nil {
-		return fmt.Errorf("Unable to create textservices directory: %v", err)
-	}
-	err = os.Mkdir(path.Join(tempPath, "services"), 0777)
-	if err != nil {
-		return fmt.Errorf("Unable to create services directory: %v", err)
-	}
-	_, err = os.Create(path.Join(tempPath, "communicator.txt"))
-	if err != nil {
-		return fmt.Errorf("Unable to create communicator.txt: %v", err)
-	}
-	err = ioutil.WriteFile(path.Join(tempPath, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConf)), 0644)
-	if err != nil {
-		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
-	}
-
-	// Server services configuration
-	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
-	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("localhost:%v", fsFrontendPort), Insecure: true}
-	serverServiceConf.Config, err = ptypes.MarshalAny(&grpcConfig)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
-	}
-	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: new(duration.Duration)}
-	serverConf.BroadcastPollTime.Seconds = 1
-	builtServerServicesConfigPath := path.Join(tempPath, "server.services.config")
-	err = ioutil.WriteFile(builtServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
-	if err != nil {
-		return fmt.Errorf("Unable to write server.services.config: %v", err)
-	}
 	return nil
 }
 
-func (cc *ComponentCmds) start(tempPath string, fsFrontendPort, fsAdminPort, msPort int) error {
+func (cc *ComponentsInfo) start(configDir string, msPort int, numServers, numClients int) error {
+	firstAdminPort := 6060
+
 	// Start Master server
-	cc.MasterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", fsAdminPort))
-	startCommand(cc.MasterServerCmd)
+	cc.masterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main", "--listen_address", fmt.Sprintf("localhost:%v", msPort), "--admin_address", fmt.Sprintf("localhost:%v", firstAdminPort))
+	startCommand(cc.masterServerCmd)
 
-	// Start server
-	cc.ServerCmd = exec.Command("server", "-logtostderr", "-components_config", path.Join(tempPath, "server.config"), "-services_config", path.Join(tempPath, "server.services.config"))
-	startCommand(cc.ServerCmd)
-	serverStartTime := time.Now()
+	// Start servers and their services
+	for i := 0; i < numServers; i++ {
+		adminPort := firstAdminPort + i*3
+		httpsListenPort := adminPort + 1
+		frontendPort := adminPort + 2
+		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
+		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
+		err := modifyFleetspeakServerConfig(configDir, frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		if err != nil {
+			return fmt.Errorf("Failed to build FS server configurations: %v", err)
+		}
 
-	// Start client
-	cc.ClientCmd = exec.Command("client", "-logtostderr", "-config", path.Join(tempPath, "linux_client.config"))
-	startCommand(cc.ClientCmd)
-
-	// Get new client's id and start service in current process
-	clientID, err := waitForNewClientID(fsAdminPort, serverStartTime)
-	if err != nil {
-		return fmt.Errorf("No new clients have connected: %v", err)
+		serverCmd := exec.Command("server", "-logtostderr", "-components_config", serverConfigPath, "-services_config", serverServicesConfigPath)
+		serviceCmd := exec.Command(
+			"python",
+			"frr_python/frr_server.py",
+			fmt.Sprintf("--master_server_address=localhost:%v", msPort),
+			fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", frontendPort),
+			fmt.Sprintf("--fleetspeak_server=localhost:%v", adminPort))
+		cc.servers = append(cc.servers, serverInfo{httpsListenPort: httpsListenPort, serverCmd: serverCmd, serviceCmd: serviceCmd})
+		startCommand(serverCmd)
+		startCommand(serviceCmd)
 	}
-	cc.StartedClientID = clientID
 
-	cc.ServiceCmd = exec.Command(
-		"python",
-		"frr_python/frr_server.py",
-		fmt.Sprintf("--master_server_address=localhost:%v", msPort),
-		fmt.Sprintf("--fleetspeak_message_listen_address=localhost:%v", fsFrontendPort),
-		fmt.Sprintf("--fleetspeak_server=localhost:%v", fsAdminPort))
-	startCommand(cc.ServiceCmd)
+	serversStartTime := time.Now()
 
+	// Start clients
+	for i := 0; i < numClients; i++ {
+		httpsServerPort := cc.servers[i%numServers].httpsListenPort
+		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
+		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
+		err := modifyFleetspeakClientConfig(configDir, httpsServerPort, linuxConfigPath, stateFilePath)
+		if err != nil {
+			return fmt.Errorf("Failed to build FS client configurations: %v", err)
+		}
+		cmd := exec.Command("client", "-logtostderr", "-config", linuxConfigPath)
+		cc.clientCmds = append(cc.clientCmds, cmd)
+		startCommand(cmd)
+	}
+
+	newIDs, err := waitForNewClientIDs(firstAdminPort, serversStartTime, numClients)
+	if err != nil {
+		return fmt.Errorf("Error in waiting for clients: %v", err)
+	}
+	cc.ClientIDs = newIDs
 	return nil
 }
 
-// ConfigureAndStart configures and starts fleetspeak server, client, their services and FRR master server
-func (cc *ComponentCmds) ConfigureAndStart(mysqlCredentials MysqlCredentials, msPort int) error {
-	fsFrontendPort := 6062
-	fsAdminPort := 6061
-
-	tempPath, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
+// ConfigureAndStart configures and starts fleetspeak servers, clients, their services and FRR master server
+func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, msPort int, numServers, numClients int) error {
+	configDir, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
 		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
-	err = configureFleetspeak(tempPath, fsFrontendPort, fsAdminPort, mysqlCredentials)
+	err = buildBaseConfiguration(configDir, mysqlCredentials)
 	if err != nil {
-		return fmt.Errorf("Failed to configure Fleetspeak: %v", err)
+		return fmt.Errorf("Failed to build base Fleetspeak configuration: %v", err)
 	}
 
-	err = cc.start(tempPath, fsFrontendPort, fsAdminPort, msPort)
+	err = cc.start(configDir, msPort, numServers, numClients)
 	if err != nil {
 		cc.KillAll()
 		return err
