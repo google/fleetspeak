@@ -219,8 +219,8 @@ func (s StatsCollector) MessageErrored(start, end time.Time, service string, isT
 	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageDropped(service string, m *fspb.Message) {
-	messagesDropped.WithLabelValues(service, m.MessageType).Inc()
+func (s StatsCollector) MessageDropped(m *fspb.Message) {
+	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType).Inc()
 }
 
 func (s StatsCollector) ClientPoll(info stats.PollInfo) {

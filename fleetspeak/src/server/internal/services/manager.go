@@ -188,7 +188,7 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		if s.pLogLimiter.Allow() {
 			log.Warningf("%s: Overloaded with %d concurrent messages, dropping excess, will retry.", s.name, s.maxParallelism)
 		}
-		s.manager.stats.MessageDropped(s.name, m)
+		s.manager.stats.MessageDropped(m)
 		return nil
 	}
 
