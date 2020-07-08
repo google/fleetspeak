@@ -205,11 +205,11 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		s.manager.stats.MessageProcessed(start, ftime.Now(), m)
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, true, m)
+		s.manager.stats.MessageErrored(start, ftime.Now(), true, m)
 		log.Warningf("%s: Temporary error processing message %v, will retry: %v", s.name, mid, e)
 		return nil
 	case !service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, false, m)
+		s.manager.stats.MessageErrored(start, ftime.Now(), false, m)
 		log.Errorf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
 		failedReason := e.Error()
 		if len(failedReason) > MaxServiceFailureReasonLength {

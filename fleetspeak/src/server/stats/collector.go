@@ -100,7 +100,7 @@ type Collector interface {
 
 	// MessageErrored is called when a message processing returned an error
 	// (temporary, or permanent).
-	MessageErrored(start, end time.Time, service string, permanent bool, m *fspb.Message)
+	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message)
 
 	// MessageDropped is called when a message has been dropped because too many
 	// messages for the services are being processed. Like a temporary error, the
