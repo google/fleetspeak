@@ -202,7 +202,7 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	e := s.service.ProcessMessage(ctx, m)
 	switch {
 	case e == nil:
-		s.manager.stats.MessageProcessed(start, ftime.Now(), s.name, m)
+		s.manager.stats.MessageProcessed(start, ftime.Now(), m)
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
 		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, true, m)

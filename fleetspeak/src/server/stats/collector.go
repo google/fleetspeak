@@ -96,7 +96,7 @@ type Collector interface {
 
 	// MessageProcessed is called when a message is successfully processed by the
 	// server.
-	MessageProcessed(start, end time.Time, service string, m *fspb.Message)
+	MessageProcessed(start, end time.Time, m *fspb.Message)
 
 	// MessageErrored is called when a message processing returned an error
 	// (temporary, or permanent).
