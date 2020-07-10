@@ -141,6 +141,7 @@ func waitForNewClientIDs(adminPort int, startTime time.Time, numClients int) ([]
 
 // MysqlCredentials contains username, password and database
 type MysqlCredentials struct {
+	Host     string
 	Username string
 	Password string
 	Database string
@@ -152,7 +153,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials)
 
 	config.ComponentsConfig = new(fcpb.Config)
 	config.ComponentsConfig.MysqlDataSourceName =
-		fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/%v", mysqlCredentials.Username, mysqlCredentials.Password, mysqlCredentials.Database)
+		fmt.Sprintf("%v:%v@tcp(%v)/%v", mysqlCredentials.Username, mysqlCredentials.Password, mysqlCredentials.Host, mysqlCredentials.Database)
 
 	config.ComponentsConfig.HttpsConfig = new(fcpb.HttpsConfig)
 	config.ComponentsConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:6060")
