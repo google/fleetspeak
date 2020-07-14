@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	log "github.com/golang/glog"
+
 	"github.com/hectane/go-acl/api"
 	"golang.org/x/sys/windows"
 )
@@ -56,7 +58,7 @@ func CheckSocketFile(socketPath string) error {
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/aa446645.aspx
 
 	if err := checkOwnership(parent); err != nil {
-		return fmt.Errorf("unexpected ownership of socketPath's (%q) parent directory: %v", socketPath, err)
+		log.Errorf("Unexpected ownership of socketPath's (%q) parent directory: %v", socketPath, err)
 	}
 
 	fi, err := os.Lstat(socketPath)
@@ -70,7 +72,7 @@ func CheckSocketFile(socketPath string) error {
 	}
 
 	if err := checkOwnership(socketPath); err != nil {
-		return fmt.Errorf("unexpected ownership of socketPath (%q): %v", socketPath, err)
+		log.Errorf("Unexpected ownership of socketPath (%q): %v", socketPath, err)
 	}
 
 	bytePipeFSPath, err := ioutil.ReadFile(socketPath)
