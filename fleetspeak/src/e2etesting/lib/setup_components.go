@@ -181,7 +181,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials)
 	}
 
 	// Build fleetspeak configurations
-	_, err = exec.Command("config", "-config", builtConfiguratorConfigPath).Output()
+	_, err = exec.Command("fleetspeak/src/config/fleetspeak_config", "-config", builtConfiguratorConfigPath).Output()
 	if err != nil {
 		return fmt.Errorf("Failed to build Fleetspeak configurations: %v", err)
 	}
@@ -292,7 +292,7 @@ func (cc *ComponentsInfo) start(configDir string, msPort int, numServers, numCli
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
 
-		serverCmd := exec.Command("server", "-logtostderr", "-components_config", serverConfigPath, "-services_config", serverServicesConfigPath)
+		serverCmd := exec.Command("fleetspeak/src/server/server/server", "-logtostderr", "-components_config", serverConfigPath, "-services_config", serverServicesConfigPath)
 		serviceCmd := exec.Command(
 			"python",
 			"frr_python/frr_server.py",
@@ -315,7 +315,7 @@ func (cc *ComponentsInfo) start(configDir string, msPort int, numServers, numCli
 		if err != nil {
 			return fmt.Errorf("Failed to build FS client configurations: %v", err)
 		}
-		cmd := exec.Command("client", "-logtostderr", "-config", linuxConfigPath)
+		cmd := exec.Command("fleetspeak/src/client/client/client", "-logtostderr", "-config", linuxConfigPath)
 		cc.clientCmds = append(cc.clientCmds, cmd)
 		startCommand(cmd)
 	}
