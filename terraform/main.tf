@@ -29,11 +29,23 @@ data "template_file" "fs_server_install" {
 	template = file("server_start.sh")
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
+		storage_bucket_url = google_storage_bucket.common-files-store.url	
 	}
 }
 
+resource "random_id" "bucket_name_suffix" {
+	byte_length = 4
+}
+
+resource "google_storage_bucket" "common-files-store" {
+    name = "common-files-store-${random_id.bucket_name_suffix.hex}"
+	location = "EU"
+	force_destroy = true
+	bucket_policy_only = true
+}
+
 resource "google_compute_instance" "vm_instance" {
-    name         = "terraform-instance"
+    name = "terraform-instance"
     machine_type = "n1-standard-1"
 
 	tags = ["ssh"]
@@ -61,8 +73,8 @@ resource "random_id" "db_name_suffix" {
 }
 
 resource "google_sql_database_instance" "fs-db" {
-    name   = "fs-db-instance-1-${random_id.db_name_suffix.hex}"
-    region  = "us-central1"
+    name = "fs-db-instance-1-${random_id.db_name_suffix.hex}"
+    region = "us-central1"
 
     settings {
         tier = "db-n1-standard-1"

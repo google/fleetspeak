@@ -1,5 +1,6 @@
 #!/bin/bash
 sudo su
+
 mkdir /tmp/tmp
 mkdir /tmp/tmp/go
 export HOME=/tmp/tmp/
@@ -10,6 +11,7 @@ export GOROOT=/snap/go/current
 export GOPATH=$HOME/go
 export PATH=/snap/bin:$GOROOT/bin:$GOPATH/bin:$PATH
 
+sleep 1
 /snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/...
 
 function waitlocks {
@@ -38,6 +40,9 @@ wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O $HOME/cloud_s
 chmod +x $HOME/cloud_sql_proxy
 
 ~/cloud_sql_proxy -instances=${mysql_instance_connection_name}=tcp:3306 &
-sleep 2
+sleep 3
 
-fleetspeak/src/e2etesting/e2etest.sh
+pip3 install -e frr_python
+go run fleetspeak/src/e2etesting/run_end_to_end_tests.go --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! --num_clients=1 --num_servers=1 > results.txt
+
+gsutil cp results.txt ${storage_bucket_url}
