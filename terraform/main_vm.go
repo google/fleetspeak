@@ -21,8 +21,6 @@ var (
 )
 
 func run() error {
-	flag.Parse()
-
 	serverHosts := make([]string, *numServers)
 	for i := 0; i < *numServers; i++ {
 		fmt.Scanf("%s", &serverHosts[i])
@@ -44,7 +42,6 @@ func run() error {
 
 	for i := 0; i < 10; i++ {
 		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6060", serverHosts[0]), startTime, *numClients)
-		fmt.Println("clients: ", clientIDs, ", iter: ", i)
 		if err == nil {
 			break
 		}
@@ -62,11 +59,15 @@ func run() error {
 }
 
 func main() {
+	flag.Parse()
+	startTime := time.Now()
+	fmt.Println("Start time: ", startTime.Format("2006-01-02 15:04:05"))
 	err := run()
 	if err != nil {
 		fmt.Printf("FAIL: %v", err)
 		os.Exit(1)
 	} else {
-		fmt.Println("OK: End to end tests passed")
+		dur := time.Now().Sub(startTime)
+		fmt.Printf("OK: End to end tests passed in %v minutes, %v seconds\n", dur.Minutes(), dur.Seconds())
 	}
 }
