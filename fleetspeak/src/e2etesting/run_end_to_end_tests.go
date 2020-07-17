@@ -18,16 +18,15 @@ var (
 )
 
 func run() error {
-	msPort := 6059
+	msAddress := "localhost:6059"
 
 	var componentsInfo setup.ComponentsInfo
-	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Host: *mysqlAddress, Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msPort, *numServers, *numClients)
+	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Host: *mysqlAddress, Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msAddress, *numServers, *numClients)
 	defer componentsInfo.KillAll()
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
 	}
-
-	err = endtoendtests.RunTest(msPort, componentsInfo.ClientIDs)
+	err = endtoendtests.RunTest(msAddress, componentsInfo.ClientIDs)
 	if err != nil {
 		return fmt.Errorf("Failed to run tests: %v", err)
 	}

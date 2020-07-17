@@ -10,8 +10,8 @@ import (
 )
 
 // RunTest creates a hunt for FS clients and checks that all of them respond
-func RunTest(msPort int, clientIDs []string) error {
-	conn, err := grpc.Dial(fmt.Sprintf("localhost:%v", msPort), grpc.WithInsecure(), grpc.WithBlock())
+func RunTest(msAddress string, clientIDs []string) error {
+	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
 	defer conn.Close()
 	if err != nil {
 		return fmt.Errorf("Failed to connect to master server: %v", err)
