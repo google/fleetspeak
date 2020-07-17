@@ -36,6 +36,10 @@ source /tmp/.venv/FLEETSPEAK/bin/activate
 pip3 install -e fleetspeak_python/
 fleetspeak/build.sh
 
+gsutil cp fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main ${storage_bucket_url}
+gsutil cp fleetspeak/src/client/client/client ${storage_bucket_url}/bin/client
+gsutil cp fleetspeak/src/server/server/server ${storage_bucket_url}/bin/server
+
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O $HOME/cloud_sql_proxy
 chmod +x $HOME/cloud_sql_proxy
 
@@ -43,6 +47,17 @@ chmod +x $HOME/cloud_sql_proxy
 sleep 3
 
 pip3 install -e frr_python
-go run fleetspeak/src/e2etesting/run_end_to_end_tests.go --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! --num_clients=1 --num_servers=1 > results.txt
+
+mkdir terraform/tmp
+echo "no results" > results.txt
+echo "localhost" > server_hosts.txt
+go run terraform/main_vm.go --config_dir=terraform/tmp/ --num_clients=1 --num_servers=1 --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! --ms_address=${master_server_host}:6059 > results.txt < server_hosts.txt > results.txt &
+sleep 20
+#fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main --listen_address="localhost:6059" --admin_address="localhost:6060" &
+fleetspeak/src/server/server/server -logtostderr -components_config "terraform/tmp/server0.config" -services_config "terraform/tmp/server0.services.config" &
+fleetspeak/src/client/client/client  -logtostderr -config "terraform/tmp/linux_client0.config" &
+python frr_python/frr_server.py --master_server_address=${master_server_host}:6059" --fleetspeak_message_listen_address="localhost:6062" --fleetspeak_server="localhost:6060" &
+
+sleep 40
 
 gsutil cp results.txt ${storage_bucket_url}

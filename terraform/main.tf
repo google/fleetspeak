@@ -25,11 +25,26 @@ resource "google_compute_firewall" "allow-ssh" {
 	target_tags = ["ssh"]
 }
 
+locals {
+	main_vm_host = cidrhost("10.128.0.0/20", 10)
+	master_server_host = cidrhost("10.128.0.0/20", 11)
+}
+
+data "template_file" "master_server_install" {
+	template = file("master_server_start.sh")
+	vars = {
+		storage_bucket_url = google_storage_bucket.common-files-store.url	
+		admin_host = local.main_vm_host
+		master_server_host = local.master_server_host
+	}
+}
+
 data "template_file" "fs_server_install" {
 	template = file("server_start.sh")
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
+		master_server_host = local.main_vm_host
 	}
 }
 
@@ -56,8 +71,13 @@ resource "google_compute_instance" "vm_instance" {
         }
     }
 
+	depends_on = [
+        google_compute_network.vpc_network,
+	]
+		
     network_interface {
         network = google_compute_network.vpc_network.self_link
+		network_ip = local.main_vm_host
         access_config {
         }
     }
@@ -67,6 +87,37 @@ resource "google_compute_instance" "vm_instance" {
 		scopes = ["cloud-platform"]
 	}
 }
+
+resource "google_compute_instance" "master_server_instance" {
+    name = "master-server-instance"
+    machine_type = "n1-standard-1"
+
+	tags = ["ssh"]
+
+    boot_disk {
+        initialize_params {
+            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+        }
+    }
+
+	depends_on = [
+        google_compute_network.vpc_network,
+	]
+		
+    network_interface {
+        network = google_compute_network.vpc_network.self_link
+		network_ip = local.master_server_host
+        access_config {
+        }
+    }
+
+	metadata_startup_script = data.template_file.master_server_install.rendered
+	service_account {
+		scopes = ["cloud-platform"]
+	}
+}
+
+
 
 resource "random_id" "db_name_suffix" {
 	byte_length = 4
