@@ -45,7 +45,7 @@ func run() error {
 	for i := 0; i < 10; i++ {
 		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6060", serverHosts[0]), startTime, *numClients)
 		fmt.Println("clients: ", clientIDs, ", iter: ", i)
-		if err != nil {
+		if err == nil {
 			break
 		}
 		if i == 9 {
