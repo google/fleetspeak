@@ -146,7 +146,7 @@ type MysqlCredentials struct {
 	Database string
 }
 
-func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials) error {
+func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials, serverHosts []string) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
@@ -161,8 +161,9 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials)
 	config.ComponentsConfig.AdminConfig = new(fcpb.AdminConfig)
 	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:6061")
 
-	config.PublicHostPort =
-		append(config.PublicHostPort, config.ComponentsConfig.HttpsConfig.ListenAddress)
+	for _, sh := range serverHosts {
+		config.PublicHostPort = append(config.PublicHostPort, fmt.Sprintf("%v:6060", sh))
+	}
 
 	config.ServerComponentConfigurationFile = path.Join(configDir, "server.config")
 	config.TrustedCertFile = path.Join(configDir, "trusted_cert.pem")
@@ -273,7 +274,7 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 }
 
 func BuildConfigurations(configDir string, serverHosts []string, numClients int, mysqlCredentials MysqlCredentials) error {
-	err := buildBaseConfiguration(configDir, mysqlCredentials)
+	err := buildBaseConfiguration(configDir, mysqlCredentials, serverHosts)
 	if err != nil {
 		return fmt.Errorf("Failed to build base configuration: %v", err)
 	}
@@ -368,7 +369,7 @@ func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, m
 		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
-	err = buildBaseConfiguration(configDir, mysqlCredentials)
+	err = buildBaseConfiguration(configDir, mysqlCredentials, []string{"localhost"})
 	if err != nil {
 		return fmt.Errorf("Failed to build base Fleetspeak configuration: %v", err)
 	}
