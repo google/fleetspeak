@@ -278,9 +278,9 @@ func BuildConfigurations(configDir string, serverHosts []string, numClients int,
 		return fmt.Errorf("Failed to build base configuration: %v", err)
 	}
 
-	adminPort := 6060
-	httpsListenPort := adminPort + 1
-	frontendPort := adminPort + 2
+	httpsListenPort := 6060
+	adminPort := httpsListenPort + 1
+	frontendPort := httpsListenPort + 2
 
 	// Build server configs
 	for i := 0; i < len(serverHosts); i++ {
@@ -307,7 +307,7 @@ func BuildConfigurations(configDir string, serverHosts []string, numClients int,
 }
 
 func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, numClients int) error {
-	firstAdminPort := 6060
+	firstAdminPort := 6061
 
 	// Start Master server
 	cc.masterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main", "--listen_address", msAddress, "--admin_address", fmt.Sprintf("localhost:%v", firstAdminPort))
@@ -316,8 +316,8 @@ func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, 
 	// Start servers and their services
 	for i := 0; i < numServers; i++ {
 		adminPort := firstAdminPort + i*3
-		httpsListenPort := adminPort + 1
-		frontendPort := adminPort + 2
+		httpsListenPort := adminPort - 1
+		frontendPort := adminPort + 1
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
 		err := modifyFleetspeakServerConfig(configDir, "localhost", frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)

@@ -41,7 +41,7 @@ func run() error {
 	var clientIDs []string
 
 	for i := 0; i < 10; i++ {
-		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6060", serverHosts[0]), startTime, *numClients)
+		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime, *numClients)
 		if err == nil {
 			break
 		}
@@ -68,6 +68,6 @@ func main() {
 		os.Exit(1)
 	} else {
 		dur := time.Now().Sub(startTime)
-		fmt.Printf("OK: End to end tests passed in %v minutes, %v seconds\n", dur.Minutes(), dur.Seconds())
+		fmt.Printf("OK: End to end tests passed in %v seconds\n", dur.Seconds())
 	}
 }
