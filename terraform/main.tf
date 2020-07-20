@@ -44,6 +44,7 @@ data "template_file" "fs_server_install" {
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
+		admin_host = local.main_vm_host
 		master_server_host = local.master_server_host
 	}
 }
