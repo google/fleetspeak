@@ -4,8 +4,8 @@ provider "google" {
 	credentials = file("/home/atsaplin/.config/gcloud/application_default_credentials.json")
 
     project = "fs-internship"
-    region  = "us-central1"
-    zone    = "us-central1-c"
+    region = "europe-west1"
+    zone = "europe-west1-b"
 }
 
 resource "google_compute_network" "vpc_network" {
@@ -26,8 +26,8 @@ resource "google_compute_firewall" "allow-ssh" {
 }
 
 locals {
-	main_vm_host = cidrhost("10.128.0.0/20", 10)
-	master_server_host = cidrhost("10.128.0.0/20", 11)
+	main_vm_host = cidrhost("10.132.0.0/20", 10)
+	master_server_host = cidrhost("10.132.0.0/20", 11)
 }
 
 data "template_file" "master_server_install" {
@@ -44,7 +44,7 @@ data "template_file" "fs_server_install" {
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
-		master_server_host = local.main_vm_host
+		master_server_host = local.master_server_host
 	}
 }
 
@@ -117,46 +117,44 @@ resource "google_compute_instance" "master_server_instance" {
 	}
 }
 
-
-
 resource "random_id" "db_name_suffix" {
 	byte_length = 4
 }
 
 resource "google_sql_database_instance" "fs-db" {
     name = "fs-db-instance-1-${random_id.db_name_suffix.hex}"
-    region = "us-central1"
+    region = "europe-west1"
 
     settings {
         tier = "db-n1-standard-1"
 
 		database_flags {
-		    name  = "max_allowed_packet"
+		    name = "max_allowed_packet"
 		    value = "1073741824"
 		}
 
 		database_flags {
-		    name  = "log_output"
+		    name = "log_output"
 		    value = "FILE"
 		}
 
 		database_flags {
-		    name  = "slow_query_log"
+		    name = "slow_query_log"
 		    value = "on"
 		}
 	}
 }
 
 resource "google_sql_user" "users" {
-    name     = "fsuser"
+    name = "fsuser"
     instance = google_sql_database_instance.fs-db.name
     password = "fsuserPass1!"
 }
 
 resource "google_sql_database" "fs-db" {
-    name      = "fleetspeak_test"
-    instance  = google_sql_database_instance.fs-db.name
-    charset   = "utf8mb4"
+    name = "fleetspeak_test"
+    instance = google_sql_database_instance.fs-db.name
+    charset = "utf8mb4"
     collation = "utf8mb4_unicode_ci"
 }
 

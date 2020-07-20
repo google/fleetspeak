@@ -51,12 +51,12 @@ pip3 install -e frr_python
 mkdir terraform/tmp
 echo "no results" > results.txt
 echo "localhost" > server_hosts.txt
-go run terraform/main_vm.go --config_dir=terraform/tmp/ --num_clients=1 --num_servers=1 --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! --ms_address=${master_server_host}:6059 > results.txt < server_hosts.txt > results.txt &
+go run terraform/main_vm.go --config_dir=terraform/tmp/ --num_clients=1 --num_servers=1 --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! --ms_address=${master_server_host}:6059 < server_hosts.txt > results.txt &
 sleep 20
-#fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main --listen_address="localhost:6059" --admin_address="localhost:6060" &
+
 fleetspeak/src/server/server/server -logtostderr -components_config "terraform/tmp/server0.config" -services_config "terraform/tmp/server0.services.config" &
 fleetspeak/src/client/client/client  -logtostderr -config "terraform/tmp/linux_client0.config" &
-python frr_python/frr_server.py --master_server_address=${master_server_host}:6059" --fleetspeak_message_listen_address="localhost:6062" --fleetspeak_server="localhost:6060" &
+python frr_python/frr_server.py --master_server_address=${master_server_host}:6059 --fleetspeak_message_listen_address="localhost:6062" --fleetspeak_server="localhost:6060" &
 
 sleep 40
 
