@@ -40,12 +40,12 @@ func run() error {
 	startTime := time.Now()
 	var clientIDs []string
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime, *numClients)
 		if err == nil {
 			break
 		}
-		if i == 9 {
+		if i == 19 {
 			return fmt.Errorf("Not all clients connected: %v", err)
 		}
 	}

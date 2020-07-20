@@ -37,7 +37,7 @@ func RunTest(msAddress string, clientIDs []string) error {
 
 	respondedClients := make(map[string]bool)
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 150; i++ {
 		for _, clientID := range clientIDs {
 			if _, ok := respondedClients[clientID]; ok {
 				continue
@@ -57,7 +57,7 @@ func RunTest(msAddress string, clientIDs []string) error {
 		if len(respondedClients) == len(clientIDs) {
 			return nil
 		}
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("Received responses from %v clients out of %v", len(respondedClients), len(clientIDs))
 }
