@@ -3,7 +3,7 @@ sudo su
 
 while [[ ! -f frr_master_server_main ]]
 do
-	gsutil cp ${storage_bucket_url}/frr_master_server_main ./
+	gsutil cp ${storage_bucket_url}/bin/frr_master_server_main ./
 	sleep 10
 done
 

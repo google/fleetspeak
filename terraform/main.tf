@@ -26,25 +26,45 @@ resource "google_compute_firewall" "allow-ssh" {
 }
 
 locals {
-	main_vm_host = cidrhost("10.132.0.0/20", 10)
-	master_server_host = cidrhost("10.132.0.0/20", 11)
+	ip_address_ranges = "10.132.0.0/20"
+	main_vm_host = cidrhost(local.ip_address_ranges, 10)
+	master_server_host = cidrhost(local.ip_address_ranges, 11)
+	fs_server_host = cidrhost(local.ip_address_ranges, 12)
+	fs_client_host = cidrhost(local.ip_address_ranges, 13)
 }
 
 data "template_file" "master_server_install" {
 	template = file("master_server_start.sh")
 	vars = {
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
-		admin_host = local.main_vm_host
+		admin_host = local.fs_server_host
 		master_server_host = local.master_server_host
 	}
 }
 
 data "template_file" "fs_server_install" {
-	template = file("server_start.sh")
+	template = file("fs_server_start.sh")
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
-		admin_host = local.main_vm_host
+		master_server_host = local.master_server_host
+		self_host = local.fs_server_host
+	}
+}
+
+data "template_file" "fs_client_install" {
+	template = file("fs_client_start.sh")
+	vars = {
+		storage_bucket_url = google_storage_bucket.common-files-store.url	
+	}
+}
+
+data "template_file" "main_vm_install" {
+	template = file("main_vm_start.sh")
+	vars = {
+		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
+		storage_bucket_url = google_storage_bucket.common-files-store.url	
+		admin_host = local.fs_server_host
 		master_server_host = local.master_server_host
 	}
 }
@@ -83,7 +103,7 @@ resource "google_compute_instance" "vm_instance" {
         }
     }
 
-	metadata_startup_script = data.template_file.fs_server_install.rendered
+	metadata_startup_script = data.template_file.main_vm_install.rendered
 	service_account {
 		scopes = ["cloud-platform"]
 	}
@@ -113,6 +133,64 @@ resource "google_compute_instance" "master_server_instance" {
     }
 
 	metadata_startup_script = data.template_file.master_server_install.rendered
+	service_account {
+		scopes = ["cloud-platform"]
+	}
+}
+
+resource "google_compute_instance" "fs_server_instance" {
+    name = "fs-server-instance"
+    machine_type = "n1-standard-1"
+
+	tags = ["ssh"]
+
+    boot_disk {
+        initialize_params {
+            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+        }
+    }
+
+	depends_on = [
+        google_compute_network.vpc_network,
+	]
+		
+    network_interface {
+        network = google_compute_network.vpc_network.self_link
+		network_ip = local.fs_server_host
+        access_config {
+        }
+    }
+
+	metadata_startup_script = data.template_file.fs_server_install.rendered
+	service_account {
+		scopes = ["cloud-platform"]
+	}
+}
+
+resource "google_compute_instance" "fs_client_instance" {
+    name = "fs-client-instance"
+    machine_type = "n1-standard-1"
+
+	tags = ["ssh"]
+
+    boot_disk {
+        initialize_params {
+            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+        }
+    }
+
+	depends_on = [
+        google_compute_network.vpc_network,
+	]
+		
+    network_interface {
+        network = google_compute_network.vpc_network.self_link
+		network_ip = local.fs_client_host
+        access_config {
+        }
+    }
+
+	metadata_startup_script = data.template_file.fs_client_install.rendered
 	service_account {
 		scopes = ["cloud-platform"]
 	}
