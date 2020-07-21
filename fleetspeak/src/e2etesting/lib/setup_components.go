@@ -246,7 +246,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFront
 	return nil
 }
 
-func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, newLinuxConfigPath, newStateFilePath string) error {
+func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, newLinuxConfigPath, newStateFilePath, configDirForClient string) error {
 	linuxBaseConfigPath := path.Join(configDir, "linux_client.config")
 
 	var clientConfig clientConfigPb.Config
@@ -258,7 +258,7 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal clientConfigData: %v", err)
 	}
-	clientConfig.GetFilesystemHandler().ConfigurationDirectory = configDir
+	clientConfig.GetFilesystemHandler().ConfigurationDirectory = configDirForClient
 	clientConfig.GetFilesystemHandler().StateFile = newStateFilePath
 	clientConfig.Server = []string{httpsListenAddress}
 	_, err = os.Create(clientConfig.GetFilesystemHandler().StateFile)
@@ -297,8 +297,8 @@ func BuildConfigurations(configDir string, serverHosts []string, numClients int,
 	for i := 0; i < numClients; i++ {
 		serverIdx := i % len(serverHosts)
 		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
-		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
-		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverHosts[serverIdx], httpsListenPort), linuxConfigPath, stateFilePath)
+		stateFilePath := fmt.Sprintf("client%v.state", i)
+		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverHosts[serverIdx], httpsListenPort), linuxConfigPath, stateFilePath, ".")
 		if err != nil {
 			return fmt.Errorf("Failed to build FS client configurations: %v", err)
 		}
@@ -345,7 +345,7 @@ func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, 
 		httpsServerPort := cc.servers[i%numServers].httpsListenPort
 		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
 		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
-		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("localhost:%v", httpsServerPort), linuxConfigPath, stateFilePath)
+		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("localhost:%v", httpsServerPort), linuxConfigPath, stateFilePath, configDir)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS client configurations: %v", err)
 		}
