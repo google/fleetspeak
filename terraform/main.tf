@@ -25,37 +25,53 @@ resource "google_compute_firewall" "allow-ssh" {
 	target_tags = ["ssh"]
 }
 
+variable "num_clients" {
+	type = number
+	default = 1
+}
+
+variable "num_servers" {
+	type = number
+	default = 1
+}
+
 locals {
-	ip_address_ranges = "10.132.0.0/20"
+	ip_address_ranges_prefix = "10.132.0"
+	ip_address_ranges = format("%s.0/20", local.ip_address_ranges_prefix)
 	main_vm_host = cidrhost(local.ip_address_ranges, 10)
 	master_server_host = cidrhost(local.ip_address_ranges, 11)
-	fs_server_host = cidrhost(local.ip_address_ranges, 12)
-	fs_client_host = cidrhost(local.ip_address_ranges, 13)
+	first_fs_server_host_suffix = 12
+	fs_admin_host = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix)
+	first_fs_client_host_suffix = local.first_fs_server_host_suffix + var.num_servers
 }
 
 data "template_file" "master_server_install" {
 	template = file("master_server_start.sh")
 	vars = {
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
-		admin_host = local.fs_server_host
+		admin_host = local.fs_admin_host
 		master_server_host = local.master_server_host
 	}
 }
 
 data "template_file" "fs_server_install" {
+	count = var.num_servers
 	template = file("fs_server_start.sh")
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
 		master_server_host = local.master_server_host
-		self_host = local.fs_server_host
+		self_host = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix + count.index)
+		self_index = count.index
 	}
 }
 
 data "template_file" "fs_client_install" {
+	count = var.num_clients
 	template = file("fs_client_start.sh")
 	vars = {
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
+		self_index = count.index
 	}
 }
 
@@ -64,8 +80,12 @@ data "template_file" "main_vm_install" {
 	vars = {
 		mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
 		storage_bucket_url = google_storage_bucket.common-files-store.url	
-		admin_host = local.fs_server_host
+		admin_host = local.fs_admin_host
 		master_server_host = local.master_server_host
+		ip_address_ranges_prefix = local.ip_address_ranges_prefix
+		first_fs_server_host_suffix = local.first_fs_server_host_suffix  
+		num_clients = var.num_clients
+		num_servers = var.num_servers
 	}
 }
 
@@ -139,7 +159,8 @@ resource "google_compute_instance" "master_server_instance" {
 }
 
 resource "google_compute_instance" "fs_server_instance" {
-    name = "fs-server-instance"
+	count = var.num_servers
+    name = "fs-server-instance-${count.index}"
     machine_type = "n1-standard-1"
 
 	tags = ["ssh"]
@@ -156,19 +177,20 @@ resource "google_compute_instance" "fs_server_instance" {
 		
     network_interface {
         network = google_compute_network.vpc_network.self_link
-		network_ip = local.fs_server_host
+		network_ip = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix + count.index)
         access_config {
         }
     }
 
-	metadata_startup_script = data.template_file.fs_server_install.rendered
+	metadata_startup_script = element(data.template_file.fs_server_install.*.rendered, count.index)
 	service_account {
 		scopes = ["cloud-platform"]
 	}
 }
 
 resource "google_compute_instance" "fs_client_instance" {
-    name = "fs-client-instance"
+	count = var.num_clients
+    name = "fs-client-instance-${count.index}"
     machine_type = "n1-standard-1"
 
 	tags = ["ssh"]
@@ -185,12 +207,12 @@ resource "google_compute_instance" "fs_client_instance" {
 		
     network_interface {
         network = google_compute_network.vpc_network.self_link
-		network_ip = local.fs_client_host
+		network_ip = cidrhost(local.ip_address_ranges, local.first_fs_client_host_suffix + count.index)
         access_config {
         }
     }
 
-	metadata_startup_script = data.template_file.fs_client_install.rendered
+	metadata_startup_script = element(data.template_file.fs_client_install.*.rendered, count.index)
 	service_account {
 		scopes = ["cloud-platform"]
 	}

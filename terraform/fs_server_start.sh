@@ -42,21 +42,21 @@ do
 	sleep 10
 done
 
-while [[ ! -f server0.config ]]
+while [[ ! -f server${self_index}.config ]]
 do
-	gsutil cp ${storage_bucket_url}/configs/server0.config ./
-	gsutil rm ${storage_bucket_url}/configs/server0.config 
+	gsutil cp ${storage_bucket_url}/server_configs/server${self_index}.config ./
+	gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.config 
 	sleep 10
 done
 
-while [[ ! -f server0.services.config ]]
+while [[ ! -f server${self_index}.services.config ]]
 do
-	gsutil cp ${storage_bucket_url}/configs/server0.services.config ./
-	gsutil rm ${storage_bucket_url}/configs/server0.services.config 
+	gsutil cp ${storage_bucket_url}/server_configs/server${self_index}.services.config ./
+	gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.services.config 
 	sleep 10
 done
 
 chmod +x server
 
-./server -logtostderr -components_config "server0.config" -services_config "server0.services.config" &
+./server -logtostderr -components_config "server${self_index}.config" -services_config "server${self_index}.services.config" &
 python3 frr_server.py --master_server_address=${master_server_host}:6059 --fleetspeak_message_listen_address=${self_host}:6062 --fleetspeak_server=${self_host}:6061

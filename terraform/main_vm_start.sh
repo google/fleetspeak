@@ -51,18 +51,29 @@ pip3 install -e frr_python
 mkdir terraform/tmp
 echo "no results" > results.txt
 
-echo ${admin_host} > server_hosts.txt
+for i in $(seq 0 $((${num_servers}-1))); do 
+	echo ${ip_address_ranges_prefix}.$((${first_fs_server_host_suffix}+$${i})) >> server_hosts.txt;
+done
 
-go run terraform/fleetspeak_configurator/build_configs.go --config_dir=terraform/tmp/ --num_clients=1 --num_servers=1 --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! < server_hosts.txt
+go run terraform/fleetspeak_configurator/build_configs.go --config_dir=terraform/tmp/ --num_clients=${num_clients} --num_servers=${num_servers} --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1! < server_hosts.txt
 
-gsutil cp terraform/tmp/server0.config ${storage_bucket_url}/configs/server0.config
-gsutil cp terraform/tmp/server0.services.config ${storage_bucket_url}/configs/server0.services.config
-gsutil cp terraform/tmp/linux_client0.config ${storage_bucket_url}/configs/linux_client0.config
-gsutil cp terraform/tmp/textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto
+for i in $(seq 0 $((${num_servers}-1))); do 
+	gsutil cp terraform/tmp/server$${i}.config ${storage_bucket_url}/server_configs/server$${i}.config
+	gsutil cp terraform/tmp/server$${i}.services.config ${storage_bucket_url}/server_configs/server$${i}.services.config
+done
 
-while [[ `gsutil ls -r ${storage_bucket_url}/configs >/dev/null 2>&1; echo $?` == 0 ]]; do
+while [[ `gsutil ls -r ${storage_bucket_url}/server_configs >/dev/null 2>&1; echo $?` == 0 ]]; do
 	sleep 10
 done
 
-go run terraform/test_runner/run_tests.go --num_clients=1 --num_servers=1 --ms_address=${master_server_host}:6059 < server_hosts.txt > results.txt;
+gsutil cp terraform/tmp/textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto
+for i in $(seq 0 $((${num_clients}-1))); do 
+	gsutil cp terraform/tmp/linux_client$${i}.config ${storage_bucket_url}/client_configs/linux_client$${i}.config
+done 
+
+while [[ `gsutil ls -r ${storage_bucket_url}/client_configs >/dev/null 2>&1; echo $?` == 0 ]]; do
+	sleep 10
+done
+
+go run terraform/test_runner/run_tests.go --num_clients=${num_clients} --num_servers=${num_servers} --ms_address=${master_server_host}:6059 < server_hosts.txt > results.txt;
 gsutil cp results.txt ${storage_bucket_url}

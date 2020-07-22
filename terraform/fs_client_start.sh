@@ -2,14 +2,13 @@
 sudo su
 
 touch communicator.txt
-touch client0.state
+touch client${self_index}.state
 mkdir services
 mkdir textservices
 mkdir frr_python
 
 export PATH=/snap/bin:$PATH
 ln -fs /usr/bin/python3 /usr/bin/python
-
 
 function waitlocks {
 	while (fuser /var/lib/apt/lists/lock >/dev/null 2>&1) || (fuser /var/lib/dpkg/lock >/dev/null 2>&1) || (fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1); do
@@ -39,10 +38,10 @@ do
 	sleep 10
 done
 
-while [[ ! -f linux_client0.config ]]
+while [[ ! -f linux_client${self_index}.config ]]
 do
-	gsutil cp ${storage_bucket_url}/configs/linux_client0.config ./
-	gsutil rm ${storage_bucket_url}/configs/linux_client0.config 
+	gsutil cp ${storage_bucket_url}/client_configs/linux_client${self_index}.config ./
+	gsutil rm ${storage_bucket_url}/client_configs/linux_client${self_index}.config 
 	sleep 10
 done
 
@@ -54,4 +53,4 @@ done
 
 chmod +x client 
 
-./client -logtostderr -config "linux_client0.config"
+./client -logtostderr -config "linux_client${self_index}.config"
