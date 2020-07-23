@@ -15,16 +15,19 @@ export PATH=/snap/bin:$GOPATH/bin:$PATH
 sleep 1
 /snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/...
 
-function waitlocks {
-	while (fuser /var/lib/dpkg/lock >/dev/null 2>&1) || (fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1); do
+
+# apt_install command_to_check package_name
+function apt_install {
+	while [[ ! `command -v $1` ]]; 
+	do
+		apt-get -y update
+		apt-get -y install $2
 		sleep 3
 	done
 }
 
-waitlocks
-apt-get -y update
-waitlocks
-apt-get -y install python3-pip mysql-client
+apt_install pip3 python3-pip
+apt_install mysql mysql-client
 
 cd /tmp/tmp/go/src/github.com/Alexandr-TS/fleetspeak/
 git checkout prep_cloud
@@ -43,8 +46,7 @@ gsutil cp frr_python/frr_client.py ${storage_bucket_url}/frr_python/frr_client.p
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O $HOME/cloud_sql_proxy
 chmod +x $HOME/cloud_sql_proxy
 
-~/cloud_sql_proxy -instances=${mysql_instance_connection_name}=tcp:3306 &
-sleep 3
+$HOME/cloud_sql_proxy -instances=${mysql_instance_connection_name}=tcp:3306 &
 
 pip3 install -e frr_python
 
