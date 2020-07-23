@@ -32,7 +32,7 @@ func run() error {
 			break
 		}
 		if i == 19 {
-			return fmt.Errorf("Not all clients connected: %v", err)
+			return fmt.Errorf("Not all clients connected (connected: %v, expected: %v, clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
 		}
 	}
 

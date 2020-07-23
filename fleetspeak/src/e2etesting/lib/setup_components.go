@@ -120,11 +120,12 @@ func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients in
 		return nil, fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddress, err)
 	}
 	admin := servicesPb.NewAdminClient(conn)
+	ids := make([]string, 0)
 	for i := 0; i < 10; i++ {
 		if i > 0 {
 			time.Sleep(time.Second)
 		}
-		ids, err := getNewClientIDs(admin, startTime)
+		ids, err = getNewClientIDs(admin, startTime)
 		if err != nil {
 			continue
 		}
@@ -135,7 +136,7 @@ func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients in
 			return ids, nil
 		}
 	}
-	return nil, errors.New("Not all clients connected")
+	return ids, errors.New("Not all clients connected")
 }
 
 // MysqlCredentials contains username, password and database
