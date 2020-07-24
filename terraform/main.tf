@@ -12,6 +12,10 @@ variable "num_servers" {
     default = 1
 }
 
+variable "vm_image" {
+    type = string
+    default = "ubuntu-1804-bionic-v20200317"
+}
 
 provider "google" {
     version = "3.5.0"
@@ -48,6 +52,18 @@ locals {
     first_fs_client_host_suffix = local.first_fs_server_host_suffix + var.num_servers
 }
 
+resource "google_compute_firewall" "allow-tcp" {
+    name = "allow-tcp"
+    network = google_compute_network.vpc_network.self_link
+
+    allow {
+        protocol = "tcp"
+    }
+
+    source_ranges = [format("%s.0/20", local.ip_address_ranges_prefix)]
+    target_tags = ["ssh"]
+}
+
 resource "random_id" "bucket_name_suffix" {
     byte_length = 4
 }
@@ -67,7 +83,7 @@ resource "google_compute_instance" "vm_instance" {
 
     boot_disk {
         initialize_params {
-            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+            image = var.vm_image
         }
     }
 
@@ -109,7 +125,7 @@ resource "google_compute_instance" "master_server_instance" {
 
     boot_disk {
         initialize_params {
-            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+            image = var.vm_image
         }
     }
 
@@ -147,7 +163,7 @@ resource "google_compute_instance" "fs_server_instance" {
 
     boot_disk {
         initialize_params {
-            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+            image = var.vm_image
         }
     }
 
@@ -187,7 +203,7 @@ resource "google_compute_instance" "fs_client_instance" {
 
     boot_disk {
         initialize_params {
-            image = "projects/eip-images/global/images/ubuntu-1804-lts-drawfork-v20200208"
+            image = var.vm_image
         }
     }
 
@@ -254,8 +270,4 @@ resource "google_sql_database" "fs-db" {
     instance = google_sql_database_instance.fs-db.name
     charset = "utf8mb4"
     collation = "utf8mb4_unicode_ci"
-}
-
-output "mysql_host" {
-    value = google_sql_database_instance.fs-db.ip_address[0].ip_address
 }
