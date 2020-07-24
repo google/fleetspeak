@@ -21,18 +21,18 @@ func run() error {
 		fmt.Scanf("%s", &serverHosts[i])
 	}
 
-	// All clients that connected more than 30 seconds ago are considered inactive (not newly connected)
-	startTime := time.Now().Add(-time.Second * 30)
+	startTime := time.Now()
 	var clientIDs []string
 	var err error
 
 	for i := 0; i < 20; i++ {
-		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime, *numClients)
+		// All clients that connected more than 30 minutes ago are considered inactive (not newly connected)
+		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime.Add(-time.Minute * 30), *numClients)
 		if err == nil {
 			break
 		}
-		if i == 19 {
-			return fmt.Errorf("Not all clients connected (connected: %v, expected: %v, clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
+		if time.Now().After(startTime.Add(time.Minute * 10) {
+			return fmt.Errorf("Not all clients connected (connected: %v, expected: %v, connected clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
 		}
 	}
 
