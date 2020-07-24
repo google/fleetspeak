@@ -27,7 +27,7 @@ func run() error {
 
 	for i := 0; i < 20; i++ {
 		// All clients that connected more than 30 minutes ago are considered inactive (not newly connected)
-		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime.Add(-time.Minute * 30), *numClients)
+		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime.Add(-time.Minute*30), *numClients)
 		if err == nil {
 			break
 		}
