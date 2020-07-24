@@ -31,7 +31,7 @@ func run() error {
 		if err == nil {
 			break
 		}
-		if time.Now().After(startTime.Add(time.Minute * 10) {
+		if time.Now().After(startTime.Add(time.Minute * 10)) {
 			return fmt.Errorf("Not all clients connected (connected: %v, expected: %v, connected clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
 		}
 	}
@@ -47,7 +47,7 @@ func run() error {
 func main() {
 	flag.Parse()
 	startTime := time.Now()
-	fmt.Println("Start time: ", startTime.Format("2006-01-02 15:04:05"))
+	fmt.Println("Test start time: ", startTime.Format("2006-01-02 15:04:05"))
 	err := run()
 	if err != nil {
 		fmt.Printf("FAIL: %v", err)
