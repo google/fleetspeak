@@ -1,14 +1,13 @@
 #!/bin/bash
-sudo su
 
 # apt_install command_to_check package_name
 function apt_install {
-	while [[ ! `command -v $1` ]]; 
-	do
-		apt-get -y update
-		apt-get -y install $2
-		sleep 3
-	done
+    while [[ ! `command -v $1` ]];
+    do
+        apt-get -y update
+        apt-get -y install $2
+        sleep 3
+    done
 }
 
 apt_install pip3 python3-pip
@@ -23,23 +22,23 @@ chmod +x ./cloud_sql_proxy
 
 ln -fs /usr/bin/python3 /usr/bin/python
 
-pip3 install grpcio-tools absl-py fleetspeak
+pip3 install grpcio-tools fleetspeak
 
 #cp_from_bucket local_file_path_to_check source_url destination_directory
 function cp_from_bucket {
-	while [[ ! -f $1 ]]
-	do
-		gsutil cp $2 $3
-		sleep 10
-	done
+    while [[ ! -f $1 ]]
+    do
+        gsutil cp $2 $3
+        sleep 5
+    done
 }
 
 cp_from_bucket server ${storage_bucket_url}/bin/server ./
 cp_from_bucket frr_server.py ${storage_bucket_url}/frr_python/frr_server.py ./
 cp_from_bucket server${self_index}.config ${storage_bucket_url}/server_configs/server${self_index}.config ./
-gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.config 
+gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.config
 cp_from_bucket server${self_index}.services.config ${storage_bucket_url}/server_configs/server${self_index}.services.config ./
-gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.services.config 
+gsutil rm ${storage_bucket_url}/server_configs/server${self_index}.services.config
 
 chmod +x server
 

@@ -1,10 +1,9 @@
 #!/bin/bash
-sudo su
 
 while [[ ! -f frr_master_server_main ]]
 do
-	gsutil cp ${storage_bucket_url}/bin/frr_master_server_main ./
-	sleep 10
+    gsutil cp ${storage_bucket_url}/bin/frr_master_server_main ./
+    sleep 10
 done
 
 chmod +x frr_master_server_main
