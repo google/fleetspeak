@@ -113,6 +113,8 @@ func getNewClientIDs(admin servicesPb.AdminClient, startTime time.Time) ([]strin
 	return newClients, nil
 }
 
+// WaitForNewClientIDs waits and returns IDs of numClients clients
+// connected to adminAddress after startTime
 func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients int) ([]string, error) {
 	conn, err := grpc.Dial(adminAddress, grpc.WithInsecure())
 	defer conn.Close()
@@ -274,6 +276,8 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 	return nil
 }
 
+// BuildConfigurations builds Fleetspeak configuration files for provided servers and
+// number of clients that are supposed to be started on different machines
 func BuildConfigurations(configDir string, serverHosts []string, numClients int, mysqlCredentials MysqlCredentials) error {
 	err := buildBaseConfiguration(configDir, mysqlCredentials, serverHosts)
 	if err != nil {
