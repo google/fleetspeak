@@ -22,8 +22,6 @@ chmod +x ./cloud_sql_proxy
 
 ln -fs /usr/bin/python3 /usr/bin/python
 
-pip3 install grpcio-tools fleetspeak
-
 #cp_from_bucket local_file_path_to_check source_url destination_directory
 function cp_from_bucket {
     while [[ ! -f $1 ]]
@@ -33,6 +31,12 @@ function cp_from_bucket {
     done
 }
 
+mkdir frr_python_wheel
+while [ ! "$(ls -A frr_python_wheel)" ]; do
+    gsutil cp ${storage_bucket_url}/frr_python/wheel/* frr_python_wheel/
+    sleep 5
+done
+pip3 install frr_python_wheel/*
 cp_from_bucket server ${storage_bucket_url}/bin/server ./
 cp_from_bucket frr_server.py ${storage_bucket_url}/frr_python/frr_server.py ./
 cp_from_bucket server${self_index}.config ${storage_bucket_url}/server_configs/server${self_index}.config ./

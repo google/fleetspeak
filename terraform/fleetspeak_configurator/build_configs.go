@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/lib"
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
 	"os"
 )
 

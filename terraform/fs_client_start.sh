@@ -5,6 +5,7 @@ touch client${self_index}.state
 mkdir services
 mkdir textservices
 mkdir frr_python
+mkdir frr_python/wheel
 
 export PATH=/snap/bin:$PATH
 ln -fs /usr/bin/python3 /usr/bin/python
@@ -15,8 +16,6 @@ do
     apt-get -y install python3-pip
 done
 
-pip3 install grpcio-tools fleetspeak
-
 #cp_from_bucket local_file_path_to_check source_url destination_directory
 function cp_from_bucket {
     while [[ ! -f $1 ]]
@@ -26,6 +25,11 @@ function cp_from_bucket {
     done
 }
 
+while [ ! "$(ls -A frr_python/wheel)" ]; do
+    gsutil cp ${storage_bucket_url}/frr_python/wheel/* frr_python/wheel/
+    sleep 5
+done
+pip3 install frr_python/wheel/*
 cp_from_bucket client ${storage_bucket_url}/bin/client ./
 cp_from_bucket frr_python/frr_client.py ${storage_bucket_url}/frr_python/frr_client.py frr_python/
 cp_from_bucket textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto textservices/
