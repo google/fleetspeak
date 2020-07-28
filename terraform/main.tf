@@ -43,13 +43,12 @@ resource "google_compute_firewall" "allow-ssh" {
 }
 
 locals {
-    ip_address_ranges_prefix = "10.132.0"
-    ip_address_ranges = format("%s.0/20", local.ip_address_ranges_prefix)
+    ip_address_ranges = "10.132.0.0/20"
+    ip_fs_server_prefix = "10.132.1"
+    ip_fs_client_prefix = "10.132.2"
+    fs_admin_host = format("%s.0", local.ip_fs_server_prefix)
     main_vm_host = cidrhost(local.ip_address_ranges, 10)
     master_server_host = cidrhost(local.ip_address_ranges, 11)
-    first_fs_server_host_suffix = 12
-    fs_admin_host = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix)
-    first_fs_client_host_suffix = local.first_fs_server_host_suffix + var.num_servers
 }
 
 resource "google_compute_firewall" "allow-tcp" {
@@ -60,7 +59,7 @@ resource "google_compute_firewall" "allow-tcp" {
         protocol = "tcp"
     }
 
-    source_ranges = [format("%s.0/20", local.ip_address_ranges_prefix)]
+    source_ranges = [local.ip_address_ranges]
     target_tags = ["ssh"]
 }
 
@@ -105,10 +104,9 @@ resource "google_compute_instance" "vm_instance" {
             storage_bucket_url = google_storage_bucket.common-files-store.url
             admin_host = local.fs_admin_host
             master_server_host = local.master_server_host
-            ip_address_ranges_prefix = local.ip_address_ranges_prefix
-            first_fs_server_host_suffix = local.first_fs_server_host_suffix
-            num_clients = var.num_clients
+            ip_fs_server_prefix = local.ip_fs_server_prefix
             num_servers = var.num_servers
+            num_clients = var.num_clients
         }
     )
 
@@ -173,7 +171,7 @@ resource "google_compute_instance" "fs_server_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
-        network_ip = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix + count.index)
+        network_ip = format("%s.%s", local.ip_fs_server_prefix, count.index)
         access_config {
         }
     }
@@ -184,7 +182,7 @@ resource "google_compute_instance" "fs_server_instance" {
             mysql_instance_connection_name = google_sql_database_instance.fs-db.connection_name
             storage_bucket_url = google_storage_bucket.common-files-store.url
             master_server_host = local.master_server_host
-            self_host = cidrhost(local.ip_address_ranges, local.first_fs_server_host_suffix + count.index)
+            self_host = format("%s.%s", local.ip_fs_server_prefix, count.index)
             self_index = count.index
         }
     )
@@ -213,7 +211,7 @@ resource "google_compute_instance" "fs_client_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
-        network_ip = cidrhost(local.ip_address_ranges, local.first_fs_client_host_suffix + count.index)
+        network_ip = format("%s.%s", local.ip_fs_client_prefix, count.index)
         access_config {
         }
     }
