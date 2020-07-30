@@ -70,7 +70,7 @@ func (c *statsCounter) MessageIngested(backlogged bool, m *fspb.Message) {
 }
 
 func (c *statsCounter) MessageSaved(forClient bool, m *fspb.Message) {
-	if service == "FRR" {
+	if m.Destination.ServiceName == "FRR" {
 		savedPayloadBytes := 0
 		if m.Data != nil {
 			savedPayloadBytes = len(m.Data.TypeUrl) + len(m.Data.Value)
@@ -80,19 +80,19 @@ func (c *statsCounter) MessageSaved(forClient bool, m *fspb.Message) {
 }
 
 func (c *statsCounter) MessageProcessed(start, end time.Time, m *fspb.Message) {
-	if service == "FRR" {
+	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesProcessed, 1)
 	}
 }
 
 func (c *statsCounter) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message) {
-	if service == "FRR" {
+	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesErrored, 1)
 	}
 }
 
 func (c *statsCounter) MessageDropped(m *fspb.Message) {
-	if service == "FRR" {
+	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesDropped, 1)
 	}
 }
