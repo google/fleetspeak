@@ -50,6 +50,7 @@ setup(
     maintainer="GRR Development Team",
     maintainer_email="grr-dev@googlegroups.com",
     license="Apache License, Version 2.0",
+    py_modules = ["frr_client", "frr_server"],
     install_requires=[
         "absl-py>=0.8.0",
         "grpcio-tools>=1.24.1",
