@@ -17,7 +17,7 @@ function log {
 }
 
 function retry {
-    while $*; do
+    while ! eval $*; do
         sleep 10
         if [[ $SECONDS -gt $TIME_LIMIT ]]; then
             return 1
@@ -42,7 +42,7 @@ export PATH=/snap/bin:$GOPATH/bin:$PATH
 
 /snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/...
 
-cd /go/src/github.com/Alexandr-TS/fleetspeak/
+cd $HOME/go/src/github.com/Alexandr-TS/fleetspeak/
 git checkout tmp_prep_cloud
 
 ln -fs /usr/bin/python3 /usr/bin/python
@@ -74,7 +74,7 @@ for i in $(seq 0 $((${num_servers}-1))); do
     gsutil cp terraform/tmp/server$${i}.services.config ${storage_bucket_url}/server_configs/server$${i}.services.config
 done
 
-if retry gsutil ls -r ${storage_bucket_url}/server_configs; then
+if retry '[ $(gsutil ls ${storage_bucket_url}/started_components/server*ready | wc -l) -eq ${num_servers} ]'; then
     log "All servers connected"
 else
     log "Not all servers connected within 30 minutes. Probably some of the servers failed to start, and the error occured before starting Fleetspeak. Try to check servers logs and restart the test."
@@ -88,12 +88,12 @@ for i in $(seq 0 $((${num_clients}-1))); do
     gsutil cp terraform/tmp/linux_client$${i}.config ${storage_bucket_url}/client_configs/linux_client$${i}.config
 done
 
-if retry gsutil ls -r ${storage_bucket_url}/client_configs; then
+if retry '[ $(gsutil ls -r ${storage_bucket_url}/started_components/client*ready | wc -l) -eq ${num_clients} ]'; then
     log "All clients connected"
 else
     log "Not all clients connected within 30 minutes. Probably some of the clients failed to start, and the error occured before starting Fleetspeak. Try to check clients logs and restart the test."
 fi
 
-go run terraform/test_runner/run_tests.go --num_clients=${num_clients} --num_servers=${num_servers} --ms_address=${master_server_host}:6059 < server_hosts.txt >> $HOME/results.txt
+go run terraform/test_runner/run_tests.go --num_clients=${num_clients} --servers_file=server_hosts.txt --ms_address=${master_server_host}:6059 >> $HOME/results.txt
 log "Script finished"
 gsutil cp $HOME/results.txt ${storage_bucket_url}

@@ -3,27 +3,29 @@ package main
 import (
 	"flag"
 	"fmt"
+    "io/ioutil"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 	"os"
+    "strings"
 	"time"
 )
 
 var (
 	numClients          = flag.Int("num_clients", 1, "Number of clients")
-	numServers          = flag.Int("num_servers", 1, "Number of servers")
 	masterServerAddress = flag.String("ms_address", "", "Address of master server")
+    serversFile         = flag.String("servers_file", "", "File with server hosts")
 )
 
 func run() error {
-	serverHosts := make([]string, *numServers)
-	for i := 0; i < *numServers; i++ {
-		fmt.Scanf("%s", &serverHosts[i])
-	}
+    dat, err := ioutil.ReadFile(*serversFile)
+    if err != nil {
+        return fmt.Errorf("Failed to read serversFile: %v", err)
+    }
+	serverHosts := strings.Fields(string(dat))
 
 	startTime := time.Now()
 	var clientIDs []string
-	var err error
 
 	for i := 0; i < 20; i++ {
 		// All clients that connected more than 30 minutes ago are considered inactive (not newly connected)
