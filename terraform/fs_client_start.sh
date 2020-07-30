@@ -17,21 +17,20 @@ function apt_install {
     done
 }
 
-#cp_from_bucket local_file_path_to_check source_url destination_directory
+#cp_from_bucket source_url destination
 function cp_from_bucket {
     mkdir -p $(dirname $2)
     while [[ (! -f $2) && (! -e $2) ]]
     do
-        gsutil cp $1 $(dirname $2)
+        gsutil cp -r $1 $(dirname $2)
         sleep 5
     done
 }
 
 apt_install pip3 python3-pip
-cp_from_bucket ${storage_bucket_url}/frr_python/wheel/* frr_python/wheel/.
-pip3 install frr_python/wheel/*
+cp_from_bucket ${storage_bucket_url}/frr_python/wheel frr_python/wheel
+pip3 install --target=frr_python frr_python/wheel/*
 cp_from_bucket ${storage_bucket_url}/bin/client ./client
-cp_from_bucket ${storage_bucket_url}/frr_python/frr_client.py frr_python/frr_client.py
 cp_from_bucket ${storage_bucket_url}/protos/frr.textproto textservices/frr.textproto
 cp_from_bucket ${storage_bucket_url}/client_configs/linux_client${self_index}.config linux_client${self_index}.config
 touch client${self_index}.ready

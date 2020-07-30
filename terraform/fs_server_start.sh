@@ -22,20 +22,19 @@ chmod +x ./cloud_sql_proxy
 
 ln -fs /usr/bin/python3 /usr/bin/python
 
-#cp_from_bucket local_file_path_to_check source_url destination_directory
+#cp_from_bucket source_url destination
 function cp_from_bucket {
     mkdir -p $(dirname $2)
     while [[ (! -f $2) && (! -e $2) ]]
     do
-        gsutil cp $1 $(dirname $2)
+        gsutil cp -r $1 $(dirname $2)
         sleep 5
     done
 }
 
-cp_from_bucket ${storage_bucket_url}/frr_python/wheel/* frr_python_wheel/.
-pip3 install frr_python_wheel/*
+cp_from_bucket ${storage_bucket_url}/frr_python/wheel frr_python/wheel
+pip3 install --target=frr_python frr_python/wheel/*
 cp_from_bucket ${storage_bucket_url}/bin/server ./server
-cp_from_bucket ${storage_bucket_url}/frr_python/frr_server.py ./frr_server.py
 cp_from_bucket ${storage_bucket_url}/server_configs/server${self_index}.config ./server${self_index}.config
 cp_from_bucket ${storage_bucket_url}/server_configs/server${self_index}.services.config ./server${self_index}.services.config
 touch server${self_index}.ready
@@ -44,4 +43,4 @@ gsutil cp server${self_index}.ready ${storage_bucket_url}/started_components/
 chmod +x server
 
 ./server -logtostderr -components_config "server${self_index}.config" -services_config "server${self_index}.services.config" &
-python3 frr_server.py --master_server_address=${master_server_host}:6059 --fleetspeak_message_listen_address=${self_host}:6062 --fleetspeak_server=${self_host}:6061
+python3 frr_python/frr_server.py --master_server_address=${master_server_host}:6059 --fleetspeak_message_listen_address=${self_host}:6062 --fleetspeak_server=${self_host}:6061

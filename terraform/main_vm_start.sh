@@ -56,8 +56,6 @@ fleetspeak/build.sh
 gsutil cp fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main ${storage_bucket_url}/bin/frr_master_server_main
 gsutil cp fleetspeak/src/client/client/client ${storage_bucket_url}/bin/client
 gsutil cp fleetspeak/src/server/server/server ${storage_bucket_url}/bin/server
-gsutil cp frr_python/frr_server.py ${storage_bucket_url}/frr_python/frr_server.py
-gsutil cp frr_python/frr_client.py ${storage_bucket_url}/frr_python/frr_client.py
 
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O $HOME/cloud_sql_proxy
 chmod +x $HOME/cloud_sql_proxy
