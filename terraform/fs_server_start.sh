@@ -1,11 +1,13 @@
 #!/bin/bash
 
+set -e
+
 # apt_install command_to_check package_name
 function apt_install {
     while [[ ! `command -v $1` ]];
     do
-        apt-get -y update
-        apt-get -y install $2
+        apt-get -y update ||:
+        apt-get -y install $2 ||:
         sleep 3
     done
 }
@@ -27,7 +29,7 @@ function cp_from_bucket {
     mkdir -p $(dirname $2)
     while [[ (! -f $2) && (! -e $2) ]]
     do
-        gsutil cp -r $1 $(dirname $2)
+        gsutil cp -r $1 $(dirname $2) ||:
         sleep 5
     done
 }
