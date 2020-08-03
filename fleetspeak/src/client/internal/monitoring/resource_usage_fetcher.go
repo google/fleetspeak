@@ -54,7 +54,8 @@ type ResourceUsageFetcher struct{}
 // information from exec.Cmd.ProcessState. NOTE that this is only possible
 // after the process has finished and has been waited for, and will most
 // probably panic otherwise.
-// This function doesn't fill in ResourceUsage.ResidentMemory.
+// This function doesn't fill in ResourceUsage.ResidentMemory, ResourceUsage.ClientIORead
+// and ResourceUsage.ClientIOWrite.
 func (f ResourceUsageFetcher) ResourceUsageFromFinishedCmd(cmd *exec.Cmd) *ResourceUsage {
 	return &ResourceUsage{
 		Timestamp:       time.Now(),
