@@ -45,6 +45,12 @@ type ResourceUsage struct {
 
 	// Client IO data written so far, in bytes.
 	ClientIOWrite int64
+
+	// Client IO read operations count so far.
+	ClientIOReadCount int64
+
+	// Client IO write operations count so far.
+	ClientIOWriteCount int64
 }
 
 // ResourceUsageFetcher obtains resource-usage data for a process from the OS.
@@ -91,12 +97,14 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 	}
 
 	return &ResourceUsage{
-		Timestamp:       timestamp,
-		UserCPUMillis:   times.User * 1e3,
-		SystemCPUMillis: times.System * 1e3,
-		ResidentMemory:  int64(memoryInfo.RSS),
-		ClientIORead:    int64(ioCounters.ReadBytes),
-		ClientIOWrite:   int64(ioCounters.WriteBytes),
+		Timestamp:          timestamp,
+		UserCPUMillis:      times.User * 1e3,
+		SystemCPUMillis:    times.System * 1e3,
+		ResidentMemory:     int64(memoryInfo.RSS),
+		ClientIORead:       int64(ioCounters.ReadBytes),
+		ClientIOWrite:      int64(ioCounters.WriteBytes),
+		ClientIOReadCount:  int64(ioCounters.ReadCount),
+		ClientIOWriteCount: int64(ioCounters.WriteCount),
 	}, nil
 }
 
