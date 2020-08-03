@@ -85,11 +85,18 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 		return nil, err
 	}
 
+	ioCounters, err := process.IOCounters()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ResourceUsage{
 		Timestamp:       timestamp,
 		UserCPUMillis:   times.User * 1e3,
 		SystemCPUMillis: times.System * 1e3,
 		ResidentMemory:  int64(memoryInfo.RSS),
+		ClientIORead:    int64(ioCounters.ReadBytes),
+		ClientIOWrite:   int64(ioCounters.WriteBytes),
 	}, nil
 }
 
