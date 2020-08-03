@@ -39,6 +39,12 @@ type ResourceUsage struct {
 
 	// Resident set size for a process, in bytes.
 	ResidentMemory int64
+
+	// Client IO data read so far, in bytes.
+	ClientIORead int64
+
+	// Client IO data written so far, in bytes.
+	ClientIOWrite int64
 }
 
 // ResourceUsageFetcher obtains resource-usage data for a process from the OS.
