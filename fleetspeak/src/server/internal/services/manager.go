@@ -188,7 +188,7 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		if s.pLogLimiter.Allow() {
 			log.Warningf("%s: Overloaded with %d concurrent messages, dropping excess, will retry.", s.name, s.maxParallelism)
 		}
-		s.manager.stats.MessageDropped(s.name, m.MessageType)
+		s.manager.stats.MessageDropped(m)
 		return nil
 	}
 
@@ -202,14 +202,14 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	e := s.service.ProcessMessage(ctx, m)
 	switch {
 	case e == nil:
-		s.manager.stats.MessageProcessed(start, ftime.Now(), s.name, m.MessageType)
+		s.manager.stats.MessageProcessed(start, ftime.Now(), m)
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, m.MessageType, true)
+		s.manager.stats.MessageErrored(start, ftime.Now(), true, m)
 		log.Warningf("%s: Temporary error processing message %v, will retry: %v", s.name, mid, e)
 		return nil
 	case !service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), s.name, m.MessageType, false)
+		s.manager.stats.MessageErrored(start, ftime.Now(), false, m)
 		log.Errorf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
 		failedReason := e.Error()
 		if len(failedReason) > MaxServiceFailureReasonLength {
@@ -268,14 +268,9 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 		return ctx.Err()
 	}
 
-	// Record that we are saving messages, data will have been set to nil for
-	// fully processed messages.
+	// Record that we are saving messages.
 	for _, m := range msgs {
-		var s int
-		if m.Data != nil {
-			s = len(m.Data.TypeUrl) + len(m.Data.Value)
-		}
-		c.stats.MessageSaved(m.Destination.ServiceName, m.MessageType, false, s)
+		c.stats.MessageSaved(false, m)
 	}
 	ctx2, fin2 := context.WithTimeout(ctx, 30*time.Second)
 	defer fin2()

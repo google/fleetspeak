@@ -91,20 +91,21 @@ type Collector interface {
 	MessageIngested(backlogged bool, m *fspb.Message)
 
 	// MessageSaved is called when a message is first saved to the database.
-	MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int)
+	// m.Data will have been set to nil for fully processed messages.
+	MessageSaved(forClient bool, m *fspb.Message)
 
 	// MessageProcessed is called when a message is successfully processed by the
 	// server.
-	MessageProcessed(start, end time.Time, service, messageType string)
+	MessageProcessed(start, end time.Time, m *fspb.Message)
 
 	// MessageErrored is called when a message processing returned an error
 	// (temporary, or permanent).
-	MessageErrored(start, end time.Time, service, messageType string, permanent bool)
+	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message)
 
 	// MessageDropped is called when a message has been dropped because too many
 	// messages for the services are being processed. Like a temporary error, the
 	// message will be retried after some minutes.
-	MessageDropped(service, messageType string)
+	MessageDropped(m *fspb.Message)
 
 	// ClientPoll is called every time a client polls the server.
 	ClientPoll(info PollInfo)
