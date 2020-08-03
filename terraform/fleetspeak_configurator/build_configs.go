@@ -4,13 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
+    "io/ioutil"
 	"os"
+    "strings"
 )
 
 var (
 	configDir     = flag.String("config_dir", "", "Directory to put config files")
 	numClients    = flag.Int("num_clients", 1, "Number of clients")
-	numServers    = flag.Int("num_servers", 1, "Number of servers")
+    serversFile   = flag.String("servers_file", "", "File with server hosts")
 	mysqlAddress  = flag.String("mysql_address", "", "MySQL server address")
 	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
 	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
@@ -18,12 +20,13 @@ var (
 )
 
 func run() error {
-	serverHosts := make([]string, *numServers)
-	for i := 0; i < *numServers; i++ {
-		fmt.Scanf("%s", &serverHosts[i])
-	}
+    dat, err := ioutil.ReadFile(*serversFile)
+    if err != nil {
+        return fmt.Errorf("Failed to read serversFile: %v", err)
+    }
+    serverHosts := strings.Fields(string(dat))
 
-	err := setup.BuildConfigurations(*configDir, serverHosts, *numClients,
+	err = setup.BuildConfigurations(*configDir, serverHosts, *numClients,
 		setup.MysqlCredentials{
 			Host:     *mysqlAddress,
 			Password: *mysqlPassword,
