@@ -122,7 +122,7 @@ func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *
 }
 
 func aggregateIOResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
-	aggRU.GetMeanIoReadMib += float64(currRU.ClientIORead) / float64(numRUCalls)
+	aggRU.MeanIoReadMib += float64(currRU.ClientIORead) / float64(numRUCalls)
 	if currRU.ClientIORead > aggRU.MaxIoReadMib {
 		aggRU.MaxIoReadMib = currRU.ClientIORead
 	}
@@ -142,12 +142,14 @@ func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*m
 		return nil, err
 	}
 
-	// If this field is untouched, we have not aggregated memory resource usage
+	// If this field is untouched, we have not aggregated memory and IO resources usage
 	// for this process yet. We fill it in with what we have.
 	// TODO
 	if aggRU.MaxResidentMemory == 0 {
 		aggRU.MeanResidentMemory = float64(initialRU.ResidentMemory)
 		aggRU.MaxResidentMemory = initialRU.ResidentMemory
+		aggRU.MeanIoReadMib = float64(initialRU.ClientIORead)
+		aggRU.MaxIoReadMib = initialRU.ClientIORead
 	}
 
 	return &aggRU, nil
