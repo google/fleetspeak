@@ -34,8 +34,8 @@ message ClientResourceUsageRecord {
   int32 mean_resident_memory_mib = 10;
   int32 max_resident_memory_mib = 11;
 
-  int32 mean_io_read_mib = 12;
-  int32 max_io_read_mib = 13;
-  int32 mean_io_write_mib = 14;
-  int32 max_io_write_mib = 15;
+  int32 mean_io_read_mib = 13;
+  int32 max_io_read_mib = 14;
+  int32 mean_io_write_mib = 15;
+  int32 max_io_write_mib = 16;
 }
