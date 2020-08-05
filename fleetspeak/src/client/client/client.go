@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"io/ioutil"
-	"os"
-	"os/signal"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -12,6 +10,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice"
+	"github.com/google/fleetspeak/fleetspeak/src/client/entry"
 	"github.com/google/fleetspeak/fleetspeak/src/client/generic"
 	"github.com/google/fleetspeak/fleetspeak/src/client/https"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -22,8 +21,9 @@ import (
 )
 
 var configFile = flag.String("config", "", "Client configuration file, required.")
+var profileDir = flag.String("profile-dir", "/tmp", "Profile directory.")
 
-func main() {
+func innerMain() {
 	flag.Parse()
 
 	b, err := ioutil.ReadFile(*configFile)
@@ -61,9 +61,9 @@ func main() {
 		log.Exitf("Error starting client: %v", err)
 	}
 
-	s := make(chan os.Signal)
-	signal.Notify(s, os.Interrupt)
-	<-s
-	signal.Reset(os.Interrupt)
-	cl.Stop()
+	entry.Wait(cl, *profileDir)
+}
+
+func main() {
+	entry.RunMain(innerMain, "FleetspeakService")
 }
