@@ -10,8 +10,8 @@ import (
 )
 
 // RunTest creates a hunt for FS clients and checks that all of them respond
-func RunTest(msPort int, clientIDs []string) error {
-	conn, err := grpc.Dial(fmt.Sprintf("localhost:%v", msPort), grpc.WithInsecure(), grpc.WithBlock())
+func RunTest(msAddress string, clientIDs []string) error {
+	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
 	defer conn.Close()
 	if err != nil {
 		return fmt.Errorf("Failed to connect to master server: %v", err)
@@ -37,7 +37,7 @@ func RunTest(msPort int, clientIDs []string) error {
 
 	respondedClients := make(map[string]bool)
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 150; i++ {
 		for _, clientID := range clientIDs {
 			if _, ok := respondedClients[clientID]; ok {
 				continue
@@ -57,7 +57,7 @@ func RunTest(msPort int, clientIDs []string) error {
 		if len(respondedClients) == len(clientIDs) {
 			return nil
 		}
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("Received responses from %v clients out of %v", len(respondedClients), len(clientIDs))
 }
