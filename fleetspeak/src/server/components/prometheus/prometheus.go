@@ -193,11 +193,11 @@ type StatsCollector struct{}
 
 func (s StatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
 	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
-	payloadBytes := calculateIngestedPayloadBytes(m)
+	payloadBytes := calculatePayloadBytes(m)
 	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Add(float64(payloadBytes))
 }
 
-func calculateIngestedPayloadBytes(m *fspb.Message) int {
+func calculatePayloadBytes(m *fspb.Message) int {
 	payloadBytes := 0
 	if m.Data != nil {
 		payloadBytes = len(m.Data.TypeUrl) + len(m.Data.Value)
@@ -205,21 +205,22 @@ func calculateIngestedPayloadBytes(m *fspb.Message) int {
 	return payloadBytes
 }
 
-func (s StatsCollector) MessageSaved(service, messageType string, forClient bool, savedPayloadBytes int) {
-	messagesSaved.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Inc()
-	messagesSavedSize.WithLabelValues(service, messageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
+func (s StatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
+	messagesSaved.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient)).Inc()
+	savedPayloadBytes := calculatePayloadBytes(m)
+	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient)).Add(float64(savedPayloadBytes))
 }
 
-func (s StatsCollector) MessageProcessed(start, end time.Time, service, messageType string) {
-	messagesProcessed.WithLabelValues(messageType, service).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message) {
+	messagesProcessed.WithLabelValues(m.MessageType, m.Destination.ServiceName).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageErrored(start, end time.Time, service, messageType string, isTemp bool) {
-	messagesErrored.WithLabelValues(messageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message) {
+	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp)).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageDropped(service, messageType string) {
-	messagesDropped.WithLabelValues(service, messageType).Inc()
+func (s StatsCollector) MessageDropped(m *fspb.Message) {
+	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType).Inc()
 }
 
 func (s StatsCollector) ClientPoll(info stats.PollInfo) {
