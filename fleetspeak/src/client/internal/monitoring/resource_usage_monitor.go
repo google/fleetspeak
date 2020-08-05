@@ -82,6 +82,10 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		return nil
 	}
 
+	if err := aggregateIOResourceUsage(currRU, numRUCalls, aggRU); err != nil {
+		return err
+	}
+
 	return aggregateMemoryResourceUsage(currRU, numRUCalls, aggRU)
 }
 
