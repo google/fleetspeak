@@ -65,6 +65,8 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		aggRU.MaxResidentMemory = currRU.ResidentMemory
 		aggRU.MeanIoReadMib = float64(currRU.ClientIORead) / float64(numRUCalls)
 		aggRU.MaxIoReadMib = currRU.ClientIORead
+		aggRU.MeanIoWriteMib = float64(currRU.ClientIOWrite) / float64(numRUCalls)
+		aggRU.MaxIoWriteMib = currRU.ClientIOWrite
 		return nil
 	}
 
@@ -130,6 +132,10 @@ func aggregateIOResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.
 	if currRU.ClientIORead > aggRU.MaxIoReadMib {
 		aggRU.MaxIoReadMib = currRU.ClientIORead
 	}
+	aggRU.MeanIoWriteMib += float64(currRU.ClientIOWrite) / float64(numRUCalls)
+	if currRU.ClientIOWrite > aggRU.MaxIoWriteMib {
+		aggRU.MaxIoWriteMib = currRU.ClientIOWrite
+	}
 	return nil
 }
 
@@ -154,6 +160,8 @@ func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*m
 		aggRU.MaxResidentMemory = initialRU.ResidentMemory
 		aggRU.MeanIoReadMib = float64(initialRU.ClientIORead)
 		aggRU.MaxIoReadMib = initialRU.ClientIORead
+		aggRU.MeanIoWriteMib = float64(initialRU.ClientIOWrite)
+		aggRU.MaxIoWriteMib = initialRU.ClientIOWrite
 	}
 
 	return &aggRU, nil
