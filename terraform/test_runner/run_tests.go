@@ -3,25 +3,25 @@ package main
 import (
 	"flag"
 	"fmt"
-    "io/ioutil"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
+	"io/ioutil"
 	"os"
-    "strings"
+	"strings"
 	"time"
 )
 
 var (
 	numClients          = flag.Int("num_clients", 1, "Number of clients")
 	masterServerAddress = flag.String("ms_address", "", "Address of master server")
-    serversFile         = flag.String("servers_file", "", "File with server hosts")
+	serversFile         = flag.String("servers_file", "", "File with server hosts")
 )
 
 func run() error {
-    dat, err := ioutil.ReadFile(*serversFile)
-    if err != nil {
-        return fmt.Errorf("Failed to read serversFile: %v", err)
-    }
+	dat, err := ioutil.ReadFile(*serversFile)
+	if err != nil {
+		return fmt.Errorf("Failed to read serversFile: %v", err)
+	}
 	serverHosts := strings.Fields(string(dat))
 
 	startTime := time.Now()
