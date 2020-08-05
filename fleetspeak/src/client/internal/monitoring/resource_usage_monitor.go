@@ -152,14 +152,18 @@ func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*m
 		return nil, err
 	}
 
-	// If this field is untouched, we have not aggregated memory and IO resources usage
+	// If those field are untouched, we have not aggregated memory and IO resources usage
 	// for this process yet. We fill it in with what we have.
 	// TODO
 	if aggRU.MaxResidentMemory == 0 {
 		aggRU.MeanResidentMemory = float64(initialRU.ResidentMemory)
 		aggRU.MaxResidentMemory = initialRU.ResidentMemory
+	}
+	if aggRU.MaxIoReadMib == 0 {
 		aggRU.MeanIoReadMib = float64(initialRU.ClientIORead)
 		aggRU.MaxIoReadMib = initialRU.ClientIORead
+	}
+	if aggRU.MaxIoWriteMib == 0 {
 		aggRU.MeanIoWriteMib = float64(initialRU.ClientIOWrite)
 		aggRU.MaxIoWriteMib = initialRU.ClientIOWrite
 	}
