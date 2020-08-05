@@ -392,7 +392,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			err := rows.Scan(
 				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
 				&record.ProcessTerminated, &record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
-				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
+				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib,
+				&record.MeanIoReadMib, &record.MaxIoReadMib, &record.MeanIoWriteMib, &record.MaxIoWriteMib)
 
 			if err != nil {
 				return err
