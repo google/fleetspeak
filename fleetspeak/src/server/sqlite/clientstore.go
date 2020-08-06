@@ -360,7 +360,11 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MeanSystemCpuRate,
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB))
+			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
+			int32(rud.ResourceUsage.MeanIoReadMib*bytesToMIB),
+			int32(float64(rud.ResourceUsage.MaxIoReadMib)*bytesToMIB),
+			int32(rud.ResourceUsage.MeanIoWriteMib*bytesToMIB),
+			int32(float64(rud.ResourceUsage.MaxIoWriteMib)*bytesToMIB))
 		return err
 	})
 }
@@ -376,6 +380,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
+				"mean_io_read_mib, max_io_read_mib, mean_io_write_mib, max_io_write_mib, "+
 				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
 			id.String(),
 			limit)
@@ -392,7 +397,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			err := rows.Scan(
 				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
 				&record.ProcessTerminated, &record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
-				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
+				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib,
+				&record.MeanIoReadMib, &record.MaxIoReadMib, &record.MeanIoWriteMib, &record.MaxIoWriteMib)
 
 			if err != nil {
 				return err

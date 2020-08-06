@@ -137,6 +137,8 @@ mean_resident_memory_mib INT4,
 max_resident_memory_mib INT4,
 mean_io_read_mib INT4,
 max_io_read_mib INT4,
+mean_io_write_mib INT4,
+max_io_write_mib INT4,
 FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
 		`CREATE TABLE IF NOT EXISTS messages(
 message_id TEXT(64) NOT NULL,
