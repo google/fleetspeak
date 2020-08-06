@@ -45,7 +45,7 @@ export PATH=/snap/bin:$GOPATH/bin:$PATH
 /snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/... ||:
 
 cd $HOME/go/src/github.com/Alexandr-TS/fleetspeak/
-git checkout prep_cloud
+git checkout cloud_lb
 
 ln -fs /usr/bin/python3 /usr/bin/python
 
@@ -67,7 +67,7 @@ mkdir terraform/tmp
 
 seq -f ${ip_fs_server_prefix}.%g 0 $((${num_servers}-1)) > server_hosts.txt;
 
-go run terraform/fleetspeak_configurator/build_configs.go --config_dir=terraform/tmp/ --num_clients=${num_clients} --servers_file=server_hosts.txt --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1!
+go run terraform/fleetspeak_configurator/build_configs.go --config_dir=terraform/tmp/ --num_clients=${num_clients} --servers_file=server_hosts.txt --frontend_address=${lb_frontend_ip} --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1!
 
 for i in $(seq 0 $((${num_servers}-1))); do
     gsutil cp terraform/tmp/server$${i}.config ${storage_bucket_url}/server_configs/server$${i}.config
@@ -83,10 +83,7 @@ fi
 sleep 30
 
 gsutil cp terraform/tmp/textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto
-
-for i in $(seq 0 $((${num_clients}-1))); do
-    gsutil cp terraform/tmp/linux_client$${i}.config ${storage_bucket_url}/client_configs/linux_client$${i}.config
-done
+gsutil cp terraform/tmp/linux_client.config ${storage_bucket_url}/client_configs/linux_client.config
 
 if retry '[ $(gsutil ls -r ${storage_bucket_url}/started_components/client*ready | wc -l) -eq ${num_clients} ]'; then
     log "All clients connected"

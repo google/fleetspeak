@@ -17,6 +17,16 @@ variable "vm_image" {
     default = "ubuntu-1804-bionic-v20200317"
 }
 
+locals {
+    ip_address_ranges = "10.132.0.0/20"
+    ip_fs_server_prefix = "10.132.1"
+    ip_fs_client_prefix = "10.132.2"
+    fs_admin_host = format("%s.0", local.ip_fs_server_prefix)
+    main_vm_host = cidrhost(local.ip_address_ranges, 10)
+    master_server_host = cidrhost(local.ip_address_ranges, 11)
+    lb_frontend_ip = cidrhost(local.ip_address_ranges, 12)
+}
+
 provider "google" {
     version = "3.5.0"
 
@@ -27,28 +37,14 @@ provider "google" {
 
 resource "google_compute_network" "vpc_network" {
     name = "terraform-network"
+    auto_create_subnetworks = false
 }
 
-resource "google_compute_firewall" "allow-ssh" {
-    name = "allow-ssh"
-    network = google_compute_network.vpc_network.self_link
-
-    allow {
-        protocol = "tcp"
-        ports = ["22"]
-    }
-
-    source_ranges = ["0.0.0.0/0"]
-    target_tags = ["ssh"]
-}
-
-locals {
-    ip_address_ranges = "10.132.0.0/20"
-    ip_fs_server_prefix = "10.132.1"
-    ip_fs_client_prefix = "10.132.2"
-    fs_admin_host = format("%s.0", local.ip_fs_server_prefix)
-    main_vm_host = cidrhost(local.ip_address_ranges, 10)
-    master_server_host = cidrhost(local.ip_address_ranges, 11)
+resource "google_compute_subnetwork" "vpc_subnetwork" {
+    name = "terraform-network"
+    ip_cidr_range = "10.132.0.0/20"
+    region = "europe-west1"
+    network = google_compute_network.vpc_network.id
 }
 
 resource "google_compute_firewall" "allow-tcp" {
@@ -60,7 +56,39 @@ resource "google_compute_firewall" "allow-tcp" {
     }
 
     source_ranges = [local.ip_address_ranges]
-    target_tags = ["ssh"]
+    target_tags = ["allow-tcp"]
+}
+
+resource "google_compute_health_check" "tcp-health-check" {
+    name = "tcp-health-check"
+
+    timeout_sec = 1
+    check_interval_sec = 1
+    healthy_threshold = 1
+    unhealthy_threshold = 5
+
+    tcp_health_check {
+        port = "8080"
+    }
+}
+
+resource "google_compute_forwarding_rule" "load-balancer-forwarding-rule" {
+    name = "load-balancer-forwarding-rule"
+    ip_address = local.lb_frontend_ip
+    load_balancing_scheme = "INTERNAL"
+    backend_service = google_compute_region_backend_service.fs-backend.id
+    ports = ["6060"]
+    network = google_compute_network.vpc_network.name
+    subnetwork = google_compute_subnetwork.vpc_subnetwork.name
+}
+
+resource "google_compute_region_backend_service" "fs-backend" {
+    name = "fs-backend"
+    region = "europe-west1"
+    backend {
+        group = google_compute_instance_group.fs-servers.id
+    }
+    health_checks = [google_compute_health_check.tcp-health-check.id]
 }
 
 resource "random_id" "bucket_name_suffix" {
@@ -78,7 +106,7 @@ resource "google_compute_instance" "vm_instance" {
     name = "terraform-instance"
     machine_type = "n1-standard-1"
 
-    tags = ["ssh"]
+    tags = ["allow-tcp"]
 
     boot_disk {
         initialize_params {
@@ -92,6 +120,7 @@ resource "google_compute_instance" "vm_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
+        subnetwork = google_compute_subnetwork.vpc_subnetwork.self_link
         network_ip = local.main_vm_host
         access_config {
         }
@@ -107,6 +136,7 @@ resource "google_compute_instance" "vm_instance" {
             ip_fs_server_prefix = local.ip_fs_server_prefix
             num_servers = var.num_servers
             num_clients = var.num_clients
+            lb_frontend_ip = local.lb_frontend_ip
         }
     )
 
@@ -119,7 +149,7 @@ resource "google_compute_instance" "master_server_instance" {
     name = "master-server-instance"
     machine_type = "n1-standard-1"
 
-    tags = ["ssh"]
+    tags = ["allow-tcp"]
 
     boot_disk {
         initialize_params {
@@ -133,6 +163,7 @@ resource "google_compute_instance" "master_server_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
+        subnetwork = google_compute_subnetwork.vpc_subnetwork.self_link
         network_ip = local.master_server_host
         access_config {
         }
@@ -152,12 +183,18 @@ resource "google_compute_instance" "master_server_instance" {
     }
 }
 
+resource "google_compute_instance_group" "fs-servers" {
+    name = "fs-servers"
+    instances = [ for instance in google_compute_instance.fs_server_instance: instance.self_link ]
+    zone = "europe-west1-b"
+}
+
 resource "google_compute_instance" "fs_server_instance" {
     count = var.num_servers
     name = "fs-server-instance-${count.index}"
     machine_type = "n1-standard-1"
 
-    tags = ["ssh"]
+    tags = ["allow-tcp"]
 
     boot_disk {
         initialize_params {
@@ -171,6 +208,7 @@ resource "google_compute_instance" "fs_server_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
+        subnetwork = google_compute_subnetwork.vpc_subnetwork.self_link
         network_ip = format("%s.%s", local.ip_fs_server_prefix, count.index)
         access_config {
         }
@@ -197,7 +235,7 @@ resource "google_compute_instance" "fs_client_instance" {
     name = "fs-client-instance-${count.index}"
     machine_type = "n1-standard-1"
 
-    tags = ["ssh"]
+    tags = ["allow-tcp"]
 
     boot_disk {
         initialize_params {
@@ -211,6 +249,7 @@ resource "google_compute_instance" "fs_client_instance" {
 
     network_interface {
         network = google_compute_network.vpc_network.self_link
+        subnetwork = google_compute_subnetwork.vpc_subnetwork.self_link
         network_ip = format("%s.%s", local.ip_fs_client_prefix, count.index)
         access_config {
         }
@@ -238,7 +277,7 @@ resource "google_sql_database_instance" "fs-db" {
     region = "europe-west1"
 
     settings {
-        tier = "db-n1-standard-1"
+        tier = "db-f1-micro"
 
         database_flags {
             name = "max_allowed_packet"
