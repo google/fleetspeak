@@ -1,4 +1,4 @@
-package endtoendtests
+package tests
 
 import (
 	"context"

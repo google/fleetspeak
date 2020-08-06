@@ -38,7 +38,7 @@ func run() error {
 		}
 	}
 
-	err = endtoendtests.RunTest(*masterServerAddress, clientIDs)
+	err = tests.RunTest(*masterServerAddress, clientIDs)
 	if err != nil {
 		return fmt.Errorf("test failed: %v", err)
 	}
