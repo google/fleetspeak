@@ -15,6 +15,7 @@ import (
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 	grpcServicePb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
 	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	servicesGrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -86,7 +87,7 @@ func startCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
-func getNewClientIDs(admin servicesPb.AdminClient, startTime time.Time) ([]string, error) {
+func getNewClientIDs(admin servicesGrpc.AdminClient, startTime time.Time) ([]string, error) {
 	var ids [][]byte
 	ctx := context.Background()
 	res, err := admin.ListClients(ctx,
@@ -121,7 +122,7 @@ func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients in
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddress, err)
 	}
-	admin := servicesPb.NewAdminClient(conn)
+	admin := servicesGrpc.NewAdminClient(conn)
 	ids := make([]string, 0)
 	for i := 0; i < 10; i++ {
 		if i > 0 {
