@@ -347,7 +347,7 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	return d.runInTx(func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			id.String(),
 			rud.Scope,
 			rud.Pid,
