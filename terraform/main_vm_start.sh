@@ -42,10 +42,8 @@ snap install --classic --channel=1.14/stable go
 export GOPATH=$HOME/go
 export PATH=/snap/bin:$GOPATH/bin:$PATH
 
-/snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/... ||:
-
-cd $HOME/go/src/github.com/Alexandr-TS/fleetspeak/
-git checkout prep_cloud
+/snap/bin/go get -v -t github.com/google/fleetspeak/... ||:
+cd $HOME/go/src/github.com/google/fleetspeak/
 
 ln -fs /usr/bin/python3 /usr/bin/python
 
