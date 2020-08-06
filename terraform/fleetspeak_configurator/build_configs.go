@@ -13,6 +13,7 @@ var (
 	configDir     = flag.String("config_dir", "", "Directory to put config files")
 	numClients    = flag.Int("num_clients", 1, "Number of clients")
 	serversFile   = flag.String("servers_file", "", "File with server hosts")
+	serverFrontendAddress = flag.String("frontend_address", "", "Frontend address for clients to connect")
 	mysqlAddress  = flag.String("mysql_address", "", "MySQL server address")
 	mysqlDatabase = flag.String("mysql_database", "", "MySQL database name to use")
 	mysqlUsername = flag.String("mysql_username", "", "MySQL username to use")
@@ -26,7 +27,7 @@ func run() error {
 	}
 	serverHosts := strings.Fields(string(dat))
 
-	err = setup.BuildConfigurations(*configDir, serverHosts, *numClients,
+	err = setup.BuildConfigurations(*configDir, serverHosts, *serverFrontendAddress, *numClients,
 		setup.MysqlCredentials{
 			Host:     *mysqlAddress,
 			Password: *mysqlPassword,
