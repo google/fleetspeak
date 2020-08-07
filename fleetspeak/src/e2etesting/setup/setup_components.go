@@ -14,8 +14,8 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 	grpcServicePb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
-	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	servicesGrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -230,7 +230,6 @@ func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFront
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
-	//serverConfig.HttpsConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsHTTPSListenPort)
 	serverConfig.HttpsConfig.ListenAddress = HTTPSListenAddress
 	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsAdminPort)
 	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
