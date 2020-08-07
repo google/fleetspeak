@@ -45,7 +45,7 @@ export PATH=/snap/bin:$GOPATH/bin:$PATH
 /snap/bin/go get -v -t github.com/Alexandr-TS/fleetspeak/... ||:
 
 cd $HOME/go/src/github.com/Alexandr-TS/fleetspeak/
-git checkout cloud_lb
+git checkout cloud_lb_dev
 
 ln -fs /usr/bin/python3 /usr/bin/python
 

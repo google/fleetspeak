@@ -280,7 +280,7 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 // BuildConfigurations builds Fleetspeak configuration files for provided servers and
 // number of clients that are supposed to be started on different machines
 func BuildConfigurations(configDir string, serverHosts []string, serverFrontendAddress string, numClients int, mysqlCredentials MysqlCredentials) error {
-	err := buildBaseConfiguration(configDir, mysqlCredentials, append(serverHosts, serverFrontendAddress))
+	err := buildBaseConfiguration(configDir, mysqlCredentials, []string{serverFrontendAddress})
 	if err != nil {
 		return fmt.Errorf("Failed to build base configuration: %v", err)
 	}
