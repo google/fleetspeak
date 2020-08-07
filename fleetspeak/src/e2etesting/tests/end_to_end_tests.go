@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
+	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	"google.golang.org/grpc"
 	"math/rand"
 	"time"
@@ -23,7 +24,7 @@ func RunTest(msAddress string, clientIDs []string) error {
 	rand.Seed(int64(time.Now().Nanosecond()))
 	requestID := rand.Int63()
 
-	_, err = client.CreateHunt(ctx, &fgrpc.CreateHuntRequest{Limit: uint64(len(clientIDs)), Data: &fgrpc.TrafficRequestData{
+	_, err = client.CreateHunt(ctx, &fpb.CreateHuntRequest{Limit: uint64(len(clientIDs)), Data: &fpb.TrafficRequestData{
 		MasterId:       0,
 		RequestId:      requestID,
 		NumMessages:    1,
@@ -42,7 +43,7 @@ func RunTest(msAddress string, clientIDs []string) error {
 			if _, ok := respondedClients[clientID]; ok {
 				continue
 			}
-			response, err := client.CompletedRequests(ctx, &fgrpc.CompletedRequestsRequest{ClientId: clientID})
+			response, err := client.CompletedRequests(ctx, &fpb.CompletedRequestsRequest{ClientId: clientID})
 			if err != nil {
 				continue
 			}
