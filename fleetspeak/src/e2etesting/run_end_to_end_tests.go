@@ -18,10 +18,11 @@ var (
 )
 
 func run() error {
+	frontendAddress := "localhost:6000"
 	msAddress := "localhost:6059"
 
 	var componentsInfo setup.ComponentsInfo
-	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Host: *mysqlAddress, Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, msAddress, *numServers, *numClients)
+	err := componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Host: *mysqlAddress, Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, frontendAddress, msAddress, *numServers, *numClients)
 	defer componentsInfo.KillAll()
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
