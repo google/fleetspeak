@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net"
 	"os"
 	"strings"
-    "time"
-    "log"
+	"time"
 )
 
 var (
@@ -44,19 +44,19 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("Failed to accept connection: %v", err)
 		}
-        var serverAddr string
-        var serverConn net.Conn
-        for {
-		    serverAddr = serverHosts[rand.Int() % len(serverHosts)]
-		    serverConn, err = net.Dial("tcp", serverAddr)
-            if err != nil {
-                log.Printf("Failed to connect to server (%v): %v, retrying...\n", serverAddr, err)
-                time.Sleep(time.Second * 1)
-            } else {
-                break
-            }
-        }
-        log.Printf("Connection accepted, server: %v\n", serverAddr)
+		var serverAddr string
+		var serverConn net.Conn
+		for {
+			serverAddr = serverHosts[rand.Int()%len(serverHosts)]
+			serverConn, err = net.Dial("tcp", serverAddr)
+			if err != nil {
+				log.Printf("Failed to connect to server (%v): %v, retrying...\n", serverAddr, err)
+				time.Sleep(time.Second * 1)
+			} else {
+				break
+			}
+		}
+		log.Printf("Connection accepted, server: %v\n", serverAddr)
 		go copy(serverConn, lbConn)
 		go copy(lbConn, serverConn)
 	}
