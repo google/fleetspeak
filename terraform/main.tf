@@ -59,6 +59,17 @@ resource "google_compute_firewall" "allow-tcp" {
   target_tags   = ["allow-tcp"]
 }
 
+// TODO(Alexandr-TS): Add firewall rules denying all the IPs except the Load balancer (local.lb_frontend_ip) to connect to fleetspeak servers.
+
+/*
+  TODO(Alexandr-TS): Add firewall rule for health checks (https://cloud.google.com/load-balancing/docs/health-check-concepts#ip-ranges),
+  and add health check support to the fleetspeak server binary.
+  In external projects the health checks should be supported properly.
+  In internal GCP projects non-default firewall rules will be automatically removed,
+  but the traffic will be distributed to all backend VMs, although they will be considered unhealthy
+  (https://cloud.google.com/load-balancing/docs/health-check-concepts#importance_of_firewall_rules).
+*/
+
 resource "google_compute_health_check" "tcp-health-check" {
   name = "tcp-health-check"
 
