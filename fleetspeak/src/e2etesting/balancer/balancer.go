@@ -46,12 +46,17 @@ func run() error {
 		}
 		var serverAddr string
 		var serverConn net.Conn
+		retriesLeft := 10
 		for {
 			serverAddr = serverHosts[rand.Int()%len(serverHosts)]
 			serverConn, err = net.Dial("tcp", serverAddr)
 			if err != nil {
 				log.Printf("Failed to connect to server (%v): %v, retrying...\n", serverAddr, err)
-				time.Sleep(time.Second * 1)
+				retriesLeft--
+				if retriesLeft < 0 {
+					return fmt.Errorf("Maximum number of retries exceeded - no active servers were found")
+				}
+				time.Sleep(time.Second * 2)
 			} else {
 				break
 			}
