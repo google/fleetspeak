@@ -49,9 +49,6 @@ const (
 // We don't get memory usage data from finished commands. The commandFinished
 // bool argument makes this function skip memory usage aggregation.
 func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage, commandFinished bool) error {
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-	log.Info("Beginning of AggregateResourceUsage()")
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 	if numRUCalls < 2 {
 		return errors.New("number of resource-usage calls should be at least 2 (for rate computation)")
 	}

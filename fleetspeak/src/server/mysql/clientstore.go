@@ -340,10 +340,6 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	if err != nil {
 		return fmt.Errorf("failed to parse data timestamp: %v", err)
 	}
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-	log.Info("Value of int32(float64(rud.ResourceUsage.MaxIoReadMib)*bytesToMIB):")
-	log.Info(int32(float64(rud.ResourceUsage.MaxIoReadMib) * bytesToMIB))
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,

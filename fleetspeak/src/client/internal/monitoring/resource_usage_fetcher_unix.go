@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/common/log"
 	"github.com/shirou/gopsutil/process"
 )
 
@@ -143,10 +142,6 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 	if err != nil {
 		return nil, err
 	}
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-	log.Info("Value of int64(ioCounters.ReadBytes):")
-	log.Info(int64(ioCounters.ReadBytes))
-	log.Info("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 	return &ResourceUsage{
 		Timestamp:       timestamp,
 		UserCPUMillis:   float64((utime + cutime) * 10), // Assume rate of 100 ticks/second
