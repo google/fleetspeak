@@ -3,7 +3,7 @@
 set -e
 
 touch communicator.txt
-touch client${self_index}.state
+touch client.state
 mkdir services
 
 export PATH=/snap/bin:$PATH
@@ -34,10 +34,10 @@ cp_from_bucket ${storage_bucket_url}/frr_python/wheel frr_python/wheel
 pip3 install --target=frr_python frr_python/wheel/*
 cp_from_bucket ${storage_bucket_url}/bin/client ./client
 cp_from_bucket ${storage_bucket_url}/protos/frr.textproto textservices/frr.textproto
-cp_from_bucket ${storage_bucket_url}/client_configs/linux_client${self_index}.config linux_client${self_index}.config
+cp_from_bucket ${storage_bucket_url}/client_configs/linux_client.config linux_client.config
 touch client${self_index}.ready
 gsutil cp client${self_index}.ready ${storage_bucket_url}/started_components/
 
 chmod +x client
 
-./client -logtostderr -config "linux_client${self_index}.config"
+./client -logtostderr -config "linux_client.config"

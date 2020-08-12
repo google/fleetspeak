@@ -220,7 +220,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	return nil
 }
 
-func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFrontendPort, fsHTTPSListenPort, fsAdminPort int, newServerConfigPath, newServerServicesConfigPath string) error {
+func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFrontendPort, fsAdminPort int, HTTPSListenAddress, newServerConfigPath, newServerServicesConfigPath string) error {
 	// Update server addresses
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
@@ -233,7 +233,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFront
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
-	serverConfig.HttpsConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsHTTPSListenPort)
+	serverConfig.HttpsConfig.ListenAddress = HTTPSListenAddress
 	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsAdminPort)
 	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
 
@@ -282,8 +282,8 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 
 // BuildConfigurations builds Fleetspeak configuration files for provided servers and
 // number of clients that are supposed to be started on different machines
-func BuildConfigurations(configDir string, serverHosts []string, numClients int, mysqlCredentials MysqlCredentials) error {
-	err := buildBaseConfiguration(configDir, mysqlCredentials, "10.132.0.12:6060")
+func BuildConfigurations(configDir string, serverHosts []string, serverFrontendAddress string, numClients int, mysqlCredentials MysqlCredentials) error {
+	err := buildBaseConfiguration(configDir, mysqlCredentials, serverFrontendAddress)
 	if err != nil {
 		return fmt.Errorf("Failed to build base configuration: %v", err)
 	}
@@ -296,23 +296,18 @@ func BuildConfigurations(configDir string, serverHosts []string, numClients int,
 	for i := 0; i < len(serverHosts); i++ {
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, adminPort, fmt.Sprintf("%v:%v", serverFrontendAddress, httpsListenPort), serverConfigPath, serverServicesConfigPath)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
 	}
 
 	// Build client configs
-	for i := 0; i < numClients; i++ {
-		serverIdx := i % len(serverHosts)
-		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
-		stateFilePath := fmt.Sprintf("client%v.state", i)
-		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverHosts[serverIdx], httpsListenPort), linuxConfigPath, stateFilePath, ".")
-		if err != nil {
-			return fmt.Errorf("Failed to build FS client configurations: %v", err)
-		}
+	linuxConfigPath := path.Join(configDir, "linux_client.config")
+	err = modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverFrontendAddress, httpsListenPort), linuxConfigPath, "client.state", ".")
+	if err != nil {
+		return fmt.Errorf("Failed to build FS client configurations: %v", err)
 	}
-
 	return nil
 }
 
@@ -332,7 +327,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 		frontendPort := adminPort + 1
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, "localhost", frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(configDir, "localhost", frontendPort, adminPort, fmt.Sprintf("localhost:%v", httpsListenPort), serverConfigPath, serverServicesConfigPath)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
