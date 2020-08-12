@@ -282,21 +282,22 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 
 // BuildConfigurations builds Fleetspeak configuration files for provided servers and
 // number of clients that are supposed to be started on different machines
-func BuildConfigurations(configDir string, serverHosts []string, serverFrontendAddress string, numClients int, mysqlCredentials MysqlCredentials) error {
-	err := buildBaseConfiguration(configDir, mysqlCredentials, serverFrontendAddress)
-	if err != nil {
-		return fmt.Errorf("Failed to build base configuration: %v", err)
-	}
-
+func BuildConfigurations(configDir string, serverHosts []string, serverFrontendIP string, numClients int, mysqlCredentials MysqlCredentials) error {
 	httpsListenPort := 6060
 	adminPort := httpsListenPort + 1
 	frontendPort := httpsListenPort + 2
+	serverFrontendAddr := fmt.Sprintf("%v:%v", serverFrontendIP, httpsListenPort)
+
+	err := buildBaseConfiguration(configDir, mysqlCredentials, serverFrontendAddr)
+	if err != nil {
+		return fmt.Errorf("Failed to build base configuration: %v", err)
+	}
 
 	// Build server configs
 	for i := 0; i < len(serverHosts); i++ {
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, adminPort, fmt.Sprintf("%v:%v", serverFrontendAddress, httpsListenPort), serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, adminPort, serverFrontendAddr, serverConfigPath, serverServicesConfigPath)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
@@ -304,7 +305,7 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendA
 
 	// Build client configs
 	linuxConfigPath := path.Join(configDir, "linux_client.config")
-	err = modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverFrontendAddress, httpsListenPort), linuxConfigPath, "client.state", ".")
+	err = modifyFleetspeakClientConfig(configDir, serverFrontendAddr, linuxConfigPath, "client.state", ".")
 	if err != nil {
 		return fmt.Errorf("Failed to build FS client configurations: %v", err)
 	}
