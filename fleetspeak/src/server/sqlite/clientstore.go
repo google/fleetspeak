@@ -361,10 +361,10 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
 			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanIoReadMib*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxIoReadMib)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanIoWriteMib*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxIoWriteMib)*bytesToMIB))
+			int32(rud.ResourceUsage.MeanIoRead*bytesToMIB),
+			int32(float64(rud.ResourceUsage.MaxIoRead)*bytesToMIB),
+			int32(rud.ResourceUsage.MeanIoWrite*bytesToMIB),
+			int32(float64(rud.ResourceUsage.MaxIoWrite)*bytesToMIB))
 		return err
 	})
 }
