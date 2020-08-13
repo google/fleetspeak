@@ -125,4 +125,9 @@ service Admin {
   // clients using it to rekey.
   rpc BlacklistClient (BlacklistClientRequest) returns (fleetspeak.EmptyMessage) {
   }
+
+  // GetAvailableMetrics returns all available metrics in the table
+  // client_resource_usage_records (column names of the table).
+  rpc GetAvailableMetrics(GetAvailableMetricsRequest) returns (GetAvailableMetricsResponse) {
+  }
 }
