@@ -154,6 +154,13 @@ func (d MonitoredDatastore) BlacklistClient(ctx context.Context, id common.Clien
 	return err
 }
 
+func (d MonitoredDatastore) FetchTableColumnNames(ctx context.Context, table string) ([]string, error) {
+	s := ftime.Now()
+	res, err := d.D.FetchTableColumnNames(ctx, table)
+	d.C.DatastoreOperation(s, ftime.Now(), "FetchTableColumnNames", err)
+	return res, err
+}
+
 func (d MonitoredDatastore) RecordClientContact(ctx context.Context, data db.ContactData) (db.ContactID, error) {
 	s := ftime.Now()
 	res, err := d.D.RecordClientContact(ctx, data)
