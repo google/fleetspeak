@@ -415,39 +415,23 @@ func timestampProto(nanos int64) *tspb.Timestamp {
 }
 
 func (d *Datastore) FetchTableColumnNames(ctx context.Context, table string) ([]string, error) {
-	var vals []string
+	var cols []string
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
-		// columns = nil
-		rows, err := tx.QueryContext(
-			ctx,
-			"SHOW COLUMNS FROM client_resource_usage_records")
-
+		// cols = nil
+		rows, err := tx.QueryContext(ctx, "SELECT * FROM client_resource_usage_records")
 		if err != nil {
 			return err
 		}
-
 		defer rows.Close()
-		cols, colerr := rows.Columns()
+		columns, colerr := rows.Columns()
 		if colerr != nil {
 			return colerr
 		}
-		vals := make([]interface{}, len(cols))
-		for i := range cols {
-			vals[i] = new(sql.RawBytes)
-		}
-		for rows.Next() {
-			// var column string
-			scanerr := rows.Scan(vals...)
-			if scanerr != nil {
-				return scanerr
-			}
-			// columns = append(columns, column)
-		}
-
+		cols = columns
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return vals, nil
+	return cols, nil
 }
