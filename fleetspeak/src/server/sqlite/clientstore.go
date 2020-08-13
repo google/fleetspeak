@@ -418,3 +418,34 @@ func timestampProto(nanos int64) *tspb.Timestamp {
 		Nanos:   int32(nanos % time.Second.Nanoseconds()),
 	}
 }
+
+func (d *Datastore) FetchTableColumnNames(ctx context.Context, table string) ([]string, error) {
+	var columns []string
+	err := d.runInTx(func(tx *sql.Tx) error {
+		columns = nil
+		rows, err := tx.QueryContext(
+			ctx,
+			"SHOW COLUMNS FROM client_resource_usage_records")
+
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var column string
+			err := rows.Scan(column)
+			if err != nil {
+				return err
+			}
+			columns = append(columns, column)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return columns, nil
+}
