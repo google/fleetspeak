@@ -149,6 +149,15 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		}
 	}
 
+	hccfg := cfg.HealthCheckConfig
+	var healthCheckListener net.Listener
+	if hccfg != nil {
+		healthCheckListener, err = net.Listen("tcp", hccfg.ListenAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize health check service: %v", err)
+		}
+	}
+
 	// Final assembly
 	return &server.Components{
 		Datastore: db,
@@ -156,11 +165,12 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 			"GRPC": grpcservice.Factory,
 			"NOOP": service.NOOPFactory,
 		},
-		Communicators: []comms.Communicator{comm},
-		Authorizer:    auth,
-		Stats:         statsCollector,
-		Notifier:      nn,
-		Listener:      nl,
-		Admin:         admSrv,
+		Communicators:       []comms.Communicator{comm},
+		Authorizer:          auth,
+		Stats:               statsCollector,
+		Notifier:            nn,
+		Listener:            nl,
+		Admin:               admSrv,
+		HealthCheckListener: healthCheckListener,
 	}, nil
 }

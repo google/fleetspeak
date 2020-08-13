@@ -59,27 +59,37 @@ resource "google_compute_firewall" "allow-tcp" {
   target_tags   = ["allow-tcp"]
 }
 
-// TODO(Alexandr-TS): Add firewall rules denying all the IPs except the Load balancer (local.lb_frontend_ip) to connect to fleetspeak servers.
-
 /*
-  TODO(Alexandr-TS): Add firewall rule for health checks (https://cloud.google.com/load-balancing/docs/health-check-concepts#ip-ranges),
-  and add health check support to the fleetspeak server binary.
-  In external projects the health checks should be supported properly.
-  In internal GCP projects non-default firewall rules will be automatically removed,
-  but the traffic will be distributed to all backend VMs, although they will be considered unhealthy
+  In external projects the health checks work properly.
+  In internal GCP projects non-default firewall rules may be automatically removed at some moment,
+  but the traffic is distributed to all backend VMs, even if all the VMs are considered unhealthy
   (https://cloud.google.com/load-balancing/docs/health-check-concepts#importance_of_firewall_rules).
 */
 
-resource "google_compute_health_check" "tcp-health-check" {
-  name = "tcp-health-check"
+resource "google_compute_firewall" "allow-health-checks" {
+  name    = "allow-health-checks"
+  network = google_compute_network.vpc_network.self_link
 
-  timeout_sec         = 1
-  check_interval_sec  = 1
+  allow {
+    protocol = "all"
+  }
+
+  source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
+  target_tags   = ["allow-health-checks"]
+}
+
+// TODO(Alexandr-TS): Add firewall rules denying all the IPs except the Load balancer (local.lb_frontend_ip) to connect to fleetspeak servers.
+
+resource "google_compute_health_check" "http-health-check" {
+  name = "http-health-check"
+
+  timeout_sec         = 5
+  check_interval_sec  = 10
   healthy_threshold   = 1
-  unhealthy_threshold = 5
+  unhealthy_threshold = 3
 
-  tcp_health_check {
-    port = "8080"
+  http_health_check {
+    port = "8085"
   }
 }
 
@@ -99,7 +109,7 @@ resource "google_compute_region_backend_service" "fs-backend" {
   backend {
     group = google_compute_instance_group.fs-servers.id
   }
-  health_checks = [google_compute_health_check.tcp-health-check.id]
+  health_checks = [google_compute_health_check.http-health-check.id]
 }
 
 resource "random_id" "bucket_name_suffix" {
@@ -205,7 +215,7 @@ resource "google_compute_instance" "fs_server_instance" {
   name         = "fs-server-instance-${count.index}"
   machine_type = "n1-standard-1"
 
-  tags = ["allow-tcp"]
+  tags = ["allow-tcp", "allow-health-checks"]
 
   boot_disk {
     initialize_params {
