@@ -80,6 +80,10 @@ message BlacklistClientRequest {
   bytes client_id = 1;
 }
 
+message GetAvailableMetricsResponse {
+  repeated string targets = 1;
+}
+
 service Admin {
   // CreateBroadcast creates a FS broadcast, potentially sending a message to
   // many machines in the fleet.
@@ -128,6 +132,6 @@ service Admin {
 
   // GetAvailableMetrics returns all available metrics in the table
   // client_resource_usage_records (column names of the table).
-  rpc GetAvailableMetrics(GetAvailableMetricsRequest) returns (GetAvailableMetricsResponse) {
+  rpc GetAvailableMetrics(fleetspeak.EmptyMessage) returns (GetAvailableMetricsResponse) {
   }
 }
