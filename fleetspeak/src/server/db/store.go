@@ -231,6 +231,9 @@ type ClientStore interface {
 	// Fetches at most 'limit' resource-usage records for a given client from the data-store.
 	// TODO: Add more complex queries.
 	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error)
+
+	// Fetches column names of a given table from the datastore.
+	FetchTableColumnNames(ctx context.Context, table string) ([]string, error)
 }
 
 // Broadcast limits with special meaning.
