@@ -259,3 +259,17 @@ func (s adminServer) GetAvailableMetrics(ctx context.Context, _ *fspb.EmptyMessa
 		Targets: columns,
 	}, nil
 }
+
+func (s adminServer) FetchClientResourceUsageRecords(ctx context.Context, req *spb.FetchClientResourceUsageRecordsRequest) (*spb.FetchClientResourceUsageRecordsResponse, error) {
+	clientID, idErr := common.BytesToClientID(req.ClientId)
+	if idErr != nil {
+		return nil, idErr
+	}
+	records, dbErr := s.store.FetchResourceUsageRecords(ctx, clientID, int(req.Limit)) // todo: support generic table
+	if dbErr != nil {
+		return nil, dbErr
+	}
+	return &spb.FetchClientResourceUsageRecordsResponse{
+		Records: records,
+	}, nil
+}
