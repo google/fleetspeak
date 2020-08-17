@@ -11,7 +11,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/local/bin/fleetspeak-client</string>
-		<string>--config_dir=/etc/fleetspeak-client</string>
+		<string>--config=/etc/fleetspeak-client/client.config</string>
 		<string>--log_dir=/private/var/log</string>
 	</array>
 	<key>KeepAlive</key>
