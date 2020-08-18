@@ -18,7 +18,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -57,28 +56,28 @@ type Components struct {
 	Notifier notifications.Notifier
 	Listener notifications.Listener
 
-	HealthCheckListener net.Listener
+	HealthCheck *http.Server
 
 	Admin *grpc.Server
 }
 
 // A Server is an active fleetspeak server instance.
 type Server struct {
-	config              *spb.ServerConfig
-	dataStore           db.Store
-	done                chan struct{}
-	serviceConfig       *services.Manager
-	comms               []comms.Communicator
-	processing          sync.WaitGroup
-	broadcastManager    *broadcasts.Manager
-	statsCollector      stats.Collector
-	authorizer          authorizer.Authorizer
-	clientCache         *cache.Clients
-	notifier            notifications.Notifier
-	listener            notifications.Listener
-	dispatcher          *inotifications.Dispatcher
-	admin               *grpc.Server
-	healthCheckListener net.Listener
+	config           *spb.ServerConfig
+	dataStore        db.Store
+	done             chan struct{}
+	serviceConfig    *services.Manager
+	comms            []comms.Communicator
+	processing       sync.WaitGroup
+	broadcastManager *broadcasts.Manager
+	statsCollector   stats.Collector
+	authorizer       authorizer.Authorizer
+	clientCache      *cache.Clients
+	notifier         notifications.Notifier
+	listener         notifications.Listener
+	dispatcher       *inotifications.Dispatcher
+	admin            *grpc.Server
+	healthCheck      *http.Server
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -103,18 +102,18 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		return nil, fmt.Errorf("expected (Listener, Notifier) to be both set, got (%T, %T)", sc.Listener, sc.Notifier)
 	}
 	s := Server{
-		config:              c,
-		dataStore:           sc.Datastore,
-		done:                make(chan struct{}),
-		comms:               sc.Communicators,
-		statsCollector:      sc.Stats,
-		authorizer:          sc.Authorizer,
-		clientCache:         cache.NewClients(),
-		notifier:            sc.Notifier,
-		listener:            sc.Listener,
-		dispatcher:          inotifications.NewDispatcher(),
-		admin:               sc.Admin,
-		healthCheckListener: sc.HealthCheckListener,
+		config:         c,
+		dataStore:      sc.Datastore,
+		done:           make(chan struct{}),
+		comms:          sc.Communicators,
+		statsCollector: sc.Stats,
+		authorizer:     sc.Authorizer,
+		clientCache:    cache.NewClients(),
+		notifier:       sc.Notifier,
+		listener:       sc.Listener,
+		dispatcher:     inotifications.NewDispatcher(),
+		admin:          sc.Admin,
+		healthCheck:    sc.HealthCheck,
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
@@ -159,11 +158,6 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 
 	s.dataStore.RegisterMessageProcessor(s.serviceConfig)
 
-	if s.healthCheckListener != nil {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
-		go http.Serve(s.healthCheckListener, nil)
-	}
-
 	return &s, nil
 }
 
@@ -187,8 +181,8 @@ func (s *Server) Stop() {
 	if s.admin != nil {
 		s.admin.Stop()
 	}
-	if s.healthCheckListener != nil {
-		s.healthCheckListener.Close()
+	if s.healthCheck != nil {
+		s.healthCheck.Close()
 	}
 }
 

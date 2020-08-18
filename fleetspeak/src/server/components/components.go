@@ -149,13 +149,18 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		}
 	}
 
+	// Health check setup
 	hccfg := cfg.HealthCheckConfig
-	var healthCheckListener net.Listener
+	var healthCheck *http.Server
 	if hccfg != nil {
-		healthCheckListener, err = net.Listen("tcp", hccfg.ListenAddress)
+		healthCheckListener, err := net.Listen("tcp", hccfg.ListenAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize health check service: %v", err)
 		}
+		healthCheck = &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+		}
+		go healthCheck.Serve(healthCheckListener)
 	}
 
 	// Final assembly
@@ -165,12 +170,12 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 			"GRPC": grpcservice.Factory,
 			"NOOP": service.NOOPFactory,
 		},
-		Communicators:       []comms.Communicator{comm},
-		Authorizer:          auth,
-		Stats:               statsCollector,
-		Notifier:            nn,
-		Listener:            nl,
-		Admin:               admSrv,
-		HealthCheckListener: healthCheckListener,
+		Communicators: []comms.Communicator{comm},
+		Authorizer:    auth,
+		Stats:         statsCollector,
+		Notifier:      nn,
+		Listener:      nl,
+		Admin:         admSrv,
+		HealthCheck:   healthCheck,
 	}, nil
 }

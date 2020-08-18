@@ -220,7 +220,16 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	return nil
 }
 
-func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFrontendPort, fsAdminPort, fsHealthCheckPort int, HTTPSListenAddress, newServerConfigPath, newServerServicesConfigPath string) error {
+type fleetspeakServerAddresses struct {
+	host               string
+	frontendPort       int
+	adminPort          int
+	useHealthCheck     bool
+	healthCheckPort    int
+	httpsListenAddress string
+}
+
+func modifyFleetspeakServerConfig(configDir string, fsServerAddrs fleetspeakServerAddresses, newServerConfigPath, newServerServicesConfigPath string) error {
 	// Update server addresses
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
@@ -233,17 +242,17 @@ func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFront
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
-	serverConfig.HttpsConfig.ListenAddress = HTTPSListenAddress
-	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsAdminPort)
-	if fsHealthCheckPort > 0 {
+	serverConfig.HttpsConfig.ListenAddress = fsServerAddrs.httpsListenAddress
+	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.adminPort)
+	if fsServerAddrs.useHealthCheck {
 		serverConfig.HealthCheckConfig = new(fcpb.HealthCheckConfig)
-		serverConfig.HealthCheckConfig.ListenAddress = fmt.Sprintf("0.0.0.0:%v", fsHealthCheckPort)
+		serverConfig.HealthCheckConfig.ListenAddress = fmt.Sprintf("0.0.0.0:%v", fsServerAddrs.healthCheckPort)
 	}
 	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
 
 	// Server services configuration
 	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
-	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerHost, fsFrontendPort), Insecure: true}
+	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.frontendPort), Insecure: true}
 	serviceConfig, err := ptypes.MarshalAny(&grpcConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
@@ -302,7 +311,19 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 	for i := 0; i < len(serverHosts); i++ {
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, adminPort, healthCheckPort, serverFrontendAddr, serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(
+			configDir,
+			fleetspeakServerAddresses{
+				host:               serverHosts[i],
+				frontendPort:       frontendPort,
+				adminPort:          adminPort,
+				useHealthCheck:     true,
+				healthCheckPort:    healthCheckPort,
+				httpsListenAddress: serverFrontendAddr,
+			},
+			serverConfigPath,
+			serverServicesConfigPath,
+		)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
@@ -333,7 +354,18 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 		frontendPort := adminPort + 1
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, "localhost", frontendPort, adminPort, -1 /* no health checks in local version */, fmt.Sprintf("localhost:%v", httpsListenPort), serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(
+			configDir,
+			fleetspeakServerAddresses{
+				host:               "localhost",
+				frontendPort:       frontendPort,
+				adminPort:          adminPort,
+				useHealthCheck:     false,
+				httpsListenAddress: fmt.Sprintf("localhost:%v", httpsListenPort),
+			},
+			serverConfigPath,
+			serverServicesConfigPath,
+		)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
