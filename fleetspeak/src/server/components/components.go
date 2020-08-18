@@ -149,6 +149,20 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		}
 	}
 
+	// Health check setup
+	hccfg := cfg.HealthCheckConfig
+	var healthCheck *http.Server
+	if hccfg != nil {
+		healthCheckListener, err := net.Listen("tcp", hccfg.ListenAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize health check service: %v", err)
+		}
+		healthCheck = &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+		}
+		go healthCheck.Serve(healthCheckListener)
+	}
+
 	// Final assembly
 	return &server.Components{
 		Datastore: db,
@@ -162,5 +176,6 @@ func MakeComponents(cfg cpb.Config) (*server.Components, error) {
 		Notifier:      nn,
 		Listener:      nl,
 		Admin:         admSrv,
+		HealthCheck:   healthCheck,
 	}, nil
 }

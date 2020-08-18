@@ -18,6 +18,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -55,6 +56,8 @@ type Components struct {
 	Notifier notifications.Notifier
 	Listener notifications.Listener
 
+	HealthCheck *http.Server
+
 	Admin *grpc.Server
 }
 
@@ -74,6 +77,7 @@ type Server struct {
 	listener         notifications.Listener
 	dispatcher       *inotifications.Dispatcher
 	admin            *grpc.Server
+	healthCheck      *http.Server
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
@@ -109,6 +113,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		listener:       sc.Listener,
 		dispatcher:     inotifications.NewDispatcher(),
 		admin:          sc.Admin,
+		healthCheck:    sc.HealthCheck,
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
@@ -175,6 +180,9 @@ func (s *Server) Stop() {
 	s.clientCache.Stop()
 	if s.admin != nil {
 		s.admin.Stop()
+	}
+	if s.healthCheck != nil {
+		s.healthCheck.Close()
 	}
 }
 
