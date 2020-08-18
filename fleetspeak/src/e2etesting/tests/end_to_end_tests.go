@@ -10,8 +10,7 @@ import (
 	"time"
 )
 
-// RunTest creates a hunt for FS clients and checks that all of them respond
-func RunTest(msAddress string, clientIDs []string) error {
+func broadcastRequestTest(msAddress string, clientIDs []string) error {
 	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
 	defer conn.Close()
 	if err != nil {
@@ -61,4 +60,64 @@ func RunTest(msAddress string, clientIDs []string) error {
 		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("Received responses from %v clients out of %v", len(respondedClients), len(clientIDs))
+}
+
+func unicastMessagesTest(msAddress string, clientIDs []string) error {
+	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
+	defer conn.Close()
+	if err != nil {
+		return fmt.Errorf("Failed to connect to master server: %v", err)
+	}
+
+	client := fgrpc.NewMasterClient(conn)
+	ctx := context.Background()
+
+	rand.Seed(int64(time.Now().Nanosecond()))
+	requestID := rand.Int63()
+
+	clientID := clientIDs[0]
+	fmt.Printf("Client ID: %v\n\n", clientID)
+
+	_, err = client.CreateHunt(ctx, &fpb.CreateHuntRequest{ClientIds: []string{clientID}, Data: &fpb.TrafficRequestData{
+		MasterId:       0,
+		RequestId:      requestID,
+		NumMessages:    1,
+		MessageSize:    1,
+		MessageDelayMs: 0,
+	}})
+
+	if err != nil {
+		return fmt.Errorf("Unable to create hunt: %v", err)
+	}
+
+	for i := 0; i < 20; i++ {
+		response, err := client.CompletedRequests(ctx, &fpb.CompletedRequestsRequest{ClientId: clientID})
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		for _, reqID := range response.RequestIds {
+			if reqID == requestID {
+				return nil
+			} else {
+				fmt.Printf("got %v, expected %v\n", reqID, requestID)
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("No response from client (id %v)", clientID)
+}
+
+// RunTest creates a hunt for FS clients and checks that all of them respond
+func RunTest(msAddress string, clientIDs []string) error {
+	err := broadcastRequestTest(msAddress, clientIDs)
+	if err != nil {
+		return fmt.Errorf("FAIL BroadcastRequestTest: %v", err)
+	}
+	err = unicastMessagesTest(msAddress, clientIDs)
+	if err != nil {
+		return fmt.Errorf("FAIL UnicastMessagesTest: %v", err)
+	}
+	return nil
 }

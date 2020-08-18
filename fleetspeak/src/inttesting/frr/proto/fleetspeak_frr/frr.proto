@@ -91,6 +91,7 @@ message CompletedRequestsResponse {
 message CreateHuntRequest {
   TrafficRequestData data = 1;
   uint64 limit = 2;
+  repeated string client_ids = 3;
 }
 
 message CreateHuntResponse {

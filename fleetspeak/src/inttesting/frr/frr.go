@@ -19,6 +19,7 @@ package frr
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -513,7 +514,33 @@ func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.Traff
 // CreateHunt implements fgrpc.MasterServer and initiates a hunt which
 // sends the provided TrafficRequestData to every client, up to limit.
 func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
-	return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
+	if len(hr.ClientIds) == 0 {
+		return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
+	}
+
+	hr.Data.MasterId = s.masterID
+	dat, err := ptypes.MarshalAny(hr.Data)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to marshal hr.Data: %v", err)
+	}
+
+	for _, cid := range hr.ClientIds {
+		bcid, err := hex.DecodeString(cid)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to decode client id: %v", err)
+		}
+		m := &fspb.Message{
+			Destination: &fspb.Address{ServiceName: "FRR", ClientId: bcid},
+			Source:      &fspb.Address{ServiceName: "FRR"},
+			Data:        dat,
+			MessageType: "TrafficRequest",
+		}
+		_, err = s.admin.InsertMessage(ctx, m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to Insert message: %v", err)
+		}
+	}
+	return &fpb.CreateHuntResponse{}, nil
 }
 
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download
