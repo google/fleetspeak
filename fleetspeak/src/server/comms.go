@@ -302,15 +302,25 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 	}
 
 	mids := make([]common.MessageID, 0, len(msgs))
+	var special_mids_to_ack []common.MessageID
 	for _, m := range msgs {
 		id, err := common.BytesToMessageID(m.MessageId)
 		if err != nil {
 			return nil, err
 		}
 		mids = append(mids, id)
+		if m.MessageType == "Die" && m.Destination != nil && m.Destination.ServiceName == "system" {
+			special_mids_to_ack = append(special_mids_to_ack, id)
+		}
 	}
 	if err := c.s.dataStore.LinkMessagesToContact(ctx, info.ContactID, mids); err != nil {
 		return nil, err
+	}
+	for _, id := range special_mids_to_ack {
+		err := c.s.dataStore.SetMessageResult(ctx, info.Client.ID, id, &fspb.MessageResult{ProcessedTime: db.NowProto()})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return msgs, nil
 }
