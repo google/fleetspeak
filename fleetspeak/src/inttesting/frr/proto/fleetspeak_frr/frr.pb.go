@@ -594,9 +594,11 @@ type CreateHuntRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Data      *TrafficRequestData `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
-	Limit     uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	ClientIds []string            `protobuf:"bytes,3,rep,name=client_ids,json=clientIds,proto3" json:"client_ids,omitempty"`
+	Data  *TrafficRequestData `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	Limit uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// If client_ids is empty, the request is considered a broadcast request with
+	// specified limit, otherwise unicast requests are sent to the provided clients.
+	ClientIds []string `protobuf:"bytes,3,rep,name=client_ids,json=clientIds,proto3" json:"client_ids,omitempty"`
 }
 
 func (x *CreateHuntRequest) Reset() {

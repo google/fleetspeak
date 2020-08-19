@@ -76,7 +76,6 @@ func unicastMessagesTest(msAddress string, clientIDs []string) error {
 	requestID := rand.Int63()
 
 	clientID := clientIDs[0]
-	fmt.Printf("Client ID: %v\n\n", clientID)
 
 	_, err = client.CreateHunt(ctx, &fpb.CreateHuntRequest{ClientIds: []string{clientID}, Data: &fpb.TrafficRequestData{
 		MasterId:       0,
@@ -93,15 +92,12 @@ func unicastMessagesTest(msAddress string, clientIDs []string) error {
 	for i := 0; i < 20; i++ {
 		response, err := client.CompletedRequests(ctx, &fpb.CompletedRequestsRequest{ClientId: clientID})
 		if err != nil {
-			fmt.Printf("error: %v\n", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 		for _, reqID := range response.RequestIds {
 			if reqID == requestID {
 				return nil
-			} else {
-				fmt.Printf("got %v, expected %v\n", reqID, requestID)
 			}
 		}
 		time.Sleep(2 * time.Second)
@@ -109,8 +105,8 @@ func unicastMessagesTest(msAddress string, clientIDs []string) error {
 	return fmt.Errorf("No response from client (id %v)", clientID)
 }
 
-// RunTest creates a hunt for FS clients and checks that all of them respond
-func RunTest(msAddress string, clientIDs []string) error {
+// RunTests runs all end-to-end tests
+func RunTests(msAddress string, clientIDs []string) error {
 	err := broadcastRequestTest(msAddress, clientIDs)
 	if err != nil {
 		return fmt.Errorf("FAIL BroadcastRequestTest: %v", err)

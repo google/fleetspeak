@@ -91,6 +91,8 @@ message CompletedRequestsResponse {
 message CreateHuntRequest {
   TrafficRequestData data = 1;
   uint64 limit = 2;
+  // If client_ids is empty, the request is considered a broadcast request with
+  // specified limit, otherwise unicast requests are sent to the provided clients.
   repeated string client_ids = 3;
 }
 

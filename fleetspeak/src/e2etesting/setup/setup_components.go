@@ -227,6 +227,7 @@ type fleetspeakServerAddresses struct {
 	useHealthCheck     bool
 	healthCheckPort    int
 	httpsListenAddress string
+	notificationPort   int
 }
 
 func modifyFleetspeakServerConfig(configDir string, fsServerAddrs fleetspeakServerAddresses, newServerConfigPath, newServerServicesConfigPath string) error {
@@ -242,6 +243,8 @@ func modifyFleetspeakServerConfig(configDir string, fsServerAddrs fleetspeakServ
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
+
+	serverConfig.NotificationListenAddress = fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.notificationPort)
 	serverConfig.HttpsConfig.ListenAddress = fsServerAddrs.httpsListenAddress
 	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.adminPort)
 	if fsServerAddrs.useHealthCheck {
@@ -300,6 +303,7 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 	httpsListenPort := 6060
 	adminPort := httpsListenPort + 1
 	frontendPort := httpsListenPort + 2
+	notificationPort := httpsListenPort + 3
 	serverFrontendAddr := fmt.Sprintf("%v:%v", serverFrontendIP, httpsListenPort)
 
 	err := buildBaseConfiguration(configDir, mysqlCredentials, serverFrontendAddr)
@@ -320,6 +324,7 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 				useHealthCheck:     true,
 				healthCheckPort:    healthCheckPort,
 				httpsListenAddress: serverFrontendAddr,
+				notificationPort:   notificationPort,
 			},
 			serverConfigPath,
 			serverServicesConfigPath,
@@ -348,10 +353,11 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 	// Start servers and their services
 	var serverHosts string
 	for i := 0; i < numServers; i++ {
-		adminPort := firstAdminPort + i*3
+		adminPort := firstAdminPort + i*4
 		httpsListenPort := adminPort - 1
 		serverHosts += fmt.Sprintf("localhost:%v\n", httpsListenPort)
 		frontendPort := adminPort + 1
+		notificationPort := adminPort + 2
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
 		err := modifyFleetspeakServerConfig(
@@ -362,6 +368,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 				adminPort:          adminPort,
 				useHealthCheck:     false,
 				httpsListenAddress: fmt.Sprintf("localhost:%v", httpsListenPort),
+				notificationPort:   notificationPort,
 			},
 			serverConfigPath,
 			serverServicesConfigPath,

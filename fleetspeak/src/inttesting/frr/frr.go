@@ -511,8 +511,8 @@ func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.Traff
 	return nil
 }
 
-// CreateHunt implements fgrpc.MasterServer and initiates a hunt which
-// sends the provided TrafficRequestData to every client, up to limit.
+// CreateHunt implements fgrpc.MasterServer and initiates a hunt which sends the provided
+// TrafficRequestData to provided clients, or to every client, up to limit, if ClientIds is empty
 func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
 	if len(hr.ClientIds) == 0 {
 		return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
