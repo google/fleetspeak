@@ -279,17 +279,17 @@ func TestDie(t *testing.T) {
 
 	// Create a Die message and a Foo message for the client
 
-	mid_die, err := common.RandomMessageID()
+	midDie, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid_foo, err := common.RandomMessageID()
+	midFoo, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = ts.DS.StoreMessages(ctx, []*fspb.Message{
 		{
-			MessageId: mid_die.Bytes(),
+			MessageId: midDie.Bytes(),
 			Source: &fspb.Address{
 				ServiceName: "system",
 			},
@@ -301,7 +301,7 @@ func TestDie(t *testing.T) {
 			CreationTime: db.NowProto(),
 		},
 		{
-			MessageId: mid_foo.Bytes(),
+			MessageId: midFoo.Bytes(),
 			Source: &fspb.Address{
 				ServiceName: "foo",
 			},
@@ -326,14 +326,14 @@ func TestDie(t *testing.T) {
 
 	// The Die message should be acked automatically
 
-	m := ts.GetMessage(ctx, mid_die)
+	m := ts.GetMessage(ctx, midDie)
 	if m.Result == nil || m.Result.Failed {
 		t.Error("Expected result of Die message to be success.")
 	}
 
 	// The Foo message should not be acked
 
-	m = ts.GetMessage(ctx, mid_foo)
+	m = ts.GetMessage(ctx, midFoo)
 	if m.Result != nil {
 		t.Error("Expected no result for Foo message.")
 	}
@@ -353,7 +353,7 @@ func TestDie(t *testing.T) {
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
 	m.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{
-		MessageIds: [][]byte{mid_foo.Bytes(), mid_die.Bytes()},
+		MessageIds: [][]byte{midFoo.Bytes(), midDie.Bytes()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -366,11 +366,11 @@ func TestDie(t *testing.T) {
 	// Both the Foo and Die messages should be acked.
 	// Re-acking the Die message should not cause problems.
 
-	m = ts.GetMessage(ctx, mid_die)
+	m = ts.GetMessage(ctx, midDie)
 	if m.Result == nil || m.Result.Failed {
 		t.Error("Expected result of Die message to be success.")
 	}
-	m = ts.GetMessage(ctx, mid_foo)
+	m = ts.GetMessage(ctx, midFoo)
 	if m.Result == nil || m.Result.Failed {
 		t.Error("Expected result of Foo message to be success.")
 	}
