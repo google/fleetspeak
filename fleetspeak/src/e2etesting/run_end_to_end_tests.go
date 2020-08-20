@@ -27,7 +27,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("Failed to start components: %v", err)
 	}
-	err = tests.RunTest(msAddress, componentsInfo.ClientIDs)
+	err = tests.RunTests(msAddress, componentsInfo.ClientIDs)
 	if err != nil {
 		return fmt.Errorf("Failed to run tests: %v", err)
 	}
