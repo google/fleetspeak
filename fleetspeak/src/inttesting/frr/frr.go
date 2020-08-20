@@ -511,23 +511,17 @@ func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.Traff
 	return nil
 }
 
-// CreateHunt implements fgrpc.MasterServer and initiates a hunt which sends the provided
-// TrafficRequestData to provided clients, or to every client, up to limit, if ClientIds is empty
-func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
-	if len(hr.ClientIds) == 0 {
-		return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
-	}
-
-	hr.Data.MasterId = s.masterID
-	dat, err := ptypes.MarshalAny(hr.Data)
+func (s *MasterServer) createUnicastRequest(ctx context.Context, rd *fpb.TrafficRequestData, clientIDs []string) error {
+	rd.MasterId = s.masterID
+	dat, err := ptypes.MarshalAny(rd)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to marshal hr.Data: %v", err)
+		return fmt.Errorf("Unable to marshal hr.Data: %v", err)
 	}
 
-	for _, cid := range hr.ClientIds {
+	for _, cid := range clientIDs {
 		bcid, err := hex.DecodeString(cid)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to decode client id: %v", err)
+			return fmt.Errorf("Failed to decode client id: %v", err)
 		}
 		m := &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "FRR", ClientId: bcid},
@@ -537,10 +531,20 @@ func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest
 		}
 		_, err = s.admin.InsertMessage(ctx, m)
 		if err != nil {
-			return nil, fmt.Errorf("failed to Insert message: %v", err)
+			return fmt.Errorf("failed to Insert message: %v", err)
 		}
 	}
-	return &fpb.CreateHuntResponse{}, nil
+	return nil
+}
+
+// CreateHunt implements fgrpc.MasterServer and initiates a hunt which sends the provided
+// TrafficRequestData to provided clients, or to every client, up to limit, if ClientIds is empty
+func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
+	if len(hr.ClientIds) == 0 {
+		return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
+	} else {
+		return &fpb.CreateHuntResponse{}, s.createUnicastRequest(ctx, hr.Data, hr.ClientIds)
+	}
 }
 
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download
