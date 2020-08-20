@@ -515,7 +515,7 @@ func (s *MasterServer) createUnicastRequest(ctx context.Context, rd *fpb.Traffic
 	rd.MasterId = s.masterID
 	dat, err := ptypes.MarshalAny(rd)
 	if err != nil {
-		return fmt.Errorf("Unable to marshal hr.Data: %v", err)
+		return fmt.Errorf("Unable to marshal TrafficRequestData: %v", err)
 	}
 
 	for _, cid := range clientIDs {
