@@ -542,9 +542,8 @@ func (s *MasterServer) createUnicastRequest(ctx context.Context, rd *fpb.Traffic
 func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest) (*fpb.CreateHuntResponse, error) {
 	if len(hr.ClientIds) == 0 {
 		return &fpb.CreateHuntResponse{}, s.CreateBroadcastRequest(ctx, hr.Data, hr.Limit)
-	} else {
-		return &fpb.CreateHuntResponse{}, s.createUnicastRequest(ctx, hr.Data, hr.ClientIds)
 	}
+	return &fpb.CreateHuntResponse{}, s.createUnicastRequest(ctx, hr.Data, hr.ClientIds)
 }
 
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download
