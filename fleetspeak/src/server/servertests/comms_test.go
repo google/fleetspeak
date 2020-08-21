@@ -316,12 +316,38 @@ func TestDie(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to store message: %v", err)
 	}
-	msgs, err := ts.SimulateContactFromClient(ctx, k, nil)
+
+	// Simulate contact from client
+
+	cd := fspb.ContactData{AllowedMessages: map[string]uint64{"foo": 20, "system": 20}}
+	cdb, err := proto.Marshal(&cd)
 	if err != nil {
 		t.Error(err)
 	}
+	ci, rcd, _, err := ts.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		k,
+		&fspb.WrappedContactData{ContactData: cdb},
+		false)
+	if err != nil {
+		t.Error(err)
+	}
+	msgs := rcd.Messages
+
 	if len(msgs) != 2 {
 		t.Fatalf("Expected 2 messages, got: %+v", msgs)
+	}
+
+	// Check tokens
+	// The Die message should not have consumed any token.
+
+	if ci.MessageTokens()["foo"] != 19 {
+		t.Fatalf("Service foo should have 19 tokens left.")
+	}
+
+	if ci.MessageTokens()["system"] != 20 {
+		t.Fatalf("Service system should have all 20 tokens left.")
 	}
 
 	// The Die message should be acked automatically
@@ -338,7 +364,7 @@ func TestDie(t *testing.T) {
 		t.Error("Expected no result for Foo message.")
 	}
 
-	// The client sends a MessageAck for both the Die and Foo message
+	// The client sends a MessageAck for the Foo message
 
 	m = &fspb.Message{
 		Source: &fspb.Address{
@@ -353,7 +379,7 @@ func TestDie(t *testing.T) {
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
 	m.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{
-		MessageIds: [][]byte{midFoo.Bytes(), midDie.Bytes()},
+		MessageIds: [][]byte{midFoo.Bytes()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -364,7 +390,6 @@ func TestDie(t *testing.T) {
 	}
 
 	// Both the Foo and Die messages should be acked.
-	// Re-acking the Die message should not cause problems.
 
 	m = ts.GetMessage(ctx, midDie)
 	if m.Result == nil || m.Result.Failed {

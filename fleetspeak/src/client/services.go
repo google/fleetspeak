@@ -288,7 +288,13 @@ func (d *serviceData) processingLoop() {
 			log.Errorf("ignoring message with bad message id: [%v]", m.MessageId)
 			continue
 		}
-		if err := d.service.ProcessMessage(context.TODO(), m); err != nil {
+		err = d.service.ProcessMessage(context.TODO(), m)
+		if m.MessageType == "Die" && m.Destination != nil && m.Destination.ServiceName == "system" {
+			// Die messages are special and pre-acked on the server side.
+			// Don't send another ack or error report.
+			continue
+		}
+		if err != nil {
 			d.config.client.errs <- &fspb.MessageErrorData{
 				MessageId: id.Bytes(),
 				Error:     err.Error(),
