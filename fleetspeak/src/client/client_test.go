@@ -257,6 +257,84 @@ func TestDie(t *testing.T) {
 	}
 }
 
+func TestDieDoesNotAck(t *testing.T) {
+	cl, err := New(
+		config.Configuration{},
+		Components{},
+	)
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+
+	clientStopped := false
+	stopClientOnce := func() {
+		if !clientStopped {
+			cl.Stop()
+			clientStopped = true
+		}
+	}
+
+	defer stopClientOnce()
+
+	oid := cl.config.ClientID()
+
+	midDie, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+	midFoo, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("unable to create message id: %v", err)
+	}
+
+	// Replace system service with a fake service
+
+	cl.sc.services["system"].service.Stop()
+	cl.sc.services["system"].service = &fakeService{c: make(chan *fspb.Message, 5)}
+
+	// Send a Die message
+
+	am := service.AckMessage{
+		M: &fspb.Message{
+			MessageId: midDie.Bytes(),
+			Source:    &fspb.Address{ServiceName: "system"},
+			Destination: &fspb.Address{
+				ClientId:    oid.Bytes(),
+				ServiceName: "system"},
+			MessageType: "Die",
+		},
+	}
+
+	if err := cl.ProcessMessage(context.Background(), am); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	// Send a Foo message
+
+	am = service.AckMessage{
+		M: &fspb.Message{
+			MessageId: midFoo.Bytes(),
+			Source:    &fspb.Address{ServiceName: "system"},
+			Destination: &fspb.Address{
+				ClientId:    oid.Bytes(),
+				ServiceName: "system"},
+			MessageType: "Foo",
+		},
+	}
+
+	if err := cl.ProcessMessage(context.Background(), am); err != nil {
+		t.Fatalf("unable to process message: %v", err)
+	}
+
+	// Stop the client to make sure processing has finished.
+
+	stopClientOnce()
+
+	if len(cl.acks) != 1 {
+		t.Fatalf("Expected 1 ack only, but got %v.", len(cl.acks))
+	}
+}
+
 func TestRestartService(t *testing.T) {
 	fakeServiceCountersMutex.Lock()
 	prevStartCount := fakeServiceStartCount
