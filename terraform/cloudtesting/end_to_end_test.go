@@ -1,4 +1,4 @@
-package main
+package cloudtesting
 
 import (
 	"flag"
@@ -7,7 +7,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -17,10 +19,20 @@ var (
 	serversFile         = flag.String("servers_file", "", "File with server hosts")
 )
 
-func run() error {
+func TestCloudEndToEnd(t *testing.T) {
+	flag.Parse()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	err = os.Chdir(filepath.Dir(filepath.Dir(wd)))
+	if err != nil {
+		t.Fatal("Failed to cd to fleetspeak directory")
+	}
+
 	dat, err := ioutil.ReadFile(*serversFile)
 	if err != nil {
-		return fmt.Errorf("Failed to read serversFile: %v", err)
+		t.Fatalf("Failed to read serversFile: %v", err)
 	}
 	serverHosts := strings.Fields(string(dat))
 
@@ -34,28 +46,9 @@ func run() error {
 			break
 		}
 		if time.Now().After(startTime.Add(time.Minute * 10)) {
-			return fmt.Errorf("Not all clients connected (connected: %v, expected: %v, connected clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
+			t.Fatalf("Not all clients connected (connected: %v, expected: %v, connected clients: %v): %v", len(clientIDs), *numClients, clientIDs, err)
 		}
 	}
 
-	err = tests.RunTests(*masterServerAddress, clientIDs)
-	if err != nil {
-		return fmt.Errorf("test failed: %v", err)
-	}
-
-	return nil
-}
-
-func main() {
-	flag.Parse()
-	startTime := time.Now()
-	fmt.Println("Test start time: ", startTime.Format("2006-01-02 15:04:05"))
-	err := run()
-	if err != nil {
-		fmt.Printf("FAIL: %v", err)
-		os.Exit(1)
-	} else {
-		dur := time.Now().Sub(startTime)
-		fmt.Printf("OK: End to end tests passed in %v seconds\n", dur.Seconds())
-	}
+	tests.RunTests(t, *masterServerAddress, clientIDs)
 }
