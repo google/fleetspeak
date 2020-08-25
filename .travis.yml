@@ -18,15 +18,17 @@ matrix:
       env:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
+        - MYSQL_TEST_E2E_DB=e2e_test_db
       before_install:
         - sudo apt-get update
         - sudo apt-get install python3-venv
         - python3 -m venv "${HOME}/FSENV"
         - mysql --print-defaults
         - mysql -u travis -e 'CREATE DATABASE db;'
+        - mysql -u travis -e 'CREATE DATABASE e2e_test_db;'
         #- go get -u golang.org/x/lint/golint
       install:
-        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip wheel && pip install -e ./fleetspeak_python
+        - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip wheel && pip install -e ./fleetspeak_python && pip install -e ./frr_python
         # TODO: remove 2 lines below when git.apache.org is back up or when
         # osquery-go uses a correct version of the Thrift library (the one
         # hosted on github.com and not on git.apache.org).
