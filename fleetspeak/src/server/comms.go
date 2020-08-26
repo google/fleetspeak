@@ -256,6 +256,10 @@ func (c commsContext) addClient(ctx context.Context, id common.ClientID, key cry
 	return c.s.dataStore.AddClient(ctx, id, &db.ClientData{Key: k})
 }
 
+func isSpecialMessageToAck(m *fspb.Message) bool {
+	return m.MessageType == "Die" && m.Destination != nil && m.Destination.ServiceName == "system"
+}
+
 // FindMessagesForClient finds unprocessed messages for a given client and
 // reserves them for processing in the database. It limits the returned messages
 // to those for which token, and decrements token counters as necessary.
@@ -277,7 +281,9 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 	if tokens != nil {
 		cnts := make(map[string]uint64)
 		for _, m := range msgs {
-			cnts[m.Destination.ServiceName]++
+			if !isSpecialMessageToAck(m) {
+				cnts[m.Destination.ServiceName]++
+			}
 		}
 		info.SubtractMessageTokens(cnts)
 		if log.V(2) {
@@ -302,15 +308,25 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 	}
 
 	mids := make([]common.MessageID, 0, len(msgs))
+	var specialMidsToAck []common.MessageID
 	for _, m := range msgs {
 		id, err := common.BytesToMessageID(m.MessageId)
 		if err != nil {
 			return nil, err
 		}
 		mids = append(mids, id)
+		if isSpecialMessageToAck(m) {
+			specialMidsToAck = append(specialMidsToAck, id)
+		}
 	}
 	if err := c.s.dataStore.LinkMessagesToContact(ctx, info.ContactID, mids); err != nil {
 		return nil, err
+	}
+	for _, id := range specialMidsToAck {
+		err := c.s.dataStore.SetMessageResult(ctx, info.Client.ID, id, &fspb.MessageResult{ProcessedTime: db.NowProto()})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return msgs, nil
 }

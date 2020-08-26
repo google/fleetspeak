@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -259,6 +260,144 @@ func TestBlacklist(t *testing.T) {
 	}
 	if !bytes.Equal(msgs[0].MessageId, msg.MessageId) || msgs[0].MessageType != "RekeyRequest" {
 		t.Errorf("GetMessage([%v]) did not return expected RekeyRequest, want: %+v got: %+v", mid, msg, msgs[0])
+	}
+}
+
+func TestDie(t *testing.T) {
+	ts := testserver.Make(t, "server", "Die", nil)
+	defer ts.S.Stop()
+	ctx := context.Background()
+
+	k, err := ts.AddClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a Die message and a Foo message for the client
+
+	midDie, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	midFoo, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ts.DS.StoreMessages(ctx, []*fspb.Message{
+		{
+			MessageId: midDie.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "system",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "system",
+				ClientId:    id.Bytes(),
+			},
+			MessageType:  "Die",
+			CreationTime: db.NowProto(),
+		},
+		{
+			MessageId: midFoo.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "foo",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "foo",
+				ClientId:    id.Bytes(),
+			},
+			MessageType:  "Foo",
+			CreationTime: db.NowProto(),
+		},
+	}, "")
+	if err != nil {
+		t.Fatalf("Unable to store message: %v", err)
+	}
+
+	// Simulate contact from client
+
+	cd := fspb.ContactData{AllowedMessages: map[string]uint64{"foo": 20, "system": 20}}
+	cdb, err := proto.Marshal(&cd)
+	if err != nil {
+		t.Error(err)
+	}
+	ci, rcd, _, err := ts.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		k,
+		&fspb.WrappedContactData{ContactData: cdb},
+		false)
+	if err != nil {
+		t.Error(err)
+	}
+	msgs := rcd.Messages
+
+	if len(msgs) != 2 {
+		t.Fatalf("Expected 2 messages, got: %+v", msgs)
+	}
+
+	// Check tokens
+	// The Die message should not have consumed any token.
+
+	if ci.MessageTokens()["foo"] != 19 {
+		t.Fatalf("Service foo should have 19 tokens left.")
+	}
+
+	if ci.MessageTokens()["system"] != 20 {
+		t.Fatalf("Service system should have all 20 tokens left.")
+	}
+
+	// The Die message should be acked automatically
+
+	m := ts.GetMessage(ctx, midDie)
+	if m.Result == nil || m.Result.Failed {
+		t.Error("Expected result of Die message to be success.")
+	}
+
+	// The Foo message should not be acked
+
+	m = ts.GetMessage(ctx, midFoo)
+	if m.Result != nil {
+		t.Error("Expected no result for Foo message.")
+	}
+
+	// The client sends a MessageAck for the Foo message
+
+	m = &fspb.Message{
+		Source: &fspb.Address{
+			ClientId:    id.Bytes(),
+			ServiceName: "system",
+		},
+		Destination: &fspb.Address{
+			ServiceName: "system",
+		},
+		SourceMessageId: []byte("1"),
+		MessageType:     "MessageAck",
+	}
+	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
+	m.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{
+		MessageIds: [][]byte{midFoo.Bytes()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ts.ProcessMessageFromClient(k, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both the Foo and Die messages should be acked.
+
+	m = ts.GetMessage(ctx, midDie)
+	if m.Result == nil || m.Result.Failed {
+		t.Error("Expected result of Die message to be success.")
+	}
+	m = ts.GetMessage(ctx, midFoo)
+	if m.Result == nil || m.Result.Failed {
+		t.Error("Expected result of Foo message to be success.")
 	}
 }
 

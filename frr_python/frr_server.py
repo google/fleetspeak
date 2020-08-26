@@ -35,16 +35,20 @@ class Listener:
         del context  # Unused
 
         if message.message_type != "TrafficResponse":
-            logging.info(f"Unknown message type: {message.message_type}")
+            logging.info("Unknown message type: %s", message.message_type)
             return
 
         response_data = TrafficResponseData()
         message.data.Unpack(response_data)
         logging.info(
-            f"RESPONSE - master_id: {response_data.master_id}, "
-            f"request_id: {response_data.request_id}, "
-            f"response_index: {response_data.response_index}, "
-            f"text: {response_data.data}")
+            "RESPONSE - master_id: %d, "
+            "request_id: %d, "
+            "response_index: %d, "
+            "text: %s",
+            response_data.master_id,
+            response_data.request_id,
+            response_data.response_index,
+            response_data.data)
 
         self.stub.RecordTrafficResponse(
             MessageInfo(client_id=message.source.client_id, data=response_data))

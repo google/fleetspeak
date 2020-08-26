@@ -89,6 +89,6 @@ else
     log "Not all clients connected within 30 minutes. Probably some of the clients failed to start, and the error occured before starting Fleetspeak. Try to check clients logs and restart the test."
 fi
 
-go run terraform/test_runner/run_tests.go --num_clients=${num_clients} --servers_file=server_hosts.txt --ms_address=${master_server_host}:6059 >> $HOME/results.txt
+go test terraform/cloudtesting/end_to_end_test.go --num_clients=${num_clients} --servers_file=server_hosts.txt --ms_address=${master_server_host}:6059 >> $HOME/results.txt
 log "Script finished"
 gsutil cp $HOME/results.txt ${storage_bucket_url}

@@ -7,35 +7,17 @@ import (
 	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	"google.golang.org/grpc"
 	"math/rand"
+	"testing"
 	"time"
 )
 
-// RunTest creates a hunt for FS clients and checks that all of them respond
-func RunTest(msAddress string, clientIDs []string) error {
-	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
-	defer conn.Close()
-	if err != nil {
-		return fmt.Errorf("Failed to connect to master server: %v", err)
-	}
+var (
+	masterClient fgrpc.MasterClient
+	msAddress    string
+	clientIDs    []string
+)
 
-	client := fgrpc.NewMasterClient(conn)
-	ctx := context.Background()
-
-	rand.Seed(int64(time.Now().Nanosecond()))
-	requestID := rand.Int63()
-
-	_, err = client.CreateHunt(ctx, &fpb.CreateHuntRequest{Limit: uint64(len(clientIDs)), Data: &fpb.TrafficRequestData{
-		MasterId:       0,
-		RequestId:      requestID,
-		NumMessages:    1,
-		MessageSize:    1,
-		MessageDelayMs: 0,
-	}})
-
-	if err != nil {
-		return fmt.Errorf("Unable to create hunt: %v", err)
-	}
-
+func waitForClientResponses(client fgrpc.MasterClient, clientIDs []string, requestID int64) error {
 	respondedClients := make(map[string]bool)
 
 	for i := 0; i < 150; i++ {
@@ -43,7 +25,7 @@ func RunTest(msAddress string, clientIDs []string) error {
 			if _, ok := respondedClients[clientID]; ok {
 				continue
 			}
-			response, err := client.CompletedRequests(ctx, &fpb.CompletedRequestsRequest{ClientId: clientID})
+			response, err := client.CompletedRequests(context.Background(), &fpb.CompletedRequestsRequest{ClientId: clientID})
 			if err != nil {
 				continue
 			}
@@ -61,4 +43,60 @@ func RunTest(msAddress string, clientIDs []string) error {
 		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("Received responses from %v clients out of %v", len(respondedClients), len(clientIDs))
+}
+
+func broadcastRequestTest(t *testing.T) {
+	requestID := rand.Int63()
+	_, err := masterClient.CreateHunt(context.Background(), &fpb.CreateHuntRequest{
+		Limit: uint64(len(clientIDs)),
+		Data: &fpb.TrafficRequestData{
+			MasterId:       0,
+			RequestId:      requestID,
+			NumMessages:    1,
+			MessageSize:    1,
+			MessageDelayMs: 0,
+		}})
+	if err != nil {
+		t.Fatalf("Unable to create hunt: %v", err)
+	}
+	err = waitForClientResponses(masterClient, clientIDs, requestID)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func unicastMessagesTest(t *testing.T) {
+	requestID := rand.Int63()
+	_, err := masterClient.CreateHunt(context.Background(), &fpb.CreateHuntRequest{
+		ClientIds: clientIDs,
+		Data: &fpb.TrafficRequestData{
+			MasterId:       0,
+			RequestId:      requestID,
+			NumMessages:    1,
+			MessageSize:    1,
+			MessageDelayMs: 0,
+		}})
+	if err != nil {
+		t.Fatalf("Unable to create hunt: %v", err)
+	}
+	err = waitForClientResponses(masterClient, clientIDs, requestID)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// RunTests runs all end-to-end tests
+func RunTests(t *testing.T, msAddr string, fsClientIDs []string) {
+	msAddress = msAddr
+	clientIDs = fsClientIDs
+	rand.Seed(int64(time.Now().Nanosecond()))
+	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
+	defer conn.Close()
+	if err != nil {
+		t.Fatalf("Failed to connect to master server: %v", err)
+	}
+	masterClient = fgrpc.NewMasterClient(conn)
+
+	t.Run("BroadcastRequestTest", broadcastRequestTest)
+	t.Run("UnicastMessagesTest", unicastMessagesTest)
 }
