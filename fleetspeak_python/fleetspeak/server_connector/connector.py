@@ -225,19 +225,6 @@ class OutgoingConnection(object):
     return self._RetryLoop(
         lambda t: self._stub.ListClients(request, timeout=t))
 
-  def GetAvailableMetrics(self, request, timeout=None):
-    """Provides basic information about Fleetspeak clients.
-
-    Args:
-      request: common_pb2.Message
-
-      timeout: How many seconds to try for.
-
-    Returns: fleetspeak.admin.GetAvailableMetricsResponse
-    """
-    return self._RetryLoop(
-        lambda t: self._stub.GetAvailableMetrics(request, timeout=t))
-
   def Shutdown(self):
     with self._shutdown_cv:
       self._shutdown = True
