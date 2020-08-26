@@ -250,16 +250,6 @@ func (s adminServer) BlacklistClient(ctx context.Context, req *spb.BlacklistClie
 	return &fspb.EmptyMessage{}, nil
 }
 
-func (s adminServer) GetAvailableMetrics(ctx context.Context, _ *fspb.EmptyMessage) (*spb.GetAvailableMetricsResponse, error) {
-	columns, err := s.store.FetchTableColumnNames(ctx, "client_resource_usage_records") // todo: support generic table
-	if err != nil {
-		return nil, err
-	}
-	return &spb.GetAvailableMetricsResponse{
-		Targets: columns,
-	}, nil
-}
-
 func (s adminServer) FetchClientResourceUsageRecords(ctx context.Context, req *spb.FetchClientResourceUsageRecordsRequest) (*spb.FetchClientResourceUsageRecordsResponse, error) {
 	clientID, idErr := common.BytesToClientID(req.ClientId)
 	if idErr != nil {

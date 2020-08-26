@@ -81,10 +81,6 @@ message BlacklistClientRequest {
   bytes client_id = 1;
 }
 
-message GetAvailableMetricsResponse {
-  repeated string targets = 1;
-}
-
 message FetchClientResourceUsageRecordsRequest {
   bytes client_id = 1;
   uint64 limit = 2;
@@ -140,12 +136,6 @@ service Admin {
   rpc BlacklistClient (BlacklistClientRequest) returns (fleetspeak.EmptyMessage) {
   }
 
-  // GetAvailableMetrics returns all available metrics in the table
-  // client_resource_usage_records (column names of the table).
-  rpc GetAvailableMetrics(fleetspeak.EmptyMessage) returns (GetAvailableMetricsResponse) {
-  }
-
-  // FetchClientResourceUsageRecords returns all resource usage records for a
   // single client with a given limit on the number of records.
   rpc FetchClientResourceUsageRecords (FetchClientResourceUsageRecordsRequest) returns (FetchClientResourceUsageRecordsResponse) {
   }
