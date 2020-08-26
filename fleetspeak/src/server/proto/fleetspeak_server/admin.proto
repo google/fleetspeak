@@ -136,6 +136,7 @@ service Admin {
   rpc BlacklistClient (BlacklistClientRequest) returns (fleetspeak.EmptyMessage) {
   }
 
+  // FetchClientResourceUsageRecords returns all resource usage records for a
   // single client with a given limit on the number of records.
   rpc FetchClientResourceUsageRecords (FetchClientResourceUsageRecordsRequest) returns (FetchClientResourceUsageRecordsResponse) {
   }
