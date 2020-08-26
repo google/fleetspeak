@@ -23,6 +23,18 @@ func copy(wc io.WriteCloser, r io.Reader) {
 	io.Copy(wc, r)
 }
 
+func renderProxyV1Header(srcAddr, dstAddr string) ([]byte, error) {
+	srcColPos := strings.Index(srcAddr, ":")
+	if srcColPos == -1 {
+		return nil, fmt.Errorf("Failed to parse source (client) address")
+	}
+	dstColPos := strings.Index(dstAddr, ":")
+	if dstColPos == -1 {
+		return nil, fmt.Errorf("Failed to parse destination (server) address")
+	}
+	return []byte(fmt.Sprintf("PROXY TCP4 %v %v %v %v\r\n", srcAddr[:srcColPos], dstAddr[:dstColPos], srcAddr[srcColPos+1:len(srcAddr)], dstAddr[dstColPos+1:len(dstAddr)])), nil
+}
+
 func run() error {
 	dat, err := ioutil.ReadFile(*serversFile)
 	if err != nil {
@@ -62,6 +74,14 @@ func run() error {
 			}
 		}
 		log.Printf("Connection accepted, server: %v\n", serverAddr)
+		firstMessage, err := renderProxyV1Header(lbConn.RemoteAddr().String(), serverAddr)
+		if err != nil {
+			return fmt.Errorf("Failed to render Proxy header in load balancer: %v", err)
+		}
+		_, err = serverConn.Write(firstMessage)
+		if err != nil {
+			return fmt.Errorf("Failed to write Proxy header: %v", err)
+		}
 		go copy(serverConn, lbConn)
 		go copy(lbConn, serverConn)
 	}
