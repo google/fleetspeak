@@ -255,7 +255,7 @@ func (s adminServer) FetchClientResourceUsageRecords(ctx context.Context, req *s
 	if idErr != nil {
 		return nil, idErr
 	}
-	records, dbErr := s.store.FetchResourceUsageRecords(ctx, clientID, int(req.Limit)) // todo: support generic table
+	records, dbErr := s.store.FetchResourceUsageRecords(ctx, clientID, int(req.Limit))
 	if dbErr != nil {
 		return nil, dbErr
 	}
