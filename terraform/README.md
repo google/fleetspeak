@@ -18,12 +18,7 @@ Please follow [these instructions](https://www.terraform.io/intro/getting-starte
 ```bash
 gcloud auth application-default login
 ```
-Your credentials will be saved to a file.
-
-3.  Assign the path of the file with your credentials to GOOGLE_CREDENTIALS environment variable by running the following:
-```bash
-export GOOGLE_CREDENTIALS=/absolute/path/to/downloaded-file.json
-```
+Your credentials will be saved to a file `~/.config/gcloud/application_default_credentials.json`. It will be used by terraform.
 
 ## Running Terraform
 1.  `cd` to terraform directory
