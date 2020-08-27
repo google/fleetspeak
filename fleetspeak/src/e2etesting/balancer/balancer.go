@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	proxyproto "github.com/pires/go-proxyproto"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -23,16 +25,44 @@ func copy(wc io.WriteCloser, r io.Reader) {
 	io.Copy(wc, r)
 }
 
-func renderProxyV1Header(srcAddr, dstAddr string) ([]byte, error) {
-	srcColPos := strings.Index(srcAddr, ":")
-	if srcColPos == -1 {
-		return nil, fmt.Errorf("Failed to parse source (client) address")
+func splitHostPort(addr string) (net.IP, uint16, error) {
+	hostStr, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, 0, err
 	}
-	dstColPos := strings.Index(dstAddr, ":")
-	if dstColPos == -1 {
-		return nil, fmt.Errorf("Failed to parse destination (server) address")
+	host := net.ParseIP(hostStr)
+	if host == nil {
+		return nil, 0, fmt.Errorf("Failed to parse IP")
 	}
-	return []byte(fmt.Sprintf("PROXY TCP4 %v %v %v %v\r\n", srcAddr[:srcColPos], dstAddr[:dstColPos], srcAddr[srcColPos+1:len(srcAddr)], dstAddr[dstColPos+1:len(dstAddr)])), nil
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, 0, fmt.Errorf("Failed to parse port: %v", err)
+	}
+	return host, uint16(port), nil
+}
+
+func writeFirstProxyMessage(w io.Writer, srcAddr, dstAddr string) error {
+	srcHost, srcPort, err := splitHostPort(srcAddr)
+	if err != nil {
+		return fmt.Errorf("Failed to parse source (client) address: %v", err)
+	}
+	dstHost, dstPort, err := splitHostPort(dstAddr)
+	if err != nil {
+		return fmt.Errorf("Failed to parse destination (server) address: %v", err)
+	}
+	header := proxyproto.Header{
+		Version:            1,
+		TransportProtocol:  proxyproto.TCPv4,
+		SourceAddress:      srcHost,
+		DestinationAddress: dstHost,
+		SourcePort:         srcPort,
+		DestinationPort:    dstPort,
+	}
+	_, err = header.WriteTo(w)
+	if err != nil {
+		return fmt.Errorf("Failed to write Proxy header: %v", err)
+	}
+	return nil
 }
 
 func run() error {
@@ -74,13 +104,9 @@ func run() error {
 			}
 		}
 		log.Printf("Connection accepted, server: %v\n", serverAddr)
-		firstMessage, err := renderProxyV1Header(lbConn.RemoteAddr().String(), serverAddr)
+		err = writeFirstProxyMessage(serverConn, lbConn.RemoteAddr().String(), serverAddr)
 		if err != nil {
-			return fmt.Errorf("Failed to render Proxy header in load balancer: %v", err)
-		}
-		_, err = serverConn.Write(firstMessage)
-		if err != nil {
-			return fmt.Errorf("Failed to write Proxy header: %v", err)
+			return err
 		}
 		go copy(serverConn, lbConn)
 		go copy(lbConn, serverConn)
