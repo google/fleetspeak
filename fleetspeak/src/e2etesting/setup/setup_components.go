@@ -220,7 +220,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	return nil
 }
 
-type fleetspeakServerAddresses struct {
+type fleetspeakServerConfigs struct {
 	host               string
 	frontendPort       int
 	adminPort          int
@@ -228,9 +228,10 @@ type fleetspeakServerAddresses struct {
 	healthCheckPort    int
 	httpsListenAddress string
 	notificationPort   int
+	useProxyProtocol   bool
 }
 
-func modifyFleetspeakServerConfig(configDir string, fsServerAddrs fleetspeakServerAddresses, newServerConfigPath, newServerServicesConfigPath string) error {
+func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakServerConfigs, newServerConfigPath, newServerServicesConfigPath string) error {
 	// Update server addresses
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
@@ -244,18 +245,21 @@ func modifyFleetspeakServerConfig(configDir string, fsServerAddrs fleetspeakServ
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
 
-	serverConfig.NotificationListenAddress = fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.notificationPort)
-	serverConfig.HttpsConfig.ListenAddress = fsServerAddrs.httpsListenAddress
-	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.adminPort)
-	if fsServerAddrs.useHealthCheck {
+	serverConfig.NotificationListenAddress = fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.notificationPort)
+	serverConfig.HttpsConfig.ListenAddress = fsServerConfigs.httpsListenAddress
+	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.adminPort)
+	if fsServerConfigs.useHealthCheck {
 		serverConfig.HealthCheckConfig = new(fcpb.HealthCheckConfig)
-		serverConfig.HealthCheckConfig.ListenAddress = fmt.Sprintf("0.0.0.0:%v", fsServerAddrs.healthCheckPort)
+		serverConfig.HealthCheckConfig.ListenAddress = fmt.Sprintf("0.0.0.0:%v", fsServerConfigs.healthCheckPort)
+	}
+	if fsServerConfigs.useProxyProtocol {
+		serverConfig.ProxyProtocol = true
 	}
 	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
 
 	// Server services configuration
 	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
-	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerAddrs.host, fsServerAddrs.frontendPort), Insecure: true}
+	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.frontendPort), Insecure: true}
 	serviceConfig, err := ptypes.MarshalAny(&grpcConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
@@ -317,7 +321,7 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
 		err := modifyFleetspeakServerConfig(
 			configDir,
-			fleetspeakServerAddresses{
+			fleetspeakServerConfigs{
 				host:               serverHosts[i],
 				frontendPort:       frontendPort,
 				adminPort:          adminPort,
@@ -355,20 +359,21 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 	for i := 0; i < numServers; i++ {
 		adminPort := firstAdminPort + i*4
 		httpsListenPort := adminPort - 1
-		serverHosts += fmt.Sprintf("localhost:%v\n", httpsListenPort)
+		serverHosts += fmt.Sprintf("127.0.0.1:%v\n", httpsListenPort)
 		frontendPort := adminPort + 1
 		notificationPort := adminPort + 2
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
 		err := modifyFleetspeakServerConfig(
 			configDir,
-			fleetspeakServerAddresses{
+			fleetspeakServerConfigs{
 				host:               "localhost",
 				frontendPort:       frontendPort,
 				adminPort:          adminPort,
 				useHealthCheck:     false,
 				httpsListenAddress: fmt.Sprintf("localhost:%v", httpsListenPort),
 				notificationPort:   notificationPort,
+				useProxyProtocol:   true,
 			},
 			serverConfigPath,
 			serverServicesConfigPath,
