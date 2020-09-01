@@ -5,6 +5,7 @@ package fleetspeak.server;
 import "google/protobuf/timestamp.proto";
 import "fleetspeak/src/common/proto/fleetspeak/common.proto";
 import "fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto";
+import "fleetspeak/src/server/proto/fleetspeak_server/resource.proto";
 
 message CreateBroadcastRequest {
   Broadcast broadcast = 1;
@@ -80,6 +81,15 @@ message BlacklistClientRequest {
   bytes client_id = 1;
 }
 
+message FetchClientResourceUsageRecordsRequest {
+  bytes client_id = 1;
+  uint64 limit = 2;
+}
+
+message FetchClientResourceUsageRecordsResponse {
+  repeated ClientResourceUsageRecord records = 1;
+}
+
 service Admin {
   // CreateBroadcast creates a FS broadcast, potentially sending a message to
   // many machines in the fleet.
@@ -124,5 +134,10 @@ service Admin {
   // BlacklistClient marks a client_id as invalid, forcing all Fleetspeak
   // clients using it to rekey.
   rpc BlacklistClient (BlacklistClientRequest) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // FetchClientResourceUsageRecords returns all resource usage records for a
+  // single client with a given limit on the number of records.
+  rpc FetchClientResourceUsageRecords (FetchClientResourceUsageRecordsRequest) returns (FetchClientResourceUsageRecordsResponse) {
   }
 }

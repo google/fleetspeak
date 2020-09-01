@@ -225,6 +225,19 @@ class OutgoingConnection(object):
     return self._RetryLoop(
         lambda t: self._stub.ListClients(request, timeout=t))
 
+  def FetchClientResourceUsageRecords(self, request, timeout=None):
+    """Provides resource usage metrics of a single Fleetspeak client.
+
+    Args:
+      request: fleetspeak.admin.FetchClientResourceUsageRecordsRequest
+
+      timeout: How many seconds to try for.
+
+    Returns: fleetspeak.admin.FetchClientResourceUsageRecordsResponse
+    """
+    return self._RetryLoop(
+        lambda t: self._stub.FetchClientResourceUsageRecords(request, timeout=t))
+
   def Shutdown(self):
     with self._shutdown_cv:
       self._shutdown = True
