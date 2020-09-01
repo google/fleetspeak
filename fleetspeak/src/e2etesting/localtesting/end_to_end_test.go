@@ -1,4 +1,4 @@
-package localtesting
+package localtesting_test
 
 import (
 	"flag"
