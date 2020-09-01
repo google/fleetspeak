@@ -744,6 +744,7 @@ func (d *Datastore) internalServerMessagesForProcessing(ctx context.Context, lim
 	if err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
 	for _, dbm := range dbms {
 		r := stmt.QueryRowContext(ctx, dbm.messageID)
 		if err := r.Scan(
