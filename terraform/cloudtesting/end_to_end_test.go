@@ -1,4 +1,4 @@
-package cloudtesting
+package cloudtesting_test
 
 import (
 	"flag"
