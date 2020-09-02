@@ -91,10 +91,10 @@ func RunTests(t *testing.T, msAddr string, fsClientIDs []string) {
 	clientIDs = fsClientIDs
 	rand.Seed(int64(time.Now().Nanosecond()))
 	conn, err := grpc.Dial(msAddress, grpc.WithInsecure(), grpc.WithBlock())
-	defer conn.Close()
 	if err != nil {
 		t.Fatalf("Failed to connect to master server: %v", err)
 	}
+	defer conn.Close()
 	masterClient = fgrpc.NewMasterClient(conn)
 
 	t.Run("BroadcastRequestTest", broadcastRequestTest)
