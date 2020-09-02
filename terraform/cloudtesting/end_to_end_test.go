@@ -14,13 +14,24 @@ import (
 )
 
 var (
-	numClients          = flag.Int("num_clients", 1, "Number of clients")
+	numClients          = flag.Int("num_clients", 0, "Number of clients")
 	masterServerAddress = flag.String("ms_address", "", "Address of master server")
 	serversFile         = flag.String("servers_file", "", "File with server hosts")
 )
 
 func TestCloudEndToEnd(t *testing.T) {
 	flag.Parse()
+
+	if *numClients == 0 {
+		t.Skip("num_clients flag is required to run this test.")
+	}
+	if *masterServerAddress == "" {
+		t.Skip("ms_address flag is required to run this test.")
+	}
+	if *serversFile == "" {
+		t.Skip("servers_file flag is required to run this test.")
+	}
+
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
