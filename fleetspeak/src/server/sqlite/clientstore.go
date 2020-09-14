@@ -365,9 +365,17 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	})
 }
 
-func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
+	startTimeRange, parseErr := ptypes.Timestamp(startTimestamp)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	endTimeRange, parseErr := ptypes.Timestamp(endTimestamp)
+	if parseErr != nil {
+		return nil, parseErr
+	}
 	var records []*spb.ClientResourceUsageRecord
 	err := d.runInTx(func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
@@ -376,9 +384,11 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
-				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
+				"FROM client_resource_usage_records WHERE client_id=? "+
+				"AND server_timestamp > ? AND server_timestamp < ?",
 			id.String(),
-			limit)
+			startTimeRange.UnixNano(),
+			endTimeRange.UnixNano())
 
 		if err != nil {
 			return err
