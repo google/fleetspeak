@@ -370,6 +370,9 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 	if parseErr != nil {
 		return nil, parseErr
 	}
+	if startTimeRange.After(endTimeRange) {
+		return nil, fmt.Errorf("timerange is invalid: start timestamp is after end timestamp")
+	}
 	var records []*spb.ClientResourceUsageRecord
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		records = nil
