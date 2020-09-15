@@ -391,47 +391,65 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 	if err != nil {
 		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
 	}
-	startTimeRange := &tpb.Timestamp{
-		Seconds: 82,
-		Nanos:   4,
-	}
-	endTimeRange := &tpb.Timestamp{
-		Seconds: 84,
-		Nanos:   4,
-	}
-	records, err := ds.FetchResourceUsageRecords(ctx, clientID, startTimeRange, endTimeRange)
-	if err != nil {
-		t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("Unexpected number of records returned. Want %d, got %v", 1, len(records))
-	}
-	startNoRecordsTimeRange := &tpb.Timestamp{
-		Seconds: 85,
-		Nanos:   3,
-	}
-	endNoRecordsTimeRange := &tpb.Timestamp{
-		Seconds: 87,
-		Nanos:   2,
-	}
-	noRecordsTimeRange, err := ds.FetchResourceUsageRecords(ctx, clientID, startNoRecordsTimeRange, endNoRecordsTimeRange)
-	if err != nil {
-		t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
-	}
-	if len(noRecordsTimeRange) != 0 {
-		t.Fatalf("Unexpected number of records returned. Want %d, got %v", 0, len(noRecordsTimeRange))
-	}
-	startInvalidTimeRange := &tpb.Timestamp{
-		Seconds: 85,
-		Nanos:   3,
-	}
-	endInvalidTimeRange := &tpb.Timestamp{
-		Seconds: 84,
-		Nanos:   2,
-	}
-	_, err = ds.FetchResourceUsageRecords(ctx, clientID, startInvalidTimeRange, endInvalidTimeRange)
-	if err == nil {
-		t.Errorf("Should have errored when trying to fetch resource-usage data for client as time range is invalid, but didn't error.")
+	var records []*spb.ClientResourceUsageRecord
+
+	for _, tr := range []struct {
+		desc            string
+		startTs         *tpb.Timestamp
+		endTs           *tpb.Timestamp
+		shouldErr       bool
+		recordsExpected int
+	}{
+		{
+			desc: "record out of time range",
+			startTs: &tpb.Timestamp{
+				Seconds: 85,
+				Nanos:   3,
+			},
+			endTs: &tpb.Timestamp{
+				Seconds: 87,
+				Nanos:   2,
+			},
+			recordsExpected: 0,
+		},
+		{
+			desc: "time range invalid",
+			startTs: &tpb.Timestamp{
+				Seconds: 85,
+				Nanos:   3,
+			},
+			endTs: &tpb.Timestamp{
+				Seconds: 84,
+				Nanos:   2,
+			},
+			shouldErr: true,
+		},
+		{
+			desc: "record in time range",
+			startTs: &tpb.Timestamp{
+				Seconds: 82,
+				Nanos:   4,
+			},
+			endTs: &tpb.Timestamp{
+				Seconds: 84,
+				Nanos:   1,
+			},
+			recordsExpected: 1,
+		},
+	} {
+		records, err = ds.FetchResourceUsageRecords(ctx, clientID, tr.startTs, tr.endTs)
+		if tr.shouldErr {
+			if err == nil {
+				t.Errorf("Should have errored when trying to fetch resource-usage data for client as time range is invalid, but didn't error.")
+			}
+		} else {
+			if err != nil {
+				t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
+			}
+			if len(records) != tr.recordsExpected {
+				t.Fatalf("Unexpected number of records returned. Want %d, got %v", tr.recordsExpected, len(records))
+			}
+		}
 	}
 	expected := &spb.ClientResourceUsageRecord{
 		Scope:                 "test-scope",
