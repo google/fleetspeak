@@ -368,19 +368,19 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
-	startTimeRange, parseErr := ptypes.Timestamp(startTimestamp)
-	if parseErr != nil {
-		return nil, parseErr
+	startTimeRange, err := ptypes.Timestamp(startTimestamp)
+	if err != nil {
+		return nil, err
 	}
-	endTimeRange, parseErr := ptypes.Timestamp(endTimestamp)
-	if parseErr != nil {
-		return nil, parseErr
+	endTimeRange, err := ptypes.Timestamp(endTimestamp)
+	if err != nil {
+		return nil, err
 	}
 	if startTimeRange.After(endTimeRange) {
 		return nil, fmt.Errorf("timerange is invalid: start timestamp is after end timestamp")
 	}
 	var records []*spb.ClientResourceUsageRecord
-	err := d.runInTx(func(tx *sql.Tx) error {
+	err = d.runInTx(func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
 			ctx,
 			"SELECT "+
