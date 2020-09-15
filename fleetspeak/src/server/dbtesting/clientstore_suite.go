@@ -266,6 +266,111 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 		}
 	}
 
+	if err := ds.BlacklistClient(ctx, clientID); err != nil {
+		t.Errorf("Error blacklisting client: %v", err)
+	}
+	g, err := ds.GetClientData(ctx, clientID)
+	if err != nil {
+		t.Errorf("Error getting client data after blacklisting: %v", err)
+	}
+	w := &db.ClientData{
+		Key: key,
+		Labels: []*fspb.Label{
+			{ServiceName: "system", Label: "Windows"},
+			{ServiceName: "system", Label: "new label"}},
+		Blacklisted: true,
+	}
+	if !clientDataEqual(g, w) {
+		t.Errorf("Got %+v want %+v after blacklisting client.", g, w)
+	}
+}
+
+func listClientsTest(t *testing.T, ds db.Store) {
+	ctx := context.Background()
+
+	for _, cid := range [...]common.ClientID{clientID, clientID2, clientID3} {
+		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key")}); err != nil {
+			t.Fatalf("AddClient [%v] failed: %v", clientID, err)
+		}
+	}
+
+	if err := ds.BlacklistClient(ctx, clientID3); err != nil {
+		t.Errorf("Unable to blacklist client: %v", err)
+	}
+Cases:
+	for _, tc := range []struct {
+		name            string
+		ids             []common.ClientID
+		want            map[common.ClientID]bool
+		wantBlacklisted map[common.ClientID]bool
+	}{
+		{
+			ids:             nil,
+			want:            map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
+			wantBlacklisted: map[common.ClientID]bool{clientID3: true},
+		},
+		{
+			ids:             []common.ClientID{clientID},
+			want:            map[common.ClientID]bool{clientID: true},
+			wantBlacklisted: map[common.ClientID]bool{},
+		},
+		{
+			ids:             []common.ClientID{clientID, clientID2},
+			want:            map[common.ClientID]bool{clientID: true, clientID2: true},
+			wantBlacklisted: map[common.ClientID]bool{},
+		},
+	} {
+		clients, err := ds.ListClients(ctx, tc.ids)
+		if err != nil {
+			t.Errorf("unexpected error while listing client ids [%v]: %v", tc.ids, err)
+			continue Cases
+		}
+		got := make(map[common.ClientID]bool)
+		gotBlacklisted := make(map[common.ClientID]bool)
+		for _, c := range clients {
+			id, err := common.BytesToClientID(c.ClientId)
+			if err != nil {
+				t.Errorf("ListClients(%v) returned invalid client_id: %v", tc.ids, err)
+			}
+			if c.LastContactTime == nil {
+				t.Errorf("ListClients(%v) returned nil LastContactTime.", tc.ids)
+			}
+			got[id] = true
+			if c.Blacklisted {
+				gotBlacklisted[id] = true
+			}
+		}
+		if !reflect.DeepEqual(tc.want, got) {
+			t.Errorf("ListClients(%v) returned unexpected set of clients, want [%v], got[%v]", tc.ids, tc.want, got)
+		}
+		if !reflect.DeepEqual(tc.wantBlacklisted, gotBlacklisted) {
+			t.Errorf("ListClients(%v) returned unexpected set of blacklisted clients, want [%v], got[%v]", tc.ids, tc.wantBlacklisted, gotBlacklisted)
+		}
+	}
+}
+
+func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
+	fakeTime := sertesting.FakeNow(84)
+	defer fakeTime.Revert()
+
+	fin1 := sertesting.SetClientRetryTime(func() time.Time { return db.Now().Add(time.Minute) })
+	defer fin1()
+	fin2 := sertesting.SetServerRetryTime(func(_ uint32) time.Time { return db.Now().Add(time.Minute) })
+	defer fin2()
+
+	ctx := context.Background()
+	key := []byte("Test key")
+	err := ds.AddClient(ctx, clientID, &db.ClientData{
+		Key: key})
+	if err != nil {
+		t.Errorf("add client: got unexpected error performing op: %v", err)
+	}
+	adjustDbTimestamp := func(timestamp *tpb.Timestamp) {
+		if timestamp.Seconds > 1483228800 && timestamp.Seconds < 1893456000 {
+			*timestamp = tpb.Timestamp{Seconds: 84}
+		}
+	}
+
 	meanRAM, maxRAM := 190, 200
 	rud := mpb.ResourceUsageData{
 		Scope:             "test-scope",
@@ -357,95 +462,14 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 	if got, want := record, expected; !proto.Equal(got, want) {
 		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
 	}
-
-	if err := ds.BlacklistClient(ctx, clientID); err != nil {
-		t.Errorf("Error blacklisting client: %v", err)
-	}
-	g, err := ds.GetClientData(ctx, clientID)
-	if err != nil {
-		t.Errorf("Error getting client data after blacklisting: %v", err)
-	}
-	w := &db.ClientData{
-		Key: key,
-		Labels: []*fspb.Label{
-			{ServiceName: "system", Label: "Windows"},
-			{ServiceName: "system", Label: "new label"}},
-		Blacklisted: true,
-	}
-	if !clientDataEqual(g, w) {
-		t.Errorf("Got %+v want %+v after blacklisting client.", g, w)
-	}
-}
-
-func listClientsTest(t *testing.T, ds db.Store) {
-	ctx := context.Background()
-
-	for _, cid := range [...]common.ClientID{clientID, clientID2, clientID3} {
-		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key")}); err != nil {
-			t.Fatalf("AddClient [%v] failed: %v", clientID, err)
-		}
-	}
-
-	if err := ds.BlacklistClient(ctx, clientID3); err != nil {
-		t.Errorf("Unable to blacklist client: %v", err)
-	}
-Cases:
-	for _, tc := range []struct {
-		name            string
-		ids             []common.ClientID
-		want            map[common.ClientID]bool
-		wantBlacklisted map[common.ClientID]bool
-	}{
-		{
-			ids:             nil,
-			want:            map[common.ClientID]bool{clientID: true, clientID2: true, clientID3: true},
-			wantBlacklisted: map[common.ClientID]bool{clientID3: true},
-		},
-		{
-			ids:             []common.ClientID{clientID},
-			want:            map[common.ClientID]bool{clientID: true},
-			wantBlacklisted: map[common.ClientID]bool{},
-		},
-		{
-			ids:             []common.ClientID{clientID, clientID2},
-			want:            map[common.ClientID]bool{clientID: true, clientID2: true},
-			wantBlacklisted: map[common.ClientID]bool{},
-		},
-	} {
-		clients, err := ds.ListClients(ctx, tc.ids)
-		if err != nil {
-			t.Errorf("unexpected error while listing client ids [%v]: %v", tc.ids, err)
-			continue Cases
-		}
-		got := make(map[common.ClientID]bool)
-		gotBlacklisted := make(map[common.ClientID]bool)
-		for _, c := range clients {
-			id, err := common.BytesToClientID(c.ClientId)
-			if err != nil {
-				t.Errorf("ListClients(%v) returned invalid client_id: %v", tc.ids, err)
-			}
-			if c.LastContactTime == nil {
-				t.Errorf("ListClients(%v) returned nil LastContactTime.", tc.ids)
-			}
-			got[id] = true
-			if c.Blacklisted {
-				gotBlacklisted[id] = true
-			}
-		}
-		if !reflect.DeepEqual(tc.want, got) {
-			t.Errorf("ListClients(%v) returned unexpected set of clients, want [%v], got[%v]", tc.ids, tc.want, got)
-		}
-		if !reflect.DeepEqual(tc.wantBlacklisted, gotBlacklisted) {
-			t.Errorf("ListClients(%v) returned unexpected set of blacklisted clients, want [%v], got[%v]", tc.ids, tc.wantBlacklisted, gotBlacklisted)
-		}
-	}
 }
 
 func clientStoreTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("ClientStoreTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
-			"ClientStoreTest": clientStoreTest,
-			"ListClientsTest": listClientsTest,
+			"ClientStoreTest":               clientStoreTest,
+			"ListClientsTest":               listClientsTest,
+			"FetchResourceUsageRecordsTest": fetchResourceUsageRecordsTest,
 		})
 	})
 }
