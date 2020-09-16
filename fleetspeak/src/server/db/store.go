@@ -229,7 +229,6 @@ type ClientStore interface {
 	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error
 
 	// Fetches resource-usage records for a given client and time range from the data-store.
-	// TODO: Add more complex queries.
 	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tpb.Timestamp) ([]*spb.ClientResourceUsageRecord, error)
 }
 
