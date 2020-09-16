@@ -361,9 +361,20 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	})
 }
 
-func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error) {
+	startTimeRange, err := ptypes.Timestamp(startTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	endTimeRange, err := ptypes.Timestamp(endTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	if startTimeRange.After(endTimeRange) {
+		return nil, fmt.Errorf("timerange is invalid: start timestamp is after end timestamp")
+	}
 	var records []*spb.ClientResourceUsageRecord
-	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+	err = d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		records = nil
 		rows, err := tx.QueryContext(
 			ctx,
@@ -371,9 +382,11 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
-				"FROM client_resource_usage_records WHERE client_id=? LIMIT ?",
+				"FROM client_resource_usage_records WHERE client_id=? "+
+				"AND server_timestamp > ? AND server_timestamp < ?",
 			id.Bytes(),
-			limit)
+			startTimeRange.UnixNano(),
+			endTimeRange.UnixNano())
 
 		if err != nil {
 			return err

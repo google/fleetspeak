@@ -228,9 +228,8 @@ type ClientStore interface {
 	// Writes resource-usage data received from a client to the data-store.
 	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error
 
-	// Fetches at most 'limit' resource-usage records for a given client from the data-store.
-	// TODO: Add more complex queries.
-	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error)
+	// Fetches resource-usage records for a given client and time range from the data-store.
+	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tpb.Timestamp) ([]*spb.ClientResourceUsageRecord, error)
 }
 
 // Broadcast limits with special meaning.

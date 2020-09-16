@@ -83,7 +83,8 @@ message BlacklistClientRequest {
 
 message FetchClientResourceUsageRecordsRequest {
   bytes client_id = 1;
-  uint64 limit = 2;
+  google.protobuf.Timestamp start_timestamp = 3;
+  google.protobuf.Timestamp end_timestamp = 4;
 }
 
 message FetchClientResourceUsageRecordsResponse {

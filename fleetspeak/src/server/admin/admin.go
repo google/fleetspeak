@@ -255,7 +255,7 @@ func (s adminServer) FetchClientResourceUsageRecords(ctx context.Context, req *s
 	if idErr != nil {
 		return nil, idErr
 	}
-	records, dbErr := s.store.FetchResourceUsageRecords(ctx, clientID, int(req.Limit))
+	records, dbErr := s.store.FetchResourceUsageRecords(ctx, clientID, req.StartTimestamp, req.EndTimestamp)
 	if dbErr != nil {
 		return nil, dbErr
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
+	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -175,9 +176,9 @@ func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id comm
 	return err
 }
 
-func (d MonitoredDatastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, limit int) ([]*spb.ClientResourceUsageRecord, error) {
+func (d MonitoredDatastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error) {
 	s := ftime.Now()
-	res, err := d.D.FetchResourceUsageRecords(ctx, id, limit)
+	res, err := d.D.FetchResourceUsageRecords(ctx, id, startTimestamp, endTimestamp)
 	d.C.DatastoreOperation(s, ftime.Now(), "FetchResourceUsageRecords", err)
 	return res, err
 }
