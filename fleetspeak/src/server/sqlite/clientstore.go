@@ -388,7 +388,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
 				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
 				"FROM client_resource_usage_records WHERE client_id=? "+
-				"AND server_timestamp > ? AND server_timestamp < ?",
+				"AND server_timestamp >= ? AND server_timestamp < ?",
 			id.String(),
 			startTimeRange.UnixNano(),
 			endTimeRange.UnixNano())
