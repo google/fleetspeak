@@ -13,6 +13,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 
+	ptypes "github.com/golang/protobuf/ptypes"
 	apb "github.com/golang/protobuf/ptypes/any"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -350,25 +351,12 @@ Cases:
 }
 
 func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
-	fakeTime := sertesting.FakeNow(84)
-	defer fakeTime.Revert()
-
-	fin1 := sertesting.SetClientRetryTime(func() time.Time { return db.Now().Add(time.Minute) })
-	defer fin1()
-	fin2 := sertesting.SetServerRetryTime(func(_ uint32) time.Time { return db.Now().Add(time.Minute) })
-	defer fin2()
-
 	ctx := context.Background()
 	key := []byte("Test key")
 	err := ds.AddClient(ctx, clientID, &db.ClientData{
 		Key: key})
 	if err != nil {
 		t.Errorf("add client: got unexpected error performing op: %v", err)
-	}
-	adjustDbTimestamp := func(timestamp *tpb.Timestamp) {
-		if timestamp.Seconds > 1483228800 && timestamp.Seconds < 1893456000 {
-			*timestamp = tpb.Timestamp{Seconds: 84}
-		}
 	}
 
 	meanRAM, maxRAM := 190, 200
@@ -387,10 +375,13 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
 		},
 	}
+	beforeRecordTime := ptypes.TimestampNow()
 	err = ds.RecordResourceUsageData(ctx, clientID, rud)
 	if err != nil {
 		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
 	}
+	afterRecordTime := ptypes.TimestampNow()
+
 	var records []*spb.ClientResourceUsageRecord
 
 	for _, tr := range []struct {
@@ -403,11 +394,11 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		{
 			desc: "record out of time range",
 			startTs: &tpb.Timestamp{
-				Seconds: 85,
+				Seconds: 80,
 				Nanos:   3,
 			},
 			endTs: &tpb.Timestamp{
-				Seconds: 87,
+				Seconds: 84,
 				Nanos:   2,
 			},
 			recordsExpected: 0,
@@ -425,15 +416,9 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 			shouldErr: true,
 		},
 		{
-			desc: "record in time range",
-			startTs: &tpb.Timestamp{
-				Seconds: 82,
-				Nanos:   4,
-			},
-			endTs: &tpb.Timestamp{
-				Seconds: 84,
-				Nanos:   1,
-			},
+			desc:            "record in time range",
+			startTs:         beforeRecordTime,
+			endTs:           afterRecordTime,
 			recordsExpected: 1,
 		},
 	} {
@@ -456,7 +441,7 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		Pid:                   1234,
 		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
 		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
-		ServerTimestamp:       &tpb.Timestamp{Seconds: 84},
+		ServerTimestamp:       &tpb.Timestamp{Seconds: 84, Nanos: 2},
 		ProcessTerminated:     true,
 		MeanUserCpuRate:       50.0,
 		MaxUserCpuRate:        60.0,
@@ -466,6 +451,24 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		MaxResidentMemoryMib:  int32(maxRAM),
 	}
 	record := records[0]
+
+	adjustDbTimestamp := func(timestamp *tpb.Timestamp) {
+		before, err := ptypes.Timestamp(beforeRecordTime)
+		if err != nil {
+			t.Fatalf("Cannot convert timestamp 'beforeRecordTime' to Time.time struct, as timestamp is invalid: %v", err)
+		}
+		after, err := ptypes.Timestamp(afterRecordTime)
+		if err != nil {
+			t.Fatalf("Cannot convert timestamp 'afterRecordTime' to Time.time struct, as timestamp is invalid: %v", err)
+		}
+		recordTime, err := ptypes.Timestamp(timestamp)
+		if err != nil {
+			t.Fatalf("Cannot convert fetched record timestamp to Time.time struct, as timestamp is invalid: %v", err)
+		}
+		if before.Before(recordTime) && recordTime.Before(after) {
+			*timestamp = tpb.Timestamp{Seconds: 84, Nanos: 2}
+		}
+	}
 	adjustDbTimestamp(record.ServerTimestamp)
 
 	// Adjust for floating-point rounding discrepancies.
