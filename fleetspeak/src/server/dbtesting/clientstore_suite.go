@@ -377,7 +377,7 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 	}
 
 	beforeRecordTime := db.Now()
-	oneMinAfterRecordTime := beforeRecordTime.Add(time.Minute)
+	oneMinAfterRecordTime := beforeRecordTime.Add(time.Minute) // This isn't exactly 1 minute after record time.
 	beforeRecordTimestamp, err := ptypes.TimestampProto(beforeRecordTime)
 	if err != nil {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
@@ -420,6 +420,21 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
 	}
 
+	recordExactTime, err := ptypes.Timestamp(record.ServerTimestamp)
+	if err != nil {
+		t.Fatalf("Invalid tpb.Timestamp object cannot be converted to time.Time object: %v", err)
+	}
+	nanoBeforeRecord := recordExactTime.Add(time.Duration(-1) * time.Nanosecond)
+	nanoBeforeRecordTS, err := ptypes.TimestampProto(nanoBeforeRecord)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+	nanoAfterRecord := recordExactTime.Add(time.Nanosecond)
+	nanoAfterRecordTS, err := ptypes.TimestampProto(nanoAfterRecord)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+
 	for _, tr := range []struct {
 		desc            string
 		startTs         *tpb.Timestamp
@@ -428,30 +443,21 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		recordsExpected int
 	}{
 		{
-			desc: "record out of time range",
-			startTs: &tpb.Timestamp{
-				Seconds: 80,
-				Nanos:   3,
-			},
+			desc:            "record out of time range",
+			startTs:         nanoBeforeRecordTS,
 			endTs:           record.ServerTimestamp,
 			recordsExpected: 0,
 		},
 		{
-			desc: "time range invalid",
-			startTs: &tpb.Timestamp{
-				Seconds: 85,
-				Nanos:   3,
-			},
-			endTs: &tpb.Timestamp{
-				Seconds: 84,
-				Nanos:   2,
-			},
+			desc:      "time range invalid",
+			startTs:   record.ServerTimestamp,
+			endTs:     nanoBeforeRecordTS,
 			shouldErr: true,
 		},
 		{
 			desc:            "record in time range",
 			startTs:         record.ServerTimestamp,
-			endTs:           afterRecordTimestamp,
+			endTs:           nanoAfterRecordTS,
 			recordsExpected: 1,
 		},
 	} {
