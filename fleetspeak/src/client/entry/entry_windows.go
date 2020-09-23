@@ -3,6 +3,7 @@
 package entry
 
 import (
+	"os"
 	"time"
 
 	log "github.com/golang/glog"
@@ -39,7 +40,8 @@ loop:
 	}
 	changes <- svc.Status{State: svc.StopPending}
 
-	log.Exit("Stopping the service.")
+	log.Info("Stopping the service.")
+	os.Exit(2)
 	return
 }
 
