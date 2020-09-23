@@ -390,8 +390,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			"SELECT "+
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
-				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
-				"mean_io_read_mib, max_io_read_mib, mean_io_write_mib, max_io_write_mib, "+
+				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib, "+
+				"mean_io_read_mib, max_io_read_mib, mean_io_write_mib, max_io_write_mib "+
 				"FROM client_resource_usage_records WHERE client_id=? "+
 				"AND server_timestamp >= ? AND server_timestamp < ?",
 			id.String(),
