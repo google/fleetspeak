@@ -14,8 +14,8 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 	grpcServicePb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
-	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	servicesGrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -34,6 +34,7 @@ type serverInfo struct {
 // ComponentsInfo contains IDs of connected clients and exec.Cmds for all components
 type ComponentsInfo struct {
 	masterServerCmd *exec.Cmd
+	balancerCmd     *exec.Cmd
 	servers         []serverInfo
 	clientCmds      []*exec.Cmd
 	ClientIDs       []string
@@ -60,6 +61,10 @@ func (cc *ComponentsInfo) KillAll() {
 	if cc.masterServerCmd != nil {
 		cc.masterServerCmd.Process.Kill()
 		cc.masterServerCmd.Wait()
+	}
+	if cc.balancerCmd != nil {
+		cc.balancerCmd.Process.Kill()
+		cc.balancerCmd.Wait()
 	}
 }
 
@@ -150,7 +155,7 @@ type MysqlCredentials struct {
 	Database string
 }
 
-func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials, serverHosts []string) error {
+func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials, frontendAddr string) error {
 	var config cpb.Config
 	config.ConfigurationName = "FleetspeakSetup"
 
@@ -159,15 +164,13 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 		fmt.Sprintf("%v:%v@tcp(%v)/%v", mysqlCredentials.Username, mysqlCredentials.Password, mysqlCredentials.Host, mysqlCredentials.Database)
 
 	config.ComponentsConfig.HttpsConfig = new(fcpb.HttpsConfig)
-	config.ComponentsConfig.HttpsConfig.ListenAddress = fmt.Sprintf("localhost:6060")
+	config.ComponentsConfig.HttpsConfig.ListenAddress = "localhost:6060"
 	config.ComponentsConfig.HttpsConfig.DisableStreaming = false
 
 	config.ComponentsConfig.AdminConfig = new(fcpb.AdminConfig)
-	config.ComponentsConfig.AdminConfig.ListenAddress = fmt.Sprintf("localhost:6061")
+	config.ComponentsConfig.AdminConfig.ListenAddress = "localhost:6061"
 
-	for _, sh := range serverHosts {
-		config.PublicHostPort = append(config.PublicHostPort, fmt.Sprintf("%v:6060", sh))
-	}
+	config.PublicHostPort = append(config.PublicHostPort, frontendAddr)
 
 	config.ServerComponentConfigurationFile = path.Join(configDir, "server.config")
 	config.TrustedCertFile = path.Join(configDir, "trusted_cert.pem")
@@ -217,7 +220,18 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	return nil
 }
 
-func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFrontendPort, fsHTTPSListenPort, fsAdminPort int, newServerConfigPath, newServerServicesConfigPath string) error {
+type fleetspeakServerConfigs struct {
+	host               string
+	frontendPort       int
+	adminPort          int
+	useHealthCheck     bool
+	healthCheckPort    int
+	httpsListenAddress string
+	notificationPort   int
+	useProxyProtocol   bool
+}
+
+func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakServerConfigs, newServerConfigPath, newServerServicesConfigPath string) error {
 	// Update server addresses
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
@@ -230,13 +244,22 @@ func modifyFleetspeakServerConfig(configDir string, fsServerHost string, fsFront
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
-	serverConfig.HttpsConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsHTTPSListenPort)
-	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerHost, fsAdminPort)
+
+	serverConfig.NotificationListenAddress = fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.notificationPort)
+	serverConfig.HttpsConfig.ListenAddress = fsServerConfigs.httpsListenAddress
+	serverConfig.AdminConfig.ListenAddress = fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.adminPort)
+	if fsServerConfigs.useHealthCheck {
+		serverConfig.HealthCheckConfig = new(fcpb.HealthCheckConfig)
+		serverConfig.HealthCheckConfig.ListenAddress = fmt.Sprintf("0.0.0.0:%v", fsServerConfigs.healthCheckPort)
+	}
+	if fsServerConfigs.useProxyProtocol {
+		serverConfig.ProxyProtocol = true
+	}
 	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
 
 	// Server services configuration
 	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
-	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerHost, fsFrontendPort), Insecure: true}
+	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.frontendPort), Insecure: true}
 	serviceConfig, err := ptypes.MarshalAny(&grpcConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
@@ -279,41 +302,52 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 
 // BuildConfigurations builds Fleetspeak configuration files for provided servers and
 // number of clients that are supposed to be started on different machines
-func BuildConfigurations(configDir string, serverHosts []string, numClients int, mysqlCredentials MysqlCredentials) error {
-	err := buildBaseConfiguration(configDir, mysqlCredentials, serverHosts)
-	if err != nil {
-		return fmt.Errorf("Failed to build base configuration: %v", err)
-	}
-
+func BuildConfigurations(configDir string, serverHosts []string, serverFrontendIP string, numClients int, mysqlCredentials MysqlCredentials) error {
+	healthCheckPort := 8085
 	httpsListenPort := 6060
 	adminPort := httpsListenPort + 1
 	frontendPort := httpsListenPort + 2
+	notificationPort := httpsListenPort + 3
+	serverFrontendAddr := fmt.Sprintf("%v:%v", serverFrontendIP, httpsListenPort)
+
+	err := buildBaseConfiguration(configDir, mysqlCredentials, serverFrontendAddr)
+	if err != nil {
+		return fmt.Errorf("Failed to build base configuration: %v", err)
+	}
 
 	// Build server configs
 	for i := 0; i < len(serverHosts); i++ {
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, serverHosts[i], frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(
+			configDir,
+			fleetspeakServerConfigs{
+				host:               serverHosts[i],
+				frontendPort:       frontendPort,
+				adminPort:          adminPort,
+				useHealthCheck:     true,
+				healthCheckPort:    healthCheckPort,
+				httpsListenAddress: serverFrontendAddr,
+				notificationPort:   notificationPort,
+			},
+			serverConfigPath,
+			serverServicesConfigPath,
+		)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
 	}
 
 	// Build client configs
-	for i := 0; i < numClients; i++ {
-		serverIdx := i % len(serverHosts)
-		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
-		stateFilePath := fmt.Sprintf("client%v.state", i)
-		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("%v:%v", serverHosts[serverIdx], httpsListenPort), linuxConfigPath, stateFilePath, ".")
-		if err != nil {
-			return fmt.Errorf("Failed to build FS client configurations: %v", err)
-		}
+	linuxConfigPath := path.Join(configDir, "linux_client.config")
+	err = modifyFleetspeakClientConfig(configDir, serverFrontendAddr, linuxConfigPath, "client.state", ".")
+	if err != nil {
+		return fmt.Errorf("Failed to build FS client configurations: %v", err)
 	}
-
 	return nil
 }
 
-func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, numClients int) error {
+func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress string, numServers, numClients int) error {
 	firstAdminPort := 6061
 
 	// Start Master server
@@ -321,13 +355,29 @@ func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, 
 	startCommand(cc.masterServerCmd)
 
 	// Start servers and their services
+	var serverHosts string
 	for i := 0; i < numServers; i++ {
-		adminPort := firstAdminPort + i*3
+		adminPort := firstAdminPort + i*4
 		httpsListenPort := adminPort - 1
+		serverHosts += fmt.Sprintf("127.0.0.1:%v\n", httpsListenPort)
 		frontendPort := adminPort + 1
+		notificationPort := adminPort + 2
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
-		err := modifyFleetspeakServerConfig(configDir, "localhost", frontendPort, httpsListenPort, adminPort, serverConfigPath, serverServicesConfigPath)
+		err := modifyFleetspeakServerConfig(
+			configDir,
+			fleetspeakServerConfigs{
+				host:               "localhost",
+				frontendPort:       frontendPort,
+				adminPort:          adminPort,
+				useHealthCheck:     false,
+				httpsListenAddress: fmt.Sprintf("localhost:%v", httpsListenPort),
+				notificationPort:   notificationPort,
+				useProxyProtocol:   true,
+			},
+			serverConfigPath,
+			serverServicesConfigPath,
+		)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS server configurations: %v", err)
 		}
@@ -344,14 +394,21 @@ func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, 
 		startCommand(serviceCmd)
 	}
 
-	serversStartTime := time.Now()
+	// Start Load balancer
+	serverHostsFile := path.Join(configDir, "server_hosts.txt")
+	err := ioutil.WriteFile(serverHostsFile, []byte(serverHosts), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write serverHostsFile: %v", err)
+	}
+	cc.balancerCmd = exec.Command("fleetspeak/src/e2etesting/balancer/balancer", "--servers_file", serverHostsFile, "--frontend_address", frontendAddress)
+	startCommand(cc.balancerCmd)
 
 	// Start clients
+	serversStartTime := time.Now()
 	for i := 0; i < numClients; i++ {
-		httpsServerPort := cc.servers[i%numServers].httpsListenPort
 		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
 		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
-		err := modifyFleetspeakClientConfig(configDir, fmt.Sprintf("localhost:%v", httpsServerPort), linuxConfigPath, stateFilePath, configDir)
+		err := modifyFleetspeakClientConfig(configDir, frontendAddress, linuxConfigPath, stateFilePath, configDir)
 		if err != nil {
 			return fmt.Errorf("Failed to build FS client configurations: %v", err)
 		}
@@ -369,18 +426,18 @@ func (cc *ComponentsInfo) start(configDir string, msAddress string, numServers, 
 }
 
 // ConfigureAndStart configures and starts fleetspeak servers, clients, their services and FRR master server
-func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, msAddress string, numServers, numClients int) error {
+func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, frontendAddress, msAddress string, numServers, numClients int) error {
 	configDir, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
 	if err != nil {
 		return fmt.Errorf("Failed to create temporary dir: %v", err)
 	}
 
-	err = buildBaseConfiguration(configDir, mysqlCredentials, []string{"localhost"})
+	err = buildBaseConfiguration(configDir, mysqlCredentials, frontendAddress)
 	if err != nil {
 		return fmt.Errorf("Failed to build base Fleetspeak configuration: %v", err)
 	}
 
-	err = cc.start(configDir, msAddress, numServers, numClients)
+	err = cc.start(configDir, frontendAddress, msAddress, numServers, numClients)
 	if err != nil {
 		cc.KillAll()
 		return err

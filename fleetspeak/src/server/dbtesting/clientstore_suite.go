@@ -13,6 +13,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 
+	"github.com/golang/protobuf/ptypes"
 	apb "github.com/golang/protobuf/ptypes/any"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -266,63 +267,6 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 		}
 	}
 
-	meanRAM, maxRAM := 190, 200
-	rud := mpb.ResourceUsageData{
-		Scope:             "test-scope",
-		Pid:               1234,
-		ProcessStartTime:  &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
-		DataTimestamp:     &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
-		ProcessTerminated: true,
-		ResourceUsage: &mpb.AggregatedResourceUsage{
-			MeanUserCpuRate:    50.0,
-			MaxUserCpuRate:     60.0,
-			MeanSystemCpuRate:  70.0,
-			MaxSystemCpuRate:   80.0,
-			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
-			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
-		},
-	}
-	err = ds.RecordResourceUsageData(ctx, clientID, rud)
-	if err != nil {
-		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
-	}
-	records, err := ds.FetchResourceUsageRecords(ctx, clientID, 100)
-	if err != nil {
-		t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("Unexpected number of records returned. Want %d, got %v", 1, len(records))
-	}
-	expected := &spb.ClientResourceUsageRecord{
-		Scope:                 "test-scope",
-		Pid:                   1234,
-		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
-		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
-		ServerTimestamp:       &tpb.Timestamp{Seconds: 84},
-		ProcessTerminated:     true,
-		MeanUserCpuRate:       50.0,
-		MaxUserCpuRate:        60.0,
-		MeanSystemCpuRate:     70.0,
-		MaxSystemCpuRate:      80.0,
-		MeanResidentMemoryMib: int32(meanRAM),
-		MaxResidentMemoryMib:  int32(maxRAM),
-	}
-	record := records[0]
-	adjustDbTimestamp(record.ServerTimestamp)
-
-	// Adjust for floating-point rounding discrepancies.
-	adjustForRounding := func(actual *int32, expected int) {
-		if *actual == int32(expected-1) || *actual == int32(expected+1) {
-			*actual = int32(expected)
-		}
-	}
-	adjustForRounding(&record.MeanResidentMemoryMib, meanRAM)
-	adjustForRounding(&record.MaxResidentMemoryMib, maxRAM)
-
-	if got, want := record, expected; !proto.Equal(got, want) {
-		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
-	}
-
 	if err := ds.BlacklistClient(ctx, clientID); err != nil {
 		t.Errorf("Error blacklisting client: %v", err)
 	}
@@ -406,11 +350,139 @@ Cases:
 	}
 }
 
+func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
+	ctx := context.Background()
+	key := []byte("Test key")
+	err := ds.AddClient(ctx, clientID, &db.ClientData{
+		Key: key})
+	if err != nil {
+		t.Errorf("add client: got unexpected error performing op: %v", err)
+	}
+
+	meanRAM, maxRAM := 190, 200
+	rud := mpb.ResourceUsageData{
+		Scope:             "test-scope",
+		Pid:               1234,
+		ProcessStartTime:  &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		DataTimestamp:     &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ProcessTerminated: true,
+		ResourceUsage: &mpb.AggregatedResourceUsage{
+			MeanUserCpuRate:    50.0,
+			MaxUserCpuRate:     60.0,
+			MeanSystemCpuRate:  70.0,
+			MaxSystemCpuRate:   80.0,
+			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
+			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
+		},
+	}
+
+	beforeRecordTime := db.Now()
+	oneMinAfterRecordTime := beforeRecordTime.Add(time.Minute) // This isn't exactly 1 minute after record time.
+	beforeRecordTimestamp, err := ptypes.TimestampProto(beforeRecordTime)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+	afterRecordTimestamp, err := ptypes.TimestampProto(oneMinAfterRecordTime)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+
+	err = ds.RecordResourceUsageData(ctx, clientID, rud)
+	if err != nil {
+		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
+	}
+
+	records, err := ds.FetchResourceUsageRecords(ctx, clientID, beforeRecordTimestamp, afterRecordTimestamp)
+	if err != nil {
+		t.Errorf("Unexpected error when trying to fetch resource-usage data for client: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("Unexpected number of records returned. Want %d, got %v", 1, len(records))
+	}
+
+	record := records[0]
+	expected := &spb.ClientResourceUsageRecord{
+		Scope:                 "test-scope",
+		Pid:                   1234,
+		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ServerTimestamp:       record.ServerTimestamp,
+		ProcessTerminated:     true,
+		MeanUserCpuRate:       50.0,
+		MaxUserCpuRate:        60.0,
+		MeanSystemCpuRate:     70.0,
+		MaxSystemCpuRate:      80.0,
+		MeanResidentMemoryMib: int32(meanRAM),
+		MaxResidentMemoryMib:  int32(maxRAM),
+	}
+
+	if got, want := record, expected; !proto.Equal(got, want) {
+		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
+	}
+
+	recordExactTime, err := ptypes.Timestamp(record.ServerTimestamp)
+	if err != nil {
+		t.Fatalf("Invalid tpb.Timestamp object cannot be converted to time.Time object: %v", err)
+	}
+	nanoBeforeRecord := recordExactTime.Add(time.Duration(-1) * time.Nanosecond)
+	nanoBeforeRecordTS, err := ptypes.TimestampProto(nanoBeforeRecord)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+	nanoAfterRecord := recordExactTime.Add(time.Nanosecond)
+	nanoAfterRecordTS, err := ptypes.TimestampProto(nanoAfterRecord)
+	if err != nil {
+		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
+	}
+
+	for _, tr := range []struct {
+		desc            string
+		startTs         *tpb.Timestamp
+		endTs           *tpb.Timestamp
+		shouldErr       bool
+		recordsExpected int
+	}{
+		{
+			desc:            "record out of time range",
+			startTs:         nanoBeforeRecordTS,
+			endTs:           record.ServerTimestamp,
+			recordsExpected: 0,
+		},
+		{
+			desc:      "time range invalid",
+			startTs:   record.ServerTimestamp,
+			endTs:     nanoBeforeRecordTS,
+			shouldErr: true,
+		},
+		{
+			desc:            "record in time range",
+			startTs:         record.ServerTimestamp,
+			endTs:           nanoAfterRecordTS,
+			recordsExpected: 1,
+		},
+	} {
+		records, err = ds.FetchResourceUsageRecords(ctx, clientID, tr.startTs, tr.endTs)
+		if tr.shouldErr {
+			if err == nil {
+				t.Errorf("%s: Should have errored when trying to fetch resource-usage data for client as time range is invalid, but didn't error.", tr.desc)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("%s: Unexpected error when trying to fetch resource-usage data for client: %v", tr.desc, err)
+			}
+			if len(records) != tr.recordsExpected {
+				t.Fatalf("%s: Unexpected number of records returned. Want %d, got %v", tr.desc, tr.recordsExpected, len(records))
+			}
+		}
+	}
+}
+
 func clientStoreTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("ClientStoreTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
-			"ClientStoreTest": clientStoreTest,
-			"ListClientsTest": listClientsTest,
+			"ClientStoreTest":               clientStoreTest,
+			"ListClientsTest":               listClientsTest,
+			"FetchResourceUsageRecordsTest": fetchResourceUsageRecordsTest,
 		})
 	})
 }
