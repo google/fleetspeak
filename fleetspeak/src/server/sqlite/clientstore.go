@@ -34,6 +34,7 @@ import (
 )
 
 const (
+	bytesToKIB = 1.0 / float64(1<<10)
 	bytesToMIB = 1.0 / float64(1<<20)
 )
 
@@ -361,10 +362,10 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
 			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanIoRead*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxIoRead)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanIoWrite*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxIoWrite)*bytesToMIB))
+			int32(rud.ResourceUsage.MeanIoRead*bytesToKIB),
+			int32(float64(rud.ResourceUsage.MaxIoRead)*bytesToKIB),
+			int32(rud.ResourceUsage.MeanIoWrite*bytesToKIB),
+			int32(float64(rud.ResourceUsage.MaxIoWrite)*bytesToKIB))
 		return err
 	})
 }

@@ -375,10 +375,10 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 			MaxSystemCpuRate:   80.0,
 			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
 			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
-			MeanIoRead:         float64(meanIoReadData) * 1024 * 1024,
-			MaxIoRead:          int64(maxIoReadData) * 1024 * 1024,
-			MeanIoWrite:        float64(meanIoWriteData) * 1024 * 1024,
-			MaxIoWrite:         int64(maxIoWriteData) * 1024 * 1024,
+			MeanIoRead:         float64(meanIoReadData) * 1024,
+			MaxIoRead:          int64(maxIoReadData) * 1024,
+			MeanIoWrite:        float64(meanIoWriteData) * 1024,
+			MaxIoWrite:         int64(maxIoWriteData) * 1024,
 		},
 	}
 
