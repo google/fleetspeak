@@ -360,6 +360,8 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 	}
 
 	meanRAM, maxRAM := 190, 200
+	meanIoReadData, maxIoReadData := 300, 310
+	meanIoWriteData, maxIoWriteData := 400, 410
 	rud := mpb.ResourceUsageData{
 		Scope:             "test-scope",
 		Pid:               1234,
@@ -373,6 +375,10 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 			MaxSystemCpuRate:   80.0,
 			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
 			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
+			MeanIoRead:         float64(meanIoReadData) * 1024 * 1024,
+			MaxIoRead:          int64(maxIoReadData) * 1024 * 1024,
+			MeanIoWrite:        float64(meanIoWriteData) * 1024 * 1024,
+			MaxIoWrite:         int64(maxIoWriteData) * 1024 * 1024,
 		},
 	}
 
@@ -414,6 +420,10 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		MaxSystemCpuRate:      80.0,
 		MeanResidentMemoryMib: int32(meanRAM),
 		MaxResidentMemoryMib:  int32(maxRAM),
+		MeanIoReadMib:         int32(meanIoReadData),
+		MaxIoReadMib:          int32(maxIoReadData),
+		MeanIoWriteMib:        int32(meanIoWriteData),
+		MaxIoWriteMib:         int32(maxIoWriteData),
 	}
 
 	if got, want := record, expected; !proto.Equal(got, want) {
