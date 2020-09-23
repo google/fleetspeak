@@ -45,11 +45,11 @@ type ResourceUsage struct {
 	// Resident set size for a process.
 	ResidentMemory int64
 
-	// Client IO data read so far, in bytes.
-	IORead int64
+	// Client IO data read so far.
+	IOReadBytes int64
 
-	// Client IO data written so far, in bytes.
-	IOWrite int64
+	// Client IO data written so far.
+	IOWriteBytes int64
 }
 
 // ResourceUsageFetcher obtains resource-usage data for a process from the OS.
@@ -147,8 +147,8 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 		UserCPUMillis:   float64((utime + cutime) * 10), // Assume rate of 100 ticks/second
 		SystemCPUMillis: float64((stime + cstime) * 10), // Assume rate of 100 ticks/second
 		ResidentMemory:  resident * pageSize,
-		IORead:          int64(ioCounters.ReadBytes),
-		IOWrite:         int64(ioCounters.WriteBytes),
+		IOReadBytes:     int64(ioCounters.ReadBytes),
+		IOWriteBytes:    int64(ioCounters.WriteBytes),
 	}, nil
 }
 

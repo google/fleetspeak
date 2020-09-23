@@ -63,10 +63,10 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		}
 		aggRU.MeanResidentMemory = float64(currRU.ResidentMemory) / float64(numRUCalls)
 		aggRU.MaxResidentMemory = currRU.ResidentMemory
-		aggRU.MeanIoRead = float64(currRU.IORead) / float64(numRUCalls)
-		aggRU.MaxIoRead = currRU.IORead
-		aggRU.MeanIoWrite = float64(currRU.IOWrite) / float64(numRUCalls)
-		aggRU.MaxIoWrite = currRU.IOWrite
+		aggRU.MeanIoRead = float64(currRU.IOReadBytes) / float64(numRUCalls)
+		aggRU.MaxIoRead = currRU.IOReadBytes
+		aggRU.MeanIoWrite = float64(currRU.IOWriteBytes) / float64(numRUCalls)
+		aggRU.MaxIoWrite = currRU.IOWriteBytes
 		return nil
 	}
 
@@ -128,13 +128,13 @@ func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *
 }
 
 func aggregateIOResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
-	aggRU.MeanIoRead += float64(currRU.IORead) / float64(numRUCalls)
-	if currRU.IORead > aggRU.MaxIoRead {
-		aggRU.MaxIoRead = currRU.IORead
+	aggRU.MeanIoRead += float64(currRU.IOReadBytes) / float64(numRUCalls)
+	if currRU.IOReadBytes > aggRU.MaxIoRead {
+		aggRU.MaxIoRead = currRU.IOReadBytes
 	}
-	aggRU.MeanIoWrite += float64(currRU.IOWrite) / float64(numRUCalls)
-	if currRU.IOWrite > aggRU.MaxIoWrite {
-		aggRU.MaxIoWrite = currRU.IOWrite
+	aggRU.MeanIoWrite += float64(currRU.IOWriteBytes) / float64(numRUCalls)
+	if currRU.IOWriteBytes > aggRU.MaxIoWrite {
+		aggRU.MaxIoWrite = currRU.IOWriteBytes
 	}
 	return nil
 }
@@ -160,12 +160,12 @@ func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*m
 		aggRU.MaxResidentMemory = initialRU.ResidentMemory
 	}
 	if aggRU.MaxIoRead == 0 {
-		aggRU.MeanIoRead = float64(initialRU.IORead)
-		aggRU.MaxIoRead = initialRU.IORead
+		aggRU.MeanIoRead = float64(initialRU.IOReadBytes)
+		aggRU.MaxIoRead = initialRU.IOReadBytes
 	}
 	if aggRU.MaxIoWrite == 0 {
-		aggRU.MeanIoWrite = float64(initialRU.IOWrite)
-		aggRU.MaxIoWrite = initialRU.IOWrite
+		aggRU.MeanIoWrite = float64(initialRU.IOWriteBytes)
+		aggRU.MaxIoWrite = initialRU.IOWriteBytes
 	}
 
 	return &aggRU, nil
