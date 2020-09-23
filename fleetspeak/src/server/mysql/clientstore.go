@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -358,10 +359,10 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
 			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanIoReadBytes*bytesToKIB),
-			int32(float64(rud.ResourceUsage.MaxIoReadBytes)*bytesToKIB),
-			int32(rud.ResourceUsage.MeanIoWriteBytes*bytesToKIB),
-			int32(float64(rud.ResourceUsage.MaxIoWriteBytes)*bytesToKIB))
+			int64(math.Ceil(rud.ResourceUsage.MeanIoReadBytes*bytesToKIB)),
+			int64(math.Ceil(float64(rud.ResourceUsage.MaxIoReadBytes)*bytesToKIB)),
+			int64(math.Ceil(rud.ResourceUsage.MeanIoWriteBytes*bytesToKIB)),
+			int64(math.Ceil(float64(rud.ResourceUsage.MaxIoWriteBytes)*bytesToKIB)))
 		return err
 	})
 }
