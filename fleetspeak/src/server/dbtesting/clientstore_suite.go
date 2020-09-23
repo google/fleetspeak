@@ -420,10 +420,10 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		MaxSystemCpuRate:      80.0,
 		MeanResidentMemoryMib: int32(meanRAM),
 		MaxResidentMemoryMib:  int32(maxRAM),
-		MeanIoReadKib:         int32(meanIoReadData),
-		MaxIoReadKib:          int32(maxIoReadData),
-		MeanIoWriteKib:        int32(meanIoWriteData),
-		MaxIoWriteKib:         int32(maxIoWriteData),
+		MeanIoReadKib:         int64(meanIoReadData),
+		MaxIoReadKib:          int64(maxIoReadData),
+		MeanIoWriteKib:        int64(meanIoWriteData),
+		MaxIoWriteKib:         int64(maxIoWriteData),
 	}
 
 	if got, want := record, expected; !proto.Equal(got, want) {
