@@ -36,8 +36,8 @@ matrix:
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
         - go get -v -t ./... || true  # Install dependencies needed for tests.
-        - go get -v -d google.golang.org/grpc
-        - go get -v -t github.com/golang/protobuf/...
+        # go get -v -d google.golang.org/grpc
+        # go get -v -t github.com/golang/protobuf/...
         - curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
         - unzip /tmp/protoc.zip -d "$HOME"/protoc
         - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
