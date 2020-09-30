@@ -50,6 +50,8 @@ matrix:
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
+        - git status --porcelain
+        - git diff
         - if [[ "$(git status --porcelain)" != "" ]]; then
             git status;
           fi;
