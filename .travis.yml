@@ -35,10 +35,8 @@ matrix:
         # hosted on github.com and not on git.apache.org).
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
-        # curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
-        - pip install grpcio-tools
         - go get -u github.com/golang/protobuf/protoc-gen-go
-        - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
+        # mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
         - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
@@ -47,10 +45,11 @@ matrix:
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
-        - git status --porcelain
+        - git status --porcelain | grep .pb.go
         - git diff
-        - if [[ "$(git status --porcelain)" != "?? frr_python/frr_python.egg-info/" ]]; then
-            git status;
+        - if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
+            echo "at least one generated proto file is not in sync with the committed generated proto files";
+            git status | grep .pb.go;
           fi;
         - echo "git status is clean; generated protos are consistent"
         - fleetspeak/build.sh && fleetspeak/test.sh
