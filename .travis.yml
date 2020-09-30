@@ -41,6 +41,8 @@ matrix:
         - curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
         - unzip /tmp/protoc.zip -d "$HOME"/protoc
         - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
+        - go get github.com/golang/protobuf/protoc-gen-go
+        - export PATH="$PATH:$(go env GOPATH)/bin"
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
