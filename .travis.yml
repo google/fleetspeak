@@ -35,17 +35,10 @@ matrix:
         # hosted on github.com and not on git.apache.org).
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
-        - go get -v -t ./... || true  # Install dependencies needed for tests.
-        # go get -v -d google.golang.org/grpc
-        # go get -v -t github.com/golang/protobuf/...
         - curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
         - go get -u github.com/golang/protobuf/protoc-gen-go
-        # curl -L https://github.com/golang/protobuf/archive/v1.4.2.zip -o /tmp/protobuf.zip
-        # unzip /tmp/protoc.zip -d "$HOME"/protoc
-        # unzip /tmp/protobuf.zip -d "$HOME"/protobuf
         - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
-        # go get github.com/golang/protobuf/protoc-gen-go
-        # export PATH="$PATH:$(go env GOPATH)/bin"
+        - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
@@ -55,7 +48,7 @@ matrix:
         - fleetspeak/generate_go_py_protos.sh
         - git status --porcelain
         - git diff
-        - if [[ "$(git status --porcelain)" != "" ]]; then
+        - if [[ "$(git status --porcelain)" != "?? frr_python/frr_python.egg-info/" ]]; then
             git status;
           fi;
         - echo "git status is clean; generated protos are consistent"
