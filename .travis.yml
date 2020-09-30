@@ -19,6 +19,7 @@ matrix:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
         - MYSQL_TEST_E2E_DB=e2e_test_db
+        - PATH=$HOME/protoc/bin:$PATH
       before_install:
         - sudo apt-get update
         - sudo apt-get install python3-venv
@@ -35,12 +36,23 @@ matrix:
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
         - go get -v -t ./... || true  # Install dependencies needed for tests.
+        - go get -v -d google.golang.org/grpc
+        - go get -v -d -t github.com/golang/protobuf/...
+        - curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
+        - unzip /tmp/protoc.zip -d "$HOME"/protoc
+        - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
         # - golint ./... | grep -v 'should have comment or be unexported'
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
+        - fleetspeak/generate_go_py_protos.sh
+        - if [[ "$(git status --porcelain)" != "" ]]; then
+            git status;
+            exit 1;
+          fi;
+        - echo "git status is clean; generated protos are consistent"
         - fleetspeak/build.sh && fleetspeak/test.sh
         # Install the built package and check that the fleetspeak-config program
         # doesn't error out.
