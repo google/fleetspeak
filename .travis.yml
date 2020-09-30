@@ -39,10 +39,13 @@ matrix:
         # go get -v -d google.golang.org/grpc
         # go get -v -t github.com/golang/protobuf/...
         - curl -L https://github.com/google/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip -o /tmp/protoc.zip
-        - unzip /tmp/protoc.zip -d "$HOME"/protoc
+        - go get -u github.com/golang/protobuf/protoc-gen-go
+        # curl -L https://github.com/golang/protobuf/archive/v1.4.2.zip -o /tmp/protobuf.zip
+        # unzip /tmp/protoc.zip -d "$HOME"/protoc
+        # unzip /tmp/protobuf.zip -d "$HOME"/protobuf
         - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
         # go get github.com/golang/protobuf/protoc-gen-go
-        - export PATH="$PATH:$(go env GOPATH)/bin"
+        # export PATH="$PATH:$(go env GOPATH)/bin"
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
