@@ -19,7 +19,6 @@ matrix:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
         - MYSQL_TEST_E2E_DB=e2e_test_db
-        - PATH=$HOME/protoc/bin:$PATH
       before_install:
         - sudo apt-get update
         - sudo apt-get install python3-venv
