@@ -34,7 +34,7 @@ matrix:
         # hosted on github.com and not on git.apache.org).
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
-        - go get -u github.com/golang/protobuf/protoc-gen-go
+        - go get -u -v github.com/golang/protobuf/protoc-gen-go@v1.4.2
         # mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
         - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
