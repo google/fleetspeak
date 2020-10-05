@@ -36,7 +36,7 @@ source $HOME/FSENV/bin/activate
 # Pre-requisite to installing Fleetspeak (used to compile protos).
 pip install grpcio-tools
 
-pip install -e .
+pip install -e fleetspeak_python/
 
 # Set mysql parameters. The mysql datastore test will run if the following environment
 # variables are set. Otherwise it will be skipped.
