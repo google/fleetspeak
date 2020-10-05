@@ -45,7 +45,7 @@ matrix:
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
         - if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
-            echo "at least one generated proto file is not in sync with the committed generated proto files";
+            echo "at least one generated proto file is not in sync with the committed generated proto files. please run fleetspeak/generate_go_py_protos.sh with protoc-gen-go version 1.4.2";
             exit 1;
           fi;
         - echo "git status is clean; generated protos are consistent"
