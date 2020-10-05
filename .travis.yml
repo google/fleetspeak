@@ -44,11 +44,9 @@ matrix:
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
-        - git status --porcelain | grep .pb.go
-        - git diff
         - if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
             echo "at least one generated proto file is not in sync with the committed generated proto files";
-            git status | grep .pb.go;
+            exit 1;
           fi;
         - echo "git status is clean; generated protos are consistent"
         - fleetspeak/build.sh && fleetspeak/test.sh
