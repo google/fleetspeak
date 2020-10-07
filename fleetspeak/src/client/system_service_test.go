@@ -37,15 +37,15 @@ import (
 
 type fakeServiceContext struct {
 	service.Context
-	revokedCerts fspb.RevokedCertificateList
-	out          chan fspb.Message
+	revokedCerts *fspb.RevokedCertificateList
+	out          chan *fspb.Message
 }
 
 func (sc fakeServiceContext) Send(ctx context.Context, m service.AckMessage) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case sc.out <- *m.M:
+	case sc.out <- m.M:
 		return nil
 	}
 }
@@ -54,7 +54,7 @@ func (sc fakeServiceContext) GetFileIfModified(_ context.Context, name string, _
 	if name != "RevokedCertificates" {
 		return nil, time.Time{}, fmt.Errorf("file [%v] not found", name)
 	}
-	d, err := proto.Marshal(&sc.revokedCerts)
+	d, err := proto.Marshal(sc.revokedCerts)
 	if err != nil {
 		log.Fatalf("Failed to marshal revokedCerts: %v", err)
 	}
@@ -82,8 +82,8 @@ func newTestEnv() (*testEnv, error) {
 	env.s = systemService{
 		client: &env.c,
 	}
-	out := make(chan fspb.Message)
-	env.ctx = fakeServiceContext{out: out}
+	out := make(chan *fspb.Message)
+	env.ctx = fakeServiceContext{out: out, revokedCerts: &fspb.RevokedCertificateList{}}
 	err := env.s.Start(&env.ctx)
 	return &env, err
 }
@@ -112,8 +112,8 @@ func TestAckMsg(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to marshal MessageAckData: %v", err)
 	}
-	if !proto.Equal(&res, &wantMessage) {
-		t.Errorf("got %+v for ack result, want %+v", res, wantMessage)
+	if !proto.Equal(res, &wantMessage) {
+		t.Errorf("got %+v for ack result, want %+v", res.String(), wantMessage.String())
 	}
 }
 
@@ -141,8 +141,8 @@ func TestErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to marshal MessageErrData: %v", err)
 	}
-	if !proto.Equal(&res, &wantMessage) {
-		t.Errorf("got %+v for err result, want %+v", res, wantMessage)
+	if !proto.Equal(res, &wantMessage) {
+		t.Errorf("got %+v for err result, want %+v", res.String(), wantMessage.String())
 	}
 }
 

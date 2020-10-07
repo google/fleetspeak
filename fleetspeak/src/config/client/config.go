@@ -10,7 +10,7 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 )
 
-func WriteLinuxConfig(cfg cpb.Config, trustedPEM []byte) error {
+func WriteLinuxConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	if cfg.LinuxClientConfigurationFile == "" {
 		return nil
 	}
@@ -40,7 +40,7 @@ func WriteLinuxConfig(cfg cpb.Config, trustedPEM []byte) error {
 	return nil
 }
 
-func WriteDarwinConfig(cfg cpb.Config, trustedPEM []byte) error {
+func WriteDarwinConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	if cfg.DarwinClientConfigurationFile == "" {
 		return nil
 	}
@@ -70,7 +70,7 @@ func WriteDarwinConfig(cfg cpb.Config, trustedPEM []byte) error {
 	return nil
 }
 
-func WriteWindowsConfig(cfg cpb.Config, trustedPEM []byte) error {
+func WriteWindowsConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	if cfg.WindowsClientConfigurationFile == "" {
 		return nil
 	}

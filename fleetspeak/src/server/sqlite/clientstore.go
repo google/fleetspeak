@@ -333,7 +333,7 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 	})
 }
 
-func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
+func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {
 	d.l.Lock()
 	defer d.l.Unlock()
 	processStartTime, err := ptypes.Timestamp(rud.ProcessStartTime)

@@ -51,7 +51,8 @@ func testClientLauncherPY() []string {
 	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
 }
 
-func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc dspb.Config) *Service {
+func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {
+	dsc = proto.Clone(dsc).(*dspb.Config)
 	dsc.ResourceMonitoringSampleSize = 2
 	dsc.ResourceMonitoringSamplePeriodSeconds = 1
 	dsc.Argv = append(dsc.Argv, client...)
@@ -63,7 +64,7 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 
-	dscAny, err := ptypes.MarshalAny(&dsc)
+	dscAny, err := ptypes.MarshalAny(dsc)
 	if err != nil {
 		t.Fatalf("ptypes.MarshalAny(*daemonservice.Config): %v", err)
 	}
@@ -86,7 +87,7 @@ func exerciseLoopback(t *testing.T, client []string) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, client, "loopback", &sc, dspb.Config{})
+	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -136,7 +137,7 @@ func TestSelfReportedPIDs(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientLauncherPY(), "", &sc, dspb.Config{})
+	s := startTestClient(t, testClientLauncherPY(), "", &sc, &dspb.Config{})
 
 	var ruMsgs []*mpb.ResourceUsageData
 	var lastRUMsg *mpb.ResourceUsageData
@@ -213,7 +214,7 @@ func TestRespawn(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
 	}
-	s := startTestClient(t, testClient(), "die", &sc, dspb.Config{})
+	s := startTestClient(t, testClient(), "die", &sc, &dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -353,7 +354,7 @@ func exerciseBacklog(t *testing.T, client []string) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, client, "loopback", &sc, dspb.Config{})
+	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -415,7 +416,7 @@ func TestMemoryLimit(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "memoryhog", &sc, dspb.Config{
+	s := startTestClient(t, testClientPY(), "memoryhog", &sc, &dspb.Config{
 		MemoryLimit: 1024 * 1024 * 10, // 10MB
 	})
 	defer func() {
@@ -430,12 +431,12 @@ func TestMemoryLimit(t *testing.T) {
 		m = <-sc.OutChan
 	}
 
-	var rud0, rud1 mpb.ResourceUsageData
+	var rud0 mpb.ResourceUsageData
 	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
 		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 	}
 
-	rud1 = rud0
+	rud1 := proto.Clone(&rud0).(*mpb.ResourceUsageData)
 	// Wait for the process to be restarted.
 	for rud0.Pid == rud1.Pid {
 		// Get messages until a ResourceUsage message appears.
@@ -444,7 +445,7 @@ func TestMemoryLimit(t *testing.T) {
 			m = <-sc.OutChan
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
+		if err := ptypes.UnmarshalAny(m.Data, rud1); err != nil {
 			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 		}
 	}
@@ -462,7 +463,7 @@ func TestNoHeartbeats(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "freezed", &sc, dspb.Config{
+	s := startTestClient(t, testClientPY(), "freezed", &sc, &dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
 		HeartbeatUnresponsiveKillPeriodSeconds:  1,
@@ -485,12 +486,12 @@ func TestNoHeartbeats(t *testing.T) {
 		m = <-sc.OutChan
 	}
 
-	var kn0, kn1 mpb.KillNotification
+	var kn0 mpb.KillNotification
 	if err := ptypes.UnmarshalAny(m.Data, &kn0); err != nil {
 		t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 	}
 
-	kn1 = kn0
+	kn1 := proto.Clone(&kn0).(*mpb.KillNotification)
 	// Wait for the process to be restarted.
 	for kn0.Pid == kn1.Pid {
 		// Get messages until a KillNotification message appears.
@@ -499,7 +500,7 @@ func TestNoHeartbeats(t *testing.T) {
 			m = <-sc.OutChan
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, &kn1); err != nil {
+		if err := ptypes.UnmarshalAny(m.Data, kn1); err != nil {
 			t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 		}
 	}
@@ -517,7 +518,7 @@ func TestHeartbeat(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "heartbeat", &sc, dspb.Config{
+	s := startTestClient(t, testClientPY(), "heartbeat", &sc, &dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
 		HeartbeatUnresponsiveKillPeriodSeconds:  5,

@@ -50,7 +50,7 @@ import (
 )
 
 // MakeComponents creates server components from a given config.
-func MakeComponents(cfg cpb.Config) (*server.Components, error) {
+func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	if cfg.MysqlDataSourceName == "" {
 		return nil, errors.New("mysql_data_source_name is required")
 	}

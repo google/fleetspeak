@@ -129,7 +129,7 @@ func TestResourceUsageMonitor(t *testing.T) {
 			}
 			if !proto.Equal(&got, &want) {
 				t.Errorf(
-					"Resource-usage proto %d received is not what we expect; got:\n%v\nwant:\n%v", protosReceived, got, want)
+					"Resource-usage proto %d received is not what we expect; got:\n%v\nwant:\n%v", protosReceived, got.String(), want.String())
 			}
 
 			timestamp, err := ptypes.Timestamp(got.DataTimestamp)

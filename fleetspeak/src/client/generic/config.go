@@ -36,7 +36,7 @@ import (
 )
 
 // MakeConfiguration returns a config.Configuration based on the provided gpb.Config.
-func MakeConfiguration(cfg gpb.Config) (config.Configuration, error) {
+func MakeConfiguration(cfg *gpb.Config) (config.Configuration, error) {
 	trustedCerts := x509.NewCertPool()
 	if !trustedCerts.AppendCertsFromPEM([]byte(cfg.TrustedCerts)) {
 		return config.Configuration{}, errors.New("unable to parse trusted_certs")

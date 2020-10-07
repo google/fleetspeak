@@ -35,7 +35,7 @@ func innerMain() {
 		log.Exitf("Unable to parse configuration file [%s]: %v", *configFile, err)
 	}
 
-	cfg, err := generic.MakeConfiguration(cfgPB)
+	cfg, err := generic.MakeConfiguration(&cfgPB)
 	if err != nil {
 		log.Exitf("Error in configuration file: %v", err)
 	}

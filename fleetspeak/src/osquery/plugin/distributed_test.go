@@ -162,7 +162,7 @@ func TestDistributed(t *testing.T) {
 				continue
 			}
 			if !proto.Equal(&rows, tc.wantRows[qr.QueryName]) {
-				t.Errorf("%s: Unexpected rows returned for %s, wanted %+v, got %+v", tc.name, qr.QueryName, tc.wantRows[qr.QueryName], rows)
+				t.Errorf("%s: Unexpected rows returned for %s, wanted %+v, got %+v", tc.name, qr.QueryName, tc.wantRows[qr.QueryName].String(), rows.String())
 			}
 			delete(tc.wantRows, qr.QueryName)
 		}
