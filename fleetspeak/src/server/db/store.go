@@ -226,7 +226,7 @@ type ClientStore interface {
 	LinkMessagesToContact(ctx context.Context, contact ContactID, msgs []common.MessageID) error
 
 	// Writes resource-usage data received from a client to the data-store.
-	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error
+	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error
 
 	// Fetches resource-usage records for a given client and time range from the data-store.
 	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tpb.Timestamp) ([]*spb.ClientResourceUsageRecord, error)

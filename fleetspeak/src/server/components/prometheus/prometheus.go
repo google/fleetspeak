@@ -256,7 +256,7 @@ func getClientDataLabelsConcatenated(cd *db.ClientData) string {
 	return strings.Join(clientDataLabels[:], ",")
 }
 
-func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
 	blacklisted := strconv.FormatBool(cd.Blacklisted)
 	scope := rud.Scope
@@ -274,7 +274,7 @@ func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.Res
 	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
 }
 
-func (s StatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s StatsCollector) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillNotification) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
 	killNotificationsReceived.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), kn.Service, kn.Reason.String()).Inc()
 }

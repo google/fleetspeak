@@ -26,7 +26,7 @@ import (
 )
 
 // WriteConfig validates and then writes a server component configuration.
-func WriteConfig(cfg cpb.Config, certPEM, keyPEM []byte) error {
+func WriteConfig(cfg *cpb.Config, certPEM, keyPEM []byte) error {
 	if cfg.ServerComponentConfigurationFile == "" {
 		return errors.New("server_component_configuration_file is required")
 	}

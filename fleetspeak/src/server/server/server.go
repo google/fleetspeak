@@ -60,7 +60,7 @@ func loadComponents() server.Components {
 	if err := proto.UnmarshalText(string(b), &c); err != nil {
 		log.Exitf("Unable to parse component config file [%s]: %v", *componentsConfigPath, err)
 	}
-	r, err := components.MakeComponents(c)
+	r, err := components.MakeComponents(&c)
 	if err != nil {
 		log.Exitf("Failed to load components: %v", err)
 	}

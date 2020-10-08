@@ -387,7 +387,7 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
 
-	err = ds.RecordResourceUsageData(ctx, clientID, rud)
+	err = ds.RecordResourceUsageData(ctx, clientID, &rud)
 	if err != nil {
 		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
 	}

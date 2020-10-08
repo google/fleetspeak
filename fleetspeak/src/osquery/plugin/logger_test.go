@@ -108,7 +108,7 @@ func TestLogger(t *testing.T) {
 				continue
 			}
 			if !proto.Equal(&gotResult, w) {
-				t.Errorf("%s: Read unexpected LoggedResult, want %v, got %v", tc.name, w, gotResult)
+				t.Errorf("%s: Read unexpected LoggedResult, want %v, got %v", tc.name, w, gotResult.String())
 			}
 		}
 	}
@@ -119,7 +119,7 @@ func TestLogger(t *testing.T) {
 		if err := ptypes.UnmarshalAny(extra.Data, &extraData); err != nil {
 			t.Errorf("Error decoding data: %v", err)
 		} else {
-			t.Errorf("Extra message Data decoded: %v", extraData)
+			t.Errorf("Extra message Data decoded: %v", extraData.String())
 		}
 	default:
 	}

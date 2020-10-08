@@ -167,6 +167,6 @@ func Factory(cfg *spb.ServiceConfig) (service.Service, error) {
 		}
 		return NewGRPCService(con), nil
 	default:
-		return nil, fmt.Errorf("GRPCService requires either insecure or cert_file to be set, got: %+v", conf)
+		return nil, fmt.Errorf("GRPCService requires either insecure or cert_file to be set, got: %+v", conf.String())
 	}
 }

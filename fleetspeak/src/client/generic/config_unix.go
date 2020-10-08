@@ -11,7 +11,7 @@ import (
 	gpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
 )
 
-func makePersistenceHandler(cfg gpb.Config) (config.PersistenceHandler, error) {
+func makePersistenceHandler(cfg *gpb.Config) (config.PersistenceHandler, error) {
 	if cfg.PersistenceHandler == nil {
 		return nil, errors.New("persistence_handler is required")
 	}

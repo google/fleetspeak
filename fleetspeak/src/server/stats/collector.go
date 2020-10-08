@@ -114,8 +114,8 @@ type Collector interface {
 	DatastoreOperation(start, end time.Time, operation string, result error)
 
 	// ResourceUsageDataReceived is called every time a client-resource-usage proto is received.
-	ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo)
+	ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.ResourceUsageData, v *fspb.ValidationInfo)
 
 	// KillNotificationReceived is called when a kill notification is received from a client.
-	KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification)
+	KillNotificationReceived(cd *db.ClientData, kn *mpb.KillNotification)
 }

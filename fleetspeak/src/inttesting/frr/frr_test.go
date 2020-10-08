@@ -101,17 +101,17 @@ func TestClientService(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		rd        fpb.TrafficRequestData
+		rd        *fpb.TrafficRequestData
 		wantCount int
 		wantSize  int
 	}{
 		{
-			rd:        fpb.TrafficRequestData{RequestId: 0},
+			rd:        &fpb.TrafficRequestData{RequestId: 0},
 			wantCount: 1,
 			wantSize:  1024,
 		},
 		{
-			rd:        fpb.TrafficRequestData{RequestId: 1, NumMessages: 5},
+			rd:        &fpb.TrafficRequestData{RequestId: 1, NumMessages: 5},
 			wantCount: 5,
 			wantSize:  1024,
 		},
@@ -119,13 +119,13 @@ func TestClientService(t *testing.T) {
 		m := fspb.Message{
 			MessageType: "TrafficRequest",
 		}
-		m.Data, err = ptypes.MarshalAny(&tc.rd)
+		m.Data, err = ptypes.MarshalAny(tc.rd)
 		if err != nil {
 			t.Errorf("unable to marshal TrafficRequestData: %v", err)
 			continue
 		}
 		if err := cs.ProcessMessage(context.Background(), &m); err != nil {
-			t.Errorf("unable to process message [%v]: %v", tc.rd, err)
+			t.Errorf("unable to process message [%v]: %v", tc.rd.String(), err)
 			continue
 		}
 		for i := 0; i < tc.wantCount; i++ {
@@ -312,7 +312,7 @@ func TestServerService(t *testing.T) {
 
 	rd.Data = nil
 	if !proto.Equal(mi.Data, &rd) {
-		t.Errorf("Unexpected TrafficRequestData, got [%v], want [%v]", mi.Data, rd)
+		t.Errorf("Unexpected TrafficRequestData, got [%v], want [%v]", mi.Data, rd.String())
 	}
 }
 
@@ -333,11 +333,11 @@ func TestMasterServer(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		mi        fpb.MessageInfo
+		mi        *fpb.MessageInfo
 		completed bool
 	}{
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -349,7 +349,7 @@ func TestMasterServer(t *testing.T) {
 			completed: true,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -361,7 +361,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -373,7 +373,7 @@ func TestMasterServer(t *testing.T) {
 			completed: true,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -385,7 +385,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -397,7 +397,7 @@ func TestMasterServer(t *testing.T) {
 			completed: true,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -409,7 +409,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -421,7 +421,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -433,7 +433,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -445,7 +445,7 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -457,7 +457,7 @@ func TestMasterServer(t *testing.T) {
 			completed: true,
 		},
 		{
-			mi: fpb.MessageInfo{
+			mi: &fpb.MessageInfo{
 				ClientId: id.Bytes(),
 				Data: &fpb.TrafficResponseData{
 					MasterId:      ms.masterID,
@@ -469,8 +469,8 @@ func TestMasterServer(t *testing.T) {
 			completed: false,
 		},
 	} {
-		if _, err := ms.RecordTrafficResponse(ctx, &tc.mi); err != nil {
-			t.Errorf("Unexpected error recording message [%v]: %v", tc.mi, err)
+		if _, err := ms.RecordTrafficResponse(ctx, tc.mi); err != nil {
+			t.Errorf("Unexpected error recording message [%v]: %v", tc.mi.String(), err)
 		}
 		var gotComp bool
 		select {

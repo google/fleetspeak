@@ -506,7 +506,7 @@ func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.Traff
 			time.Sleep(retryDelay)
 			continue
 		}
-		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req, err)
+		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req.String(), err)
 	}
 	return nil
 }
@@ -581,7 +581,7 @@ func (s *MasterServer) CreateFileDownloadHunt(ctx context.Context, name string, 
 			time.Sleep(retryDelay)
 			continue
 		}
-		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req, err)
+		return fmt.Errorf("CreateBroadcast(%v) failed: %v", req.String(), err)
 	}
 	return nil
 }

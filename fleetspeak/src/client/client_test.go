@@ -437,22 +437,22 @@ func TestMessageValidation(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		m    fspb.Message
+		m    *fspb.Message
 		want string
 	}{
-		{m: fspb.Message{},
+		{m: &fspb.Message{},
 			want: "destination must have ServiceName",
 		},
-		{m: fspb.Message{Destination: &fspb.Address{ServiceName: ""}},
+		{m: &fspb.Message{Destination: &fspb.Address{ServiceName: ""}},
 			want: "destination must have ServiceName",
 		},
-		{m: fspb.Message{Destination: &fspb.Address{ServiceName: "FakeService", ClientId: []byte("abcdef")}},
+		{m: &fspb.Message{Destination: &fspb.Address{ServiceName: "FakeService", ClientId: []byte("abcdef")}},
 			want: "cannot send directly to client",
 		},
 	} {
-		err := cl.ProcessMessage(context.Background(), service.AckMessage{M: &tc.m})
+		err := cl.ProcessMessage(context.Background(), service.AckMessage{M: tc.m})
 		if err == nil || !strings.HasPrefix(err.Error(), tc.want) {
-			t.Errorf("ProcessMessage(%v) should give error starting with [%v] but got [%v]", tc.m, tc.want, err)
+			t.Errorf("ProcessMessage(%v) should give error starting with [%v] but got [%v]", tc.m.String(), tc.want, err)
 		}
 	}
 

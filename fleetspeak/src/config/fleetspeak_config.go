@@ -50,29 +50,29 @@ func main() {
 		log.Exitf("configuration_name required, not found in [%s]", *configFile)
 	}
 
-	caCert, caKey, caPEM, err := certs.GetTrustedCert(cfg)
+	caCert, caKey, caPEM, err := certs.GetTrustedCert(&cfg)
 	if err != nil {
 		log.Exit(err)
 	}
 
-	serverCert, serverKey, err := certs.GetServerCert(cfg, caCert, caKey)
+	serverCert, serverKey, err := certs.GetServerCert(&cfg, caCert, caKey)
 	if err != nil {
 		log.Exit(err)
 	}
 
-	if err := server.WriteConfig(cfg, serverCert, serverKey); err != nil {
+	if err := server.WriteConfig(&cfg, serverCert, serverKey); err != nil {
 		log.Exit(err)
 	}
 
-	if err := client.WriteLinuxConfig(cfg, caPEM); err != nil {
+	if err := client.WriteLinuxConfig(&cfg, caPEM); err != nil {
 		log.Exit(err)
 	}
 
-	if err := client.WriteDarwinConfig(cfg, caPEM); err != nil {
+	if err := client.WriteDarwinConfig(&cfg, caPEM); err != nil {
 		log.Exit(err)
 	}
 
-	if err := client.WriteWindowsConfig(cfg, caPEM); err != nil {
+	if err := client.WriteWindowsConfig(&cfg, caPEM); err != nil {
 		log.Exit(err)
 	}
 }

@@ -248,8 +248,8 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if err != nil {
 		log.Errorf("Failed to get client data for %v: %v", cid, err)
 	}
-	s.stats.ResourceUsageDataReceived(cd, rud, v)
-	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
+	s.stats.ResourceUsageDataReceived(cd, &rud, v)
+	if err := s.datastore.RecordResourceUsageData(ctx, cid, &rud); err != nil {
 		err = fmt.Errorf("failed to write resource-usage data: %v", err)
 		return err
 	}
@@ -271,6 +271,6 @@ func (s *systemService) processKillNotification(ctx context.Context, cid common.
 	if err != nil {
 		log.Errorf("Failed to get client data for %v: %v", cid, err)
 	}
-	s.stats.KillNotificationReceived(cd, kn)
+	s.stats.KillNotificationReceived(cd, &kn)
 	return nil
 }

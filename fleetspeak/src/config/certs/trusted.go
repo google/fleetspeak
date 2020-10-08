@@ -35,7 +35,7 @@ import (
 
 // GetTrustedCert returns the trusted certificate associated with cfg, creating
 // it if necessary.  If available, priv is the private key associated with cert.
-func GetTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, pem []byte, err error) {
+func GetTrustedCert(cfg *cpb.Config) (cert *x509.Certificate, priv interface{}, pem []byte, err error) {
 	if cfg.TrustedCertFile == "" {
 		return nil, nil, nil, errors.New("trusted_cert_file not set")
 	}
@@ -52,7 +52,7 @@ func GetTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, p
 	return getTrustedCert(cfg)
 }
 
-func makeCACert(cfg cpb.Config) error {
+func makeCACert(cfg *cpb.Config) error {
 	if cfg.TrustedCertKeyFile == "" {
 		return errors.New("unable to create a CA cert: trusted_cert_key_file not set")
 	}
@@ -97,7 +97,7 @@ func makeCACert(cfg cpb.Config) error {
 	return nil
 }
 
-func getTrustedCert(cfg cpb.Config) (cert *x509.Certificate, priv interface{}, certPEM []byte, err error) {
+func getTrustedCert(cfg *cpb.Config) (cert *x509.Certificate, priv interface{}, certPEM []byte, err error) {
 	// Read and validate the cert.
 	certPEM, err = ioutil.ReadFile(cfg.TrustedCertFile)
 	if err != nil {

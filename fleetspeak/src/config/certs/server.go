@@ -37,7 +37,7 @@ import (
 
 // GetServerCert returns the server certificate associated with cfg, creating
 // it if necessary.  If available, priv is the private key associated with cert.
-func GetServerCert(cfg cpb.Config, ca *x509.Certificate, caPriv interface{}) (cert, key []byte, err error) {
+func GetServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv interface{}) (cert, key []byte, err error) {
 	if cfg.ServerCertFile == "" {
 		return nil, nil, errors.New("server_cert_file not set")
 	}
@@ -57,7 +57,7 @@ func GetServerCert(cfg cpb.Config, ca *x509.Certificate, caPriv interface{}) (ce
 	return getServerCert(cfg)
 }
 
-func makeServerCert(cfg cpb.Config, ca *x509.Certificate, caPriv interface{}) error {
+func makeServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv interface{}) error {
 	if cfg.ServerCertKeyFile == "" {
 		return errors.New("unable to create a server cert: server_cert_key_file not set")
 	}
@@ -114,7 +114,7 @@ func makeServerCert(cfg cpb.Config, ca *x509.Certificate, caPriv interface{}) er
 	return nil
 }
 
-func getServerCert(cfg cpb.Config) (cert, key []byte, err error) {
+func getServerCert(cfg *cpb.Config) (cert, key []byte, err error) {
 	// Read the cert.
 	certPEM, err := ioutil.ReadFile(cfg.ServerCertFile)
 	if err != nil {

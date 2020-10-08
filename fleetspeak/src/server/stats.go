@@ -54,10 +54,10 @@ func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {
 func (s noopStatsCollector) DatastoreOperation(start, end time.Time, operation string, result error) {
 }
 
-func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+func (s noopStatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 }
 
-func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn mpb.KillNotification) {
+func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillNotification) {
 }
 
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
@@ -169,7 +169,7 @@ func (d MonitoredDatastore) ListClientContacts(ctx context.Context, id common.Cl
 	return res, err
 }
 
-func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud mpb.ResourceUsageData) error {
+func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {
 	s := ftime.Now()
 	err := d.D.RecordResourceUsageData(ctx, id, rud)
 	d.C.DatastoreOperation(s, ftime.Now(), "RecordResourceUsageData", err)

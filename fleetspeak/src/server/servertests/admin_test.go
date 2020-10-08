@@ -237,7 +237,7 @@ func TestInsertMessageAPI(t *testing.T) {
 		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
 	}
 	if len(msgs) != 1 || !proto.Equal(msgs[0], &m) {
-		t.Errorf("ClientMessagesForProcessing(%v) returned unexpected value, got: %v, want [%v]", id, msgs, m)
+		t.Errorf("ClientMessagesForProcessing(%v) returned unexpected value, got: %v, want [%v]", id, msgs, m.String())
 	}
 }
 

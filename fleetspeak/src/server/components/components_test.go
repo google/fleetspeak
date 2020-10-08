@@ -22,21 +22,21 @@ import (
 
 func TestValidation(t *testing.T) {
 	for _, tc := range []struct {
-		cfg     cpb.Config
+		cfg     *cpb.Config
 		wantErr string
 	}{
 		{
-			cfg:     cpb.Config{},
+			cfg:     &cpb.Config{},
 			wantErr: "mysql_data_source_name is required",
 		},
 		{
-			cfg: cpb.Config{
+			cfg: &cpb.Config{
 				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
 			},
 			wantErr: "https_config is required",
 		},
 		{
-			cfg: cpb.Config{
+			cfg: &cpb.Config{
 				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
 				HttpsConfig: &cpb.HttpsConfig{
 					ListenAddress: "localhost:443",
@@ -45,7 +45,7 @@ func TestValidation(t *testing.T) {
 			wantErr: "https_config requires listen_address, certificates and key",
 		},
 		{
-			cfg: cpb.Config{
+			cfg: &cpb.Config{
 				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
 				HttpsConfig: &cpb.HttpsConfig{
 					ListenAddress: "localhost:443",
