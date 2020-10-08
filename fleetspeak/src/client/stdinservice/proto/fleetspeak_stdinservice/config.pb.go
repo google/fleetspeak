@@ -112,9 +112,7 @@ var file_fleetspeak_src_client_stdinservice_proto_fleetspeak_stdinservice_config
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() {
-	file_fleetspeak_src_client_stdinservice_proto_fleetspeak_stdinservice_config_proto_init()
-}
+func init() { file_fleetspeak_src_client_stdinservice_proto_fleetspeak_stdinservice_config_proto_init() }
 func file_fleetspeak_src_client_stdinservice_proto_fleetspeak_stdinservice_config_proto_init() {
 	if File_fleetspeak_src_client_stdinservice_proto_fleetspeak_stdinservice_config_proto != nil {
 		return

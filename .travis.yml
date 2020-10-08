@@ -34,6 +34,7 @@ matrix:
         # hosted on github.com and not on git.apache.org).
         - mkdir -p "$(go env GOPATH)/src/git.apache.org"
         - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
+        - go get -u -v github.com/golang/protobuf/protoc-gen-go@v1.4.2
         - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
@@ -41,6 +42,12 @@ matrix:
         # - golint ./... | grep -v 'should have comment or be unexported'
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
+        - fleetspeak/generate_go_py_protos.sh
+        - if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
+            echo "at least one generated proto file is not in sync with the committed generated proto files. please run fleetspeak/generate_go_py_protos.sh with protoc-gen-go version 1.4.2";
+            exit 1;
+          fi;
+        - echo "git status is clean; generated protos are consistent"
         - fleetspeak/build.sh && fleetspeak/test.sh
         # Install the built package and check that the fleetspeak-config program
         # doesn't error out.
