@@ -63,6 +63,10 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		}
 		aggRU.MeanResidentMemory = float64(currRU.ResidentMemory) / float64(numRUCalls)
 		aggRU.MaxResidentMemory = currRU.ResidentMemory
+		aggRU.MeanIoReadBytes = float64(currRU.IOReadBytes) / float64(numRUCalls)
+		aggRU.MaxIoReadBytes = currRU.IOReadBytes
+		aggRU.MeanIoWriteBytes = float64(currRU.IOWriteBytes) / float64(numRUCalls)
+		aggRU.MaxIoWriteBytes = currRU.IOWriteBytes
 		return nil
 	}
 
@@ -78,6 +82,10 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 
 	if commandFinished {
 		return nil
+	}
+
+	if err := aggregateIOResourceUsage(currRU, numRUCalls, aggRU); err != nil {
+		return err
 	}
 
 	return aggregateMemoryResourceUsage(currRU, numRUCalls, aggRU)
@@ -119,6 +127,18 @@ func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *
 	return nil
 }
 
+func aggregateIOResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
+	aggRU.MeanIoReadBytes += float64(currRU.IOReadBytes) / float64(numRUCalls)
+	if currRU.IOReadBytes > aggRU.MaxIoReadBytes {
+		aggRU.MaxIoReadBytes = currRU.IOReadBytes
+	}
+	aggRU.MeanIoWriteBytes += float64(currRU.IOWriteBytes) / float64(numRUCalls)
+	if currRU.IOWriteBytes > aggRU.MaxIoWriteBytes {
+		aggRU.MaxIoWriteBytes = currRU.IOWriteBytes
+	}
+	return nil
+}
+
 // AggregateResourceUsageForFinishedCmd computes resource-usage for a finished process, given
 // resource-usage before and after the process ran.
 func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*mpb.AggregatedResourceUsage, error) {
@@ -132,12 +152,20 @@ func AggregateResourceUsageForFinishedCmd(initialRU, finalRU *ResourceUsage) (*m
 		return nil, err
 	}
 
-	// If this field is untouched, we have not aggregated memory resource usage
+	// If those field are untouched, we have not aggregated memory and IO resources usage
 	// for this process yet. We fill it in with what we have.
 	// TODO
 	if aggRU.MaxResidentMemory == 0 {
 		aggRU.MeanResidentMemory = float64(initialRU.ResidentMemory)
 		aggRU.MaxResidentMemory = initialRU.ResidentMemory
+	}
+	if aggRU.MaxIoReadBytes == 0 {
+		aggRU.MeanIoReadBytes = float64(initialRU.IOReadBytes)
+		aggRU.MaxIoReadBytes = initialRU.IOReadBytes
+	}
+	if aggRU.MaxIoWriteBytes == 0 {
+		aggRU.MeanIoWriteBytes = float64(initialRU.IOWriteBytes)
+		aggRU.MaxIoWriteBytes = initialRU.IOWriteBytes
 	}
 
 	return &aggRU, nil

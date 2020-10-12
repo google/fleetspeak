@@ -39,6 +39,12 @@ type ResourceUsage struct {
 
 	// Resident set size for a process, in bytes.
 	ResidentMemory int64
+
+	// Client IO data read so far.
+	IOReadBytes int64
+
+	// Client IO data written so far.
+	IOWriteBytes int64
 }
 
 // ResourceUsageFetcher obtains resource-usage data for a process from the OS.
@@ -48,7 +54,8 @@ type ResourceUsageFetcher struct{}
 // information from exec.Cmd.ProcessState. NOTE that this is only possible
 // after the process has finished and has been waited for, and will most
 // probably panic otherwise.
-// This function doesn't fill in ResourceUsage.ResidentMemory.
+// This function doesn't fill in ResourceUsage.ResidentMemory, ResourceUsage.IORead
+// and ResourceUsage.IOWrite.
 func (f ResourceUsageFetcher) ResourceUsageFromFinishedCmd(cmd *exec.Cmd) *ResourceUsage {
 	return &ResourceUsage{
 		Timestamp:       time.Now(),
@@ -78,11 +85,17 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 		return nil, err
 	}
 
+	ioCounters, err := process.IOCounters()
+	if err != nil {
+		return nil, err
+	}
 	return &ResourceUsage{
 		Timestamp:       timestamp,
 		UserCPUMillis:   times.User * 1e3,
 		SystemCPUMillis: times.System * 1e3,
 		ResidentMemory:  int64(memoryInfo.RSS),
+		IOReadBytes:     int64(ioCounters.ReadBytes),
+		IOWriteBytes:    int64(ioCounters.WriteBytes),
 	}, nil
 }
 

@@ -14,6 +14,10 @@ message AggregatedResourceUsage {
   double max_system_cpu_rate = 4;
   double mean_resident_memory = 5;
   int64 max_resident_memory = 6;
+  double mean_io_read_bytes = 7;
+  int64 max_io_read_bytes = 8;
+  double mean_io_write_bytes = 9;
+  int64 max_io_write_bytes = 10;
 }
 
 // A fleetspeak.Message with message type "ResourceUsage" is sent regularly by

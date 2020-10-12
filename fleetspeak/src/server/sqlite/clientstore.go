@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 )
 
 const (
+	bytesToKIB = 1.0 / float64(1<<10)
 	bytesToMIB = 1.0 / float64(1<<20)
 )
 
@@ -347,7 +349,7 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	return d.runInTx(func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			id.String(),
 			rud.Scope,
 			rud.Pid,
@@ -360,7 +362,11 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MeanSystemCpuRate,
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB))
+			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
+			int64(math.Ceil(rud.ResourceUsage.MeanIoReadBytes*bytesToKIB)),
+			int64(math.Ceil(float64(rud.ResourceUsage.MaxIoReadBytes)*bytesToKIB)),
+			int64(math.Ceil(rud.ResourceUsage.MeanIoWriteBytes*bytesToKIB)),
+			int64(math.Ceil(float64(rud.ResourceUsage.MaxIoWriteBytes)*bytesToKIB)))
 		return err
 	})
 }
@@ -386,7 +392,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			"SELECT "+
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
-				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
+				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib, "+
+				"mean_io_read_kib, max_io_read_kib, mean_io_write_kib, max_io_write_kib "+
 				"FROM client_resource_usage_records WHERE client_id=? "+
 				"AND server_timestamp >= ? AND server_timestamp < ?",
 			id.String(),
@@ -405,7 +412,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			err := rows.Scan(
 				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
 				&record.ProcessTerminated, &record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
-				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
+				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib,
+				&record.MeanIoReadKib, &record.MaxIoReadKib, &record.MeanIoWriteKib, &record.MaxIoWriteKib)
 
 			if err != nil {
 				return err
