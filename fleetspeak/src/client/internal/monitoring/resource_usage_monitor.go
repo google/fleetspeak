@@ -63,6 +63,8 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		}
 		aggRU.MeanResidentMemory = float64(currRU.ResidentMemory) / float64(numRUCalls)
 		aggRU.MaxResidentMemory = currRU.ResidentMemory
+		aggRU.MeanNumFds = float64(currRU.NumFDs) / float64(numRUCalls)
+		aggRU.MaxNumFds = currRU.NumFDs
 		return nil
 	}
 
@@ -80,7 +82,10 @@ func AggregateResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUC
 		return nil
 	}
 
-	return aggregateMemoryResourceUsage(currRU, numRUCalls, aggRU)
+	aggregateMemoryResourceUsage(currRU, numRUCalls, aggRU)
+	aggregateNumFDsResourceUsage(currRU, numRUCalls, aggRU)
+
+	return nil
 }
 
 func aggregateTimeResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
@@ -106,17 +111,24 @@ func aggregateTimeResourceUsage(prevRU *ResourceUsage, currRU *ResourceUsage, nu
 	aggRU.MaxUserCpuRate = math.Max(userCPURate, aggRU.MaxUserCpuRate)
 	aggRU.MeanSystemCpuRate += systemCPURate / float64(numRUCalls-1)
 	aggRU.MaxSystemCpuRate = math.Max(systemCPURate, aggRU.MaxSystemCpuRate)
+
 	return nil
 }
 
-func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) error {
+func aggregateMemoryResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) {
 	// Note that since rates are computed between two consecutive data-points, their
 	// average uses a sample size of n - 1, where n is the number of resource-usage queries.
 	aggRU.MeanResidentMemory += float64(currRU.ResidentMemory) / float64(numRUCalls)
 	if currRU.ResidentMemory > aggRU.MaxResidentMemory {
 		aggRU.MaxResidentMemory = currRU.ResidentMemory
 	}
-	return nil
+}
+
+func aggregateNumFDsResourceUsage(currRU *ResourceUsage, numRUCalls int, aggRU *mpb.AggregatedResourceUsage) {
+	aggRU.MeanNumFds += float64(currRU.NumFDs) / float64(numRUCalls)
+	if currRU.NumFDs > aggRU.MaxNumFds {
+		aggRU.MaxNumFds = currRU.NumFDs
+	}
 }
 
 // AggregateResourceUsageForFinishedCmd computes resource-usage for a finished process, given
