@@ -14,12 +14,6 @@ environment:
 install:
 - go version
 - ps: Write-Output $env:PATH
-# TODO: remove 2 lines below when git.apache.org is back up or when
-# osquery-go uses a correct version of the Thrift library (the one
-# hosted on github.com and not on git.apache.org).
-- ps: New-Item -ItemType Directory -Path %GOPATH%\src\git.apache.org
-- git clone https://github.com/apache/thrift.git %GOPATH%\src\git.apache.org\thrift.git
-- go get -v -t ./...  # Install go dependencies.
 - go get -u golang.org/x/lint/golint
 - C:\Python36-x64\python.exe -m venv C:\fsenv
 - C:\fsenv\Scripts\activate.bat
