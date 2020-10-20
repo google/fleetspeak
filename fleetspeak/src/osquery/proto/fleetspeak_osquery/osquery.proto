@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.osquery;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/osquery/proto/fleetspeak_osquery";
+
 enum CompressionType {
   UNCOMPRESSED = 0;
   ZCOMPRESSION = 1;

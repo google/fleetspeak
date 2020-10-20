@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak";
+
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 

@@ -4,7 +4,7 @@ matrix:
       dist: xenial
       language: go
       go:
-        - "1.13"
+        - "1.15"
       services:
         - mysql
       addons:
@@ -26,20 +26,15 @@ matrix:
         - mysql --print-defaults
         - mysql -u travis -e 'CREATE DATABASE db;'
         - mysql -u travis -e 'CREATE DATABASE e2e_test_db;'
-        #- go get -u golang.org/x/lint/golint
+        - go get -u golang.org/x/lint/golint
       install:
         - source "${HOME}/FSENV/bin/activate" && pip install --upgrade pip wheel && pip install -e ./fleetspeak_python && pip install -e ./frr_python
-        # TODO: remove 2 lines below when git.apache.org is back up or when
-        # osquery-go uses a correct version of the Thrift library (the one
-        # hosted on github.com and not on git.apache.org).
-        - mkdir -p "$(go env GOPATH)/src/git.apache.org"
-        - git clone https://github.com/apache/thrift.git "$(go env GOPATH)/src/git.apache.org/thrift.git"
         - go get -u -v github.com/golang/protobuf/protoc-gen-go@v1.4.2
-        - go get -v -t ./... || true  # Install dependencies needed for tests.
       script:
         # We want to address all golint warnings, except for
         # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
-        # - golint ./... | grep -v 'should have comment or be unexported'
+        # TODO(mbushkov): make golint and go vet checks actionable.
+        - golint ./... | grep -v 'should have comment or be unexported' || true
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
@@ -85,7 +80,7 @@ matrix:
     - os: windows
       language: go
       go:
-        - "1.13"
+        - "1.15"
       env:
         # GCS_ENCRYPTION_KEY_B64
         - secure: "HReLplavt0kl52ky792geloR2kIm2I6r/MC9s/SAOVoz5ByXveE7ubM/+74UewVGw+xgnrEq8hLkYby2WHc64OFfCVTaCckos3Es8+7yGsikIG3U2P+qDMpm6o3N4q8paZD81ynV6ACrg2MzrYs2itNSD3+SpxLUCqVSpPHf33OOI2ewlvHgO4FQk5xK+XsDMGayLKa3ult6vP35IU41uBftn4ZFMCw8PWXejSV+fnkBbhWPYXarUA8JPVvVU6qWvGKSyARj7NVqLsfPiQCKkhHb3Dn47XU9o9jkJ7IIcvPdFv4tpmRTcEAe1nQ8Ri1p1pKA26ium7evG7qdalgr5AE6Ypt+nDOW4GTM1WrSY1DoiiHPZnFU5JM+tcIrik0vxbNTQ2gV+fe8R5ZsYR9Ge2CsdChAl4l+npWrwnyNt+SFaqu29xTy6X9uWjxFbSp8mgMaeju6owbau5WLWQ17xWAFBXiMAUnsraiXN8HE37buV6WKNaMBR2SNNCwR/jbbj4yhNF3+tsI1gMAAhFHpejTaafGmu8kk5KSDagjzCmjikOOu1RzVTi3rCQtVlTsdr/QD/818ea8QJVhWc51PPBijPeNk/6mO28S7vVJpQws0ugKULpELoh6HxrEhsGKjd4UV1xI5wtRgRZ4Y2rcLGh2sFXmennxigJGhmGNaQV0="
@@ -97,8 +92,6 @@ matrix:
       install:
         - powershell Install-WindowsFeature Net-Framework-Core
         - cinst -y wixtoolset --version 3.11.1
-        - go version
-        - go get -v -t ./...
       script:
         - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
         - cd fleetspeak/client-win
@@ -124,10 +117,8 @@ matrix:
     - os: osx
       language: go
       go:
-        - "1.13"
+        - "1.15"
       install:
-        - go version
-        - go get -v -t ./...
         - pip3 install wheel
       script:
         - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go

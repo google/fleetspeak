@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.stdinservice;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice";
+
 import "google/protobuf/timestamp.proto";
 import "fleetspeak/src/common/proto/fleetspeak_monitoring/resource.proto";
 

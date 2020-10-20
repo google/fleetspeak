@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package fleetspeak.components;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components";
+
 message Config {
   // Mysql connection string. Required.
   //

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.daemonservice;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice";
+
 import "google/protobuf/duration.proto";
 
 // The configuration information expected by daemonservice.Factory in

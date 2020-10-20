@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.monitoring;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring";
+
 import "google/protobuf/timestamp.proto";
 
 // Contains resource-usage metrics for Fleetspeak clients. The stats are
