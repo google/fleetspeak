@@ -373,6 +373,8 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 			MaxSystemCpuRate:   80.0,
 			MeanResidentMemory: float64(meanRAM) * 1024 * 1024,
 			MaxResidentMemory:  int64(maxRAM) * 1024 * 1024,
+			MeanNumFds:         13.4,
+			MaxNumFds:          42,
 		},
 	}
 
@@ -414,6 +416,8 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		MaxSystemCpuRate:      80.0,
 		MeanResidentMemoryMib: int32(meanRAM),
 		MaxResidentMemoryMib:  int32(maxRAM),
+		MeanNumFds:            13,
+		MaxNumFds:             42,
 	}
 
 	if got, want := record, expected; !proto.Equal(got, want) {

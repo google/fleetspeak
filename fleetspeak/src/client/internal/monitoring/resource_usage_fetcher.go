@@ -39,6 +39,9 @@ type ResourceUsage struct {
 
 	// Resident set size for a process, in bytes.
 	ResidentMemory int64
+
+	// Number of open file descriptors.
+	NumFDs int32
 }
 
 // ResourceUsageFetcher obtains resource-usage data for a process from the OS.

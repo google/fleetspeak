@@ -347,7 +347,7 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 	return d.runInTx(func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			id.String(),
 			rud.Scope,
 			rud.Pid,
@@ -360,7 +360,9 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 			rud.ResourceUsage.MeanSystemCpuRate,
 			rud.ResourceUsage.MaxSystemCpuRate,
 			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB))
+			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
+			int32(rud.ResourceUsage.MeanNumFds),
+			rud.ResourceUsage.MaxNumFds)
 		return err
 	})
 }
@@ -386,7 +388,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			"SELECT "+
 				"scope, pid, process_start_time, client_timestamp, server_timestamp, "+
 				"process_terminated, mean_user_cpu_rate, max_user_cpu_rate, mean_system_cpu_rate, "+
-				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib "+
+				"max_system_cpu_rate, mean_resident_memory_mib, max_resident_memory_mib, "+
+				"mean_num_fds, max_num_fds "+
 				"FROM client_resource_usage_records WHERE client_id=? "+
 				"AND server_timestamp >= ? AND server_timestamp < ?",
 			id.String(),
@@ -405,7 +408,8 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			err := rows.Scan(
 				&record.Scope, &record.Pid, &processStartTime, &clientTimestamp, &serverTimestamp,
 				&record.ProcessTerminated, &record.MeanUserCpuRate, &record.MaxUserCpuRate, &record.MeanSystemCpuRate,
-				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib)
+				&record.MaxSystemCpuRate, &record.MeanResidentMemoryMib, &record.MaxResidentMemoryMib,
+				&record.MeanNumFds, &record.MaxNumFds)
 
 			if err != nil {
 				return err
