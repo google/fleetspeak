@@ -75,12 +75,14 @@ func TestResourceUsageMonitor(t *testing.T) {
 		UserCPUMillis:   13.0,
 		SystemCPUMillis: 5.0,
 		ResidentMemory:  10000,
+		NumFDs:          8,
 	}
 	fakeRU1 := ResourceUsage{
 		Timestamp:       start.Add(10 * time.Millisecond),
 		UserCPUMillis:   27.0,
 		SystemCPUMillis: 9.0,
 		ResidentMemory:  30000,
+		NumFDs:          42,
 	}
 	ruf := fakeResourceUsageFetcher{}
 	ruf.setResourceUsageData([]ResourceUsage{fakeRU0, fakeRU1})
@@ -123,6 +125,8 @@ func TestResourceUsageMonitor(t *testing.T) {
 					MaxSystemCpuRate:   400.0,
 					MeanResidentMemory: 20000.0,
 					MaxResidentMemory:  30000,
+					MeanNumFds:         25,
+					MaxNumFds:          42,
 				},
 				DebugStatus:   fmt.Sprintf("Fake Debug Status %d", protosReceived),
 				DataTimestamp: got.DataTimestamp,

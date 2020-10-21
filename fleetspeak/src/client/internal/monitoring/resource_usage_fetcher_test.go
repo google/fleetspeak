@@ -128,6 +128,16 @@ while time.time() - t0 < 60.:
 		t.Error(err)
 	}
 
+	if runtime.GOOS == "linux" {
+		if ru.NumFDs == 0 {
+			t.Errorf("Expected NumFDs to be non-0.")
+		}
+	} else {
+		if ru.NumFDs != 0 {
+			t.Errorf("Expected NumFDs to always be 0 on non-Linux systems.")
+		}
+	}
+
 	debugStatus, err := ruf.DebugStatusForPID(cmd.Process.Pid)
 	if err != nil {
 		t.Fatal(err)

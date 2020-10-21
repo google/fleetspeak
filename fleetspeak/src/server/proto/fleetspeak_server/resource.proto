@@ -7,7 +7,7 @@ option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fl
 import "google/protobuf/timestamp.proto";
 
 // Represents client resource-usage data in the data-store.
-// Next id: 13
+// Next id: 15
 message ClientResourceUsageRecord {
   // Name of the client service that resource usage is charged/attributed to
   // e.g 'system' for the system Fleetspeak service, or the name of a daemon
@@ -35,4 +35,7 @@ message ClientResourceUsageRecord {
 
   int32 mean_resident_memory_mib = 10;
   int32 max_resident_memory_mib = 11;
+
+  int32 mean_num_fds = 13;
+  int32 max_num_fds = 14;
 }
