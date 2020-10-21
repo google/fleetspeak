@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.socketservice;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/socketservice/proto/fleetspeak_socketservice";
+
 // The configuration information expected by socketservice.Factory in
 // ClientServiceConfig.config.
 message Config {

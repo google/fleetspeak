@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.channel;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel";
+
 // Optional first message sent through a channel when it is created. It is meant
 // to contain info about the process that the other end of the channel might
 // find useful.

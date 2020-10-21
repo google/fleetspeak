@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.frr;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr";
+
 import "fleetspeak/src/common/proto/fleetspeak/common.proto";
 
 // Contains the information needed to configure a frr server component.

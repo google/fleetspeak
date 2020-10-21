@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.grpcservice;
 
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice";
+
 import "fleetspeak/src/common/proto/fleetspeak/common.proto";
 
 message Config {
