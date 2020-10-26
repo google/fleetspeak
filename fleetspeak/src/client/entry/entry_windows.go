@@ -3,7 +3,7 @@
 package entry
 
 import (
-	"os"
+	"sync"
 	"time"
 
 	log "github.com/golang/glog"
@@ -19,7 +19,14 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	changes <- svc.Status{State: svc.StartPending}
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 	timer := time.Tick(2 * time.Second)
-	go m.innerMain()
+
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		m.innerMain(done)
+	}()
 loop:
 	for {
 		select {
@@ -41,7 +48,8 @@ loop:
 	changes <- svc.Status{State: svc.StopPending}
 
 	log.Info("Stopping the service.")
-	os.Exit(2)
+	close(done)
+	wg.Wait()
 	return
 }
 

@@ -23,7 +23,8 @@ import (
 var configFile = flag.String("config", "", "Client configuration file, required.")
 var profileDir = flag.String("profile-dir", "/tmp", "Profile directory.")
 
-func innerMain() {
+// innerMain runs the fleetspeak client until done is closed.
+func innerMain(done <-chan struct{}) {
 	flag.Parse()
 
 	b, err := ioutil.ReadFile(*configFile)
@@ -57,6 +58,10 @@ func innerMain() {
 			},
 			Communicator: com,
 		})
+	go func() {
+		<-done
+		cl.Stop()
+	}
 	if err != nil {
 		log.Exitf("Error starting client: %v", err)
 	}
