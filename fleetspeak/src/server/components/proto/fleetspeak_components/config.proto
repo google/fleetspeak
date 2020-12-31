@@ -57,6 +57,11 @@ message Config {
   // with this server's notification port. Has no effect when
   // notification_listen_address is unset.
   string notification_public_address = 6;
+
+  // If set, a HTTP notifier implementation is used for sending notifications.
+  // Set this if running a pure admin server (without a notification listener)
+  // in a distributed setup.
+  bool notification_use_http_notifier = 10;
 }
 
 message HttpsConfig {

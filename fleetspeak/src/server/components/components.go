@@ -54,11 +54,8 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	if cfg.MysqlDataSourceName == "" {
 		return nil, errors.New("mysql_data_source_name is required")
 	}
-	if cfg.HttpsConfig == nil {
-		return nil, errors.New("https_config is required")
-	}
 	hcfg := cfg.HttpsConfig
-	if hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "" {
+	if hcfg != nil && (hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "") {
 		return nil, errors.New("https_config requires listen_address, certificates and key")
 	}
 
@@ -87,21 +84,24 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	}
 
 	// HTTPS setup
-	l, err := net.Listen("tcp", hcfg.ListenAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen on [%v]: %v", cfg.HttpsConfig.ListenAddress, err)
-	}
-	if cfg.ProxyProtocol {
-		l = &chttps.ProxyListener{l}
-	}
-	comm, err := https.NewCommunicator(https.Params{
-		Listener:  l,
-		Cert:      []byte(hcfg.Certificates),
-		Key:       []byte(hcfg.Key),
-		Streaming: !hcfg.DisableStreaming,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create communicator: %v", err)
+	var comm comms.Communicator
+	if hcfg != nil {
+		l, err := net.Listen("tcp", hcfg.ListenAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to listen on [%v]: %v", cfg.HttpsConfig.ListenAddress, err)
+		}
+		if cfg.ProxyProtocol {
+			l = &chttps.ProxyListener{l}
+		}
+		comm, err = https.NewCommunicator(https.Params{
+			Listener:  l,
+			Cert:      []byte(hcfg.Certificates),
+			Key:       []byte(hcfg.Key),
+			Streaming: !hcfg.DisableStreaming,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create communicator: %v", err)
+		}
 	}
 	// Notification setup.
 	var nn notifications.Notifier
@@ -114,7 +114,11 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		}
 	} else {
 		llc := inotifications.LocalListenerNotifier{}
-		nn = &llc
+		if cfg.NotificationUseHttpNotifier {
+			nn = &cnotifications.HttpNotifier{}
+		} else {
+			nn = &llc
+		}
 		nl = &llc
 	}
 
@@ -163,6 +167,11 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		go healthCheck.Serve(healthCheckListener)
 	}
 
+	var communicators []comms.Communicator
+	if comm != nil {
+		communicators = append(communicators, comm)
+	}
+
 	// Final assembly
 	return &server.Components{
 		Datastore: db,
@@ -170,7 +179,7 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			"GRPC": grpcservice.Factory,
 			"NOOP": service.NOOPFactory,
 		},
-		Communicators: []comms.Communicator{comm},
+		Communicators: communicators,
 		Authorizer:    auth,
 		Stats:         statsCollector,
 		Notifier:      nn,

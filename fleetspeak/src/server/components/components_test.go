@@ -32,12 +32,6 @@ func TestValidation(t *testing.T) {
 		{
 			cfg: &cpb.Config{
 				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
-			},
-			wantErr: "https_config is required",
-		},
-		{
-			cfg: &cpb.Config{
-				MysqlDataSourceName: "fs:seecret@tcp(localhost:1234)/fsdb",
 				HttpsConfig: &cpb.HttpsConfig{
 					ListenAddress: "localhost:443",
 				},
