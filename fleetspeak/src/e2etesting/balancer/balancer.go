@@ -18,6 +18,7 @@ import (
 var (
 	serversFile        = flag.String("servers_file", "", "File with server hosts")
 	serverFrontendAddr = flag.String("frontend_address", "", "Frontend address for clients to connect")
+	useProxyProto      = flag.Bool("use_proxy_proto", true, "Whether to forward client information using proxy proto")
 )
 
 func copy(wc io.WriteCloser, r io.Reader) {
@@ -64,9 +65,11 @@ func run() error {
 			}
 		}
 		log.Printf("Connection accepted, server: %v\n", serverAddr)
-		err = proxyproto.WriteFirstProxyMessage(serverConn, lbConn.RemoteAddr().String(), serverAddr)
-		if err != nil {
-			return err
+		if *useProxyProto {
+			err = proxyproto.WriteFirstProxyMessage(serverConn, lbConn.RemoteAddr().String(), serverAddr)
+			if err != nil {
+				return err
+			}
 		}
 		go copy(serverConn, lbConn)
 		go copy(lbConn, serverConn)
