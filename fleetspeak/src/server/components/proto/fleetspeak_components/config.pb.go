@@ -48,7 +48,7 @@ type Config struct {
 	//
 	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
 	MysqlDataSourceName string `protobuf:"bytes,1,opt,name=mysql_data_source_name,json=mysqlDataSourceName,proto3" json:"mysql_data_source_name,omitempty"`
-	// The parameters required to stand up an https server. Required.
+	// The parameters required to stand up an https server.
 	HttpsConfig *HttpsConfig `protobuf:"bytes,2,opt,name=https_config,json=httpsConfig,proto3" json:"https_config,omitempty"`
 	// Parameters required to stand up an admin server. Either this or
 	// "https_config", or both, have to be specified.

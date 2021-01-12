@@ -24,7 +24,7 @@ message Config {
   // https://github.com/go-sql-driver/mysql#dsn-data-source-name
   string mysql_data_source_name = 1;
 
-  // The parameters required to stand up an https server. Required.
+  // The parameters required to stand up an https server.
   HttpsConfig https_config = 2;
 
   // Parameters required to stand up an admin server. Either this or
