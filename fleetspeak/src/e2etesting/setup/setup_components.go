@@ -359,7 +359,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 	for i := 0; i < numServers; i++ {
 		adminPort := firstAdminPort + i*4
 		httpsListenPort := adminPort - 1
-		serverHosts += fmt.Sprintf("127.0.0.1:%v\n", httpsListenPort)
+		serverHosts += fmt.Sprintf("localhost:%v\n", httpsListenPort)
 		frontendPort := adminPort + 1
 		notificationPort := adminPort + 2
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
