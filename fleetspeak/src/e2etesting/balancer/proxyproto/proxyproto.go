@@ -9,6 +9,10 @@ import (
 )
 
 func splitHostPort(addr string) (net.IP, uint16, error) {
+	ta, err := net.ResolveTCPAddr("tcp", addr)
+	if err == nil {
+		return ta.IP, uint16(ta.Port), nil
+	}
 	hostStr, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, 0, err

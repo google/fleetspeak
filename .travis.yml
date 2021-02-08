@@ -1,7 +1,7 @@
 matrix:
   include:
     - os: linux
-      dist: xenial
+      dist: bionic
       language: go
       go:
         - "1.15"
