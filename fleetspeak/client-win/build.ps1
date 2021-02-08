@@ -6,12 +6,13 @@ $ErrorActionPreference = 'Stop'
 # not supported by old (pre-v5) Powershell versions.
 $PSVersionTable.PSVersion
 
-$ROOT_WORK_DIR = "${env:TMP}\fleetspeak-build-" + (Get-Date).ToString('yyyyMMdd_HHmm')
+$ROOT_WORK_DIR = "${env:TMP}\fleetspeak-build-" + (Get-Date).ToString('yyyyMMdd_HHmmss')
 
 $VERSION_FILE = "..\..\VERSION"
 $VERSION = (Get-Content $VERSION_FILE | Out-String).Trim()
 
 $PKG_WIX_CONFIG = ("fleetspeak.wxs" | Resolve-Path)
+$PKG_WIX_CONFIG_LIB = ("fleetspeak_lib.wxs" | Resolve-Path)
 $PKG_WORK_DIR = "${ROOT_WORK_DIR}\fleetspeak-pkg"
 
 function Build-BinaryPkg {
@@ -35,9 +36,19 @@ function Build-BinaryPkg {
     -sw1150 `
     -out "fleetspeak-client.wixobj"
 
+  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" `
+    $PKG_WIX_CONFIG_LIB `
+    -arch x64 `
+    -ext WixUtilExtension `
+    "-dFLEETSPEAK_EXECUTABLE=${ROOT_WORK_DIR}\fleetspeak-client.exe" `
+    "-dVERSION=$VERSION" `
+    -sw1150 `
+    -out "fleetspeak-client-lib.wixobj"
+
   # -sw1076 arg disables warning due to 'AllowDowngrades' setting in Wix config.
   & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" `
     "fleetspeak-client.wixobj" `
+    "fleetspeak-client-lib.wixobj" `
     -ext WixUtilExtension `
     -sw1076 `
     -out "fleetspeak-client-${VERSION}.msi"
@@ -107,4 +118,4 @@ New-Item -Type Directory -Path $PKG_WORK_DIR | Out-Null
 
 Build-BinaryPkg
 
-Test-Installer "${PKG_WORK_DIR}\fleetspeak-client-${VERSION}.msi"
+#Test-Installer "${PKG_WORK_DIR}\fleetspeak-client-${VERSION}.msi"

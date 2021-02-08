@@ -103,6 +103,7 @@ matrix:
         # Build client wheel
         - mkdir pkg-root
         - cp fleetspeak-client.exe pkg-root
+        - cp fleetspeak/client-win/fleetspeak_lib.wxs pkg-root
         - python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
         - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
       # The windows uploads appear truncated on GCS when using deploy
