@@ -54,7 +54,7 @@ func ServerCert() (cert []byte, key []byte, err error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		IsCA:                  true,
 		BasicConstraintsValid: true,
-		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.ParseIP("::1")},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 1, 1), net.ParseIP("::1")},
 	}
 
 	dc, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, privKey.Public(), privKey)
