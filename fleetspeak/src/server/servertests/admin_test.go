@@ -30,6 +30,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
+	apb "github.com/golang/protobuf/ptypes/any"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -285,11 +286,13 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 	}
 }
 
-func TestDeletePendingMessages(t *testing.T) {
-	mid, err := common.RandomMessageID()
-	if err != nil {
-		t.Fatalf("Unable to create message id: %v", err)
-	}
+func TestPendingMessages(t *testing.T) {
+	mid0, _ := common.BytesToMessageID([]byte("91234567890123456789012345678900"))
+	mid1, _ := common.BytesToMessageID([]byte("91234567890123456789012345678901"))
+	mid2, _ := common.BytesToMessageID([]byte("91234567890123456789012345678902"))
+	mid3, _ := common.BytesToMessageID([]byte("91234567890123456789012345678903"))
+	mid4, _ := common.BytesToMessageID([]byte("91234567890123456789012345678904"))
+
 	ctx := context.Background()
 
 	ts := testserver.Make(t, "server", "AdminServer", nil)
@@ -306,33 +309,166 @@ func TestDeletePendingMessages(t *testing.T) {
 
 	as := admin.NewServer(ts.DS, nil)
 
-	m := fspb.Message{
-		MessageId:    mid.Bytes(),
-		Source:       &fspb.Address{ServiceName: "TestService"},
-		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
-		MessageType:  "DummyType",
-		CreationTime: db.NowProto(),
+	msgs := []*fspb.Message{
+		{
+			MessageId:    mid0.Bytes(),
+			Source:       &fspb.Address{ServiceName: "TestService"},
+			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+			MessageType:  "DummyType",
+			CreationTime: db.NowProto(),
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 0",
+				Value:   []byte("Test data proto 0")},
+		},
+		{
+			MessageId:    mid1.Bytes(),
+			Source:       &fspb.Address{ServiceName: "TestService"},
+			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+			MessageType:  "DummyType",
+			CreationTime: db.NowProto(),
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 1",
+				Value:   []byte("Test data proto 1")},
+		},
+		{
+			MessageId:    mid2.Bytes(),
+			Source:       &fspb.Address{ServiceName: "TestService"},
+			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+			MessageType:  "DummyType",
+			CreationTime: db.NowProto(),
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 2",
+				Value:   []byte("Test data proto 2")},
+		},
+		{
+			MessageId:    mid3.Bytes(),
+			Source:       &fspb.Address{ServiceName: "TestService"},
+			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+			MessageType:  "DummyType",
+			CreationTime: db.NowProto(),
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 3",
+				Value:   []byte("Test data proto 3")},
+		},
+		{
+			MessageId:    mid4.Bytes(),
+			Source:       &fspb.Address{ServiceName: "TestService"},
+			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+			MessageType:  "DummyType",
+			CreationTime: db.NowProto(),
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 4",
+				Value:   []byte("Test data proto 4")},
+		},
 	}
 
-	if _, err := as.InsertMessage(ctx, proto.Clone(&m).(*fspb.Message)); err != nil {
-		t.Fatalf("InsertMessage returned error: %v", err)
+	for _, m := range msgs {
+		if _, err := as.InsertMessage(ctx, proto.Clone(m).(*fspb.Message)); err != nil {
+			t.Fatalf("InsertMessage returned error: %v", err)
+		}
 	}
+
+	// Get the message from the pending messages count
+
+	t.Run("GetPendingMessageCount", func(t *testing.T) {
+		greq := &spb.GetPendingMessageCountRequest{
+			ClientIds: [][]byte{id.Bytes()},
+		}
+		gresp, err := as.GetPendingMessageCount(ctx, greq)
+		if err != nil {
+			t.Fatalf("GetPendingMessageCount returned error: %v", err)
+		}
+		if gresp.Count != uint64(len(msgs)) {
+			t.Fatalf("Bad resul.t Expected: %v. Got: %v.", len(msgs), gresp.Count)
+		}
+	})
+
+	// Get the message from the pending messages list, with data
+
+	t.Run("GetPendingMessages/WantData=true", func(t *testing.T) {
+		greq := &spb.GetPendingMessagesRequest{
+			ClientIds: [][]byte{id.Bytes()},
+			WantData:  true,
+		}
+		gresp, err := as.GetPendingMessages(ctx, greq)
+		if err != nil {
+			t.Fatalf("GetPendingMessages returned error: %v", err)
+		}
+		if len(gresp.Messages) != len(msgs) {
+			t.Fatalf("Bad size of returned messages. Expected: %v. Got: %v.", len(msgs), len(gresp.Messages))
+		}
+		for i, _ := range msgs {
+			if !proto.Equal(gresp.Messages[i], msgs[i]) {
+				t.Fatalf("Got bad message. Expected: [%v]. Got: [%v].", msgs[i], gresp.Messages[i])
+			}
+		}
+	})
+
+	// Get the message from the pending messages list, with data, limit and offset
+
+	t.Run("GetPendingMessages/WantData=true/limit/offset", func(t *testing.T) {
+		greq := &spb.GetPendingMessagesRequest{
+			ClientIds: [][]byte{id.Bytes()},
+			WantData:  true,
+			Offset:    1,
+			Limit:     2,
+		}
+		gresp, err := as.GetPendingMessages(ctx, greq)
+		if err != nil {
+			t.Fatalf("GetPendingMessages returned error: %v", err)
+		}
+		if len(gresp.Messages) != 2 {
+			t.Fatalf("Bad size of returned messages. Expected: %v. Got: %v.", len(msgs), len(gresp.Messages))
+		}
+		for i := 0; i < 2; i++ {
+			if !proto.Equal(gresp.Messages[i], msgs[1+i]) {
+				t.Fatalf("Got bad message. Expected: [%v]. Got: [%v].", msgs[1+i], gresp.Messages[i])
+			}
+		}
+	})
+
+	// Get the message from the pending messages list, without data
+
+	t.Run("GetPendingMessages/WantData=false", func(t *testing.T) {
+		greq := &spb.GetPendingMessagesRequest{
+			ClientIds: [][]byte{id.Bytes()},
+			WantData:  false,
+		}
+		gresp, err := as.GetPendingMessages(ctx, greq)
+
+		if err != nil {
+			t.Fatalf("GetPendingMessages returned error: %v", err)
+		}
+		if len(gresp.Messages) != len(msgs) {
+			t.Fatalf("Bad size of returned messages. Expected: %v. Got: %v.", len(msgs), len(gresp.Messages))
+		}
+		for i, _ := range msgs {
+			expectedMessage := proto.Clone(msgs[i]).(*fspb.Message)
+			expectedMessage.Data = nil
+			if !proto.Equal(gresp.Messages[i], expectedMessage) {
+				t.Fatalf("Got bad message. Expected: [%v]. Got: [%v].", expectedMessage, gresp.Messages[i])
+			}
+		}
+	})
 
 	// Delete the message from the pending messages list.
-	req := &spb.DeletePendingMessagesRequest{
-		ClientIds: [][]byte{id.Bytes()},
-	}
-	if _, err := as.DeletePendingMessages(ctx, req); err != nil {
-		t.Fatalf("DeletePendingMessages returned error: %v", err)
-	}
 
-	// ClientMessagesForProcessing should return nothing, since the message is
-	// supposed to be deleted from the pending mesages list.
-	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
-	if err != nil {
-		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
-	}
-	if len(msgs) != 0 {
-		t.Errorf("ClientMessagesForProcessing(%v) was expected to return 0 messages, got: %v", id, msgs)
-	}
+	t.Run("DeletePendingMessages", func(t *testing.T) {
+		req := &spb.DeletePendingMessagesRequest{
+			ClientIds: [][]byte{id.Bytes()},
+		}
+		if _, err := as.DeletePendingMessages(ctx, req); err != nil {
+			t.Fatalf("DeletePendingMessages returned error: %v", err)
+		}
+
+		// ClientMessagesForProcessing should return nothing, since the message is
+		// supposed to be deleted from the pending mesages list.
+		msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
+		if err != nil {
+			t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
+		}
+		if len(msgs) != 0 {
+			t.Errorf("ClientMessagesForProcessing(%v) was expected to return 0 messages, got: %v", id, msgs)
+		}
+	})
 }

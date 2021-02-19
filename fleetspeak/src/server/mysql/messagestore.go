@@ -225,32 +225,121 @@ func genPlaceholders(num int) string {
 	return strings.Join(es, ", ")
 }
 
-func (d *Datastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
-	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+func (d *Datastore) getPendingMessageRawIds(ctx context.Context, tx *sql.Tx, ids []common.ClientID, offset uint64, limit uint64, forUpdate bool) ([][]byte, error) {
+	squery := fmt.Sprintf("SELECT "+
+		"m.message_id AS message_id "+
+		"FROM messages AS m, pending_messages AS pm "+
+		"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id "+
+		"ORDER BY message_id",
+		genPlaceholders((len(ids))))
+
+	if limit != 0 {
+		squery += " LIMIT ?"
+	}
+
+	if offset != 0 {
+		squery += " OFFSET ?"
+	}
+
+	if forUpdate {
+		squery += " FOR UPDATE"
+	}
+
+	args := make([]interface{}, len(ids), len(ids)+2)
+	for i, v := range ids {
+		args[i] = v.Bytes()
+	}
+
+	if limit != 0 {
+		args = append(args, limit)
+	}
+
+	if offset != 0 {
+		args = append(args, offset)
+	}
+
+	idsToProc := make([][]byte, 0)
+
+	rs, err := tx.QueryContext(ctx, squery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to fetch the list of messages to delete: %v", err)
+	}
+	defer rs.Close()
+	for rs.Next() {
+		var id []byte
+		if err := rs.Scan(&id); err != nil {
+			return nil, err
+		}
+		idsToProc = append(idsToProc, id)
+	}
+
+	return idsToProc, nil
+}
+
+func (d *Datastore) GetPendingMessageCount(ctx context.Context, ids []common.ClientID) (uint64, error) {
+	var result uint64
+
+	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		squery := fmt.Sprintf("SELECT "+
-			"m.message_id "+
+			"COUNT(*) "+
 			"FROM messages AS m, pending_messages AS pm "+
-			"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id "+
-			"FOR UPDATE", genPlaceholders((len(ids))))
+			"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id ",
+			genPlaceholders((len(ids))))
+		fmt.Println(squery)
 
 		args := make([]interface{}, len(ids))
 		for i, v := range ids {
 			args[i] = v.Bytes()
 		}
-
-		idsToProc := make([]interface{}, 0)
-
 		rs, err := tx.QueryContext(ctx, squery, args...)
 		if err != nil {
-			return fmt.Errorf("Failed to fetch the list of messages to delete: %v", err)
+			return fmt.Errorf("Failed to fetch the pending message count: %v", err)
 		}
 		defer rs.Close()
-		for rs.Next() {
-			var id []byte
-			if err := rs.Scan(&id); err != nil {
+		if !rs.Next() {
+			return fmt.Errorf("Got empty result")
+		}
+		err = rs.Scan(&result)
+		if err != nil {
+			return fmt.Errorf("Failed to scan result: %v", err)
+		}
+		return nil
+	})
+
+	return result, err
+}
+
+func (d *Datastore) GetPendingMessages(ctx context.Context, ids []common.ClientID, offset uint64, count uint64, wantData bool) ([]*fspb.Message, error) {
+	var res []*fspb.Message
+	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		messageIdsRaw, err := d.getPendingMessageRawIds(ctx, tx, ids, offset, count, false)
+		if err != nil {
+			return err
+		}
+		var messageIds []common.MessageID
+		for _, idRaw := range messageIdsRaw {
+			messageID, err := common.BytesToMessageID(idRaw)
+			if err != nil {
 				return err
 			}
-			idsToProc = append(idsToProc, id)
+			messageIds = append(messageIds, messageID)
+		}
+		res, err = d.getMessages(ctx, tx, messageIds, wantData)
+		return err
+	})
+	return res, err
+}
+
+func (d *Datastore) DeletePendingMessages(ctx context.Context, ids []common.ClientID) error {
+	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		messageIds, err := d.getPendingMessageRawIds(ctx, tx, ids, 0, 0, true)
+		if err != nil {
+			return err
+		}
+
+		idsToProc := make([]interface{}, len(messageIds))
+		for i, id := range messageIds {
+			idsToProc[i] = id
 		}
 
 		// If there are no messages to be deleted, just bail out.
@@ -433,68 +522,75 @@ func (d *Datastore) tryStoreMessage(ctx context.Context, tx *sql.Tx, dbm *dbMess
 	return nil
 }
 
-func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
+func (d *Datastore) getMessages(ctx context.Context, tx *sql.Tx, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
 	res := make([]*fspb.Message, 0, len(ids))
-	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
-		stmt1, err := tx.Prepare("SELECT " +
-			"message_id, " +
-			"source_client_id, " +
-			"source_service_name, " +
-			"source_message_id, " +
-			"destination_client_id, " +
-			"destination_service_name, " +
-			"message_type, " +
-			"creation_time_seconds, " +
-			"creation_time_nanos, " +
-			"processed_time_seconds, " +
-			"processed_time_nanos, " +
-			"validation_info, " +
-			"annotations " +
-			"FROM messages WHERE message_id=?")
-		var stmt2 *sql.Stmt
-		if wantData {
-			stmt2, err = tx.Prepare("SELECT data_type_url, data_value FROM pending_messages WHERE message_id=?")
-			if err != nil {
-				return err
-			}
-		}
+	stmt1, err := tx.Prepare("SELECT " +
+		"message_id, " +
+		"source_client_id, " +
+		"source_service_name, " +
+		"source_message_id, " +
+		"destination_client_id, " +
+		"destination_service_name, " +
+		"message_type, " +
+		"creation_time_seconds, " +
+		"creation_time_nanos, " +
+		"processed_time_seconds, " +
+		"processed_time_nanos, " +
+		"validation_info, " +
+		"annotations " +
+		"FROM messages WHERE message_id=?")
+	var stmt2 *sql.Stmt
+	if wantData {
+		stmt2, err = tx.Prepare("SELECT data_type_url, data_value FROM pending_messages WHERE message_id=?")
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for _, id := range ids {
-			row := stmt1.QueryRowContext(ctx, id.Bytes())
-			var dbm dbMessage
-			err := row.Scan(
-				&dbm.messageID,
-				&dbm.sourceClientID,
-				&dbm.sourceServiceName,
-				&dbm.sourceMessageID,
-				&dbm.destinationClientID,
-				&dbm.destinationServiceName,
-				&dbm.messageType,
-				&dbm.creationTimeSeconds,
-				&dbm.creationTimeNanos,
-				&dbm.processedTimeSeconds,
-				&dbm.processedTimeNanos,
-				&dbm.validationInfo,
-				&dbm.annotations)
-			if err != nil {
-				return err
-			}
-			if wantData {
-				row := stmt2.QueryRowContext(ctx, id.Bytes())
-				err := row.Scan(&dbm.dataTypeURL, &dbm.dataValue)
-				if err != nil && err != sql.ErrNoRows {
-					return err
-				}
-			}
-			m, err := toMessageProto(&dbm)
-			if err != nil {
-				return err
-			}
-			res = append(res, m)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		row := stmt1.QueryRowContext(ctx, id.Bytes())
+		var dbm dbMessage
+		err := row.Scan(
+			&dbm.messageID,
+			&dbm.sourceClientID,
+			&dbm.sourceServiceName,
+			&dbm.sourceMessageID,
+			&dbm.destinationClientID,
+			&dbm.destinationServiceName,
+			&dbm.messageType,
+			&dbm.creationTimeSeconds,
+			&dbm.creationTimeNanos,
+			&dbm.processedTimeSeconds,
+			&dbm.processedTimeNanos,
+			&dbm.validationInfo,
+			&dbm.annotations)
+		if err != nil {
+			return nil, err
 		}
-		return nil
+		if wantData {
+			row := stmt2.QueryRowContext(ctx, id.Bytes())
+			err := row.Scan(&dbm.dataTypeURL, &dbm.dataValue)
+			if err != nil && err != sql.ErrNoRows {
+				return nil, err
+			}
+		}
+		m, err := toMessageProto(&dbm)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, m)
+	}
+	return res, nil
+}
+
+func (d *Datastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
+	var res []*fspb.Message
+	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		var err error
+		res, err = d.getMessages(ctx, tx, ids, wantData)
+		return err
 	})
 	return res, err
 }
