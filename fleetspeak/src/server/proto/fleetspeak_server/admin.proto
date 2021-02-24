@@ -61,7 +61,7 @@ message GetPendingMessagesRequest {
 }
 
 message GetPendingMessagesResponse {
-  repeated fleetspeak.Message messages = 2;
+  repeated fleetspeak.Message messages = 1;
 }
 
 message GetPendingMessageCountRequest {

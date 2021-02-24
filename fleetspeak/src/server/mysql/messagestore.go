@@ -285,7 +285,6 @@ func (d *Datastore) GetPendingMessageCount(ctx context.Context, ids []common.Cli
 			"FROM messages AS m, pending_messages AS pm "+
 			"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id ",
 			genPlaceholders((len(ids))))
-		fmt.Println(squery)
 
 		args := make([]interface{}, len(ids))
 		for i, v := range ids {
