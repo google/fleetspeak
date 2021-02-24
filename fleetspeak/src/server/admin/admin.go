@@ -207,15 +207,23 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	return &fspb.EmptyMessage{}, nil
 }
 
-func (s adminServer) DeletePendingMessages(ctx context.Context, r *spb.DeletePendingMessagesRequest) (*fspb.EmptyMessage, error) {
-	ids := make([]common.ClientID, len(r.ClientIds))
-	for i, b := range r.ClientIds {
+func (s adminServer) bytesToClientIds(ids [][]byte) ([]common.ClientID, error) {
+	result := make([]common.ClientID, len(ids))
+	for i, b := range ids {
 		bid, err := common.BytesToClientID(b)
 		if err != nil {
 			return nil, fmt.Errorf("Can't convert bytes to ClientID: %v", err)
 		}
 
-		ids[i] = bid
+		result[i] = bid
+	}
+	return result, nil
+}
+
+func (s adminServer) DeletePendingMessages(ctx context.Context, r *spb.DeletePendingMessagesRequest) (*fspb.EmptyMessage, error) {
+	ids, err := s.bytesToClientIds(r.ClientIds)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.store.DeletePendingMessages(ctx, ids); err != nil {
@@ -223,6 +231,34 @@ func (s adminServer) DeletePendingMessages(ctx context.Context, r *spb.DeletePen
 	}
 
 	return &fspb.EmptyMessage{}, nil
+}
+
+func (s adminServer) GetPendingMessages(ctx context.Context, r *spb.GetPendingMessagesRequest) (*spb.GetPendingMessagesResponse, error) {
+	ids, err := s.bytesToClientIds(r.ClientIds)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := s.store.GetPendingMessages(ctx, ids, r.Offset, r.Limit, r.WantData)
+	if err != nil {
+		return nil, fmt.Errorf("Can't read pending messages: %v", err)
+	}
+
+	return &spb.GetPendingMessagesResponse{Messages: res}, nil
+}
+
+func (s adminServer) GetPendingMessageCount(ctx context.Context, r *spb.GetPendingMessageCountRequest) (*spb.GetPendingMessageCountResponse, error) {
+	ids, err := s.bytesToClientIds(r.ClientIds)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := s.store.GetPendingMessageCount(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("Can't read pending message count: %v", err)
+	}
+
+	return &spb.GetPendingMessageCountResponse{Count: res}, nil
 }
 
 func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (*fspb.EmptyMessage, error) {

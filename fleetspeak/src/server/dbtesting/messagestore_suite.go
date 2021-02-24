@@ -224,7 +224,7 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 	if err := ms.AddClient(ctx, clientID, &db.ClientData{Key: []byte("test key")}); err != nil {
 		t.Fatalf("AddClient [%v] failed: %v", clientID, err)
 	}
-	
+
 	// Create a backlog for 2 different services.
 	var toStore []*fspb.Message
 	for i := 0; i < 100; i++ {
@@ -414,7 +414,7 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 		})
 }
 
-func deletePendingMessagesTest(t *testing.T, ms db.Store) {
+func pendingMessagesTest(t *testing.T, ms db.Store) {
 	fakeTime := sertesting.FakeNow(43)
 	defer fakeTime.Revert()
 
@@ -432,12 +432,23 @@ func deletePendingMessagesTest(t *testing.T, ms db.Store) {
 		t.Fatalf("RecordClientContact failed: %v", err)
 	}
 
-	// Create one message in each obvious state - new, processed, errored:
-	newID, _ := common.BytesToMessageID([]byte("91234567890123456789012345678907"))
+	newID0, _ := common.BytesToMessageID([]byte("91234567890123456789012345678900"))
+	newID1, _ := common.BytesToMessageID([]byte("91234567890123456789012345678901"))
+	newID2, _ := common.BytesToMessageID([]byte("91234567890123456789012345678902"))
+	newID3, _ := common.BytesToMessageID([]byte("91234567890123456789012345678903"))
+	newID4, _ := common.BytesToMessageID([]byte("91234567890123456789012345678904"))
+
+	ids := []common.MessageID{
+		newID0,
+		newID1,
+		newID2,
+		newID3,
+		newID4,
+	}
 
 	msgs := []*fspb.Message{
 		{
-			MessageId: newID.Bytes(),
+			MessageId: newID0.Bytes(),
 			Source: &fspb.Address{
 				ServiceName: "TestSource",
 			},
@@ -448,47 +459,168 @@ func deletePendingMessagesTest(t *testing.T, ms db.Store) {
 			MessageType:  "Test message type",
 			CreationTime: &tpb.Timestamp{Seconds: 42},
 			Data: &apb.Any{
+				TypeUrl: "test data proto urn 0",
+				Value:   []byte("Test data proto 0")},
+		},
+		{
+			MessageId: newID1.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestSource",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type",
+			CreationTime: &tpb.Timestamp{Seconds: 1},
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 1",
+				Value:   []byte("Test data proto 1")},
+		},
+		{
+			MessageId: newID2.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestSource",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type",
+			CreationTime: &tpb.Timestamp{Seconds: 2},
+			Data: &apb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
+		},
+		{
+			MessageId: newID3.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestSource",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type",
+			CreationTime: &tpb.Timestamp{Seconds: 3},
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 3",
+				Value:   []byte("Test data proto 3")},
+		},
+		{
+			MessageId: newID4.Bytes(),
+			Source: &fspb.Address{
+				ServiceName: "TestSource",
+			},
+			Destination: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestServiceName",
+			},
+			MessageType:  "Test message type",
+			CreationTime: &tpb.Timestamp{Seconds: 4},
+			Data: &apb.Any{
+				TypeUrl: "test data proto urn 4",
+				Value:   []byte("Test data proto 4")},
 		},
 	}
 	if err := ms.StoreMessages(ctx, msgs, contact); err != nil {
 		t.Fatal(err)
 	}
 
-	mc, err := ms.GetMessages(ctx, []common.MessageID{newID}, false)
+	mc, err := ms.GetMessages(ctx, ids, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mc) != 1 {
+	if len(mc) != len(ids) {
 		t.Fatalf("Written message should be present in the store, not %v", len(mc))
 	}
 
-	if err := ms.DeletePendingMessages(ctx, []common.ClientID{clientID}); err != nil {
-		t.Fatal(err)
-	}
+	t.Run("GetPendingMessageCount", func(t *testing.T) {
+		count, err := ms.GetPendingMessageCount(ctx, []common.ClientID{clientID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count != uint64(len(msgs)) {
+			t.Fatalf("Bad pending messages count. Expected: %v. Got: %v.", len(msgs), count)
+		}
+	})
 
-	mc, err = ms.ClientMessagesForProcessing(ctx, clientID, 1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mc) != 0 {
-		t.Fatalf("No messages for processing were expected, found: %v", mc)
-	}
+	t.Run("GetPendingMessages/wantData=true", func(t *testing.T) {
+		pendingMsgs, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 0, 0, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pendingMsgs) != len(msgs) {
+			t.Fatalf("Expected %v pending messages, got %v", len(msgs), len(pendingMsgs))
+		}
+		for i := range msgs {
+			if !proto.Equal(msgs[i], pendingMsgs[i]) {
+				t.Fatalf("Expected pending message: [%v]. Got [%v].", msgs[i], pendingMsgs[i])
+			}
+		}
+	})
 
-	mr, err := ms.GetMessageResult(ctx, newID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if mr == nil {
-		t.Fatal("Message result must be in the store after pending message is deleted", mr)
-	}
-	if !mr.Failed {
-		t.Errorf("Expected the message to have failed=true, got: %v", mr.Failed)
-	}
-	if mr.FailedReason != "Removed by admin action." {
-		t.Errorf("Expected the message to have failure reason 'Removed by admin action', got: %v", mr.FailedReason)
-	}
+	t.Run("GetPendingMessages/wantData=true/offset/limit", func(t *testing.T) {
+		pendingMsgs, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 1, 2, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pendingMsgs) != 2 {
+			t.Fatalf("Expected %v pending messages, got %v", 2, len(pendingMsgs))
+		}
+		for i := range pendingMsgs {
+			if !proto.Equal(msgs[1+i], pendingMsgs[i]) {
+				t.Fatalf("Expected pending message: [%v]. Got [%v].", msgs[1+i], pendingMsgs[i])
+			}
+		}
+	})
+
+	t.Run("GetPendingMessages/wantData=false", func(t *testing.T) {
+		pendingMsgs, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 0, 0, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pendingMsgs) != len(msgs) {
+			t.Fatalf("Expected %v pending message, got %v", len(msgs), len(pendingMsgs))
+		}
+		for i := range msgs {
+			expectedMsg := proto.Clone(msgs[i]).(*fspb.Message)
+			expectedMsg.Data = nil
+			if !proto.Equal(expectedMsg, pendingMsgs[i]) {
+				t.Fatalf("Expected pending message: [%v]. Got [%v].", expectedMsg, pendingMsgs[i])
+			}
+		}
+	})
+
+	t.Run("DeletePendingMessages", func(t *testing.T) {
+		if err := ms.DeletePendingMessages(ctx, []common.ClientID{clientID}); err != nil {
+			t.Fatal(err)
+		}
+
+		mc, err = ms.ClientMessagesForProcessing(ctx, clientID, 1, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(mc) != 0 {
+			t.Fatalf("No messages for processing were expected, found: %v", mc)
+		}
+
+		for _, id := range ids {
+			mr, err := ms.GetMessageResult(ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mr == nil {
+				t.Fatal("Message result must be in the store after pending message is deleted", mr)
+			}
+			if !mr.Failed {
+				t.Errorf("Expected the message to have failed=true, got: %v", mr.Failed)
+			}
+			if mr.FailedReason != "Removed by admin action." {
+				t.Errorf("Expected the message to have failure reason 'Removed by admin action', got: %v", mr.FailedReason)
+			}
+		}
+	})
 }
 
 type fakeMessageProcessor struct {
@@ -569,7 +701,7 @@ func messageStoreTestSuite(t *testing.T, env DbTestEnv) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
 			"StoreGetMessagesTest":                 storeGetMessagesTest,
 			"StoreMessagesTest":                    storeMessagesTest,
-			"DeletePendingMessagesTest":            deletePendingMessagesTest,
+			"PendingMessagesTest":                  pendingMessagesTest,
 			"ClientMessagesForProcessingTest":      clientMessagesForProcessingTest,
 			"ClientMessagesForProcessingLimitTest": clientMessagesForProcessingLimitTest,
 			"RegisterMessageProcessor":             registerMessageProcessorTest,

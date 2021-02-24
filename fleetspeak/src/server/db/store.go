@@ -125,6 +125,14 @@ type MessageStore interface {
 	// DeletePendingMessages removes all pending messages for given clients.
 	DeletePendingMessages(ctx context.Context, ids []common.ClientID) error
 
+	// GetPendingMessageCount returns the number of pending messages for the given clients.
+	GetPendingMessageCount(ctx context.Context, ids []common.ClientID) (uint64, error)
+
+	// GetPendingMessages returns pending messages for given clients.
+	// If wantData is true, message data is retrieved as well.
+	// offset and limit are optional, set them to 0 to retrieve all pending messages.
+	GetPendingMessages(ctx context.Context, ids []common.ClientID, offset uint64, limit uint64, wantData bool) ([]*fspb.Message, error)
+
 	// ClientMessagesForProcessing returns messages that are due to be
 	// processed by a client. It also increments the time at which the
 	// messages will again become overdue using rp.

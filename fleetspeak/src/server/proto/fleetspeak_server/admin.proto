@@ -53,6 +53,25 @@ message DeletePendingMessagesRequest {
   repeated bytes client_ids = 1;
 }
 
+message GetPendingMessagesRequest {
+  repeated bytes client_ids = 1;
+  uint64 offset = 2;
+  uint64 limit = 3;
+  bool want_data = 4;
+}
+
+message GetPendingMessagesResponse {
+  repeated fleetspeak.Message messages = 1;
+}
+
+message GetPendingMessageCountRequest {
+  repeated bytes client_ids = 1;
+}
+
+message GetPendingMessageCountResponse {
+  uint64 count = 1;
+}
+
 message GetMessageStatusResponse {
   google.protobuf.Timestamp creation_time = 1;
   MessageResult result = 2;
@@ -124,6 +143,14 @@ service Admin {
 
   // DeletePendingMessages clears message queues for given clients.
   rpc DeletePendingMessages (DeletePendingMessagesRequest) returns (fleetspeak.EmptyMessage) {
+  }
+
+  // Returns the pending messages for given clients.
+  rpc GetPendingMessages (GetPendingMessagesRequest) returns (GetPendingMessagesResponse) {
+  }
+
+  // Returns the number of pending messages for the given clients.
+  rpc GetPendingMessageCount (GetPendingMessageCountRequest) returns (GetPendingMessageCountResponse) {
   }
 
   // StoreFile inserts a file into the Fleetspeak system.

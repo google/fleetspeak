@@ -88,6 +88,20 @@ func (d MonitoredDatastore) DeletePendingMessages(ctx context.Context, ids []com
 	return err
 }
 
+func (d MonitoredDatastore) GetPendingMessageCount(ctx context.Context, ids []common.ClientID) (uint64, error) {
+	s := ftime.Now()
+	res, err := d.D.GetPendingMessageCount(ctx, ids)
+	d.C.DatastoreOperation(s, ftime.Now(), "GetPendingMessageCount", err)
+	return res, err
+}
+
+func (d MonitoredDatastore) GetPendingMessages(ctx context.Context, ids []common.ClientID, offset uint64, limit uint64, wantData bool) ([]*fspb.Message, error) {
+	s := ftime.Now()
+	res, err := d.D.GetPendingMessages(ctx, ids, offset, limit, wantData)
+	d.C.DatastoreOperation(s, ftime.Now(), "GetPendingMessages", err)
+	return res, err
+}
+
 func (d MonitoredDatastore) GetMessages(ctx context.Context, ids []common.MessageID, wantData bool) ([]*fspb.Message, error) {
 	s := ftime.Now()
 	res, err := d.D.GetMessages(ctx, ids, wantData)
