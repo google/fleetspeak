@@ -295,7 +295,7 @@ func TestPendingMessages(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "AdminServer", nil)
+	ts := testserver.Make(t, "server", "TestPendingMessages", nil)
 	defer ts.S.Stop()
 
 	key, err := ts.AddClient()
