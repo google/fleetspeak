@@ -123,7 +123,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	addr := addrFromString(req.RemoteAddr)
 	info, moreMsgs, err := s.initialPoll(ctx, addr, cert.PublicKey, fullRes, body)
 	if err != nil || info == nil {
-		if err {
+		if err != nil {
 			log.Warningf("Initial poll failed for %v: %v", addr, err)
 		}
 		return
