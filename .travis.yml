@@ -38,10 +38,9 @@ matrix:
         - go vet ./... || true
         - source "${HOME}/FSENV/bin/activate"
         - fleetspeak/generate_go_py_protos.sh
-        #- if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
-       - if true; then
+         if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
             echo "At least one generated proto file is not in sync with the committed generated proto files."
-            echo "Please run `PATH=~/go/bin:\$PATH fleetspeak/generate_go_py_protos.sh` with protoc-gen-go version 1.4.2."
+            echo "Please run \`PATH=~/go/bin:\$PATH fleetspeak/generate_go_py_protos.sh\` with protoc-gen-go version 1.4.2."
             echo "pip packages:"
             pip freeze
             exit 1;
