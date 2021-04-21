@@ -278,7 +278,7 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 		if len(msgs) == 0 {
 			return nil, err
 		}
-		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
+		log.Warningf("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
 	log.V(1).Infof("FindMessagesForClient(%v): found %d messages for tokens: %v", info.Client.ID, len(msgs), tokens)
 	if tokens != nil {
