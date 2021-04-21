@@ -67,6 +67,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		ClientLabels: wcd.ClientLabels,
 	}
 	if !c.s.authorizer.Allow2(addr, contactInfo) {
+		log.Warningf("[id:%v addr:%v labels:%v] Allow2 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
@@ -86,6 +87,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	}
 
 	if !c.s.authorizer.Allow3(addr, contactInfo, res.AuthClientInfo) {
+		log.Warningf("[id:%v addr:%v labels:%v] Allow3 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
@@ -120,6 +122,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.AuthClientInfo,
 		sigs)
 	if !accept {
+		log.Warningf("[id:%v addr:%v labels:%v] Allow4 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
@@ -275,7 +278,7 @@ func (c commsContext) findMessagesForClient(ctx context.Context, info *comms.Con
 		if len(msgs) == 0 {
 			return nil, err
 		}
-		log.Warning("Got %v messages along with error, continuing: %v", len(msgs), err)
+		log.Warningf("Got %v messages along with error, continuing: %v", len(msgs), err)
 	}
 	log.V(1).Infof("FindMessagesForClient(%v): found %d messages for tokens: %v", info.Client.ID, len(msgs), tokens)
 	if tokens != nil {

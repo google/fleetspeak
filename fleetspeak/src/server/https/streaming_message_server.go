@@ -120,7 +120,8 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	info, moreMsgs, err := s.initialPoll(ctx, addrFromString(req.RemoteAddr), cert.PublicKey, fullRes, body)
+	addr := addrFromString(req.RemoteAddr)
+	info, moreMsgs, err := s.initialPoll(ctx, addr, cert.PublicKey, fullRes, body)
 	if err != nil || info == nil {
 		return
 	}
@@ -190,7 +191,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	}()
 
 	makeError := func(msg string, status int) error {
-		log.ErrorDepth(1, fmt.Sprintf("%s: %s", http.StatusText(status), msg))
+		log.ErrorDepth(1, fmt.Sprintf("%s: [id:%v addr:%v] %s", http.StatusText(status), pi.ID, addr, msg))
 		pi.Status = status
 		return errors.New(msg)
 	}
