@@ -191,7 +191,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	}()
 
 	makeError := func(msg string, status int) error {
-		log.ErrorDepth(1, fmt.Sprintf("%s: [%v %v] %s", http.StatusText(status), pi.ID, addr, msg))
+		log.ErrorDepth(1, fmt.Sprintf("%s: [id:%v addr:%v] %s", http.StatusText(status), pi.ID, addr, msg))
 		pi.Status = status
 		return errors.New(msg)
 	}

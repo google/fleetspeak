@@ -67,7 +67,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		ClientLabels: wcd.ClientLabels,
 	}
 	if !c.s.authorizer.Allow2(addr, contactInfo) {
-		log.Warningf("Allow2 failed for %v", addr)
+		log.Warningf("[id:%v addr:%v labels:%v] Allow2 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
@@ -87,7 +87,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	}
 
 	if !c.s.authorizer.Allow3(addr, contactInfo, res.AuthClientInfo) {
-		log.Warningf("Allow3 failed for %v", addr)
+		log.Warningf("[id:%v addr:%v labels:%v] Allow3 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
@@ -122,7 +122,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		res.AuthClientInfo,
 		sigs)
 	if !accept {
-		log.Warningf("Allow4 failed for %v", addr)
+		log.Warningf("[id:%v addr:%v labels:%v] Allow4 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
 
