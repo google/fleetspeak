@@ -130,6 +130,13 @@ func (d MonitoredDatastore) ListClients(ctx context.Context, ids []common.Client
 	return res, err
 }
 
+func (d MonitoredDatastore) StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error {
+	s := ftime.Now()
+	err := d.D.StreamClientIds(ctx, callback)
+	d.C.DatastoreOperation(s, ftime.Now(), "StreamClientIds", err)
+	return err
+}
+
 func (d MonitoredDatastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	s := ftime.Now()
 	res, err := d.D.GetClientData(ctx, id)
@@ -181,6 +188,13 @@ func (d MonitoredDatastore) ListClientContacts(ctx context.Context, id common.Cl
 	res, err := d.D.ListClientContacts(ctx, id)
 	d.C.DatastoreOperation(s, ftime.Now(), "ListClientContacts", err)
 	return res, err
+}
+
+func (d MonitoredDatastore) StreamClientContacts(ctx context.Context, id common.ClientID, callback func(*spb.ClientContact) error) error {
+	s := ftime.Now()
+	err := d.D.StreamClientContacts(ctx, id, callback)
+	d.C.DatastoreOperation(s, ftime.Now(), "StreamClientContacts", err)
+	return err
 }
 
 func (d MonitoredDatastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {

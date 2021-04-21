@@ -51,6 +51,32 @@ func uint64ToBytes(i uint64) []byte {
 	return b
 }
 
+func (d *Datastore) StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error {
+	return d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		rs, err := tx.QueryContext(ctx, "SELECT client_id FROM clients")
+		if err != nil {
+			return err
+		}
+		defer rs.Close()
+		for rs.Next() {
+			var bid []byte
+			err := rs.Scan(&bid)
+			if err != nil {
+				return err
+			}
+			id, err := common.BytesToClientID(bid)
+			if err != nil {
+				return err
+			}
+			err = callback(id)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error) {
 	// Return value map, maps string client ids to the return values.
 	var retm map[string]*spb.Client
@@ -265,10 +291,8 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 	return res, err
 }
 
-func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
-	var res []*spb.ClientContact
-	if err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
-		res = nil
+func (d *Datastore) StreamClientContacts(ctx context.Context, id common.ClientID, callback func(*spb.ClientContact) error) error {
+	return d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
 			ctx,
 			"SELECT time, sent_nonce, received_nonce, address FROM client_contacts WHERE client_id = ?",
@@ -304,14 +328,22 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 			}
 			c.Timestamp = ts
 
-			res = append(res, c)
+			err = callback(c)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
-	}); err != nil {
-		return nil, err
-	}
+	})
+}
 
-	return res, nil
+func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+	var res []*spb.ClientContact
+	callback := func(c *spb.ClientContact) error {
+		res = append(res, c)
+		return nil
+	}
+	return res, d.StreamClientContacts(ctx, id, callback)
 }
 
 func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, ids []common.MessageID) error {

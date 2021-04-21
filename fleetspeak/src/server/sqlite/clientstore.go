@@ -153,6 +153,34 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	return ret, err
 }
 
+func (d *Datastore) StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error {
+	d.l.Lock()
+	defer d.l.Unlock()
+	return d.runInTx(func(tx *sql.Tx) error {
+		rs, err := tx.QueryContext(ctx, "SELECT client_id FROM clients")
+		if err != nil {
+			return err
+		}
+		defer rs.Close()
+		for rs.Next() {
+			var sid string
+			err := rs.Scan(&sid)
+			if err != nil {
+				return err
+			}
+			id, err := common.StringToClientID(sid)
+			if err != nil {
+				return err
+			}
+			err = callback(id)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (d *Datastore) GetClientData(ctx context.Context, id common.ClientID) (*db.ClientData, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
@@ -262,11 +290,10 @@ func (d *Datastore) RecordClientContact(ctx context.Context, data db.ContactData
 	return res, err
 }
 
-func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+func (d *Datastore) StreamClientContacts(ctx context.Context, id common.ClientID, callback func(*spb.ClientContact) error) error {
 	d.l.Lock()
 	defer d.l.Unlock()
 
-	var res []*spb.ClientContact
 	if err := d.runInTx(func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(
 			ctx,
@@ -304,14 +331,26 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 			}
 			c.Timestamp = ts
 
-			res = append(res, c)
+			err = callback(c)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return err
 	}
 
-	return res, nil
+	return nil
+}
+
+func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error) {
+	var res []*spb.ClientContact
+	callback := func(c *spb.ClientContact) error {
+		res = append(res, c)
+		return nil
+	}
+	return res, d.StreamClientContacts(ctx, id, callback)
 }
 
 func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.ContactID, ids []common.MessageID) error {
