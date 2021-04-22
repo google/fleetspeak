@@ -123,7 +123,7 @@ func (s adminServer) ListClients(ctx context.Context, req *spb.ListClientsReques
 	}, nil
 }
 
-func (s adminServer) StreamClientIds(_ *spb.StreamClientIdsRequest, srv spb.Admin_StreamClientIdsServer) error {
+func (s adminServer) StreamClientIds(_ *spb.StreamClientIdsRequest, srv sgrpc.Admin_StreamClientIdsServer) error {
 	callback := func(id common.ClientID) error {
 		return srv.Send(&spb.StreamClientIdsResponse{
 			ClientId: id.Bytes(),
@@ -147,7 +147,7 @@ func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClient
 	}, nil
 }
 
-func (s adminServer) StreamClientContacts(req *spb.StreamClientContactsRequest, srv spb.Admin_StreamClientContactsServer) error {
+func (s adminServer) StreamClientContacts(req *spb.StreamClientContactsRequest, srv sgrpc.Admin_StreamClientContactsServer) error {
 	callback := func(contact *spb.ClientContact) error {
 		return srv.Send(&spb.StreamClientContactsResponse{
 			Contact: contact,
