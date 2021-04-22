@@ -123,6 +123,15 @@ func (s adminServer) ListClients(ctx context.Context, req *spb.ListClientsReques
 	}, nil
 }
 
+func (s adminServer) StreamClientIds(_ *spb.StreamClientIdsRequest, srv spb.Admin_StreamClientIdsServer) error {
+	callback := func(id common.ClientID) error {
+		return srv.Send(&spb.StreamClientIdsResponse{
+			ClientId: id.Bytes(),
+		})
+	}
+	return s.store.StreamClientIds(srv.Context(), callback)
+}
+
 func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClientContactsRequest) (*spb.ListClientContactsResponse, error) {
 	id, err := common.BytesToClientID(req.ClientId)
 	if err != nil {
@@ -136,6 +145,19 @@ func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClient
 	return &spb.ListClientContactsResponse{
 		Contacts: contacts,
 	}, nil
+}
+
+func (s adminServer) StreamClientContacts(req *spb.StreamClientContactsRequest, srv spb.Admin_StreamClientContactsServer) error {
+	callback := func(contact *spb.ClientContact) error {
+		return srv.Send(&spb.StreamClientContactsResponse{
+			Contact: contact,
+		})
+	}
+	id, err := common.BytesToClientID(req.ClientId)
+	if err != nil {
+		return err
+	}
+	return s.store.StreamClientContacts(srv.Context(), id, callback)
 }
 
 func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.EmptyMessage, error) {

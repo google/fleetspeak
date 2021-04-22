@@ -250,22 +250,41 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 		t.Errorf("ListClients error: want [%v] got [%v]", want, got)
 	}
 
-	contacts, err := ds.ListClientContacts(ctx, clientID)
-	if err != nil {
-		t.Errorf("ListClientContacts returned error: %v", err)
-	}
-	if len(contacts) != 1 {
-		t.Errorf("ListClientContacts returned %d results, expected 1.", len(contacts))
-	} else {
-		if contacts[0].SentNonce != 42 || contacts[0].ReceivedNonce != 54 {
-			t.Errorf("ListClientContact[0] should return nonces (42, 54), got (%d, %d)",
-				contacts[0].SentNonce, contacts[0].ReceivedNonce)
-		}
-		if contacts[0].ObservedAddress != longAddr {
-			t.Errorf("ListClientContact[0] should return address %s, got %s",
-				longAddr, contacts[0].ObservedAddress)
+	checkClientContacts := func(t *testing.T, contacts []*spb.ClientContact) {
+		if len(contacts) != 1 {
+			t.Errorf("ListClientContacts returned %d results, expected 1.", len(contacts))
+		} else {
+			if contacts[0].SentNonce != 42 || contacts[0].ReceivedNonce != 54 {
+				t.Errorf("ListClientContact[0] should return nonces (42, 54), got (%d, %d)",
+					contacts[0].SentNonce, contacts[0].ReceivedNonce)
+			}
+			if contacts[0].ObservedAddress != longAddr {
+				t.Errorf("ListClientContact[0] should return address %s, got %s",
+					longAddr, contacts[0].ObservedAddress)
+			}
 		}
 	}
+
+	t.Run("ListClientContacts", func(t *testing.T) {
+		contacts, err := ds.ListClientContacts(ctx, clientID)
+		if err != nil {
+			t.Errorf("ListClientContacts returned error: %v", err)
+		}
+		checkClientContacts(t, contacts)
+	})
+
+	t.Run("StreamClientContacts", func(t *testing.T) {
+		var contacts []*spb.ClientContact
+		callback := func(contact *spb.ClientContact) error {
+			contacts = append(contacts, contact)
+			return nil
+		}
+		err := ds.StreamClientContacts(ctx, clientID, callback)
+		if err != nil {
+			t.Errorf("StreamClientContacts returned error: %v", err)
+		}
+		checkClientContacts(t, contacts)
+	})
 
 	if err := ds.BlacklistClient(ctx, clientID); err != nil {
 		t.Errorf("Error blacklisting client: %v", err)
@@ -347,6 +366,38 @@ Cases:
 		if !reflect.DeepEqual(tc.wantBlacklisted, gotBlacklisted) {
 			t.Errorf("ListClients(%v) returned unexpected set of blacklisted clients, want [%v], got[%v]", tc.ids, tc.wantBlacklisted, gotBlacklisted)
 		}
+	}
+}
+
+func streamClientIdsTest(t *testing.T, ds db.Store) {
+	ctx := context.Background()
+
+	clientIds := []common.ClientID{clientID, clientID2, clientID3}
+
+	for _, cid := range clientIds {
+		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key")}); err != nil {
+			t.Fatalf("AddClient [%v] failed: %v", clientID, err)
+		}
+	}
+
+	var result []common.ClientID
+
+	callback := func(id common.ClientID) error {
+		result = append(result, id)
+		return nil
+	}
+
+	err := ds.StreamClientIds(ctx, callback)
+	if err != nil {
+		t.Fatalf("StreamClientIds failed", err)
+	}
+
+	sort.Slice(result, func(i int, j int) bool {
+		return bytes.Compare(result[i].Bytes(), result[j].Bytes()) < 0
+	})
+
+	if !reflect.DeepEqual(result, clientIds) {
+		t.Errorf("StreamClientIds returned unexpected result. Got: [%v]. Want: [%v].", result, clientIds)
 	}
 }
 
@@ -486,6 +537,7 @@ func clientStoreTestSuite(t *testing.T, env DbTestEnv) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
 			"ClientStoreTest":               clientStoreTest,
 			"ListClientsTest":               listClientsTest,
+			"StreamClientIdsTest":           streamClientIdsTest,
 			"FetchResourceUsageRecordsTest": fetchResourceUsageRecordsTest,
 		})
 	})

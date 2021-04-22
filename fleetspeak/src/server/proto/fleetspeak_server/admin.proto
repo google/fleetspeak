@@ -33,6 +33,13 @@ message ListClientsResponse {
   repeated Client clients = 1;
 }
 
+message StreamClientIdsRequest {
+}
+
+message StreamClientIdsResponse {
+  bytes client_id = 1;
+}
+
 message Client {
   // Next unused tag: 8
 
@@ -91,6 +98,14 @@ message ListClientContactsResponse {
   repeated ClientContact contacts = 1;
 }
 
+message StreamClientContactsRequest {
+  bytes client_id = 1;
+}
+
+message StreamClientContactsResponse {
+  ClientContact contact = 1;
+}
+
 message ClientContact {
   fixed64 sent_nonce = 1;
   fixed64 received_nonce = 2;
@@ -126,8 +141,16 @@ service Admin {
   rpc ListClients (ListClientsRequest) returns (ListClientsResponse) {
   }
 
+  // StreamClientIds lists the currently active FS clients as a stream.
+  rpc StreamClientIds (StreamClientIdsRequest) returns (stream StreamClientIdsResponse) {
+  }
+
   // ListClientContacts lists the contact history for a client.
   rpc ListClientContacts (ListClientContactsRequest) returns (ListClientContactsResponse) {
+  }
+
+  // StreamClientContacts lists the contact history for a client as a stream.
+  rpc StreamClientContacts (StreamClientContactsRequest) returns (stream StreamClientContactsResponse) {
   }
 
   // GetMessageStatus retrieves the current status of a message.

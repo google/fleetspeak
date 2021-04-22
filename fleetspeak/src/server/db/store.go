@@ -199,6 +199,9 @@ type ClientStore interface {
 	// returns all clients.
 	ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error)
 
+  // StreamClientIds streams the IDs of all available clients.
+	StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error
+
 	// GetClientData retrieves the current data about the client identified
 	// by id.
 	GetClientData(ctx context.Context, id common.ClientID) (*ClientData, error)
@@ -228,6 +231,9 @@ type ClientStore interface {
 	// stale. Also, it is normal (and expected) for a datastore to delete contact
 	// older than a few weeks.
 	ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error)
+
+  // StreamClientContacts is a streaming version of ListClientContacts.
+	StreamClientContacts(ctx context.Context, id common.ClientID, callback func(*spb.ClientContact) error) error
 
 	// LinkMessagesToContact associates messages with a contact - it records
 	// that they were sent or received during the given contact.

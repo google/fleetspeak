@@ -17,9 +17,12 @@ package servertests_test
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	"google.golang.org/grpc"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -125,6 +128,20 @@ func TestMessageStatusAPI(t *testing.T) {
 	}
 }
 
+type mockStreamClientIdsServer struct {
+	grpc.ServerStream
+	responses []*spb.StreamClientIdsResponse
+}
+
+func (m *mockStreamClientIdsServer) Send(response *spb.StreamClientIdsResponse) error {
+	m.responses = append(m.responses, response)
+	return nil
+}
+
+func (m *mockStreamClientIdsServer) Context() context.Context {
+	return context.Background()
+}
+
 func TestListClientsAPI(t *testing.T) {
 	ctx := context.Background()
 
@@ -166,38 +183,60 @@ func TestListClientsAPI(t *testing.T) {
 		t.Errorf("AddClient returned an error: %v", err)
 	}
 
-	lcRes, err := as.ListClients(ctx, &spb.ListClientsRequest{})
-	if err != nil {
-		t.Errorf("ListClients returned an error: %v", err)
-	}
+	t.Run("ListClients", func(t *testing.T) {
+		lcRes, err := as.ListClients(ctx, &spb.ListClientsRequest{})
+		if err != nil {
+			t.Errorf("ListClients returned an error: %v", err)
+		}
 
-	lcWant := &spb.ListClientsResponse{
-		Clients: []*spb.Client{
-			{
-				ClientId: id0,
+		lcWant := &spb.ListClientsResponse{
+			Clients: []*spb.Client{
+				{
+					ClientId: id0,
+				},
+				{
+					ClientId: id1,
+					Labels:   lab1,
+				},
 			},
-			{
-				ClientId: id1,
-				Labels:   lab1,
-			},
-		},
-	}
+		}
 
-	// The result's order is arbitrary, so let's sort it.
-	sort.Slice(lcRes.Clients, func(i, j int) bool {
-		return bytes.Compare(lcRes.Clients[i].ClientId, lcRes.Clients[j].ClientId) < 0
+		// The result's order is arbitrary, so let's sort it.
+		sort.Slice(lcRes.Clients, func(i, j int) bool {
+			return bytes.Compare(lcRes.Clients[i].ClientId, lcRes.Clients[j].ClientId) < 0
+		})
+
+		for _, c := range lcRes.Clients {
+			if c.LastContactTime == nil {
+				t.Errorf("ListClients error: LastSeenTimestamp is nil")
+			}
+			c.LastContactTime = nil
+		}
+
+		if !proto.Equal(lcRes, lcWant) {
+			t.Errorf("ListClients error: want [%v], got [%v]", lcWant, lcRes)
+		}
 	})
 
-	for _, c := range lcRes.Clients {
-		if c.LastContactTime == nil {
-			t.Errorf("ListClients error: LastSeenTimestamp is nil")
+	t.Run("StreamClientIds", func(t *testing.T) {
+		var m mockStreamClientIdsServer
+		req := &spb.StreamClientIdsRequest{}
+		err := as.StreamClientIds(req, &m)
+		if err != nil {
+			t.Errorf("StreamClientIds returned an error: %v", err)
 		}
-		c.LastContactTime = nil
-	}
-
-	if !proto.Equal(lcRes, lcWant) {
-		t.Errorf("ListClients error: want [%v], got [%v]", lcWant, lcRes)
-	}
+		var ids [][]byte
+		for _, response := range m.responses {
+			ids = append(ids, response.ClientId)
+		}
+		sort.Slice(ids, func(i, j int) bool {
+			return bytes.Compare(ids[i], ids[j]) < 0
+		})
+		expected := [][]byte{id0, id1}
+		if !reflect.DeepEqual(ids, expected) {
+			t.Errorf("StreamClientIds error: want [%v], got [%v].", expected, ids)
+		}
+	})
 }
 
 func TestInsertMessageAPI(t *testing.T) {
@@ -471,4 +510,78 @@ func TestPendingMessages(t *testing.T) {
 			t.Errorf("ClientMessagesForProcessing(%v) was expected to return 0 messages, got: %v", id, msgs)
 		}
 	})
+}
+
+type mockStreamClientContactsServer struct {
+	grpc.ServerStream
+	responses []*spb.StreamClientContactsResponse
+}
+
+func (m *mockStreamClientContactsServer) Send(response *spb.StreamClientContactsResponse) error {
+	m.responses = append(m.responses, response)
+	return nil
+}
+
+func (m *mockStreamClientContactsServer) Context() context.Context {
+	return context.Background()
+}
+
+func TestClientContacts(t *testing.T) {
+	ctx := context.Background()
+
+	ts := testserver.Make(t, "server", "TestPendingMessages", nil)
+	defer ts.S.Stop()
+
+	as := admin.NewServer(ts.DS, nil)
+
+	id := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+	cid, err := common.BytesToClientID(id)
+	if err != nil {
+		t.Fatalf("Failed to convert ID: %v.", err)
+	}
+
+	err = ts.DS.AddClient(ctx, cid, &db.ClientData{})
+	if err != nil {
+		t.Fatalf("Failed to add client: %v.", err)
+	}
+
+	for _, data := range []db.ContactData{
+		{
+			ClientID: cid,
+			Addr:     "a1",
+		},
+		{
+			ClientID: cid,
+			Addr:     "a2",
+		},
+	} {
+		_, err = ts.DS.RecordClientContact(ctx, data)
+		if err != nil {
+			t.Fatalf("Failed to record client contact: %v.", err)
+		}
+	}
+
+	t.Run("StreamClientContacts", func(t *testing.T) {
+		req := &spb.StreamClientContactsRequest{
+			ClientId: id,
+		}
+		var m mockStreamClientContactsServer
+		err := as.StreamClientContacts(req, &m)
+		if err != nil {
+			t.Fatalf("StreamClientContacts failed: %v.", err)
+		}
+
+		var addrs []string
+		for _, response := range m.responses {
+			addrs = append(addrs, response.Contact.ObservedAddress)
+		}
+		sort.Strings(addrs)
+
+		expected := []string{"a1", "a2"}
+
+		if !reflect.DeepEqual(addrs, expected) {
+			t.Errorf("StreamClientContacts error: want [%v], got [%v].", expected, addrs)
+		}
+	})
+
 }
