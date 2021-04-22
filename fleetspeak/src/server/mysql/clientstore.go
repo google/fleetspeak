@@ -348,6 +348,7 @@ func (d *Datastore) ListClientContacts(ctx context.Context, id common.ClientID) 
 		return nil
 	}
 	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
+		res = res[:0]
 		return d.streamClientContacts(ctx, tx, id, callback)
 	})
 	return res, err
