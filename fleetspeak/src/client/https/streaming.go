@@ -129,7 +129,12 @@ func (c *StreamingCommunicator) connectLoop() {
 		var con *connection
 		var err error
 		for i, h := range c.hosts {
-			conCTX, fin := context.WithTimeout(c.ctx, 60*time.Second)
+			// We send the first chunk of messages right during the connect()
+			// call. connect() will only return when this chunk (max 20Mb in size)
+			// is fully sent. Setting a 12 minutes timeout means that even in the worst
+			// case (20Mb-sized chunk) a 28Kbyte/s connection would be enough to
+			// successfully connect.
+			conCTX, fin := context.WithTimeout(c.ctx, 12*time.Minute)
 			// The server limits us to a 10m connection, and we prefer that
 			// the server close the connection so it can minimize the chance of
 			// a message getting lost while being sent to us.
