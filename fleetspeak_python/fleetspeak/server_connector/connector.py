@@ -20,6 +20,7 @@ import os
 import logging
 import threading
 import time
+from typing import Optional
 
 from absl import flags
 from concurrent import futures
@@ -210,6 +211,25 @@ class OutgoingConnection(object):
 
     return self._RetryLoop(
       lambda t: self._stub.DeletePendingMessages(request, timeout=t)
+    )
+
+  def GetPendingMessages(
+      self,
+      request: admin_pb2.GetPendingMessagesRequest,
+      timeout: Optional[float] = None) -> admin_pb2.GetPendingMessagesResponse:
+    return self._RetryLoop(
+      lambda t: self._stub.GetPendingMessages(request, timeout=t),
+      timeout=timeout,
+    )
+
+  def GetPendingMessageCount(
+      self,
+      request: admin_pb2.GetPendingMessageCountRequest,
+      timeout: Optional[float] = None,
+  ) -> admin_pb2.GetPendingMessageCountResponse:
+    return self._RetryLoop(
+      lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
+      timeout=timeout,
     )
 
   def ListClients(self, request, timeout=None):

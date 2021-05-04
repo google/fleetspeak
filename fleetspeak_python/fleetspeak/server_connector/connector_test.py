@@ -37,6 +37,12 @@ class FakeStub(object):
     self.delete_done = False
     self.delete_errors = 1
 
+    self.get_done = False
+    self.get_errors = 1
+
+    self.get_count_done = False
+    self.get_count_errors = 1
+
   def KeepAlive(self, unused, timeout=None):
     del unused
     del timeout
@@ -56,6 +62,20 @@ class FakeStub(object):
       self.delete_errors -= 1
       raise grpc.RpcError("delete_errors is positive, try again")
     self.delete_done = True
+
+  def GetPendingMessages(self, message, timeout=None):
+    del timeout
+    if self.get_errors:
+      self.get_errors -= 1
+      raise grpc.RpcError("get_errors is positive, try again")
+    self.get_done = True
+
+  def GetPendingMessageCount(self, message, timeout=None):
+    del timeout
+    if self.get_count_errors:
+      self.get_count_errors -= 1
+      raise grpc.RpcError("get_count_errors is positive, try again")
+    self.get_count_done = True
 
 
 class ClientTest(absltest.TestCase):
@@ -80,6 +100,20 @@ class ClientTest(absltest.TestCase):
     s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
     self.assertTrue(t.delete_done)
     self.assertFalse(t.delete_errors)
+
+  def testGetPendingMessages(self):
+    t = FakeStub()
+    s = connector.OutgoingConnection(None, 'test', t)
+    s.GetPendingMessages(admin_pb2.GetPendingMessagesRequest())
+    self.assertTrue(t.get_done)
+    self.assertFalse(t.get_errors)
+
+  def testGetPendingMessageCount(self):
+    t = FakeStub()
+    s = connector.OutgoingConnection(None, 'test', t)
+    s.GetPendingMessageCount(admin_pb2.GetPendingMessageCountRequest())
+    self.assertTrue(t.get_count_done)
+    self.assertFalse(t.get_count_errors)
 
 if __name__ == '__main__':
   absltest.main()
