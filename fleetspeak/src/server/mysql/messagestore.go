@@ -705,6 +705,10 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 				}
 			}
 
+			if len(res) >= int(lim) {
+				continue
+			}
+
 			updates = append(updates, &pendingUpdate{
 				id:  dbm.messageID,
 				nc:  dbm.retryCount + 1,
@@ -714,14 +718,10 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 				return err
 			}
 			res = append(res, m)
-			if len(res) >= int(lim) {
-				return nil
-			}
 		}
 		if err := rs.Err(); err != nil {
 			return err
 		}
-		rs.Close()
 		for _, u := range updates {
 			if _, err := tx.ExecContext(ctx, "UPDATE pending_messages SET retry_count=?, scheduled_time=? WHERE for_server=0 AND message_id=?", u.nc, u.due, u.id); err != nil {
 				return err
