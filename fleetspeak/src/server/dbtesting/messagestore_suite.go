@@ -289,6 +289,22 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 	if len(m) != 10 {
 		t.Errorf("ClientMessagesForProcessing(10, nil) returned %d messages, but expected 5.", len(m))
 	}
+
+	// Get all messages remaining for processing, with limit.
+
+	for i := 0; i < 20; i++ {
+		_, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
+		if err != nil {
+			t.Fatalf("ClientMessagesForProcessing(10, nil) returned unexpected error: %v", err)
+		}
+	}
+
+	// There should be no messages left for processing.
+
+	m, err = ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
+	if len(m) != 0 {
+		t.Fatalf("Exepcted 0 messages, got %v.", len(m))
+	}
 }
 
 func checkMessageResults(t *testing.T, ms db.Store, statuses map[common.MessageID]*fspb.MessageResult) {
