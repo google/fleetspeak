@@ -233,6 +233,10 @@ func (d *Datastore) getPendingMessageRawIds(ctx context.Context, tx *sql.Tx, ids
 		"ORDER BY message_id",
 		genPlaceholders((len(ids))))
 
+	if offset != 0 && limit == 0 {
+		return nil, fmt.Errorf("if offset is provided, a limit must be provided as well")
+	}
+
 	if limit != 0 {
 		squery += " LIMIT ?"
 	}
@@ -262,7 +266,7 @@ func (d *Datastore) getPendingMessageRawIds(ctx context.Context, tx *sql.Tx, ids
 
 	rs, err := tx.QueryContext(ctx, squery, args...)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch the list of messages to delete: %v", err)
+		return nil, fmt.Errorf("Failed to fetch the list of pending messages: %v", err)
 	}
 	defer rs.Close()
 	for rs.Next() {
