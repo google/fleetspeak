@@ -594,6 +594,28 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 		}
 	})
 
+	t.Run("GetPendingMessages/wantData=true/limit", func(t *testing.T) {
+		pendingMsgs, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 0, 1, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pendingMsgs) != 1 {
+			t.Fatalf("Expected %v pending messages, got %v", 1, len(pendingMsgs))
+		}
+		for i := range pendingMsgs {
+			if !proto.Equal(msgs[i], pendingMsgs[i]) {
+				t.Fatalf("Expected pending message: [%v]. Got [%v].", msgs[i], pendingMsgs[i])
+			}
+		}
+	})
+
+	t.Run("GetPendingMessages/wantData=true/offset", func(t *testing.T) {
+		_, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 1, 0, true)
+		if err == nil {
+			t.Fatal("Expected to get error, but got none.")
+		}
+	})
+
 	t.Run("GetPendingMessages/wantData=false", func(t *testing.T) {
 		pendingMsgs, err := ms.GetPendingMessages(ctx, []common.ClientID{clientID}, 0, 0, false)
 		if err != nil {

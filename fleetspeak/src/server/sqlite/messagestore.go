@@ -410,6 +410,10 @@ func (d *Datastore) getPendingMessageRawIds(ctx context.Context, tx *sql.Tx, ids
 		"ORDER BY message_id ",
 		genPlaceholders((len(ids))))
 
+	if offset != 0 && limit == 0 {
+		return nil, fmt.Errorf("if offset is provided, a limit must be provided as well")
+	}
+
 	if limit != 0 {
 		squery += " LIMIT ?"
 	}
