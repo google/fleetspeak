@@ -1,6 +1,6 @@
 on: push
 jobs:
-  build-linux:
+  test-linux:
     runs-on: ubuntu-18.04
     env:
       MYSQL_TEST_USER: root
@@ -66,6 +66,17 @@ jobs:
           cd fleetspeak
           ./build-pkgs.sh
           sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+  
+  build-linux:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
       - name: Build installers
         run: |
           cd fleetspeak
@@ -86,12 +97,12 @@ jobs:
           python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
           # Copy wheels
           cp dist/*.whl $DEPLOY_PATH
-      - name: Upload installers to GCS
-        uses: google-github-actions/upload-cloud-storage@main
+      - name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
         with:
-          credentials: ${{ secrets.GCP_SA_KEY }}
+          name: linux-installers
           path: deploy/
-          destination: ${{ env.GCS_BUCKET }}
+          retention-days: 1
 
   build-windows:
     runs-on: windows-latest
@@ -150,3 +161,18 @@ jobs:
           python fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
+
+  upload-installers:
+    runs-on: ubuntu-18.04
+    needs:
+    - build-linux
+    - build-windows
+    - build-osx
+    - test-linux
+    steps:
+    - name: Upload installers to GCS
+      uses: google-github-actions/upload-cloud-storage@main
+      with:
+        credentials: ${{ secrets.GCP_SA_KEY }}
+        path: deploy/
+        destination: ${{ env.GCS_BUCKET }}
