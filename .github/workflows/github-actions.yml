@@ -170,8 +170,8 @@ jobs:
         run: |
           pip install wheel
       - uses: ankane/setup-mysql@v1    
-          with:
-            database: testdb
+        with:
+          database: testdb
       - name: Build installers
         run: |
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }}
