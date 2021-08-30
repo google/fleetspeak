@@ -44,6 +44,9 @@ apt install -y $2
 # Check that the client is up and running.
 systemctl is-active fleetspeak-client
 
+systemctl -l status fleetspeak-server
+systemctl -l status fleetspeak-client
+
 # Check that fleetspeak_admin functions and returns info about a single client we have.
 fleetspeak-admin -admin_addr localhost:9000 listclients 
 # | grep "[a-z0-9]\{16\} .*client:linux"
