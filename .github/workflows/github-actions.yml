@@ -9,7 +9,14 @@ jobs:
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
       - name: Set up MySQL
         run: |
           sudo /etc/init.d/mysql start
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASSWORD }}
+      - name: Set up Go
+        run: |
+          go get -u golang.org/x/lint/golint
