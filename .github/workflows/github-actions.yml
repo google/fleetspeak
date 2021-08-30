@@ -154,6 +154,8 @@ jobs:
 
   test-osx:
     runs-on: macos-latest
+    # Optional for now, should not mark the whole workflow as failed.
+    continue-on-error: true
     env:
       MYSQL_TEST_USER: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
