@@ -4,10 +4,10 @@ jobs:
   build:
     runs-on: ubuntu-18.04
     env:
-      MYSQL_TEST_USER=root
-      MYSQL_TEST_PASSWORD=root
-      MYSQL_TEST_ADDR=127.0.0.1:3306
-      MYSQL_TEST_E2E_DB=e2e_test_db
+      MYSQL_TEST_USER: root
+      MYSQL_TEST_PASSWORD: root
+      MYSQL_TEST_ADDR: 127.0.0.1:3306
+      MYSQL_TEST_E2E_DB: e2e_test_db
     steps:
       - name: Set up MySQL
         run: |
