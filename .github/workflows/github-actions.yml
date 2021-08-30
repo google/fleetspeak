@@ -112,15 +112,14 @@ jobs:
           cd fleetspeak/client-win
           powershell -ExecutionPolicy Bypass -File ./build.ps1
           cd ../..
-          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
-          mkdir -p $DEPLOY_PATH
-          cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi $DEPLOY_PATH
+          mkdir -p $GITHUB_WORKSPACE/deploy/
+          cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi $GITHUB_WORKSPACE/deploy/
           # Build client wheel
           mkdir pkg-root
           cp fleetspeak-client.exe pkg-root
           cp fleetspeak/client-win/fleetspeak_lib.wxs pkg-root
           python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
-          cp dist/*.whl $DEPLOY_PATH
+          cp dist/*.whl $GITHUB_WORKSPACE/deploy/
 
   build-osx:
     runs-on: macos-latest
@@ -129,10 +128,6 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.15'
-      - name: Install dependencies
-        run: |
-          powershell Install-WindowsFeature Net-Framework-Core
-          cinst -y wixtoolset --version 3.11.1
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7'
