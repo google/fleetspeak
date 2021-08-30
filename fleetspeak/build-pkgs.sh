@@ -64,7 +64,7 @@ fakeroot bash -c '
     --urgency low \
     --controlmaint \
     --distribution unstable \
-    "Built by GitHub Actions at ${TRAVIS_COMMIT}"
+    "Built by GitHub Actions at ${GITHUB_SHA}"
   cd -
 
   mkdir -p client-pkg/usr/bin
