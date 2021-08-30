@@ -1,5 +1,4 @@
-name: GitHub Actions Demo
-on: [push]
+on: push
 jobs:
   build:
     runs-on: ubuntu-18.04
@@ -24,6 +23,12 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: '3.x'
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('*_python/**') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Set up Python
         run: |
           pip install -e ./fleetspeak_python
@@ -35,7 +40,7 @@ jobs:
         run: |
           golint ./... | grep -v 'should have comment or be unexported' || true
           go vet ./... || true
-      - name: Generate Py Protos
+      - name: Check generated protos
         run: |
           fleetspeak/generate_go_py_protos.sh
           if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
@@ -52,3 +57,10 @@ jobs:
       - name: Test
         run: |
           fleetspeak/test.sh
+      - name: Check DEB installation
+        # Install the built package and check that the fleetspeak-config program
+        # doesn't error out.
+        run: |
+          cd fleetspeak
+          ./build-pkgs.sh
+          sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
