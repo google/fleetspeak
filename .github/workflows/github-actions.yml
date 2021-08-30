@@ -103,6 +103,7 @@ jobs:
       - name: Install dependencies
         run: |
           powershell Install-WindowsFeature Net-Framework-Core
+          pip install wheel
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7'
@@ -131,9 +132,11 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7'
+      - name: Install dependencies
+        run: |
+          pip install wheel
       - name: Build installers
         run: |
-          pip install wheels
           go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
           mkdir -p $DEPLOY_PATH
