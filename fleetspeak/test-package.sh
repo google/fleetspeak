@@ -17,6 +17,12 @@ set -ex
 
 /bin/echo 'Installing newly built server package.'
 apt install -y $1
+
+if [[ ! -z "$MYSQL_TEST_USER" ]]
+then
+    sudo sed -i "s/mysql_data_source_name: .*/mysql_data_source_name: $MYSQL_TEST_USER:$MYSQL_TEST_PASS@tcp($MYSQL_TEST_ADDR)\/$MYSQL_TEST_E2E_DB/g" /etc/fleetspeak-server/configurator.config
+fi
+
 sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
 /bin/echo 'Checking that the installation was successful'
