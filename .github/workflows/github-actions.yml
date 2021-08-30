@@ -79,8 +79,8 @@ jobs:
           python-version: '3.7'
       - name: Build installers
         run: |
-          fleetspeak/build.sh
           cd fleetspeak
+          ./build-pkgs.sh
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
           mkdir -p $DEPLOY_PATH
