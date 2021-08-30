@@ -133,6 +133,7 @@ jobs:
           python-version: '3.7'
       - name: Build installers
         run: |
+          pip install wheels
           go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
           mkdir -p $DEPLOY_PATH
