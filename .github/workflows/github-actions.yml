@@ -154,8 +154,6 @@ jobs:
 
   test-osx:
     runs-on: macos-latest
-    # Optional for now, should not mark the whole workflow as failed.
-    continue-on-error: true
     env:
       MYSQL_TEST_USER: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
@@ -171,16 +169,17 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel
+          go get -v -t ./...
       - uses: ankane/setup-mysql@v1    
         with:
-          database: testdb
-      - name: Build installers
+          database: ${{ env.MYSQL_TEST_E2E_DB }}
+      - name: Build
         run: |
-          mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }}
-          go get -v -t ./...
           pip install -e ./fleetspeak_python
           pip install -e ./frr_python
           fleetspeak/build.sh
+      - name: Test
+        run: |
           fleetspeak/test.sh
 
   upload-installers:
