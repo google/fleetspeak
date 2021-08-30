@@ -79,6 +79,7 @@ jobs:
           python-version: '3.7'
       - name: Build installers
         run: |
+          sudo apt install debhelper devscripts dh-systemd fakeroot libparse-debcontrol-perl
           cd fleetspeak
           ./build-pkgs.sh
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
