@@ -103,7 +103,6 @@ jobs:
       - name: Install dependencies
         run: |
           powershell Install-WindowsFeature Net-Framework-Core
-          cinst -y wixtoolset --version 3.11.1
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7'
@@ -124,7 +123,7 @@ jobs:
           cp dist/*.whl $DEPLOY_PATH
 
   build-osx:
-    runs-on: windows-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
