@@ -7,6 +7,7 @@ jobs:
       MYSQL_TEST_PASS: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
+      GCS_BUCKET: grr-github-actions-test
     steps:
       - uses: actions/checkout@v2
       - name: Set up MySQL
@@ -58,10 +59,10 @@ jobs:
       - name: Test
         run: |
           fleetspeak/test.sh
-      - name: Check DEB installation
-        # Install the built package and check that the fleetspeak-config program
-        # doesn't error out.
-        run: |
-          cd fleetspeak
-          ./build-pkgs.sh
-          sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+      # - name: Check DEB installation
+      #   # Install the built package and check that the fleetspeak-config program
+      #   # doesn't error out.
+      #   run: |
+      #     cd fleetspeak
+      #     ./build-pkgs.sh
+      #     sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
