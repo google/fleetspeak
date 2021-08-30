@@ -152,6 +152,33 @@ jobs:
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
 
+  test-osx:
+    runs-on: macos-latest
+    env:
+      MYSQL_TEST_USER: root
+      MYSQL_TEST_ADDR: 127.0.0.1:3306
+      MYSQL_TEST_E2E_DB: e2e_test_db
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install dependencies
+        run: |
+          pip install wheel
+      - uses: ankane/setup-mysql@v1    
+          with:
+            database: testdb
+      - name: Build installers
+        run: |
+          mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }}
+          go get -v -t ./...
+          fleetspeak/build.sh
+          fleetspeak/test.sh
+
   upload-installers:
     runs-on: ubuntu-18.04
     env:
