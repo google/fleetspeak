@@ -121,6 +121,7 @@ jobs:
           cp fleetspeak/client-win/fleetspeak_lib.wxs pkg-root
           python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $GITHUB_WORKSPACE/deploy/
+          ls -la $GITHUB_WORKSPACE/deploy/
 
   build-osx:
     runs-on: macos-latest
@@ -148,3 +149,4 @@ jobs:
           # Build client wheel
           python fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
+          ls -la $DEPLOY_PATH
