@@ -50,5 +50,5 @@ jobs:
         run: |
           fleetspeak/build.sh
       - name: Test
-          run: |
-            fleetspeak/test.sh
+        run: |
+          fleetspeak/test.sh
