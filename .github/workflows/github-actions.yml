@@ -60,6 +60,7 @@ jobs:
       - name: Check DEB installation
         # Install the built package and check that the fleetspeak-config program
         # doesn't error out.
+        timeout-minutes: 10
         run: |
           sudo apt install debhelper devscripts dh-systemd fakeroot libparse-debcontrol-perl
           cd fleetspeak
