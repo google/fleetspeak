@@ -59,10 +59,36 @@ jobs:
       - name: Test
         run: |
           fleetspeak/test.sh
-      # - name: Check DEB installation
-      #   # Install the built package and check that the fleetspeak-config program
-      #   # doesn't error out.
-      #   run: |
-      #     cd fleetspeak
-      #     ./build-pkgs.sh
-      #     sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+      - name: Check DEB installation
+        # Install the built package and check that the fleetspeak-config program
+        # doesn't error out.
+        run: |
+          cd fleetspeak
+          ./build-pkgs.sh
+          sudo ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+      - id: Build installers
+        run: |
+          cd fleetspeak
+          BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
+          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          mkdir -p $DEPLOY_PATH
+          cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
+          cp ./fleetspeak-server_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
+          # pypi doesn't support linux_x86_64, which is the plafrom name targeted by default.
+          # We generate manylinux1_x86_64 manylinux2010_x86_64 packages, which are supported.
+          # Create client wheel
+          dpkg --extract ./fleetspeak-client_$(cat ../VERSION)_amd64.deb client-package-root
+          python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+          python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
+          # Create server wheel
+          dpkg --extract ./fleetspeak-server_$(cat ../VERSION)_amd64.deb server-package-root
+          python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+          python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
+          # Copy wheels
+          cp dist/*.whl $DEPLOY_PATH
+      - id: Upload installers to GCS
+        uses: google-github-actions/upload-cloud-storage@main
+        with:
+          credentials: ${{ secrets.GCP_SA_KEY }}
+          path: deploy/
+          destination: ${{ env.GCS_BUCKET }}
