@@ -62,6 +62,7 @@ jobs:
         # doesn't error out.
         timeout-minutes: 10
         run: |
+          mysql -e 'DROP DATABASE ${{ env.MYSQL_TEST_E2E_DB }}; CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
           sudo apt install debhelper devscripts dh-systemd fakeroot libparse-debcontrol-perl
           cd fleetspeak
           ./build-pkgs.sh
