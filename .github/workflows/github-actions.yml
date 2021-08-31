@@ -188,8 +188,6 @@ jobs:
     runs-on: ubuntu-18.04
     env:
       GCS_BUCKET: grr-github-actions-test
-      ARTIFACTS_PATH: $RUNNER_TEMP/artifacts
-      DEPLOY_PATH: ${{ env.RUNNER_TEMP }}/deploy
     needs:
       - build-linux
       - build-windows
