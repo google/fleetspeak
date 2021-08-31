@@ -198,15 +198,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download installers from GitHub artifacts
+        id: download
         uses: actions/download-artifact@v2
-        path: ${{ env.RUNNER_TEMP }}/artifacts
+        path: ~/_artifacts
       - name: Merge artifacts
         run: |
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
           $DEPLOY_PATH=$RUNNER_TEMP/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
           echo $DEPLOY_PATH
           mkdir -p $DEPLOY_PATH
-          ls -la $RUNNER_TEMP/artifacts/*
+          ls -la ${{ steps.download.outputs.download-path }}/*
           mv -v $RUNNER_TEMP/artifacts/*/* $DEPLOY_PATH
           ls -la $DEPLOY_PATH
       - name: Upload installers to GCS
