@@ -72,8 +72,7 @@ jobs:
           sudo -E ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
       - name: Build installers
         run: |
-          BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
-          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
           mkdir -p $DEPLOY_PATH
           cd fleetspeak
           cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
