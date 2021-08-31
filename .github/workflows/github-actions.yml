@@ -198,7 +198,8 @@ jobs:
       - name: Download installers from GitHub artifacts
         id: download
         uses: actions/download-artifact@v2
-        path: ~/_artifacts
+        with:
+          path: ~/_artifacts
       - name: Merge artifacts
         run: |
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
