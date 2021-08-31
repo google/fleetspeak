@@ -217,15 +217,15 @@ jobs:
       - name: Merge artifacts
         run: |
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
-          DEPLOY_PATH=~/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
-          echo $DEPLOY_PATH
-          mkdir -p $DEPLOY_PATH
+          echo ::set-env name=DEPLOY_PATH::$HOME/deploy
+          DEPLOY_SUB_PATH=~/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          mkdir -p $DEPLOY_SUB_PATH
           ls -la ${{ steps.download.outputs.download-path }}/*
-          mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_PATH
-          ls -la $DEPLOY_PATH
+          mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_SUB_PATH
+          ls -la $DEPLOY_SUB_PATH
       - name: Upload installers to GCS
         uses: google-github-actions/upload-cloud-storage@main
         with:
           credentials: ${{ secrets.GCP_SA_KEY }}
-          path: ~/deploy
+          path: ${{ DEPLOY_PATH }}
           destination: ${{ env.GCS_BUCKET }}
