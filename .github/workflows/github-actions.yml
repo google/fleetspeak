@@ -1,5 +1,5 @@
 name: Build installers
-on: push
+on: [push, pull_request]
 jobs:
   build-linux:
     runs-on: ubuntu-18.04
@@ -90,7 +90,8 @@ jobs:
           python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
           # Copy wheels
           cp dist/*.whl $DEPLOY_PATH
-      - name: Upload installers to GitHub artifacts
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
         uses: actions/upload-artifact@v2
         with:
           name: linux-installers
@@ -128,7 +129,8 @@ jobs:
           python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
-      - name: Upload installers to GitHub artifacts
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
         uses: actions/upload-artifact@v2
         with:
           name: windows-installers
@@ -162,7 +164,8 @@ jobs:
           python fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
-      - name: Upload installers to GitHub artifacts
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
         uses: actions/upload-artifact@v2
         with:
           name: osx-installers
@@ -200,6 +203,7 @@ jobs:
           fleetspeak/test.sh
 
   upload-installers:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-18.04
     env:
       GCS_BUCKET: grr-github-actions-test
