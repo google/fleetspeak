@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-18.04
     env:
       GCS_BUCKET: grr-github-actions-test
-      ARTIFACTS_PATH: ${{ env.RUNNER_TEMP }}/artifacts
+      ARTIFACTS_PATH: $RUNNER_TEMP/artifacts
       DEPLOY_PATH: ${{ env.RUNNER_TEMP }}/deploy
     needs:
       - build-linux
@@ -199,19 +199,19 @@ jobs:
       - uses: actions/checkout@v2
       - name: Download installers from GitHub artifacts
         uses: actions/download-artifact@v2
-        path: ${{ env.ARTIFACTS_PATH }}
+        path: ${{ env.RUNNER_TEMP }}/artifacts
       - name: Merge artifacts
         run: |
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
-          FULL_DEPLOY_PATH=$DEPLOY_PATH/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
-          echo $FULL_DEPLOY_PATH
-          mkdir -p $FULL_DEPLOY_PATH
-          ls -la $ARTIFACTS_PATH/*
-          mv -v $ARTIFACTS_PATH/*/* $FULL_DEPLOY_PATH
-          ls -la $FULL_DEPLOY_PATH
+          $DEPLOY_PATH=$RUNNER_TEMP/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          echo $DEPLOY_PATH
+          mkdir -p $DEPLOY_PATH
+          ls -la $RUNNER_TEMP/artifacts/*
+          mv -v $RUNNER_TEMP/artifacts/*/* $DEPLOY_PATH
+          ls -la $DEPLOY_PATH
       - name: Upload installers to GCS
         uses: google-github-actions/upload-cloud-storage@main
         with:
           credentials: ${{ secrets.GCP_SA_KEY }}
-          path: deploy/
+          path: ${{ env.RUNNER_TEMP }}/deploy
           destination: ${{ env.GCS_BUCKET }}
