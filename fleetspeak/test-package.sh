@@ -17,6 +17,12 @@ set -ex
 
 /bin/echo 'Installing newly built server package.'
 apt install -y $1
+
+if [[ ! -z "$MYSQL_TEST_USER" ]]
+then
+    sed -i "s/mysql_data_source_name: .*/mysql_data_source_name: \"$MYSQL_TEST_USER:$MYSQL_TEST_PASS@tcp($MYSQL_TEST_ADDR)\/$MYSQL_TEST_E2E_DB\"/g" /etc/fleetspeak-server/configurator.config
+fi
+
 sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
 /bin/echo 'Checking that the installation was successful'
@@ -26,23 +32,28 @@ find /etc/systemd/ -name 'fleetspeak*'
 # At this point the service is down, since right after the installation it was
 # started without a configuration.
 # Reset a list of failed services to ensure the restart below works fine.
-sudo systemctl reset-failed
+systemctl reset-failed
 
 # Restart the service.
-sudo systemctl restart fleetspeak-server
+systemctl restart fleetspeak-server
 
 # Check that it's now up and running.
 systemctl is-active fleetspeak-server
 
 # Now copy the linux client configuration to the expected location.
-sudo mkdir -p /etc/fleetspeak-client
-sudo cp /etc/fleetspeak-server/linux.client.configuration /etc/fleetspeak-client/client.config
+mkdir -p /etc/fleetspeak-client
+cp /etc/fleetspeak-server/linux.client.configuration /etc/fleetspeak-client/client.config
 
 # Install the client package.
 apt install -y $2
 
 # Check that the client is up and running.
 systemctl is-active fleetspeak-client
+
+journalctl -u fleetspeak-server
+journalctl -u fleetspeak-client
+systemctl -l status fleetspeak-server
+systemctl -l status fleetspeak-client
 
 # Check that fleetspeak_admin functions and returns info about a single client we have.
 fleetspeak-admin -admin_addr localhost:9000 listclients | grep "[a-z0-9]\{16\} .*client:linux"

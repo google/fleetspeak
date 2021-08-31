@@ -1,0 +1,238 @@
+name: Build installers
+on: [push, pull_request]
+jobs:
+  build-linux:
+    runs-on: ubuntu-18.04
+    env:
+      MYSQL_TEST_USER: root
+      MYSQL_TEST_PASS: root
+      MYSQL_TEST_ADDR: 127.0.0.1:3306
+      MYSQL_TEST_E2E_DB: e2e_test_db
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up MySQL
+        run: |
+          sudo /etc/init.d/mysql start
+          mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - name: Set up Go
+        run: |
+          go get -u golang.org/x/lint/golint
+          go get -u -v github.com/golang/protobuf/protoc-gen-go@v1.4.2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('*_python/**') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Set up Python
+        run: |
+          pip install wheel
+          pip install -e ./fleetspeak_python
+          pip install -e ./frr_python
+      - name: Lint
+        # We want to address all golint warnings, except for
+        # https://github.com/golang/go/wiki/CodeReviewComments#doc-comments
+        # TODO(mbushkov): make golint and go vet checks actionable.
+        run: |
+          golint ./... | grep -v 'should have comment or be unexported' || true
+          go vet ./... || true
+      - name: Check generated protos
+        run: |
+          fleetspeak/generate_go_py_protos.sh
+          if [[ "$(git status --porcelain | grep .pb.go)" != "" ]]; then
+            echo "At least one generated proto file is not in sync with the committed generated proto files."
+            echo "Please run \`PATH=~/go/bin:\$PATH fleetspeak/generate_go_py_protos.sh\` with protoc-gen-go version 1.4.2."
+            echo "pip packages:"
+            pip freeze
+            exit 1;
+          fi;
+          echo "git status is clean; generated protos are consistent"
+      - name: Build
+        run: |
+          fleetspeak/build.sh
+      - name: Test
+        run: |
+          fleetspeak/test.sh
+      - name: Check DEB installation
+        # Install the built package and check that the fleetspeak-config program
+        # doesn't error out.
+        timeout-minutes: 10
+        run: |
+          mysql -e 'DROP DATABASE ${{ env.MYSQL_TEST_E2E_DB }}; CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
+          sudo apt install debhelper devscripts dh-systemd fakeroot libparse-debcontrol-perl
+          cd fleetspeak
+          ./build-pkgs.sh
+          # Pass through MySQL config environment variables to sudo.
+          sudo -E ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+      - name: Build installers
+        run: |
+          BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
+          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          mkdir -p $DEPLOY_PATH
+          cd fleetspeak
+          cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
+          cp ./fleetspeak-server_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
+          # pypi doesn't support linux_x86_64, which is the plafrom name targeted by default.
+          # We generate manylinux1_x86_64 manylinux2010_x86_64 packages, which are supported.
+          # Create client wheel
+          dpkg --extract ./fleetspeak-client_$(cat ../VERSION)_amd64.deb client-package-root
+          python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+          python client-wheel/setup.py --package-root=client-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
+          # Create server wheel
+          dpkg --extract ./fleetspeak-server_$(cat ../VERSION)_amd64.deb server-package-root
+          python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux1_x86_64
+          python server-wheel/setup.py --package-root=server-package-root --version=$(cat ../VERSION) -- bdist_wheel --platform-name=manylinux2010_x86_64
+          # Copy wheels
+          cp dist/*.whl $DEPLOY_PATH
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux-installers
+          path: deploy/
+          retention-days: 1
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - name: Install dependencies
+        run: |
+          powershell Install-WindowsFeature Net-Framework-Core
+          pip install wheel
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Build installers
+        shell: bash
+        run: |
+          go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+          cd fleetspeak/client-win
+          powershell -ExecutionPolicy Bypass -File ./build.ps1
+          cd ../..
+          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
+          mkdir -p $DEPLOY_PATH
+          cp ${TMP}/fleetspeak-build-*/fleetspeak-pkg/fleetspeak-client-*.msi $DEPLOY_PATH
+          # Build client wheel
+          mkdir pkg-root
+          cp fleetspeak-client.exe pkg-root
+          cp fleetspeak/client-win/fleetspeak_lib.wxs pkg-root
+          python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
+          cp dist/*.whl $DEPLOY_PATH
+          ls -la $DEPLOY_PATH
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-installers
+          path: deploy/
+          retention-days: 1
+
+  build-osx:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install dependencies
+        run: |
+          pip install wheel
+      - name: Build installers
+        run: |
+          go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
+          DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
+          mkdir -p $DEPLOY_PATH
+          cd fleetspeak/client-mac
+          ./build.sh ../../fleetspeak-client
+          sudo installer -pkg ./work/fleetspeak-client-*.pkg -target / -verbose
+          cd ../..
+          cp ./fleetspeak/client-mac/work/fleetspeak-client-*.pkg $DEPLOY_PATH
+          # Build client wheel
+          python fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
+          cp dist/*.whl $DEPLOY_PATH
+          ls -la $DEPLOY_PATH
+      - if: ${{ github.event_name == 'push' }}
+        name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: osx-installers
+          path: deploy/
+          retention-days: 1
+
+  test-osx:
+    runs-on: macos-latest
+    env:
+      MYSQL_TEST_USER: root
+      MYSQL_TEST_ADDR: 127.0.0.1:3306
+      MYSQL_TEST_E2E_DB: e2e_test_db
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install dependencies
+        run: |
+          pip install wheel
+          go get -v -t ./...
+      - uses: ankane/setup-mysql@v1
+        with:
+          database: ${{ env.MYSQL_TEST_E2E_DB }}
+      - name: Build
+        run: |
+          pip install -e ./fleetspeak_python
+          pip install -e ./frr_python
+          fleetspeak/build.sh
+      - name: Test
+        run: |
+          fleetspeak/test.sh
+
+  upload-installers:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-18.04
+    env:
+      GCS_BUCKET: grr-github-actions-test
+    needs:
+      - build-linux
+      - build-windows
+      - build-osx
+      - test-osx
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download installers from GitHub artifacts
+        id: download
+        uses: actions/download-artifact@v2
+        with:
+          path: ~/_artifacts
+      - name: Merge artifacts
+        run: |
+          BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
+          DEPLOY_PATH=$HOME/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          echo "DEPLOY_PATH=$DEPLOY_PATH" >> $GITHUB_ENV
+          mkdir -p $DEPLOY_PATH
+          ls -la ${{ steps.download.outputs.download-path }}/*
+          mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_PATH
+          ls -la $DEPLOY_PATH
+      - name: Upload installers to GCS
+        uses: google-github-actions/upload-cloud-storage@main
+        with:
+          credentials: ${{ secrets.GCP_SA_KEY }}
+          path: ${{ env.DEPLOY_PATH }}
+          destination: ${{ env.GCS_BUCKET }}
+          # Omit `path` (e.g. /home/runner/deploy/) in final GCS path.
+          parent: false

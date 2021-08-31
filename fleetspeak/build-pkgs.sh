@@ -35,7 +35,7 @@ fakeroot bash -c '
     --urgency low \
     --controlmaint \
     --distribution unstable \
-    "Built by Travis CI at ${TRAVIS_COMMIT}"
+    "Built by GitHub Actions at ${GITHUB_SHA}"
   cd -
 
   mkdir -p server-pkg/usr/bin
@@ -64,7 +64,7 @@ fakeroot bash -c '
     --urgency low \
     --controlmaint \
     --distribution unstable \
-    "Built by Travis CI at ${TRAVIS_COMMIT}"
+    "Built by GitHub Actions at ${GITHUB_SHA}"
   cd -
 
   mkdir -p client-pkg/usr/bin
