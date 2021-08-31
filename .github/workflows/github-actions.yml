@@ -227,5 +227,5 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@main
         with:
           credentials: ${{ secrets.GCP_SA_KEY }}
-          path: ${{ DEPLOY_PATH }}
+          path: ${{ env.DEPLOY_PATH }}
           destination: ${{ env.GCS_BUCKET }}
