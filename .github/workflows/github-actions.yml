@@ -1,3 +1,4 @@
+name: Build installers
 on: push
 jobs:
   build-linux:
