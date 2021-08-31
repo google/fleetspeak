@@ -73,6 +73,7 @@ jobs:
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
           mkdir -p $DEPLOY_PATH
+          cd fleetspeak
           cp ./fleetspeak-client_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
           cp ./fleetspeak-server_$(cat ../VERSION)_amd64.deb $DEPLOY_PATH
           # pypi doesn't support linux_x86_64, which is the plafrom name targeted by default.
