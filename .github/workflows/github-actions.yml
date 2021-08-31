@@ -172,7 +172,7 @@ jobs:
         run: |
           pip install wheel
           go get -v -t ./...
-      - uses: ankane/setup-mysql@v1    
+      - uses: ankane/setup-mysql@v1
         with:
           database: ${{ env.MYSQL_TEST_E2E_DB }}
       - name: Build
@@ -188,11 +188,27 @@ jobs:
     runs-on: ubuntu-18.04
     env:
       GCS_BUCKET: grr-github-actions-test
+      ARTIFACTS_PATH: ${{ env.RUNNER_TEMP }}/artifacts
+      DEPLOY_PATH: ${{ env.RUNNER_TEMP }}/deploy
     needs:
       - build-linux
       - build-windows
       - build-osx
+      - test-osx
     steps:
+      - uses: actions/checkout@v2
+      - name: Download installers from GitHub artifacts
+        uses: actions/download-artifact@v2
+        path: ${{ env.ARTIFACTS_PATH }}
+      - name: Merge artifacts
+        run: |
+          BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
+          FULL_DEPLOY_PATH=$DEPLOY_PATH/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
+          echo $FULL_DEPLOY_PATH
+          mkdir -p $FULL_DEPLOY_PATH
+          ls -la $ARTIFACTS_PATH/*
+          mv -v $ARTIFACTS_PATH/*/* $FULL_DEPLOY_PATH
+          ls -la $FULL_DEPLOY_PATH
       - name: Upload installers to GCS
         uses: google-github-actions/upload-cloud-storage@main
         with:

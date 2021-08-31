@@ -23,7 +23,7 @@ then
     sed -i "s/mysql_data_source_name: .*/mysql_data_source_name: $MYSQL_TEST_USER:$MYSQL_TEST_PASS@tcp($MYSQL_TEST_ADDR)\/$MYSQL_TEST_E2E_DB/g" /etc/fleetspeak-server/configurator.config
 fi
 
--u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
+sudo -u fleetspeak /usr/bin/fleetspeak-config --config=/etc/fleetspeak-server/configurator.config
 
 /bin/echo 'Checking that the installation was successful'
 ls -l /etc/fleetspeak-server
