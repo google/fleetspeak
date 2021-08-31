@@ -221,7 +221,7 @@ jobs:
           echo $DEPLOY_PATH
           mkdir -p $DEPLOY_PATH
           ls -la ${{ steps.download.outputs.download-path }}/*
-          mv -v $RUNNER_TEMP/artifacts/*/* $DEPLOY_PATH
+          mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_PATH
           ls -la $DEPLOY_PATH
       - name: Upload installers to GCS
         uses: google-github-actions/upload-cloud-storage@main
