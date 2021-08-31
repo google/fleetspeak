@@ -217,7 +217,7 @@ jobs:
       - name: Merge artifacts
         run: |
           BUILD_TIMESTAMP=$(git show -s --format=%ci ${GITHUB_SHA} | sed -e "s/[ :\\+]/_/g")
-          echo ::set-env name=DEPLOY_PATH::$HOME/deploy
+          echo "DEPLOY_PATH=$HOME/deploy" >> $GITHUB_ENV
           DEPLOY_SUB_PATH=~/deploy/${BUILD_TIMESTAMP}_${GITHUB_SHA}/
           mkdir -p $DEPLOY_SUB_PATH
           ls -la ${{ steps.download.outputs.download-path }}/*
