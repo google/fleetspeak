@@ -1,4 +1,3 @@
-name: Build installers
 on: [push, pull_request]
 jobs:
   build-linux:
