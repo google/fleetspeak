@@ -50,7 +50,6 @@ apt install -y $2
 # Check that the client is up and running.
 systemctl is-active fleetspeak-client
 
-sleep 10
 journalctl -u fleetspeak-server
 journalctl -u fleetspeak-client
 systemctl -l status fleetspeak-server
