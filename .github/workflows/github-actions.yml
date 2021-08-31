@@ -125,6 +125,12 @@ jobs:
           python fleetspeak/client-wheel/setup.py --package-root pkg-root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
+      - name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-installers
+          path: deploy/
+          retention-days: 1
 
   build-osx:
     runs-on: macos-latest
@@ -153,6 +159,12 @@ jobs:
           python fleetspeak/client-wheel/setup.py --package-root=fleetspeak/client-mac/work/pkg_root --version=$(cat VERSION) bdist_wheel
           cp dist/*.whl $DEPLOY_PATH
           ls -la $DEPLOY_PATH
+      - name: Upload installers to GitHub artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: osx-installers
+          path: deploy/
+          retention-days: 1
 
   test-osx:
     runs-on: macos-latest
