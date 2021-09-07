@@ -242,10 +242,10 @@ jobs:
         shell: bash
         run: |
           pip show fleetspeak
-          go test -race fleetspeak/src/common/... --timeout 180s
-          go test -race fleetspeak/src/client/... --timeout 180s
+          go test -race github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 180s
+          go test -race github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 180s
           # TODO(ogaro): Move src/windows to src/client.
-          go test -race fleetspeak/src/windows/... --timeout 180s
+          go test -race github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 180s
 
   upload-installers:
     if: ${{ github.event_name == 'push' }}
