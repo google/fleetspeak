@@ -149,6 +149,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel
+      - name: Update golang.org/x/sys (temporary, see https://github.com/golang/go/issues/45702)
+        run: |
+          go get golang.org/x/sys@master
       - name: Build installers
         run: |
           go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
