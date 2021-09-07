@@ -1,7 +1,6 @@
 # Fleetspeak
 
 [![.github/workflows/build.yml](https://github.com/google/fleetspeak/actions/workflows/build.yml/badge.svg)](https://github.com/google/fleetspeak/actions/workflows/build.yml)
-[![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/xljdh8ka2qcy57xu?svg=true)](https://ci.appveyor.com/project/fleetspeak/fleetspeak)
 [![Go Report Card](https://goreportcard.com/badge/github.com/google/fleetspeak)](https://goreportcard.com/report/github.com/google/fleetspeak)
 
 Fleetspeak is a framework for communicating with a fleet of machines, with a

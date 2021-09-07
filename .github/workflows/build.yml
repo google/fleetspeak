@@ -1,7 +1,7 @@
 name: Build installers
 on: [push, pull_request]
 jobs:
-  build-linux:
+  build-test-linux:
     runs-on: ubuntu-18.04
     env:
       MYSQL_TEST_USER: root
