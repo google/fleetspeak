@@ -192,6 +192,9 @@ jobs:
         run: |
           pip install wheel
           go get -v -t ./...
+      - name: Update golang.org/x/sys (temporary, see https://github.com/golang/go/issues/45702)
+        run: |
+          go get golang.org/x/sys@master
       - uses: ankane/setup-mysql@v1
         with:
           database: ${{ env.MYSQL_TEST_E2E_DB }}
