@@ -204,18 +204,17 @@ jobs:
   test-windows:
     runs-on: windows-latest
     env:
-      GOPATH: ${{ github.workspace }}
       GO111MODULE: off
     defaults:
       run:
-        working-directory: ${{ env.GOPATH }}/src/github.com/${{ github.repository }}
+        working-directory: ${{ env.GOROOT }}/src/github.com/${{ github.repository }}
     steps:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.15'
       - uses: actions/checkout@v2
         with:
-          path: ${{ env.GOPATH }}/src/github.com/${{ github.repository }}
+          path: ${{ env.GOROOT }}/src/github.com/${{ github.repository }}
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7'
