@@ -222,7 +222,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          go get ./... || echo "Dependency installation failed, continuing..."
+          # TODO: The dependency installation fails, but good enough to make the tests pass.
+          # Ideally, required dependencies should be installed in a non-hacky, proper way.
+          go get -v -t ./... || echo "Dependency installation failed, continuing anyway ¯\_(ツ)_/¯"
           pip install wheel
       - name: Build
         shell: bash
