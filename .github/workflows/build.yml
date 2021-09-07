@@ -1,7 +1,7 @@
 name: Build installers
 on: [push, pull_request]
 jobs:
-  build-linux:
+  build-test-linux:
     runs-on: ubuntu-18.04
     env:
       MYSQL_TEST_USER: root
@@ -201,16 +201,56 @@ jobs:
         run: |
           fleetspeak/test.sh
 
+  test-windows:
+    runs-on: windows-latest
+    env:
+      GOPATH: ${{ github.workspace }}
+      GO111MODULE: off
+    defaults:
+      run:
+        working-directory: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15'
+      - uses: actions/checkout@v2
+        with:
+          path: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          # TODO: The dependency installation fails, but good enough to make the tests pass.
+          # Ideally, required dependencies should be installed in a non-hacky, proper way.
+          go get -v -t ./... || echo "Dependency installation failed, continuing anyway ¯\_(ツ)_/¯"
+          pip install wheel
+      - name: Build
+        shell: bash
+        run: |
+          go build -o fleetspeak/src/client/socketservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/socketservice/testclient
+          go build -o fleetspeak/src/client/daemonservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/testclient
+          pip install -e ./fleetspeak_python
+      - name: Test
+        shell: bash
+        run: |
+          go test -race github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 180s
+          go test -race github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 180s
+          # TODO: Move src/windows to src/client.
+          go test -race github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 180s
+
   upload-installers:
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-18.04
     env:
       GCS_BUCKET: autobuilds-fleetspeak
     needs:
-      - build-linux
+      - build-test-linux
       - build-windows
       - build-osx
       - test-osx
+      - test-windows
     steps:
       - uses: actions/checkout@v2
       - name: Download installers from GitHub artifacts
