@@ -232,6 +232,8 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          pwd
+          ls -la
           pip install -e ./fleetspeak_python
           go build -o fleetspeak/src/client/socketservice/testclient/testclient.exe fleetspeak/src/client/socketservice/testclient
           go build -o fleetspeak/src/client/daemonservice/testclient/testclient.exe fleetspeak/src/client/daemonservice/testclient
