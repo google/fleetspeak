@@ -221,30 +221,20 @@ jobs:
           python-version: '3.7'
       - name: Install dependencies
         run: |
-          go get -u golang.org/x/lint/golint
-          go get ./...
           pip install wheel
-      - name: Lint
-        shell: pwsh
-        run: |
-          $lint_errors = (golint ./... | Select-String -NotMatch 'should have comment or be unexported')
-          $lint_errors
-          if ($lint_errors.Length -gt 9) { throw 'New lint errors introduced!' }    
+          go get -v -t ./...
       - name: Build
         shell: bash
         run: |
-          pwd
-          ls -la
           go build -o fleetspeak/src/client/socketservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/socketservice/testclient
           go build -o fleetspeak/src/client/daemonservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/testclient
           pip install -e ./fleetspeak_python
       - name: Test
         shell: bash
         run: |
-          pip show fleetspeak
           go test -race github.com/google/fleetspeak/fleetspeak/src/common/... --timeout 180s
           go test -race github.com/google/fleetspeak/fleetspeak/src/client/... --timeout 180s
-          # TODO(ogaro): Move src/windows to src/client.
+          # TODO: Move src/windows to src/client.
           go test -race github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 180s
 
   upload-installers:

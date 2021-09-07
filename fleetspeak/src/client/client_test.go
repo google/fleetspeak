@@ -262,9 +262,9 @@ func TestDieDoesNotAck(t *testing.T) {
 		config.Configuration{},
 		Components{},
 	)
-	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
-	}
+	// if err != nil {
+	t.Fatalf("unable to create client: %v", err)
+	// }
 
 	clientStopped := false
 	stopClientOnce := func() {
