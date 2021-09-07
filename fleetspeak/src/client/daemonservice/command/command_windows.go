@@ -27,7 +27,16 @@ func (cmd *Command) softKill() error {
 }
 
 func (cmd *Command) kill() error {
-	return cmd.Cmd.Process.Kill()
+	// Using the original terminateProcess implementation from https://github.com/golang/go/commit/105c5b50e0098720b9e24aea5efa8e161c31db6d#
+	// Calling cmd.Cmd.Process.Kill() would trigger 'DuplicateHandle: The handle is invalid.'
+	pid := cmd.Cmd.Process.Pid
+	h, e := syscall.OpenProcess(syscall.PROCESS_TERMINATE, false, uint32(pid))
+	if e != nil {
+		return os.NewSyscallError("OpenProcess", e)
+	}
+	defer syscall.CloseHandle(h)
+	e = syscall.TerminateProcess(h, uint32(1))
+	return os.NewSyscallError("TerminateProcess", e)
 }
 
 func (cmd *Command) addInPipeFDImpl() (*os.File, int, error) {
