@@ -246,7 +246,7 @@ jobs:
     env:
       GCS_BUCKET: autobuilds-fleetspeak
     needs:
-      - build-linux
+      - build-test-linux
       - build-windows
       - build-osx
       - test-osx
