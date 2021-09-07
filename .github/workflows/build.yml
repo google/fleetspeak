@@ -221,8 +221,9 @@ jobs:
           python-version: '3.7'
       - name: Install dependencies
         run: |
-          pip install wheel
+          go get -u golang.org/x/lint/golint
           go get ./...
+          pip install wheel
       - name: Build
         shell: bash
         run: |
