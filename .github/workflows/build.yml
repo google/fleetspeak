@@ -222,7 +222,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel
-          go get -v -t ./...
+          go get ./...
       - name: Build
         shell: bash
         run: |
