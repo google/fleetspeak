@@ -222,6 +222,7 @@ jobs:
       - name: Install dependencies
         run: |
           go get -u golang.org/x/lint/golint
+          go get ./...
           pip install wheel
       - name: Lint
         shell: pwsh
@@ -234,9 +235,9 @@ jobs:
         run: |
           pwd
           ls -la
-          pip install -e ./fleetspeak_python
           go build -o fleetspeak/src/client/socketservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/socketservice/testclient
           go build -o fleetspeak/src/client/daemonservice/testclient/testclient.exe github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/testclient
+          pip install -e ./fleetspeak_python
       - name: Test
         shell: bash
         run: |
