@@ -205,7 +205,7 @@ jobs:
     runs-on: windows-latest
     env:
       GOPATH: ${{ github.workspace }}
-      # GO111MODULE: off
+      GO111MODULE: off
     defaults:
       run:
         working-directory: ${{ env.GOPATH }}/src/github.com/${{ github.repository }}
