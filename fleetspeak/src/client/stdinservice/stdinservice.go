@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
+	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
@@ -113,7 +114,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		err = fmt.Errorf("context done: %v", ctx.Err())
 
 		// The error message string literal is a copypaste from exec_unix.go .
-		if e := cmd.Process.Kill(); e != nil && e.Error() != "os: process already finished" {
+		if e := intprocess.KillProcess(cmd.Process); e != nil && e.Error() != "os: process already finished" {
 			err = fmt.Errorf("%v; also, an error occurred while killing the process: %v", err, e)
 		}
 

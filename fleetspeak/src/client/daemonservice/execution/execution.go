@@ -34,6 +34,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/command"
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
+	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
@@ -616,7 +617,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				}
 
 				process := os.Process{Pid: pid}
-				if err := process.Kill(); err != nil {
+				if err := intprocess.KillProcess(&process); err != nil {
 					log.Errorf("Error while killing a process that doesn't heartbeat - %s (pid %d): %v", e.daemonServiceName, pid, err)
 					continue // Keep retrying.
 				}
