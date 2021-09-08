@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/socketservice/proto/fleetspeak_socketservice"
@@ -147,7 +148,7 @@ func TestLoopback(t *testing.T) {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
+		if err := intprocess.KillProcess(cmd.Process); err != nil {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
@@ -177,7 +178,7 @@ func TestAckLoopback(t *testing.T) {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
+		if err := intprocess.KillProcess(cmd.Process); err != nil {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
@@ -202,7 +203,7 @@ func TestStutteringLoopback(t *testing.T) {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
+		if err := intprocess.KillProcess(cmd.Process); err != nil {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {
@@ -293,7 +294,7 @@ func TestResourceMonitoring(t *testing.T) {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
 	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
+		if err := intprocess.KillProcess(cmd.Process); err != nil {
 			t.Errorf("failed to kill testclient[%d]: %v", cmd.Process.Pid, err)
 		}
 		if err := cmd.Wait(); err != nil {

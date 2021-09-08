@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+
+	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 )
 
 func (cmd *Command) softKill() error {
@@ -27,7 +29,7 @@ func (cmd *Command) softKill() error {
 }
 
 func (cmd *Command) kill() error {
-	return cmd.Cmd.Process.Kill()
+	return intprocess.KillProcess(cmd.Cmd.Process)
 }
 
 func (cmd *Command) addInPipeFDImpl() (*os.File, int, error) {
@@ -39,6 +41,11 @@ func (cmd *Command) addInPipeFDImpl() (*os.File, int, error) {
 	fd := pr.Fd()
 	syscall.SetHandleInformation(syscall.Handle(fd), syscall.HANDLE_FLAG_INHERIT, 1)
 	cmd.filesToClose = append(cmd.filesToClose, pr)
+
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.AdditionalInheritedHandles = append(cmd.SysProcAttr.AdditionalInheritedHandles, syscall.Handle(fd))
 
 	return pw, int(fd), nil
 }
@@ -52,6 +59,11 @@ func (cmd *Command) addOutPipeFDImpl() (*os.File, int, error) {
 	fd := pw.Fd()
 	syscall.SetHandleInformation(syscall.Handle(fd), syscall.HANDLE_FLAG_INHERIT, 1)
 	cmd.filesToClose = append(cmd.filesToClose, pw)
+
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.AdditionalInheritedHandles = append(cmd.SysProcAttr.AdditionalInheritedHandles, syscall.Handle(fd))
 
 	return pr, int(fd), nil
 }
