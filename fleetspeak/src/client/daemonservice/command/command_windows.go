@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os"
 	"syscall"
-
-	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 )
 
 func (cmd *Command) softKill() error {
@@ -29,7 +27,7 @@ func (cmd *Command) softKill() error {
 }
 
 func (cmd *Command) kill() error {
-	return intprocess.KillProcess(cmd.Cmd.Process)
+	return cmd.Cmd.Process.Kill()
 }
 
 func (cmd *Command) addInPipeFDImpl() (*os.File, int, error) {

@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !windows
-
 package process
 
 import (
 	"os"
 )
 
+// KillProcessByPid causes the Process to exit immediately. It does not
+// wait until the Process has actually exited. This only kills the Process
+// itself, not any other processes it may have started. If the process
+// can't be found at the moment of the call, KillProcessByPid returns nil.
+func KillProcessByPid(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return nil
+	}
 
-// Kill causes the Process to exit immediately. Kill does not wait until
-// the Process has actually exited. This only kills the Process itself,
-// not any other processes it may have started.
-//
-// TODO(https://github.com/google/fleetspeak/issues/341): remove as soon
-// as Go's own Process.Kill() works as expected.
-func KillProcess(p *os.Process) error {
 	return p.Kill()
 }
-

@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-        intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
-
 	log "github.com/golang/glog"
 )
 
@@ -100,7 +98,7 @@ while time.time() - t0 < 60.:
 		t.Fatalf("Unexpected error from Run(): %v", err)
 	}
 	defer func() {
-		if err := intprocess.KillProcess(cmd.Process); err != nil {
+		if err := cmd.Process.Kill(); err != nil {
 			t.Errorf("Error killing cmd: %v", err)
 		}
 		if err := cmd.Wait(); err != nil {
