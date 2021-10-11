@@ -19,15 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"time"
 
 	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
+	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
-        intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -384,8 +383,7 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool
 		log.Errorf("Failed to send kill notification to server: %v", err)
 	}
 
-	process := &os.Process{Pid: m.pid}
-	if err := intprocess.KillProcess(process); err != nil {
+	if err := intprocess.KillProcessByPid(m.pid); err != nil {
 		log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.memoryLimit, m.scope, m.pid, err)
 	}
 	return false

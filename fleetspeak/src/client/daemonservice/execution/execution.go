@@ -616,8 +616,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 					log.Errorf("Failed to send kill notification to server: %v", err)
 				}
 
-				process := os.Process{Pid: pid}
-				if err := intprocess.KillProcess(&process); err != nil {
+				if err := intprocess.KillProcessByPid(pid); err != nil {
 					log.Errorf("Error while killing a process that doesn't heartbeat - %s (pid %d): %v", e.daemonServiceName, pid, err)
 					continue // Keep retrying.
 				}
