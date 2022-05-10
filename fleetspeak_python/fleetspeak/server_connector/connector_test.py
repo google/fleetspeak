@@ -76,7 +76,8 @@ class RetryLoopTest(absltest.TestCase):
 
   @mock.patch.object(time, "sleep")
   @mock.patch.object(time, "time")
-  def testDefaultSingleTryTimeoutIsEqualToDefaultTimeout(self, time_mock, sleep_mock):
+  def testDefaultSingleTryTimeoutIsEqualToDefaultTimeout(
+      self, time_mock, sleep_mock):
     cur_time = [0]
 
     def SleepMock(v: float) -> None:
@@ -148,7 +149,9 @@ class ClientTest(absltest.TestCase):
 
   def testDeletePendingMessagesIsRetried(self):
     t = self._fakeStub()
-    t.DeletePendingMessages.side_effect = [grpc.RpcError("error"), mock.DEFAULT]
+    t.DeletePendingMessages.side_effect = [
+        grpc.RpcError("error"), mock.DEFAULT
+    ]
 
     s = connector.OutgoingConnection(None, 'test', t)
     s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
@@ -180,7 +183,9 @@ class ClientTest(absltest.TestCase):
 
   def testGetPendingMessageCountIsRetried(self):
     t = self._fakeStub()
-    t.GetPendingMessageCount.side_effect = [grpc.RpcError("error"), mock.DEFAULT]
+    t.GetPendingMessageCount.side_effect = [
+        grpc.RpcError("error"), mock.DEFAULT
+    ]
 
     s = connector.OutgoingConnection(None, 'test', t)
     s.GetPendingMessageCount(admin_pb2.GetPendingMessageCountRequest())

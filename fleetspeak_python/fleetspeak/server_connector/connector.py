@@ -44,13 +44,14 @@ flags.DEFINE_string("fleetspeak_server", "",
 
 DEFAULT_TIMEOUT_SEC = 30
 
-
 _T = TypeVar("_T")
 
 
 # TODO: Remove retry logic when possible. I.e. when grpc supports it
 # natively - https://github.com/grpc/proposal/blob/master/A6-client-retries.md
-def RetryLoop(func: Callable[[float], _T], timeout: Optional[float]=None, single_try_timeout:Optional[float]=None) -> _T:
+def RetryLoop(func: Callable[[float], _T],
+              timeout: Optional[float] = None,
+              single_try_timeout: Optional[float] = None) -> _T:
   """Retries an operation until success or deadline.
 
   func() calls are retried if func raises a grpc.RpcError.
@@ -215,26 +216,28 @@ class OutgoingConnection(object):
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    return RetryLoop(
-        lambda t: self._stub.InsertMessage(message, timeout=t))
+    return RetryLoop(lambda t: self._stub.InsertMessage(message, timeout=t))
 
-  def DeletePendingMessages(self, request, timeout=None, single_try_timeout=None):
+  def DeletePendingMessages(self,
+                            request,
+                            timeout=None,
+                            single_try_timeout=None):
     if not isinstance(request, admin_pb2.DeletePendingMessagesRequest):
       raise TypeError("Expected fleetspeak.admin.DeletePendingMessagesRequest "
-        "as an argument.")
+                      "as an argument.")
 
     return RetryLoop(
-      lambda t: self._stub.DeletePendingMessages(request, timeout=t)
-    )
+        lambda t: self._stub.DeletePendingMessages(request, timeout=t))
 
   def GetPendingMessages(
       self,
       request: admin_pb2.GetPendingMessagesRequest,
       timeout: Optional[float] = None,
-      single_try_timeout: Optional[float] = None) -> admin_pb2.GetPendingMessagesResponse:
+      single_try_timeout: Optional[float] = None
+  ) -> admin_pb2.GetPendingMessagesResponse:
     return RetryLoop(
-      lambda t: self._stub.GetPendingMessages(request, timeout=t),
-      timeout=timeout,
+        lambda t: self._stub.GetPendingMessages(request, timeout=t),
+        timeout=timeout,
     )
 
   def GetPendingMessageCount(
@@ -244,8 +247,8 @@ class OutgoingConnection(object):
       single_try_timeout: Optional[float] = None,
   ) -> admin_pb2.GetPendingMessageCountResponse:
     return RetryLoop(
-      lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
-      timeout=timeout,
+        lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
+        timeout=timeout,
     )
 
   def ListClients(self, request, timeout=None, single_try_timeout=None):
@@ -258,10 +261,12 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.ListClientsResponse
     """
-    return RetryLoop(
-        lambda t: self._stub.ListClients(request, timeout=t))
+    return RetryLoop(lambda t: self._stub.ListClients(request, timeout=t))
 
-  def FetchClientResourceUsageRecords(self, request, timeout=None, single_try_timeout=None):
+  def FetchClientResourceUsageRecords(self,
+                                      request,
+                                      timeout=None,
+                                      single_try_timeout=None):
     """Provides resource usage metrics of a single Fleetspeak client.
 
     Args:
@@ -271,8 +276,8 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.FetchClientResourceUsageRecordsResponse
     """
-    return RetryLoop(
-        lambda t: self._stub.FetchClientResourceUsageRecords(request, timeout=t))
+    return RetryLoop(lambda t: self._stub.FetchClientResourceUsageRecords(
+        request, timeout=t))
 
   def Shutdown(self):
     with self._shutdown_cv:
@@ -294,7 +299,8 @@ class ServiceClient(object):
   @abc.abstractmethod
   def __init__(
       self,
-      service_name,):
+      service_name,
+  ):
     """Abstract constructor for ServiceClient.
 
     Args:
@@ -399,7 +405,8 @@ class InsecureGRPCServiceClient(ServiceClient):
         futures.ThreadPoolExecutor(max_workers=self._threadpool_size))
     self._server.add_insecure_port(self._listen_address)
     servicer = Servicer(process, self._service_name)
-    grpcservice_pb2_grpc.add_ProcessorServicer_to_server(servicer, self._server)
+    grpcservice_pb2_grpc.add_ProcessorServicer_to_server(
+        servicer, self._server)
     self._server.start()
     logging.info("Fleetspeak GRPCService client listening on %s",
                  self._listen_address)
