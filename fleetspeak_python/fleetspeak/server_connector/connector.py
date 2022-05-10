@@ -20,7 +20,9 @@ import os
 import logging
 import threading
 import time
+from typing import Callable
 from typing import Optional
+from typing import TypeVar
 
 from absl import flags
 from concurrent import futures
@@ -39,6 +41,44 @@ flags.DEFINE_string(
 flags.DEFINE_string("fleetspeak_server", "",
                     "The address to find the fleetspeak admin server, e.g. "
                     "'localhost:8080'")
+
+DEFAULT_TIMEOUT_SEC = 30
+
+
+_T = TypeVar("_T")
+
+
+# TODO: Remove retry logic when possible. I.e. when grpc supports it
+# natively - https://github.com/grpc/proposal/blob/master/A6-client-retries.md
+def RetryLoop(func: Callable[[float], _T], timeout: Optional[float]=None, single_try_timeout:Optional[float]=None) -> _T:
+  """Retries an operation until success or deadline.
+
+  func() calls are retried if func raises a grpc.RpcError.
+
+  Args:
+    func: The function to run. Must take a timeout, in seconds, as a single
+      parameter. If it raises grpc.RpcError and deadline has not be reached,
+      it will be run again.
+    timeout: Retries will continue until timeout seconds have passed. If not
+      specified, a default of 30 seconds is used.
+    single_try_timeout: A timeout for each try. If not specified, will be
+      set to the same value as "timeout".
+  """
+  timeout = timeout or DEFAULT_TIMEOUT_SEC
+  single_try_timeout = single_try_timeout or timeout
+
+  deadline = time.time() + timeout
+  cur_timeout = single_try_timeout
+  sleep = 1
+  while True:
+    try:
+      return func(cur_timeout)
+    except grpc.RpcError:
+      if time.time() + sleep > deadline:
+        raise
+      time.sleep(sleep)
+      sleep *= 2
+      cur_timeout = min(single_try_timeout, max(0, deadline - time.time()))
 
 
 class Servicer(grpcservice_pb2_grpc.ProcessorServicer):
@@ -107,11 +147,6 @@ class OutgoingConnection(object):
   server/proto/fleetspeak_server/admin.proto for full interface documentation.
   """
 
-  # TODO: Remove retry logic when possible. I.e. when grpc supports it
-  # natively - https://github.com/grpc/proposal/blob/master/A6-client-retries.md
-
-  DEFAULT_TIMEOUT = 30  # seconds
-
   def __init__(self, channel, service_name, stub=None):
     """Create a Sender.
 
@@ -144,37 +179,14 @@ class OutgoingConnection(object):
           if self._shutdown:
             return
         try:
+          print(self._stub.KeepAlive)
           self._stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
         except grpc.RpcError as e:
           logging.warning("KeepAlive rpc failed: %s", e)
     except Exception as e:  # pylint: disable=broad-except
       logging.error("Exception in KeepAlive: %s", e)
 
-  def _RetryLoop(self, func, timeout=None):
-    """Retries an operation until success or deadline.
-
-    Args:
-
-      func: The function to run. Must take a timeout, in seconds, as a single
-        parameter. If it raises grpc.RpcError and deadline has not be reached,
-        it will be run again.
-
-      timeout: Retries will continue until timeout seconds have passed.
-    """
-    timeout = timeout or self.DEFAULT_TIMEOUT
-    deadline = time.time() + timeout
-    sleep = 1
-    while True:
-      try:
-        return func(timeout)
-      except grpc.RpcError:
-        if time.time() + sleep > deadline:
-          raise
-        time.sleep(sleep)
-        sleep *= 2
-        timeout = deadline - time.time()
-
-  def InsertMessage(self, message, timeout=None):
+  def InsertMessage(self, message, timeout=None, single_try_timeout=None):
     """Inserts a message into the Fleetspeak server.
 
     Sets message.source, if unset.
@@ -182,8 +194,10 @@ class OutgoingConnection(object):
     Args:
       message: common_pb2.Message
         The message to send.
-
-      timeout: How many seconds to try for.
+      timeout: Retries will continue until timeout seconds have passed. If not
+        specified, a default of 30 seconds is used.
+      single_try_timeout: A timeout for each try. If not specified, will be
+        set to the same value as "timeout".
 
     Raises:
       grpc.RpcError: if the RPC fails.
@@ -201,23 +215,24 @@ class OutgoingConnection(object):
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    return self._RetryLoop(
+    return RetryLoop(
         lambda t: self._stub.InsertMessage(message, timeout=t))
 
-  def DeletePendingMessages(self, request, timeout=None):
+  def DeletePendingMessages(self, request, timeout=None, single_try_timeout=None):
     if not isinstance(request, admin_pb2.DeletePendingMessagesRequest):
       raise TypeError("Expected fleetspeak.admin.DeletePendingMessagesRequest "
         "as an argument.")
 
-    return self._RetryLoop(
+    return RetryLoop(
       lambda t: self._stub.DeletePendingMessages(request, timeout=t)
     )
 
   def GetPendingMessages(
       self,
       request: admin_pb2.GetPendingMessagesRequest,
-      timeout: Optional[float] = None) -> admin_pb2.GetPendingMessagesResponse:
-    return self._RetryLoop(
+      timeout: Optional[float] = None,
+      single_try_timeout: Optional[float] = None) -> admin_pb2.GetPendingMessagesResponse:
+    return RetryLoop(
       lambda t: self._stub.GetPendingMessages(request, timeout=t),
       timeout=timeout,
     )
@@ -226,13 +241,14 @@ class OutgoingConnection(object):
       self,
       request: admin_pb2.GetPendingMessageCountRequest,
       timeout: Optional[float] = None,
+      single_try_timeout: Optional[float] = None,
   ) -> admin_pb2.GetPendingMessageCountResponse:
-    return self._RetryLoop(
+    return RetryLoop(
       lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
       timeout=timeout,
     )
 
-  def ListClients(self, request, timeout=None):
+  def ListClients(self, request, timeout=None, single_try_timeout=None):
     """Provides basic information about Fleetspeak clients.
 
     Args:
@@ -242,10 +258,10 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.ListClientsResponse
     """
-    return self._RetryLoop(
+    return RetryLoop(
         lambda t: self._stub.ListClients(request, timeout=t))
 
-  def FetchClientResourceUsageRecords(self, request, timeout=None):
+  def FetchClientResourceUsageRecords(self, request, timeout=None, single_try_timeout=None):
     """Provides resource usage metrics of a single Fleetspeak client.
 
     Args:
@@ -255,7 +271,7 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.FetchClientResourceUsageRecordsResponse
     """
-    return self._RetryLoop(
+    return RetryLoop(
         lambda t: self._stub.FetchClientResourceUsageRecords(request, timeout=t))
 
   def Shutdown(self):
