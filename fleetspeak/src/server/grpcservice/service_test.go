@@ -33,6 +33,8 @@ import (
 )
 
 type trivialProcessorServer struct {
+	ggrpc.UnimplementedProcessorServer
+
 	msgs chan *fspb.Message
 }
 
