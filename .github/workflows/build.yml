@@ -111,7 +111,7 @@ jobs:
       - name: Install dependencies
         run: |
           powershell Install-WindowsFeature Net-Framework-Core
-          pip install --upgrade pip wheel setuptools
+          pip install wheel
       - name: Build installers
         shell: bash
         run: |
