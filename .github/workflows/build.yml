@@ -268,11 +268,12 @@ jobs:
           ls -la ${{ steps.download.outputs.download-path }}/*
           mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_PATH
           ls -la $DEPLOY_PATH
+          echo "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" >> $GITHUB_ENV
       - name: Upload installers to GCS
         uses: google-github-actions/upload-cloud-storage@main
         with:
           credentials: ${{ secrets.GCP_SA_KEY }}
           path: ${{ env.DEPLOY_PATH }}
-          destination: ${{ env.GCS_BUCKET }}/${{ env.BUILD_TIMESTAMP }}_${{ env.GITHUB_SHA }}
+          destination: ${{ env.GCS_BUCKET }}/${{ env.BUILD_TIMESTAMP }}_${{ github.sha }}
           # Omit `path` (e.g. /home/runner/deploy/) in final GCS path.
           parent: false
