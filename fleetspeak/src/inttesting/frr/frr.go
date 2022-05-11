@@ -273,6 +273,8 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 // metadata about received messages.  It also provides methods to examine this
 // metatdata, check it for consistency and trigger FRR operations.
 type MasterServer struct {
+	fgrpc.UnimplementedMasterServer
+
 	clients   map[common.ClientID]*clientInfo
 	lock      sync.RWMutex // protects clients
 	completed chan common.ClientID

@@ -55,6 +55,8 @@ func NewServer(s db.Store, n notifications.Notifier) sgrpc.AdminServer {
 
 // adminServer implements admin_grpc.AdminServer.
 type adminServer struct {
+	sgrpc.UnimplementedAdminServer
+
 	store    db.Store
 	notifier notifications.Notifier
 }
