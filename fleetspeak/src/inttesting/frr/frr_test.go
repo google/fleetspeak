@@ -210,6 +210,8 @@ func TestClientServiceEarlyShutdown(t *testing.T) {
 }
 
 type fakeMasterServer struct {
+	fgrpc.UnimplementedMasterServer
+
 	rec     chan<- *fpb.MessageInfo
 	recFile chan<- *fpb.FileResponseInfo
 }
