@@ -273,6 +273,6 @@ jobs:
         with:
           credentials: ${{ secrets.GCP_SA_KEY }}
           path: ${{ env.DEPLOY_PATH }}
-          destination: ${{ env.GCS_BUCKET }}
+          destination: ${{ env.GCS_BUCKET }}/${{ env.BUILD_TIMESTAMP }}_${{ env.GITHUB_SHA }}
           # Omit `path` (e.g. /home/runner/deploy/) in final GCS path.
           parent: false
