@@ -14,6 +14,7 @@
 
 """Tests for grpcservice.client.client."""
 
+import datetime
 import threading
 import time
 from unittest import mock
@@ -35,7 +36,10 @@ class RetryLoopTest(absltest.TestCase):
   def testNotSleepingOnFirstSuccessfulCall(self, time_mock, sleep_mock):
     func = mock.Mock(return_value=42)
 
-    result = connector.RetryLoop(func, timeout=10.5, single_try_timeout=1)
+    result = connector.RetryLoop(
+        func,
+        timeout=datetime.timedelta(seconds=10.5),
+        single_try_timeout=datetime.timedelta(seconds=1))
 
     func.assert_called_once()
     sleep_mock.assert_not_called()
@@ -45,22 +49,26 @@ class RetryLoopTest(absltest.TestCase):
   @mock.patch.object(time, "sleep")
   @mock.patch.object(time, "time")
   def testSingleTryTimeoutIsUsedForCalls(self, time_mock, sleep_mock):
-    cur_time = [0]
+    cur_time = 0
 
     def SleepMock(v: float) -> None:
-      cur_time[0] += v
+      nonlocal cur_time
+      cur_time += v
 
     sleep_mock.side_effect = SleepMock
-    time_mock.side_effect = lambda: cur_time[0]
+    time_mock.side_effect = lambda: cur_time
 
-    def Func(timeout: float) -> None:
-      cur_time[0] += timeout
+    def Func(timeout: datetime.timedelta) -> None:
+      nonlocal cur_time
+      cur_time += timeout.total_seconds()
       raise grpc.RpcError("error")
 
     func = mock.Mock(wraps=Func)
 
     with self.assertRaises(grpc.RpcError):
-      connector.RetryLoop(func, timeout=10.5, single_try_timeout=1)
+      connector.RetryLoop(func,
+                          timeout=datetime.timedelta(seconds=10.5),
+                          single_try_timeout=datetime.timedelta(seconds=1))
 
     # Expected timeline:
     # 0:    func(1)
@@ -71,34 +79,37 @@ class RetryLoopTest(absltest.TestCase):
     # 6:    sleep(4)
     # 10:   func(0.5)
     # 10.5: -> done
-    self.assertListEqual([c.args[0] for c in func.call_args_list],
-                         [1, 1, 1, 0.5])
+    self.assertListEqual(
+        [c.args[0].total_seconds() for c in func.call_args_list],
+        [1, 1, 1, 0.5])
 
   @mock.patch.object(time, "sleep")
   @mock.patch.object(time, "time")
   def testDefaultSingleTryTimeoutIsEqualToDefaultTimeout(
       self, time_mock, sleep_mock):
-    cur_time = [0]
+    cur_time = 0
 
     def SleepMock(v: float) -> None:
-      cur_time[0] += v
+      nonlocal cur_time
+      cur_time += v
 
     sleep_mock.side_effect = SleepMock
-    time_mock.side_effect = lambda: cur_time[0]
+    time_mock.side_effect = lambda: cur_time
 
-    def Func(timeout: float) -> None:
-      cur_time[0] += timeout
+    def Func(timeout: datetime.timedelta) -> None:
+      nonlocal cur_time
+      cur_time += timeout.total_seconds()
       raise grpc.RpcError("error")
 
     func = mock.Mock(wraps=Func)
 
     with self.assertRaises(grpc.RpcError):
-      connector.RetryLoop(func, timeout=10)
+      connector.RetryLoop(func, timeout=datetime.timedelta(seconds=10))
 
     # Expected timeline:
     # 0:  func(10)
     # 10: -> done
-    func.assert_called_once_with(10)
+    func.assert_called_once_with(datetime.timedelta(seconds=10))
 
 
 class ClientTest(absltest.TestCase):

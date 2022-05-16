@@ -16,6 +16,7 @@
 
 import abc
 import collections
+import datetime
 import os
 import logging
 import threading
@@ -42,33 +43,33 @@ flags.DEFINE_string("fleetspeak_server", "",
                     "The address to find the fleetspeak admin server, e.g. "
                     "'localhost:8080'")
 
-DEFAULT_TIMEOUT_SEC = 30
+DEFAULT_TIMEOUT = datetime.timedelta(seconds=30)
 
 _T = TypeVar("_T")
 
 
 # TODO: Remove retry logic when possible. I.e. when grpc supports it
 # natively - https://github.com/grpc/proposal/blob/master/A6-client-retries.md
-def RetryLoop(func: Callable[[float], _T],
-              timeout: Optional[float] = None,
-              single_try_timeout: Optional[float] = None) -> _T:
+def RetryLoop(func: Callable[[datetime.timedelta], _T],
+              timeout: Optional[datetime.timedelta] = None,
+              single_try_timeout: Optional[datetime.timedelta] = None) -> _T:
   """Retries an operation until success or deadline.
 
   func() calls are retried if func raises a grpc.RpcError.
 
   Args:
-    func: The function to run. Must take a timeout, in seconds, as a single
-      parameter. If it raises grpc.RpcError and deadline has not be reached,
+    func: The function to run. Must take a timeout, in datetime.timedelta,
+      as a single parameter. If it raises grpc.RpcError and deadline has not be reached,
       it will be run again.
-    timeout: Retries will continue until timeout seconds have passed. If not
+    timeout: Retries will continue until timeout has passed. If not
       specified, a default of 30 seconds is used.
     single_try_timeout: A timeout for each try. If not specified, will be
       set to the same value as "timeout".
   """
-  timeout = timeout or DEFAULT_TIMEOUT_SEC
+  timeout = timeout or DEFAULT_TIMEOUT
   single_try_timeout = single_try_timeout or timeout
 
-  deadline = time.time() + timeout
+  deadline = time.time() + timeout.total_seconds()
   cur_timeout = single_try_timeout
   sleep = 1
   while True:
@@ -79,7 +80,8 @@ def RetryLoop(func: Callable[[float], _T],
         raise
       time.sleep(sleep)
       sleep *= 2
-      cur_timeout = min(single_try_timeout, max(0, deadline - time.time()))
+      time_left = datetime.timedelta(seconds=max(0, deadline - time.time()))
+      cur_timeout = min(time_left, single_try_timeout)
 
 
 class Servicer(grpcservice_pb2_grpc.ProcessorServicer):
@@ -180,14 +182,16 @@ class OutgoingConnection(object):
           if self._shutdown:
             return
         try:
-          print(self._stub.KeepAlive)
           self._stub.KeepAlive(common_pb2.EmptyMessage(), timeout=1.0)
         except grpc.RpcError as e:
           logging.warning("KeepAlive rpc failed: %s", e)
     except Exception as e:  # pylint: disable=broad-except
       logging.error("Exception in KeepAlive: %s", e)
 
-  def InsertMessage(self, message, timeout=None, single_try_timeout=None):
+  def InsertMessage(self,
+                    message: common_pb2.Message,
+                    timeout: Optional[datetime.timedelta] = None,
+                    single_try_timeout: Optional[datetime.timedelta] = None):
     """Inserts a message into the Fleetspeak server.
 
     Sets message.source, if unset.
@@ -195,7 +199,7 @@ class OutgoingConnection(object):
     Args:
       message: common_pb2.Message
         The message to send.
-      timeout: Retries will continue until timeout seconds have passed. If not
+      timeout: Retries will continue until timeout has passed. If not
         specified, a default of 30 seconds is used.
       single_try_timeout: A timeout for each try. If not specified, will be
         set to the same value as "timeout".
@@ -216,68 +220,87 @@ class OutgoingConnection(object):
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    return RetryLoop(lambda t: self._stub.InsertMessage(message, timeout=t))
+    return RetryLoop(lambda t: self._stub.InsertMessage(message, timeout=t),
+                     timeout=timeout,
+                     single_try_timeout=single_try_timeout)
 
-  def DeletePendingMessages(self,
-                            request,
-                            timeout=None,
-                            single_try_timeout=None):
+  def DeletePendingMessages(
+      self,
+      request: admin_pb2.DeletePendingMessagesRequest,
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None):
     if not isinstance(request, admin_pb2.DeletePendingMessagesRequest):
       raise TypeError("Expected fleetspeak.admin.DeletePendingMessagesRequest "
                       "as an argument.")
 
     return RetryLoop(
-        lambda t: self._stub.DeletePendingMessages(request, timeout=t))
+        lambda t: self._stub.DeletePendingMessages(request, timeout=t),
+        timeout=timeout,
+        single_try_timeout=single_try_timeout)
 
   def GetPendingMessages(
       self,
       request: admin_pb2.GetPendingMessagesRequest,
-      timeout: Optional[float] = None,
-      single_try_timeout: Optional[float] = None
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None
   ) -> admin_pb2.GetPendingMessagesResponse:
     return RetryLoop(
         lambda t: self._stub.GetPendingMessages(request, timeout=t),
         timeout=timeout,
+        single_try_timeout=single_try_timeout,
     )
 
   def GetPendingMessageCount(
       self,
       request: admin_pb2.GetPendingMessageCountRequest,
-      timeout: Optional[float] = None,
-      single_try_timeout: Optional[float] = None,
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None,
   ) -> admin_pb2.GetPendingMessageCountResponse:
     return RetryLoop(
         lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
         timeout=timeout,
+        single_try_timeout=single_try_timeout,
     )
 
-  def ListClients(self, request, timeout=None, single_try_timeout=None):
+  def ListClients(self,
+                  request: admin_pb2.ListClientsRequest,
+                  timeout: Optional[datetime.timedelta] = None,
+                  single_try_timeout: Optional[datetime.timedelta] = None):
     """Provides basic information about Fleetspeak clients.
 
     Args:
       request: fleetspeak.admin.ListClientsRequest
-
-      timeout: How many seconds to try for.
+      timeout: Retries will continue until timeout has passed. If not
+        specified, a default of 30 seconds is used.
+      single_try_timeout: A timeout for each try. If not specified, will be
+        set to the same value as "timeout".
 
     Returns: fleetspeak.admin.ListClientsResponse
     """
-    return RetryLoop(lambda t: self._stub.ListClients(request, timeout=t))
+    return RetryLoop(lambda t: self._stub.ListClients(request, timeout=t),
+                     timeout=timeout,
+                     single_try_timeout=single_try_timeout)
 
-  def FetchClientResourceUsageRecords(self,
-                                      request,
-                                      timeout=None,
-                                      single_try_timeout=None):
+  def FetchClientResourceUsageRecords(
+      self,
+      request: admin_pb2.FetchClientResourceUsageRecordsRequest,
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None):
     """Provides resource usage metrics of a single Fleetspeak client.
 
     Args:
       request: fleetspeak.admin.FetchClientResourceUsageRecordsRequest
-
-      timeout: How many seconds to try for.
+      timeout: Retries will continue until timeout has passed. If not
+        specified, a default of 30 seconds is used.
+      single_try_timeout: A timeout for each try. If not specified, will be
+        set to the same value as "timeout".
 
     Returns: fleetspeak.admin.FetchClientResourceUsageRecordsResponse
     """
     return RetryLoop(lambda t: self._stub.FetchClientResourceUsageRecords(
-        request, timeout=t))
+        request, timeout=t),
+                     timeout=timeout,
+                     single_try_timeout=single_try_timeout)
 
   def Shutdown(self):
     with self._shutdown_cv:
