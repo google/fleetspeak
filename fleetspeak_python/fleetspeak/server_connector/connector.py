@@ -80,7 +80,8 @@ def RetryLoop(func: Callable[[datetime.timedelta], _T],
         raise
       time.sleep(sleep.total_seconds())
       sleep *= 2
-      time_left = max(datetime.timedelta(0), deadline - datetime.datetime.now())
+      time_left = max(datetime.timedelta(0),
+                      deadline - datetime.datetime.now())
       cur_timeout = min(time_left, single_try_timeout)
 
 
