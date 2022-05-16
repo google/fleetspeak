@@ -188,10 +188,11 @@ class OutgoingConnection(object):
     except Exception as e:  # pylint: disable=broad-except
       logging.error("Exception in KeepAlive: %s", e)
 
-  def InsertMessage(self,
-                    message: common_pb2.Message,
-                    timeout: Optional[datetime.timedelta] = None,
-                    single_try_timeout: Optional[datetime.timedelta] = None):
+  def InsertMessage(
+      self,
+      message: common_pb2.Message,
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None) -> None:
     """Inserts a message into the Fleetspeak server.
 
     Sets message.source, if unset.
@@ -220,7 +221,10 @@ class OutgoingConnection(object):
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    return RetryLoop(lambda t: self._stub.InsertMessage(message, timeout=t),
+    def Fn(t: datetime.timedelta) -> None:
+      self._stub.InsertMessage(message, timeout=t.total_seconds())
+
+    return RetryLoop(Fn,
                      timeout=timeout,
                      single_try_timeout=single_try_timeout)
 
@@ -228,15 +232,17 @@ class OutgoingConnection(object):
       self,
       request: admin_pb2.DeletePendingMessagesRequest,
       timeout: Optional[datetime.timedelta] = None,
-      single_try_timeout: Optional[datetime.timedelta] = None):
+      single_try_timeout: Optional[datetime.timedelta] = None) -> None:
     if not isinstance(request, admin_pb2.DeletePendingMessagesRequest):
       raise TypeError("Expected fleetspeak.admin.DeletePendingMessagesRequest "
                       "as an argument.")
 
-    return RetryLoop(
-        lambda t: self._stub.DeletePendingMessages(request, timeout=t),
-        timeout=timeout,
-        single_try_timeout=single_try_timeout)
+    def Fn(t: datetime.timedelta) -> None:
+      self._stub.DeletePendingMessages(request, timeout=t.total_seconds())
+
+    return RetryLoop(Fn,
+                     timeout=timeout,
+                     single_try_timeout=single_try_timeout)
 
   def GetPendingMessages(
       self,
@@ -244,8 +250,12 @@ class OutgoingConnection(object):
       timeout: Optional[datetime.timedelta] = None,
       single_try_timeout: Optional[datetime.timedelta] = None
   ) -> admin_pb2.GetPendingMessagesResponse:
+
+    def Fn(t: datetime.timedelta) -> admin_pb2.GetPendingMessagesResponse:
+      return self._stub.GetPendingMessages(request, timeout=t.total_seconds())
+
     return RetryLoop(
-        lambda t: self._stub.GetPendingMessages(request, timeout=t),
+        Fn,
         timeout=timeout,
         single_try_timeout=single_try_timeout,
     )
@@ -256,16 +266,22 @@ class OutgoingConnection(object):
       timeout: Optional[datetime.timedelta] = None,
       single_try_timeout: Optional[datetime.timedelta] = None,
   ) -> admin_pb2.GetPendingMessageCountResponse:
+
+    def Fn(t: datetime.timedelta) -> None:
+      self._stub.GetPendingMessageCount(request, timeout=t.total_seconds())
+
     return RetryLoop(
-        lambda t: self._stub.GetPendingMessageCount(request, timeout=t),
+        Fn,
         timeout=timeout,
         single_try_timeout=single_try_timeout,
     )
 
-  def ListClients(self,
-                  request: admin_pb2.ListClientsRequest,
-                  timeout: Optional[datetime.timedelta] = None,
-                  single_try_timeout: Optional[datetime.timedelta] = None):
+  def ListClients(
+      self,
+      request: admin_pb2.ListClientsRequest,
+      timeout: Optional[datetime.timedelta] = None,
+      single_try_timeout: Optional[datetime.timedelta] = None
+  ) -> admin_pb2.ListClientsResponse:
     """Provides basic information about Fleetspeak clients.
 
     Args:
@@ -277,7 +293,11 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.ListClientsResponse
     """
-    return RetryLoop(lambda t: self._stub.ListClients(request, timeout=t),
+
+    def Fn(t: datetime.timedelta) -> admin_pb2.ListClientsResponse:
+      return self._stub.ListClients(request, timeout=t.total_seconds())
+
+    return RetryLoop(Fn,
                      timeout=timeout,
                      single_try_timeout=single_try_timeout)
 
@@ -285,7 +305,8 @@ class OutgoingConnection(object):
       self,
       request: admin_pb2.FetchClientResourceUsageRecordsRequest,
       timeout: Optional[datetime.timedelta] = None,
-      single_try_timeout: Optional[datetime.timedelta] = None):
+      single_try_timeout: Optional[datetime.timedelta] = None
+  ) -> admin_pb2.FetchClientResourceUsageRecordsResponse:
     """Provides resource usage metrics of a single Fleetspeak client.
 
     Args:
@@ -297,8 +318,14 @@ class OutgoingConnection(object):
 
     Returns: fleetspeak.admin.FetchClientResourceUsageRecordsResponse
     """
-    return RetryLoop(lambda t: self._stub.FetchClientResourceUsageRecords(
-        request, timeout=t),
+
+    def Fn(
+        t: datetime.timedelta
+    ) -> admin_pb2.FetchClientResourceUsageRecordsResponse:
+      self._stub.FetchClientResourceUsageRecords(request,
+                                                 timeout=t.total_seconds())
+
+    return RetryLoop(Fn,
                      timeout=timeout,
                      single_try_timeout=single_try_timeout)
 
