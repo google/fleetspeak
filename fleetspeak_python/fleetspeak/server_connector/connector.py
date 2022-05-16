@@ -69,18 +69,18 @@ def RetryLoop(func: Callable[[datetime.timedelta], _T],
   timeout = timeout or DEFAULT_TIMEOUT
   single_try_timeout = single_try_timeout or timeout
 
-  deadline = time.time() + timeout.total_seconds()
+  deadline = datetime.datetime.now() + timeout
   cur_timeout = single_try_timeout
-  sleep = 1
+  sleep = datetime.timedelta(seconds=1)
   while True:
     try:
       return func(cur_timeout)
     except grpc.RpcError:
-      if time.time() + sleep > deadline:
+      if datetime.datetime.now() + sleep > deadline:
         raise
-      time.sleep(sleep)
+      time.sleep(sleep.total_seconds())
       sleep *= 2
-      time_left = datetime.timedelta(seconds=max(0, deadline - time.time()))
+      time_left = max(datetime.timedelta(0), deadline - datetime.datetime.now())
       cur_timeout = min(time_left, single_try_timeout)
 
 
