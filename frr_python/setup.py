@@ -5,7 +5,7 @@ import sys
 from setuptools import setup
 from setuptools.command.develop import develop
 
-GRPCIO_TOOLS = "grpcio-tools==1.24.1"
+GRPCIO_TOOLS = "grpcio-tools==1.46.3"
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)
 
@@ -53,7 +53,6 @@ setup(
     py_modules = ["frr_client", "frr_server"],
     install_requires=[
         "absl-py>=0.8.0",
-        "grpcio-tools>=1.24.1",
         "fleetspeak>=0.1.7"
     ],
     cmdclass={

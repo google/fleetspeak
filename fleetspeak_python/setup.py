@@ -23,7 +23,7 @@ from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
 from setuptools.command.sdist import sdist
 
-GRPCIO_TOOLS = "grpcio-tools==1.24.1"
+GRPCIO_TOOLS = "grpcio-tools==1.46.3"
 
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)
