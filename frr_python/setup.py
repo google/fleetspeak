@@ -53,7 +53,6 @@ setup(
     py_modules = ["frr_client", "frr_server"],
     install_requires=[
         "absl-py>=0.8.0",
-        "grpcio-tools>=1.24.1",
         "fleetspeak>=0.1.7"
     ],
     cmdclass={
