@@ -63,16 +63,6 @@ function build_single_main_file {
   )
 }
 
-function build_single_plugin_file {
-  local readonly F=${1}
-  local readonly COMPILED="${F%.go}.so"
-
-  time (
-    /bin/echo >&2 "Building ${F} => ${COMPILED} "
-    go build -buildmode=plugin -o "${COMPILED}" "${F}"
-  )
-}
-
 time (
   for f in ${MAIN_FILES}; do
     build_single_main_file "${f}"
