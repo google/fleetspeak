@@ -36,15 +36,11 @@ func GetTempDir(testName string) (string, func()) {
 		return tempDir, cleanupTempDir
 	}
 
-	tempDir = os.Getenv("TEST_TMPDIR")
-
-	if tempDir == "" {
-		d, err := ioutil.TempDir("", testName+"_")
-		if err != nil {
-			panic(fmt.Sprintf("Unable to create temp directory: %v", err))
-		}
-		tempDir = d
+	tempDir, err := ioutil.TempDir(os.Getenv("TEST_TMPDIR"), testName+"_")
+	if err != nil {
+		panic(fmt.Sprintf("Unable to create temp directory: %v", err))
 	}
+
 	log.Infof("Created temp directory: %s", tempDir)
 	return tempDir, cleanupTempDir
 }

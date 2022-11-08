@@ -42,7 +42,7 @@ import (
 func TestBroadcastsAPI(t *testing.T) {
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "AdminServer", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	as := admin.NewServer(ts.DS, nil)
@@ -78,7 +78,7 @@ func TestBroadcastsAPI(t *testing.T) {
 func TestMessageStatusAPI(t *testing.T) {
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "AdminServer", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	as := admin.NewServer(ts.DS, nil)
@@ -145,7 +145,7 @@ func (m *mockStreamClientIdsServer) Context() context.Context {
 func TestListClientsAPI(t *testing.T) {
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "AdminServer", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	as := admin.NewServer(ts.DS, nil)
@@ -246,7 +246,7 @@ func TestInsertMessageAPI(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "AdminServer", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	key, err := ts.AddClient()
@@ -288,7 +288,7 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	server := testserver.Make(t, "server", "AdminServer", nil)
+	server := testserver.Make(t, "server", t.Name(), nil)
 	defer server.S.Stop()
 
 	key, err := server.AddClient()
@@ -334,7 +334,7 @@ func TestPendingMessages(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "TestPendingMessages", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	key, err := ts.AddClient()
@@ -529,7 +529,7 @@ func (m *mockStreamClientContactsServer) Context() context.Context {
 func TestClientContacts(t *testing.T) {
 	ctx := context.Background()
 
-	ts := testserver.Make(t, "server", "TestPendingMessages", nil)
+	ts := testserver.Make(t, "server", t.Name(), nil)
 	defer ts.S.Stop()
 
 	as := admin.NewServer(ts.DS, nil)
