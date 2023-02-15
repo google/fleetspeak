@@ -13,7 +13,7 @@ require (
 	github.com/kolide/osquery-go v0.0.0-20190904034940-a74aa860032d
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/pires/go-proxyproto v0.0.0-20190615163442-2c19fd512994
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.11.1
 	github.com/shirou/gopsutil v3.20.12+incompatible
 	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
