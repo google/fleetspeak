@@ -159,7 +159,7 @@ func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
 		args := []interface{}{}
-		query := "SELECT client_id, blacklisted FROM clients"
+		query := "SELECT client_id FROM clients"
 
 		conditions := []string{}
 		if !includeBlacklisted {
@@ -182,8 +182,7 @@ func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool
 		defer rs.Close()
 		for rs.Next() {
 			var sid string
-			var b bool
-			err := rs.Scan(&sid, &b)
+			err := rs.Scan(&sid)
 			if err != nil {
 				return err
 			}

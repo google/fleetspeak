@@ -55,7 +55,7 @@ func uint64ToBytes(i uint64) []byte {
 func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error {
 	return d.runOnce(ctx, true, func(tx *sql.Tx) error {
 		args := []interface{}{}
-		query := "SELECT client_id, blacklisted FROM clients"
+		query := "SELECT client_id FROM clients"
 
 		conditions := []string{}
 		if !includeBlacklisted {
