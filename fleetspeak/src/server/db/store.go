@@ -199,8 +199,8 @@ type ClientStore interface {
 	// returns all clients.
 	ListClients(ctx context.Context, ids []common.ClientID) ([]*spb.Client, error)
 
-  // StreamClientIds streams the IDs of all available clients.
-	StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error
+	// StreamClientIds streams the IDs of all available clients, optionally with last contact after a given timestamp.
+	StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error
 
 	// GetClientData retrieves the current data about the client identified
 	// by id.
@@ -232,7 +232,7 @@ type ClientStore interface {
 	// older than a few weeks.
 	ListClientContacts(ctx context.Context, id common.ClientID) ([]*spb.ClientContact, error)
 
-  // StreamClientContacts is a streaming version of ListClientContacts.
+	// StreamClientContacts is a streaming version of ListClientContacts.
 	StreamClientContacts(ctx context.Context, id common.ClientID, callback func(*spb.ClientContact) error) error
 
 	// LinkMessagesToContact associates messages with a contact - it records
