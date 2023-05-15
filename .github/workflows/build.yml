@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   build-test-linux:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     env:
       MYSQL_TEST_USER: root
       MYSQL_TEST_PASS: root
