@@ -439,7 +439,7 @@ func streamClientIdsTest(t *testing.T, ds db.Store) {
 
 		err := ds.StreamClientIds(ctx, true, nil, callback)
 		if err != nil {
-			t.Fatalf("StreamClientIds failed", err)
+			t.Fatalf("StreamClientIds failed: %v", err)
 		}
 
 		sort.Slice(result, func(i int, j int) bool {
@@ -461,7 +461,7 @@ func streamClientIdsTest(t *testing.T, ds db.Store) {
 
 		err := ds.StreamClientIds(ctx, false, nil, callback)
 		if err != nil {
-			t.Fatalf("StreamClientIds failed", err)
+			t.Fatalf("StreamClientIds failed: %v", err)
 		}
 
 		sort.Slice(result, func(i int, j int) bool {
@@ -484,7 +484,7 @@ func streamClientIdsTest(t *testing.T, ds db.Store) {
 
 		err := ds.StreamClientIds(ctx, true, &contactTimes[1], callback)
 		if err != nil {
-			t.Fatalf("StreamClientIds failed", err)
+			t.Fatalf("StreamClientIds failed: %v", err)
 		}
 
 		sort.Slice(result, func(i int, j int) bool {
