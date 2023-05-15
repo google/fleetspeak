@@ -35,6 +35,7 @@ type Config struct {
 	// indicating the client architecture and OS are automatically included.
 	ClientLabel []string `protobuf:"bytes,3,rep,name=client_label,json=clientLabel,proto3" json:"client_label,omitempty"`
 	// Types that are assignable to PersistenceHandler:
+	//
 	//	*Config_FilesystemHandler
 	//	*Config_RegistryHandler
 	PersistenceHandler isConfig_PersistenceHandler `protobuf_oneof:"persistence_handler"`
