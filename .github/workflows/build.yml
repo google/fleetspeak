@@ -15,7 +15,7 @@ jobs:
         run: |
           sudo /etc/init.d/mysql start
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v3
         with:
           go-version: '^1.17'
       - name: Set up Go
@@ -106,7 +106,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v3
         with:
           go-version: '^1.17'
       - uses: actions/setup-python@v4
@@ -145,7 +145,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v3
         with:
           go-version: '^1.17'
       - uses: actions/setup-python@v4
@@ -184,7 +184,7 @@ jobs:
       MYSQL_TEST_E2E_DB: e2e_test_db
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v3
         with:
           go-version: '^1.17'
       - uses: actions/setup-python@v4
@@ -215,7 +215,7 @@ jobs:
       run:
         working-directory: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v3
         with:
           go-version: '^1.17'
       - uses: actions/checkout@v3
