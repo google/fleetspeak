@@ -51,6 +51,8 @@ jobs:
             echo "Please run \`PATH=~/go/bin:\$PATH fleetspeak/generate_go_py_protos.sh\`."
             echo "pip packages:"
             pip freeze
+            echo "git diff:"
+            git diff
             exit 1;
           fi;
           echo "git status is clean; generated protos are consistent"
