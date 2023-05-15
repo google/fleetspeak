@@ -68,7 +68,8 @@ jobs:
         timeout-minutes: 10
         run: |
           mysql -e 'DROP DATABASE ${{ env.MYSQL_TEST_E2E_DB }}; CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
-          sudo apt install debhelper devscripts dh-systemd fakeroot libparse-debcontrol-perl
+          sudo apt-get update
+          sudo apt install debhelper devscripts fakeroot libparse-debcontrol-perl
           cd fleetspeak
           ./build-pkgs.sh
           # Pass through MySQL config environment variables to sudo.
