@@ -2,19 +2,19 @@ name: Build installers
 on: [push, pull_request]
 jobs:
   build-test-linux:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       MYSQL_TEST_USER: root
       MYSQL_TEST_PASS: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up MySQL
         run: |
           sudo /etc/init.d/mysql start
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v4
         with:
           go-version: '^1.17'
       - name: Set up Go
@@ -22,10 +22,10 @@ jobs:
           go get -u golang.org/x/lint/golint
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('*_python/**') }}
@@ -101,11 +101,11 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '^1.17'
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.7'
       - name: Install dependencies
@@ -131,7 +131,7 @@ jobs:
           ls -la $DEPLOY_PATH
       - if: ${{ github.event_name == 'push' }}
         name: Upload installers to GitHub artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: windows-installers
           path: deploy/
@@ -140,13 +140,13 @@ jobs:
   build-osx:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '^1.17'
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.7'
+          python-version: '3.x'
       - name: Install dependencies
         run: |
           pip install wheel
@@ -166,7 +166,7 @@ jobs:
           ls -la $DEPLOY_PATH
       - if: ${{ github.event_name == 'push' }}
         name: Upload installers to GitHub artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: osx-installers
           path: deploy/
@@ -179,13 +179,13 @@ jobs:
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '^1.17'
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.x'
       - name: Install dependencies
         run: |
           pip install wheel
@@ -211,15 +211,15 @@ jobs:
       run:
         working-directory: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v4
         with:
           go-version: '^1.17'
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.x'
       - name: Install dependencies
         shell: bash
         run: |
@@ -243,7 +243,7 @@ jobs:
 
   upload-installers:
     if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       GCS_BUCKET: autobuilds-fleetspeak
     needs:
@@ -253,10 +253,10 @@ jobs:
       - test-osx
       - test-windows
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Download installers from GitHub artifacts
         id: download
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: ~/_artifacts
       - name: Merge artifacts
@@ -269,10 +269,14 @@ jobs:
           mv -v ${{ steps.download.outputs.download-path }}/*/* $DEPLOY_PATH
           ls -la $DEPLOY_PATH
           echo "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" >> $GITHUB_ENV
-      - name: Upload installers to GCS
-        uses: google-github-actions/upload-cloud-storage@main
+      - name: Authenticate
+        uses: 'google-github-actions/auth@v1'
         with:
-          credentials: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          export_environment_variables: true
+      - name: Upload installers to GCS
+        uses: google-github-actions/upload-cloud-storage@v1.0.0
+        with:
           path: ${{ env.DEPLOY_PATH }}
           destination: ${{ env.GCS_BUCKET }}/${{ env.BUILD_TIMESTAMP }}_${{ github.sha }}
           # Omit `path` (e.g. /home/runner/deploy/) in final GCS path.
