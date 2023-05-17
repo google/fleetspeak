@@ -305,6 +305,53 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 	}
 }
 
+func addClientsTest(t *testing.T, ds db.Store) {
+	ctx := context.Background()
+	key := []byte("A binary client key \x00\xff\x01\xfe")
+
+	t.Run("add non-blacklisted client", func(t *testing.T) {
+		if err := ds.AddClient(ctx, clientID, &db.ClientData{
+			Key: key,
+		}); err != nil {
+			t.Errorf("Can't add client.")
+		}
+
+		got, err := ds.GetClientData(ctx, clientID)
+		if err != nil {
+			t.Errorf("Can't get client data.")
+		}
+
+		expected := &db.ClientData{
+			Key: key,
+		}
+		if !reflect.DeepEqual(expected, got) {
+			t.Errorf("Expected %v, got %v", expected, got)
+		}
+	})
+
+	t.Run("add blacklisted client", func(t *testing.T) {
+		if err := ds.AddClient(ctx, clientID2, &db.ClientData{
+			Key:         key,
+			Blacklisted: true,
+		}); err != nil {
+			t.Errorf("Can't add client.")
+		}
+
+		got, err := ds.GetClientData(ctx, clientID2)
+		if err != nil {
+			t.Errorf("Can't get client data.")
+		}
+
+		expected := &db.ClientData{
+			Key:         key,
+			Blacklisted: true,
+		}
+		if !reflect.DeepEqual(expected, got) {
+			t.Errorf("Expected %v, got %v", expected, got)
+		}
+	})
+}
+
 func listClientsTest(t *testing.T, ds db.Store) {
 	ctx := context.Background()
 
@@ -373,32 +420,82 @@ func streamClientIdsTest(t *testing.T, ds db.Store) {
 	ctx := context.Background()
 
 	clientIds := []common.ClientID{clientID, clientID2, clientID3}
+	contactTimes := []time.Time{}
 
-	for _, cid := range clientIds {
-		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key")}); err != nil {
+	for idx, cid := range clientIds {
+		contactTimes = append(contactTimes, db.Now())
+		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key"), Blacklisted: idx%2 != 0}); err != nil {
 			t.Fatalf("AddClient [%v] failed: %v", clientID, err)
 		}
 	}
 
-	var result []common.ClientID
+	t.Run("Stream all clients", func(t *testing.T) {
+		var result []common.ClientID
 
-	callback := func(id common.ClientID) error {
-		result = append(result, id)
-		return nil
-	}
+		callback := func(id common.ClientID) error {
+			result = append(result, id)
+			return nil
+		}
 
-	err := ds.StreamClientIds(ctx, callback)
-	if err != nil {
-		t.Fatalf("StreamClientIds failed", err)
-	}
+		err := ds.StreamClientIds(ctx, true, nil, callback)
+		if err != nil {
+			t.Fatalf("StreamClientIds failed: %v", err)
+		}
 
-	sort.Slice(result, func(i int, j int) bool {
-		return bytes.Compare(result[i].Bytes(), result[j].Bytes()) < 0
+		sort.Slice(result, func(i int, j int) bool {
+			return bytes.Compare(result[i].Bytes(), result[j].Bytes()) < 0
+		})
+
+		if !reflect.DeepEqual(result, clientIds) {
+			t.Errorf("StreamClientIds returned unexpected result. Got: [%v]. Want: [%v].", result, clientIds)
+		}
 	})
 
-	if !reflect.DeepEqual(result, clientIds) {
-		t.Errorf("StreamClientIds returned unexpected result. Got: [%v]. Want: [%v].", result, clientIds)
-	}
+	t.Run("Stream non-blacklisted clients only", func(t *testing.T) {
+		var result []common.ClientID
+
+		callback := func(id common.ClientID) error {
+			result = append(result, id)
+			return nil
+		}
+
+		err := ds.StreamClientIds(ctx, false, nil, callback)
+		if err != nil {
+			t.Fatalf("StreamClientIds failed: %v", err)
+		}
+
+		sort.Slice(result, func(i int, j int) bool {
+			return bytes.Compare(result[i].Bytes(), result[j].Bytes()) < 0
+		})
+
+		expected := []common.ClientID{clientID, clientID3}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("StreamClientIds returned unexpected result. Got: [%v]. Want: [%v].", result, expected)
+		}
+	})
+
+	t.Run("Stream all clients with time filter", func(t *testing.T) {
+		var result []common.ClientID
+
+		callback := func(id common.ClientID) error {
+			result = append(result, id)
+			return nil
+		}
+
+		err := ds.StreamClientIds(ctx, true, &contactTimes[1], callback)
+		if err != nil {
+			t.Fatalf("StreamClientIds failed: %v", err)
+		}
+
+		sort.Slice(result, func(i int, j int) bool {
+			return bytes.Compare(result[i].Bytes(), result[j].Bytes()) < 0
+		})
+
+		expected := []common.ClientID{clientID2, clientID3}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("StreamClientIds returned unexpected result. Got: [%v]. Want: [%v].", result, expected)
+		}
+	})
 }
 
 func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
@@ -535,6 +632,7 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 func clientStoreTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("ClientStoreTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
+			"AddClientsTest":                addClientsTest,
 			"ClientStoreTest":               clientStoreTest,
 			"ListClientsTest":               listClientsTest,
 			"StreamClientIdsTest":           streamClientIdsTest,

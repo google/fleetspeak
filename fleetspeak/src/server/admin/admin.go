@@ -125,13 +125,14 @@ func (s adminServer) ListClients(ctx context.Context, req *spb.ListClientsReques
 	}, nil
 }
 
-func (s adminServer) StreamClientIds(_ *spb.StreamClientIdsRequest, srv sgrpc.Admin_StreamClientIdsServer) error {
+func (s adminServer) StreamClientIds(req *spb.StreamClientIdsRequest, srv sgrpc.Admin_StreamClientIdsServer) error {
 	callback := func(id common.ClientID) error {
 		return srv.Send(&spb.StreamClientIdsResponse{
 			ClientId: id.Bytes(),
 		})
 	}
-	return s.store.StreamClientIds(srv.Context(), callback)
+	lastContactAfter := req.LastContactAfter.AsTime()
+	return s.store.StreamClientIds(srv.Context(), req.IncludeBlacklisted, &lastContactAfter, callback)
 }
 
 func (s adminServer) ListClientContacts(ctx context.Context, req *spb.ListClientContactsRequest) (*spb.ListClientContactsResponse, error) {

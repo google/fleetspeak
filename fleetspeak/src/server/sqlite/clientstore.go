@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/golang/glog"
@@ -153,11 +154,28 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 	return ret, err
 }
 
-func (d *Datastore) StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error {
+func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error {
 	d.l.Lock()
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
-		rs, err := tx.QueryContext(ctx, "SELECT client_id FROM clients")
+		args := []interface{}{}
+		query := "SELECT client_id FROM clients"
+
+		conditions := []string{}
+		if !includeBlacklisted {
+			conditions = append(conditions, "NOT blacklisted")
+		}
+
+		if lastContactAfter != nil {
+			conditions = append(conditions, "last_contact_time > ?")
+			args = append(args, lastContactAfter.UnixNano())
+		}
+
+		if len(conditions) > 0 {
+			query = fmt.Sprintf("%s WHERE %s", query, strings.Join(conditions, " AND "))
+		}
+
+		rs, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
 			return err
 		}
@@ -223,7 +241,7 @@ func (d *Datastore) AddClient(ctx context.Context, id common.ClientID, data *db.
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
 		sid := id.String()
-		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, 0, ?)", sid, data.Key, db.Now().UnixNano()); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO clients(client_id, client_key, blacklisted, last_contact_time) VALUES(?, ?, ?, ?)", sid, data.Key, data.Blacklisted, db.Now().UnixNano()); err != nil {
 			return err
 		}
 		for _, l := range data.Labels {

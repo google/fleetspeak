@@ -130,9 +130,9 @@ func (d MonitoredDatastore) ListClients(ctx context.Context, ids []common.Client
 	return res, err
 }
 
-func (d MonitoredDatastore) StreamClientIds(ctx context.Context, callback func(common.ClientID) error) error {
+func (d MonitoredDatastore) StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error {
 	s := ftime.Now()
-	err := d.D.StreamClientIds(ctx, callback)
+	err := d.D.StreamClientIds(ctx, includeBlacklisted, lastContactAfter, callback)
 	d.C.DatastoreOperation(s, ftime.Now(), "StreamClientIds", err)
 	return err
 }
