@@ -182,6 +182,9 @@ setup(
         "absl-py>=0.8.0",
         "grpcio>=1.24.1",
     ],
+    extras_require={
+        "test": ["grpc-testing==1.0.0"],
+    },    
     package_data={
     },
     data_files=["VERSION"],

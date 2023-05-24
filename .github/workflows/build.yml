@@ -35,7 +35,7 @@ jobs:
       - name: Set up Python
         run: |
           pip install wheel pytest
-          pip install -e ./fleetspeak_python
+          pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
       - name: Lint
         # We want to address all golint warnings, except for
