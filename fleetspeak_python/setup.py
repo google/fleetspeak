@@ -183,7 +183,7 @@ setup(
         "grpcio>=1.24.1",
     ],
     extras_require={
-        "test": ["grpc-testing==1.0.0"],
+        "test": ["grpcio-testing==1.54.2"],
     },    
     package_data={
     },
