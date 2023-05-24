@@ -34,7 +34,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Set up Python
         run: |
-          pip install wheel
+          pip install wheel pytest
           pip install -e ./fleetspeak_python
           pip install -e ./frr_python
       - name: Lint

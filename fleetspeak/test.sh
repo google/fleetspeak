@@ -66,9 +66,7 @@ time (
   time go test -race --timeout 2.5m ${TEST_GO_DIRS} || RC=1
 
   pretty_echo 'Executing Python tests.'
-  pushd ../fleetspeak_python
-  python -m unittest discover --pattern '*_test.py' || RC=2
-  popd
+  pytest -v ../fleetspeak_python || RC=2
 
   pretty_echo 'Executing Bash tests.'
   for s in ${TEST_SHS}; do
