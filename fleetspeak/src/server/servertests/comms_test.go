@@ -309,12 +309,12 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	}
 
 	// Put a message in the database that would otherwise be ready for delivery.
-	mid, err := common.RandomMessageID()
+	mID, err := common.RandomMessageID()
 	if err != nil {
 		t.Fatalf("Unable to create message id: %v", err)
 	}
 	clientMessage := &fspb.Message{
-		MessageId:       mid.Bytes(),
+		MessageId:       mID.Bytes(),
 		SourceMessageId: []byte("AAABBBCCC"),
 		Source: &fspb.Address{
 			ServiceName: "TestService",
@@ -334,7 +334,7 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for {
-		msgs, err := ts.DS.GetMessages(tctx, []common.MessageID{mid}, true)
+		msgs, err := ts.DS.GetMessages(tctx, []common.MessageID{mID}, true)
 		if err != nil {
 			t.Logf("GetMessages failed: %v", err)
 			goto Skip
@@ -354,12 +354,12 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	messageResult, err := ts.DS.GetMessageResult(ctx, mid)
+	messageResult, err := ts.DS.GetMessageResult(ctx, mID)
 	if err != nil {
-		t.Fatalf("GetMessageResult(%v) failed unexpectedly: %v", mid, err)
+		t.Fatalf("GetMessageResult(%v) failed unexpectedly: %v", mID, err)
 	}
 	if messageResult == nil {
-		t.Fatalf("GetMessageResult(%v) returned empty result, want non-empty.", mid)
+		t.Fatalf("GetMessageResult(%v) returned empty result, want non-empty.", mID)
 	}
 
 	if testService.nonBlocklistedCount != 0 {
