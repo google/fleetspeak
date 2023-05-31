@@ -289,9 +289,9 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	defer fin()
 
 	ctx := context.Background()
-	testService := blocklistService{}
+	testService := &blocklistService{}
 
-	ts := testserver.MakeWithService(t, "server", "Blocklist", &testService)
+	ts := testserver.MakeWithService(t, "server", "Blocklist", testService)
 	defer ts.S.Stop()
 
 	k, err := ts.AddClient()
@@ -363,11 +363,11 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	}
 
 	if testService.nonBlocklistedCount != 0 {
-		t.Errorf("Got %d non-blocklisted messages were expected, want 0", testService.nonBlocklistedCount)
+		t.Errorf("Got %d non-blocklisted messages, want 0", testService.nonBlocklistedCount)
 	}
 
 	if testService.blocklistedCount != 1 {
-		t.Errorf("Got %d blocklisted messages was expected, want 1", testService.blocklistedCount)
+		t.Errorf("Got %d blocklisted messages, want 1", testService.blocklistedCount)
 	}
 }
 
@@ -522,8 +522,8 @@ func (s *errorService) Stop() error                                             
 
 func TestServiceError(t *testing.T) {
 	ctx := context.Background()
-	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
-	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", &testService)
+	testService := &errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
+	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", testService)
 	defer serverWrapper.S.Stop()
 
 	clientPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
