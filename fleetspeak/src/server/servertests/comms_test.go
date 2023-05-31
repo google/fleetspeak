@@ -267,20 +267,20 @@ func TestBlacklist(t *testing.T) {
 // blocklistService is a Fleetspeak service.Service that counts blocklisted
 // and non-blocklisted messages.
 type blocklistService struct {
-	blocklistedCount    *uint
-	nonBlocklistedCount *uint
+	blocklistedCount    uint
+	nonBlocklistedCount uint
 }
 
-func (s blocklistService) Start(sctx service.Context) error { return nil }
-func (s blocklistService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
+func (s *blocklistService) Start(sctx service.Context) error { return nil }
+func (s *blocklistService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	if m.IsBlocklistedSource {
-		(*s.blocklistedCount)++
+		s.blocklistedCount++
 	} else {
-		(*s.nonBlocklistedCount)++
+		s.nonBlocklistedCount++
 	}
 	return nil
 }
-func (s blocklistService) Stop() error { return nil }
+func (s *blocklistService) Stop() error { return nil }
 
 func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
@@ -289,11 +289,9 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 	defer fin()
 
 	ctx := context.Background()
-	var blocklistedCount uint = 0
-	var nonBlocklistedCount uint = 0
-	testService := blocklistService{&blocklistedCount, &nonBlocklistedCount}
+	testService := blocklistService{}
 
-	ts := testserver.MakeWithService(t, "server", "Blocklist", testService)
+	ts := testserver.MakeWithService(t, "server", "Blocklist", &testService)
 	defer ts.S.Stop()
 
 	k, err := ts.AddClient()
@@ -358,18 +356,18 @@ func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
 
 	messageResult, err := ts.DS.GetMessageResult(ctx, mid)
 	if err != nil {
-		t.Fatalf("Failed to get message result: %v", err)
+		t.Fatalf("GetMessageResult(%v) failed unexpectedly: %v", mid, err)
 	}
 	if messageResult == nil {
-		t.Fatal("Expected the processing to not be marked as failed.")
+		t.Fatalf("GetMessageResult(%v) returned empty result, want non-empty.", mid)
 	}
 
-	if nonBlocklistedCount != 0 {
-		t.Fatalf("No non-blocklisted messages were expected, got %d", nonBlocklistedCount)
+	if testService.nonBlocklistedCount != 0 {
+		t.Errorf("Got %d non-blocklisted messages were expected, want 0", testService.nonBlocklistedCount)
 	}
 
-	if blocklistedCount != 1 {
-		t.Fatalf("1 blocklisted messages was expected, got %d", blocklistedCount)
+	if testService.blocklistedCount != 1 {
+		t.Errorf("Got %d blocklisted messages was expected, want 1", testService.blocklistedCount)
 	}
 }
 
@@ -518,14 +516,14 @@ type errorService struct {
 	err error
 }
 
-func (s errorService) Start(sctx service.Context) error                          { return nil }
-func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
-func (s errorService) Stop() error                                               { return nil }
+func (s *errorService) Start(sctx service.Context) error                          { return nil }
+func (s *errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
+func (s *errorService) Stop() error                                               { return nil }
 
 func TestServiceError(t *testing.T) {
 	ctx := context.Background()
 	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
-	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", testService)
+	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", &testService)
 	defer serverWrapper.S.Stop()
 
 	clientPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

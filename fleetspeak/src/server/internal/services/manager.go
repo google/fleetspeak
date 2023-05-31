@@ -177,17 +177,17 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 }
 
 func (s *liveService) annotateMessageWithBlocklistedStatus(ctx context.Context, m *fspb.Message) error {
-	cid, err := common.BytesToClientID(m.Source.ClientId)
-	if err != nil || cid.IsNil() {
+	cID, err := common.BytesToClientID(m.Source.ClientId)
+	if err != nil || cID.IsNil() {
 		return fmt.Errorf("invalid source client id[%v]: %v", m.Source.ClientId, err)
 	}
 
-	cdata, err := s.GetClientData(ctx, cid)
+	cData, err := s.GetClientData(ctx, cID)
 	if err != nil {
-		return fmt.Errorf("can't get client data for id[%v]: %v", m.Source.ClientId, err)
+		return fmt.Errorf("can't get client data for id[%v]: %v", cID, err)
 	}
 
-	m.IsBlocklistedSource = cdata.Blacklisted
+	m.IsBlocklistedSource = cData.Blacklisted
 
 	return nil
 }
