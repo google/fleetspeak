@@ -34,8 +34,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Set up Python
         run: |
-          pip install wheel
-          pip install -e ./fleetspeak_python
+          pip install wheel pytest
+          pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
       - name: Lint
         # We want to address all golint warnings, except for
@@ -192,14 +192,14 @@ jobs:
           python-version: '3.9'
       - name: Install dependencies
         run: |
-          pip install wheel
+          pip install wheel pytest
           go get -v -t ./...
       - uses: ankane/setup-mysql@v1
         with:
           database: ${{ env.MYSQL_TEST_E2E_DB }}
       - name: Build
         run: |
-          pip install -e ./fleetspeak_python
+          pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
           fleetspeak/build.sh
       - name: Test

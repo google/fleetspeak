@@ -29,6 +29,11 @@ from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2_grpc
 
 
+# Keeping additional reference to datetime.datetime, as it gets mocked
+# in some tests below.
+orig_datetime_datetime = datetime.datetime
+
+
 class RetryLoopTest(absltest.TestCase):
 
   @mock.patch.object(time, "sleep")
@@ -47,8 +52,8 @@ class RetryLoopTest(absltest.TestCase):
     self.assertEqual(result, 42)
 
   @mock.patch.object(time, "sleep")
-  @mock.patch.object(time, "time")
-  def testSingleTryTimeoutIsUsedForCalls(self, time_mock, sleep_mock):
+  @mock.patch.object(datetime, "datetime", wraps=orig_datetime_datetime)
+  def testSingleTryTimeoutIsUsedForCalls(self, datetime_mock, sleep_mock):
     cur_time = 0
 
     def SleepMock(v: float) -> None:
@@ -56,7 +61,8 @@ class RetryLoopTest(absltest.TestCase):
       cur_time += v
 
     sleep_mock.side_effect = SleepMock
-    time_mock.side_effect = lambda: cur_time
+    datetime_mock.now = mock.Mock(
+        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time))
 
     def Func(timeout: datetime.timedelta) -> None:
       nonlocal cur_time
@@ -84,9 +90,9 @@ class RetryLoopTest(absltest.TestCase):
         [1, 1, 1, 0.5])
 
   @mock.patch.object(time, "sleep")
-  @mock.patch.object(time, "time")
+  @mock.patch.object(datetime, "datetime", wraps=orig_datetime_datetime)
   def testDefaultSingleTryTimeoutIsEqualToDefaultTimeout(
-      self, time_mock, sleep_mock):
+      self, datetime_mock, sleep_mock):
     cur_time = 0
 
     def SleepMock(v: float) -> None:
@@ -94,7 +100,8 @@ class RetryLoopTest(absltest.TestCase):
       cur_time += v
 
     sleep_mock.side_effect = SleepMock
-    time_mock.side_effect = lambda: cur_time
+    datetime_mock.now = mock.Mock(
+        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time))
 
     def Func(timeout: datetime.timedelta) -> None:
       nonlocal cur_time
