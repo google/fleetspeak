@@ -176,6 +176,22 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 	}
 }
 
+func (s *liveService) annotateMessageWithBlocklistedStatus(ctx context.Context, m *fspb.Message) error {
+	cID, err := common.BytesToClientID(m.Source.ClientId)
+	if err != nil || cID.IsNil() {
+		return fmt.Errorf("invalid source client id[%v]: %v", m.Source.ClientId, err)
+	}
+
+	cData, err := s.GetClientData(ctx, cID)
+	if err != nil {
+		return fmt.Errorf("can't get client data for id[%v]: %v", cID, err)
+	}
+
+	m.IsBlocklistedSource = cData.Blacklisted
+
+	return nil
+}
+
 // processMessage attempts to processes m, returning a fspb.MessageResult. It
 // also updates stats, calling exactly one of MessageDropped, MessageFailed,
 // MessageProcessed.
@@ -190,6 +206,10 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		}
 		s.manager.stats.MessageDropped(m)
 		return nil
+	}
+
+	if err := s.annotateMessageWithBlocklistedStatus(ctx, m); err != nil {
+		log.Warningf("%s: Can't annotate message with blocklisted status: %v", s.name, err)
 	}
 
 	mid, err := common.BytesToMessageID(m.MessageId)

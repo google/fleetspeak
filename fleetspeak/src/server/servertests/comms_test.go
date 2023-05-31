@@ -26,8 +26,8 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -36,6 +36,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
+	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -263,6 +264,113 @@ func TestBlacklist(t *testing.T) {
 	}
 }
 
+// blocklistService is a Fleetspeak service.Service that counts blocklisted
+// and non-blocklisted messages.
+type blocklistService struct {
+	blocklistedCount    uint
+	nonBlocklistedCount uint
+}
+
+func (s *blocklistService) Start(sctx service.Context) error { return nil }
+func (s *blocklistService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
+	if m.IsBlocklistedSource {
+		s.blocklistedCount++
+	} else {
+		s.nonBlocklistedCount++
+	}
+	return nil
+}
+func (s *blocklistService) Stop() error { return nil }
+
+func TestStoredMessagesFromBlocklistedClient(t *testing.T) {
+	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
+		return db.Now().Add(time.Second)
+	})
+	defer fin()
+
+	ctx := context.Background()
+	testService := &blocklistService{}
+
+	ts := testserver.MakeWithService(t, "server", "Blocklist", testService)
+	defer ts.S.Stop()
+
+	k, err := ts.AddClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Blacklist the client
+	if err := ts.DS.BlacklistClient(ctx, id); err != nil {
+		t.Fatalf("BlacklistClient returned error: %v", err)
+	}
+
+	// Put a message in the database that would otherwise be ready for delivery.
+	mID, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+	clientMessage := &fspb.Message{
+		MessageId:       mID.Bytes(),
+		SourceMessageId: []byte("AAABBBCCC"),
+		Source: &fspb.Address{
+			ServiceName: "TestService",
+			ClientId:    id.Bytes(),
+		},
+		Destination: &fspb.Address{
+			ServiceName: "TestService",
+		},
+		MessageType:  "TestMessage",
+		CreationTime: db.NowProto(),
+	}
+
+	if err := ts.DS.StoreMessages(ctx, []*fspb.Message{clientMessage}, ""); err != nil {
+		t.Fatalf("Unable to store message: %v", err)
+	}
+
+	tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	for {
+		msgs, err := ts.DS.GetMessages(tctx, []common.MessageID{mID}, true)
+		if err != nil {
+			t.Logf("GetMessages failed: %v", err)
+			goto Skip
+		}
+		if len(msgs) != 1 {
+			t.Fatalf("Expected 1 message, got: %v", msgs)
+		}
+
+		t.Logf("message %v", msgs[0])
+		if msgs[0].Result != nil {
+			break
+		}
+	Skip:
+		if tctx.Err() != nil {
+			t.Fatal(tctx.Err())
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	messageResult, err := ts.DS.GetMessageResult(ctx, mID)
+	if err != nil {
+		t.Fatalf("GetMessageResult(%v) failed unexpectedly: %v", mID, err)
+	}
+	if messageResult == nil {
+		t.Fatalf("GetMessageResult(%v) returned empty result, want non-empty.", mID)
+	}
+
+	if testService.nonBlocklistedCount != 0 {
+		t.Errorf("Got %d non-blocklisted messages, want 0", testService.nonBlocklistedCount)
+	}
+
+	if testService.blocklistedCount != 1 {
+		t.Errorf("Got %d blocklisted messages, want 1", testService.blocklistedCount)
+	}
+}
+
 func TestDie(t *testing.T) {
 	ts := testserver.Make(t, "server", "Die", nil)
 	defer ts.S.Stop()
@@ -384,6 +492,7 @@ func TestDie(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = ts.ProcessMessageFromClient(k, m)
 	if err != nil {
 		t.Fatal(err)
@@ -407,13 +516,13 @@ type errorService struct {
 	err error
 }
 
-func (s errorService) Start(sctx service.Context) error                          { return nil }
-func (s errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
-func (s errorService) Stop() error                                               { return nil }
+func (s *errorService) Start(sctx service.Context) error                          { return nil }
+func (s *errorService) ProcessMessage(ctx context.Context, m *fspb.Message) error { return s.err }
+func (s *errorService) Stop() error                                               { return nil }
 
 func TestServiceError(t *testing.T) {
 	ctx := context.Background()
-	testService := errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
+	testService := &errorService{errors.New(strings.Repeat("a", services.MaxServiceFailureReasonLength+1))}
 	serverWrapper := testserver.MakeWithService(t, "server", "ServiceError", testService)
 	defer serverWrapper.S.Stop()
 

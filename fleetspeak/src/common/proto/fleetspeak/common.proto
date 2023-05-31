@@ -30,6 +30,13 @@ message Message {
   // The source of the messages. Required.
   Address source = 2;
 
+  // Messages from blocklisted sources might still get delivered to the
+  // server-side services. For example, due to high latency of these services
+  // messages might get stored for later delivery before the source got
+  // blocked. This attribute can be used by the receiver to filter out
+  // messages from blocklisted sources.
+  bool is_blocklisted_source = 13;
+
   // An sequence of bytes set by the source in a way to uniquely identify the
   // message among all messages with the same origin.
   bytes source_message_id = 3;
