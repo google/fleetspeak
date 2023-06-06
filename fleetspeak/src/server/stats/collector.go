@@ -88,24 +88,24 @@ type PollInfo struct {
 type Collector interface {
 	// MessageIngested is called when a message is received from a client, or as
 	// a backlogged message from the datastore.
-	MessageIngested(backlogged bool, m *fspb.Message)
+	MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData)
 
 	// MessageSaved is called when a message is first saved to the database.
 	// m.Data will have been set to nil for fully processed messages.
-	MessageSaved(forClient bool, m *fspb.Message)
+	MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData)
 
 	// MessageProcessed is called when a message is successfully processed by the
 	// server.
-	MessageProcessed(start, end time.Time, m *fspb.Message)
+	MessageProcessed(start, end time.Time, m *fspb.Message, cd *db.ClientData)
 
 	// MessageErrored is called when a message processing returned an error
 	// (temporary, or permanent).
-	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message)
+	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message, cd *db.ClientData)
 
 	// MessageDropped is called when a message has been dropped because too many
 	// messages for the services are being processed. Like a temporary error, the
 	// message will be retried after some minutes.
-	MessageDropped(m *fspb.Message)
+	MessageDropped(m *fspb.Message, cd *db.ClientData)
 
 	// ClientPoll is called every time a client polls the server.
 	ClientPoll(info PollInfo)
