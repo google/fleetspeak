@@ -170,7 +170,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 			}
 
 			c.stats.MessageIngested(true, m, cData)
-			res := l.processMessage(ctx, m)
+			res := l.processMessage(ctx, m, false)
 			if res != nil {
 				hasResult[i] = true
 				m.Result = res
@@ -199,7 +199,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 // processMessage attempts to processes m, returning a fspb.MessageResult. It
 // also updates stats, calling exactly one of MessageDropped, MessageFailed,
 // MessageProcessed.
-func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb.MessageResult {
+func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool) *fspb.MessageResult {
 	cData, err := s.manager.getClientData(ctx, m)
 	if err != nil {
 		log.Warningf("Couldn't fetch client data for the message: %v", err)
@@ -219,7 +219,7 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		if s.pLogLimiter.Allow() {
 			log.Warningf("%s: Overloaded with %d concurrent messages, dropping excess, will retry.", s.name, s.maxParallelism)
 		}
-		s.manager.stats.MessageDropped(m, cData)
+		s.manager.stats.MessageDropped(m, isFirstTry, cData)
 		return nil
 	}
 
@@ -233,14 +233,14 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	e := s.service.ProcessMessage(ctx, m)
 	switch {
 	case e == nil:
-		s.manager.stats.MessageProcessed(start, ftime.Now(), m, cData)
+		s.manager.stats.MessageProcessed(start, ftime.Now(), m, isFirstTry, cData)
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), true, m, cData)
+		s.manager.stats.MessageErrored(start, ftime.Now(), true, m, isFirstTry, cData)
 		log.Warningf("%s: Temporary error processing message %v, will retry: %v", s.name, mid, e)
 		return nil
 	case !service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), false, m, cData)
+		s.manager.stats.MessageErrored(start, ftime.Now(), false, m, isFirstTry, cData)
 		log.Errorf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
 		failedReason := e.Error()
 		if len(failedReason) > MaxServiceFailureReasonLength {
@@ -283,13 +283,13 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 				return
 			}
 
-			cData, err := c.getClientData(ctx, m)
+			cData, err := c.getClientData(ctx1, m)
 			if err != nil {
 				log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 			}
 			c.stats.MessageIngested(false, m, cData)
 
-			res := l.processMessage(ctx1, m)
+			res := l.processMessage(ctx1, m, true)
 			if res == nil {
 				return
 			}

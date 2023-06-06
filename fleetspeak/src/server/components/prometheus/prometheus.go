@@ -64,21 +64,21 @@ var (
 		Name: "fleetspeak_server_messages_processed_latency",
 		Help: "The latency distribution of messages processed by Fleetspeak server",
 	},
-		[]string{"message_type", "service", "client_labels"},
+		[]string{"message_type", "service", "is_first_try", "client_labels"},
 	)
 
 	messagesErrored = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "fleetspeak_server_messages_errored_latency",
 		Help: "The latency distribution of message processings that returned an error",
 	},
-		[]string{"message_type", "is_temp", "client_labels"},
+		[]string{"message_type", "is_temp", "is_first_try", "client_labels"},
 	)
 
 	messagesDropped = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_server_messages_dropped_total",
 		Help: "The total number of messages dropped by Fleetspeak server when too many messages for the sevices are being processed.",
 	},
-		[]string{"service", "message_type", "client_labels"},
+		[]string{"service", "message_type", "is_first_try", "client_labels"},
 	)
 
 	clientPolls = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -227,16 +227,16 @@ func (s StatsCollector) MessageSaved(forClient bool, m *fspb.Message, cd *db.Cli
 	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient), clientLabelsFromClientData(cd)).Add(float64(savedPayloadBytes))
 }
 
-func (s StatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, cd *db.ClientData) {
-	messagesProcessed.WithLabelValues(m.MessageType, m.Destination.ServiceName, clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
+	messagesProcessed.WithLabelValues(m.MessageType, m.Destination.ServiceName, strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, cd *db.ClientData) {
-	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp), clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
+func (s StatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
+	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp), strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
 }
 
-func (s StatsCollector) MessageDropped(m *fspb.Message, cd *db.ClientData) {
-	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType, clientLabelsFromClientData(cd)).Inc()
+func (s StatsCollector) MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
+	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Inc()
 }
 
 func (s StatsCollector) ClientPoll(info stats.PollInfo) {

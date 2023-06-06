@@ -79,19 +79,19 @@ func (c *statsCounter) MessageSaved(forClient bool, m *fspb.Message, cd *db.Clie
 	}
 }
 
-func (c *statsCounter) MessageProcessed(start, end time.Time, m *fspb.Message, cd *db.ClientData) {
+func (c *statsCounter) MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesProcessed, 1)
 	}
 }
 
-func (c *statsCounter) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, cd *db.ClientData) {
+func (c *statsCounter) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesErrored, 1)
 	}
 }
 
-func (c *statsCounter) MessageDropped(m *fspb.Message, cd *db.ClientData) {
+func (c *statsCounter) MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesDropped, 1)
 	}

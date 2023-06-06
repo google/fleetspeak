@@ -96,16 +96,16 @@ type Collector interface {
 
 	// MessageProcessed is called when a message is successfully processed by the
 	// server.
-	MessageProcessed(start, end time.Time, m *fspb.Message, cd *db.ClientData)
+	MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData)
 
 	// MessageErrored is called when a message processing returned an error
 	// (temporary, or permanent).
-	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message, cd *db.ClientData)
+	MessageErrored(start, end time.Time, permanent bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData)
 
 	// MessageDropped is called when a message has been dropped because too many
 	// messages for the services are being processed. Like a temporary error, the
 	// message will be retried after some minutes.
-	MessageDropped(m *fspb.Message, cd *db.ClientData)
+	MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData)
 
 	// ClientPoll is called every time a client polls the server.
 	ClientPoll(info PollInfo)

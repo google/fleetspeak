@@ -39,13 +39,13 @@ func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message, cd
 func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, cd *db.ClientData) {
+func (s noopStatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, cd *db.ClientData) {
+func (s noopStatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageDropped(m *fspb.Message, cd *db.ClientData) {
+func (s noopStatsCollector) MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
 func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {
