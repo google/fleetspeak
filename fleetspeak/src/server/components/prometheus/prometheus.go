@@ -187,8 +187,8 @@ var (
 	)
 )
 
-// Returns a well-defined string representing labels from a given client.
-func clientLabelsFromClientData(cd *db.ClientData) string {
+// Returns a stable unambiguous string representation of labels from a given client.
+func clientLabels(cd *db.ClientData) string {
 	if cd == nil {
 		return ""
 	}
@@ -208,9 +208,9 @@ func clientLabelsFromClientData(cd *db.ClientData) string {
 type StatsCollector struct{}
 
 func (s StatsCollector) MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData) {
-	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabelsFromClientData(cd)).Inc()
+	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabels(cd)).Inc()
 	payloadBytes := calculatePayloadBytes(m)
-	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabelsFromClientData(cd)).Add(float64(payloadBytes))
+	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabels(cd)).Add(float64(payloadBytes))
 }
 
 func calculatePayloadBytes(m *fspb.Message) int {
@@ -222,21 +222,21 @@ func calculatePayloadBytes(m *fspb.Message) int {
 }
 
 func (s StatsCollector) MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData) {
-	messagesSaved.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient), clientLabelsFromClientData(cd)).Inc()
+	messagesSaved.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient), clientLabels(cd)).Inc()
 	savedPayloadBytes := calculatePayloadBytes(m)
-	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient), clientLabelsFromClientData(cd)).Add(float64(savedPayloadBytes))
+	messagesSavedSize.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(forClient), clientLabels(cd)).Add(float64(savedPayloadBytes))
 }
 
 func (s StatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
-	messagesProcessed.WithLabelValues(m.MessageType, m.Destination.ServiceName, strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
+	messagesProcessed.WithLabelValues(m.MessageType, m.Destination.ServiceName, strconv.FormatBool(isFirstTry), clientLabels(cd)).Observe(end.Sub(start).Seconds())
 }
 
 func (s StatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
-	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp), strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Observe(end.Sub(start).Seconds())
+	messagesErrored.WithLabelValues(m.MessageType, strconv.FormatBool(isTemp), strconv.FormatBool(isFirstTry), clientLabels(cd)).Observe(end.Sub(start).Seconds())
 }
 
 func (s StatsCollector) MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
-	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(isFirstTry), clientLabelsFromClientData(cd)).Inc()
+	messagesDropped.WithLabelValues(m.Destination.ServiceName, m.MessageType, strconv.FormatBool(isFirstTry), clientLabels(cd)).Inc()
 }
 
 func (s StatsCollector) ClientPoll(info stats.PollInfo) {

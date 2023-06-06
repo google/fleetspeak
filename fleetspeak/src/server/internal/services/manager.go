@@ -78,8 +78,8 @@ func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, 
 	return &m
 }
 
-// getClientData returns client data corresponding to client that is the source of the given message.
-func (c *Manager) getClientData(ctx context.Context, m *fspb.Message) (*db.ClientData, error) {
+// clientData returns client data corresponding to client that is the source of the given message.
+func (c *Manager) clientData(ctx context.Context, m *fspb.Message) (*db.ClientData, error) {
 	cID, err := common.BytesToClientID(m.Source.ClientId)
 	if err != nil || cID.IsNil() {
 		return nil, fmt.Errorf("invalid source client id[%v]: %v", m.Source.ClientId, err)
@@ -164,7 +164,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 				log.Errorf("Message in datastore [%v] is for unknown service [%s].", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
 				return
 			}
-			cData, err := c.getClientData(ctx, m)
+			cData, err := c.clientData(ctx, m)
 			if err != nil {
 				log.Warningf("Message in datastore [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 			}
@@ -200,13 +200,13 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 // also updates stats, calling exactly one of MessageDropped, MessageFailed,
 // MessageProcessed.
 func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool) *fspb.MessageResult {
-	cData, err := s.manager.getClientData(ctx, m)
+	cData, err := s.manager.clientData(ctx, m)
 	if err != nil {
 		log.Warningf("Couldn't fetch client data for the message: %v", err)
 	}
 
 	if cData == nil {
-		log.Warningf("%s: Can't annotate message with blocklisted status [service=%s] as client data couldn't be fetched.", s.name)
+		log.Warningf("Can't annotate message with blocklisted status [service=%s] as client data couldn't be fetched.", s.name)
 	} else {
 		m.IsBlocklistedSource = cData.Blacklisted
 	}
@@ -283,7 +283,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 				return
 			}
 
-			cData, err := c.getClientData(ctx1, m)
+			cData, err := c.clientData(ctx1, m)
 			if err != nil {
 				log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 			}
@@ -309,7 +309,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 
 	// Record that we are saving messages.
 	for _, m := range msgs {
-		cData, err := c.getClientData(ctx2, m)
+		cData, err := c.clientData(ctx2, m)
 		if err != nil {
 			log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 		}
