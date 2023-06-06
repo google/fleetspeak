@@ -33,19 +33,19 @@ import (
 
 type noopStatsCollector struct{}
 
-func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message) {
+func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message) {
+func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message) {
+func (s noopStatsCollector) MessageProcessed(start, end time.Time, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message) {
+func (s noopStatsCollector) MessageErrored(start, end time.Time, isTemp bool, m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
-func (s noopStatsCollector) MessageDropped(m *fspb.Message) {
+func (s noopStatsCollector) MessageDropped(m *fspb.Message, isFirstTry bool, cd *db.ClientData) {
 }
 
 func (s noopStatsCollector) ClientPoll(info stats.PollInfo) {

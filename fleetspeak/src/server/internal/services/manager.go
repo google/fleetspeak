@@ -78,6 +78,21 @@ func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, 
 	return &m
 }
 
+// clientData returns client data corresponding to client that is the source of the given message.
+func (c *Manager) clientData(ctx context.Context, m *fspb.Message) (*db.ClientData, error) {
+	cID, err := common.BytesToClientID(m.Source.ClientId)
+	if err != nil || cID.IsNil() {
+		return nil, fmt.Errorf("invalid source client id[%v]: %v", m.Source.ClientId, err)
+	}
+
+	cData, _, err := c.cc.GetOrRead(ctx, cID, c.dataStore)
+	if err != nil {
+		return nil, fmt.Errorf("can't get client data for id[%v]: %v", cID, err)
+	}
+
+	return cData, nil
+}
+
 // Install adds a service to the configuration, removing any existing service with
 // the same name.
 func (c *Manager) Install(cfg *spb.ServiceConfig) error {
@@ -142,7 +157,6 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 
 	for idx, msg := range msgs {
 		i, m := idx, msg
-		c.stats.MessageIngested(true, m)
 		go func() {
 			defer working.Done()
 			l := c.services[m.Destination.ServiceName]
@@ -150,7 +164,13 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 				log.Errorf("Message in datastore [%v] is for unknown service [%s].", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
 				return
 			}
-			res := l.processMessage(ctx, m)
+			cData, err := c.clientData(ctx, m)
+			if err != nil {
+				log.Warningf("Message in datastore [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+			}
+
+			c.stats.MessageIngested(true, m, cData)
+			res := l.processMessage(ctx, m, false)
 			if res != nil {
 				hasResult[i] = true
 				m.Result = res
@@ -176,26 +196,21 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 	}
 }
 
-func (s *liveService) annotateMessageWithBlocklistedStatus(ctx context.Context, m *fspb.Message) error {
-	cID, err := common.BytesToClientID(m.Source.ClientId)
-	if err != nil || cID.IsNil() {
-		return fmt.Errorf("invalid source client id[%v]: %v", m.Source.ClientId, err)
-	}
-
-	cData, err := s.GetClientData(ctx, cID)
-	if err != nil {
-		return fmt.Errorf("can't get client data for id[%v]: %v", cID, err)
-	}
-
-	m.IsBlocklistedSource = cData.Blacklisted
-
-	return nil
-}
-
 // processMessage attempts to processes m, returning a fspb.MessageResult. It
 // also updates stats, calling exactly one of MessageDropped, MessageFailed,
 // MessageProcessed.
-func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb.MessageResult {
+func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool) *fspb.MessageResult {
+	cData, err := s.manager.clientData(ctx, m)
+	if err != nil {
+		log.Warningf("Couldn't fetch client data for the message: %v", err)
+	}
+
+	if cData == nil {
+		log.Warningf("Can't annotate message with blocklisted status [service=%s] as client data couldn't be fetched.", s.name)
+	} else {
+		m.IsBlocklistedSource = cData.Blacklisted
+	}
+
 	p := atomic.AddUint32(&s.parallelism, 1)
 	// Documented decrement operation.
 	// https://golang.org/pkg/sync/atomic/#AddUint32
@@ -204,12 +219,8 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 		if s.pLogLimiter.Allow() {
 			log.Warningf("%s: Overloaded with %d concurrent messages, dropping excess, will retry.", s.name, s.maxParallelism)
 		}
-		s.manager.stats.MessageDropped(m)
+		s.manager.stats.MessageDropped(m, isFirstTry, cData)
 		return nil
-	}
-
-	if err := s.annotateMessageWithBlocklistedStatus(ctx, m); err != nil {
-		log.Warningf("%s: Can't annotate message with blocklisted status: %v", s.name, err)
 	}
 
 	mid, err := common.BytesToMessageID(m.MessageId)
@@ -222,14 +233,14 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message) *fspb
 	e := s.service.ProcessMessage(ctx, m)
 	switch {
 	case e == nil:
-		s.manager.stats.MessageProcessed(start, ftime.Now(), m)
+		s.manager.stats.MessageProcessed(start, ftime.Now(), m, isFirstTry, cData)
 		return &fspb.MessageResult{ProcessedTime: db.NowProto()}
 	case service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), true, m)
+		s.manager.stats.MessageErrored(start, ftime.Now(), true, m, isFirstTry, cData)
 		log.Warningf("%s: Temporary error processing message %v, will retry: %v", s.name, mid, e)
 		return nil
 	case !service.IsTemporary(e):
-		s.manager.stats.MessageErrored(start, ftime.Now(), false, m)
+		s.manager.stats.MessageErrored(start, ftime.Now(), false, m, isFirstTry, cData)
 		log.Errorf("%s: Permanent error processing message %v, giving up: %v", s.name, mid, e)
 		failedReason := e.Error()
 		if len(failedReason) > MaxServiceFailureReasonLength {
@@ -256,7 +267,6 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 			return fmt.Errorf("HandleNewMessage called with bad Destination: %v", m.Destination)
 		}
 		m.CreationTime = now
-		c.stats.MessageIngested(false, m)
 	}
 
 	// Try to processes all the messages in parallel, with a 30 second timeout.
@@ -273,7 +283,13 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 				return
 			}
 
-			res := l.processMessage(ctx1, m)
+			cData, err := c.clientData(ctx1, m)
+			if err != nil {
+				log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+			}
+			c.stats.MessageIngested(false, m, cData)
+
+			res := l.processMessage(ctx1, m, true)
 			if res == nil {
 				return
 			}
@@ -288,12 +304,19 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 		return ctx.Err()
 	}
 
-	// Record that we are saving messages.
-	for _, m := range msgs {
-		c.stats.MessageSaved(false, m)
-	}
 	ctx2, fin2 := context.WithTimeout(ctx, 30*time.Second)
 	defer fin2()
+
+	// Record that we are saving messages.
+	for _, m := range msgs {
+		cData, err := c.clientData(ctx2, m)
+		if err != nil {
+			log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+		}
+
+		c.stats.MessageSaved(false, m, cData)
+	}
+
 	return c.dataStore.StoreMessages(ctx2, msgs, contact)
 }
 
