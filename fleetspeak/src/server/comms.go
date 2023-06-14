@@ -202,10 +202,10 @@ func (c commsContext) getClientInfo(ctx context.Context, id common.ClientID) (*c
 		Cached:      cacheHit}, nil
 }
 
-func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.ConnectionInfo, wcd *fspb.WrappedContactData) error {
+func (c commsContext) ValidateMessagesFromClient(ctx context.Context, info *comms.ConnectionInfo, wcd *fspb.WrappedContactData) (*fspb.ValidationInfo, error) {
 	sigs, err := signatures.ValidateWrappedContactData(info.Client.ID, wcd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	accept, validationInfo := c.s.authorizer.Allow4(
@@ -218,7 +218,16 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 		info.AuthClientInfo,
 		sigs)
 	if !accept {
-		return comms.ErrNotAuthorized
+		return nil, comms.ErrNotAuthorized
+	}
+
+	return validationInfo, nil
+}
+
+func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.ConnectionInfo, wcd *fspb.WrappedContactData) error {
+	validationInfo, err := c.ValidateMessagesFromClient(ctx, info, wcd)
+	if err != nil {
+		return err
 	}
 
 	var cd fspb.ContactData
