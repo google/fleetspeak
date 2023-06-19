@@ -332,7 +332,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, er
 		return nil, nil, fmt.Errorf("streaming contact size too large: got %d, expected at most %d", size, MaxContactSize)
 	}
 
-	pi := stats.PollInfo{
+	pi := &stats.PollInfo{
 		CTX:      m.ctx,
 		ID:       m.info.Client.ID,
 		Start:    db.Now(),
@@ -349,27 +349,27 @@ func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, er
 	buf := make([]byte, size)
 	if _, err := io.ReadFull(m.body, buf); err != nil {
 		pi.Status = http.StatusBadRequest
-		return &pi, nil, fmt.Errorf("error reading streamed data: %v", err)
+		return pi, nil, fmt.Errorf("error reading streamed data: %v", err)
 	}
 	pi.ReadTime = time.Since(pi.Start)
 	pi.ReadBytes = int(size)
 
-	var wcd fspb.WrappedContactData
-	if err = proto.Unmarshal(buf, &wcd); err != nil {
+	wcd := &fspb.WrappedContactData{}
+	if err = proto.Unmarshal(buf, wcd); err != nil {
 		pi.Status = http.StatusBadRequest
-		return &pi, nil, fmt.Errorf("error parsing streamed data: %v", err)
+		return pi, nil, fmt.Errorf("error parsing streamed data: %v", err)
 	}
 
 	// Validate message early to provide feedback to the agent and fail with a
 	// descriptive HTTP code.
-	_, err = m.s.fs.ValidateMessagesFromClient(context.Background(), m.info, &wcd)
+	_, err = m.s.fs.ValidateMessagesFromClient(context.Background(), m.info, wcd)
 	if err != nil {
 		pi.Status = http.StatusServiceUnavailable
-		return &pi, nil, fmt.Errorf("Message validation failed: %v", err)
+		return pi, nil, fmt.Errorf("message validation failed: %v", err)
 	}
 
 	pi.Status = http.StatusOK
-	return &pi, &wcd, nil
+	return pi, wcd, nil
 }
 
 func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
@@ -407,7 +407,7 @@ func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
 		if err == comms.ErrNotAuthorized {
 			log.Infof("Message not authoried: %v", err)
 		} else {
-			err = fmt.Errorf("Error processing streamed messages: %v", err)
+			err = fmt.Errorf("error processing streamed messages: %v", err)
 		}
 		return err
 	}
