@@ -289,8 +289,12 @@ func (m *streamManager) readLoop() {
 
 	cnt := uint64(0)
 
+	// Number of batches from the same client that will be processed concurrently.
+	const maxBatchProcessors = 10
+	batchCh := make(chan *fspb.WrappedContactData, maxBatchProcessors)
+
 	for {
-		pi, err := m.readOne()
+		pi, wcd, err := m.readOne()
 		if err != nil {
 			// If the context has been canceled, it is probably a 'normal' termination
 			// - disconnect, max connection durating, etc. But if it is still active,
@@ -302,22 +306,33 @@ func (m *streamManager) readLoop() {
 			}
 			return
 		}
+
+		// This will block if number of concurrent processors is greater than maxBatchProcessors.
+		batchCh <- wcd
+		go func() {
+			wcd := <-batchCh
+			if err := m.processOne(wcd); err != nil {
+				log.Errorf("Error processing message from %v: %v", m.info.Client.ID, err)
+			}
+		}()
+
 		m.s.fs.StatsCollector().ClientPoll(*pi)
 		cnt++
+
 		m.out <- &fspb.ContactData{AckIndex: cnt}
 	}
 }
 
-func (m *streamManager) readOne() (*stats.PollInfo, error) {
+func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, error) {
 	size, err := binary.ReadUvarint(m.body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if size > MaxContactSize {
-		return nil, fmt.Errorf("streaming contact size too large: got %d, expected at most %d", size, MaxContactSize)
+		return nil, nil, fmt.Errorf("streaming contact size too large: got %d, expected at most %d", size, MaxContactSize)
 	}
 
-	pi := stats.PollInfo{
+	pi := &stats.PollInfo{
 		CTX:      m.ctx,
 		ID:       m.info.Client.ID,
 		Start:    db.Now(),
@@ -334,17 +349,30 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 	buf := make([]byte, size)
 	if _, err := io.ReadFull(m.body, buf); err != nil {
 		pi.Status = http.StatusBadRequest
-		return &pi, fmt.Errorf("error reading streamed data: %v", err)
+		return pi, nil, fmt.Errorf("error reading streamed data: %v", err)
 	}
 	pi.ReadTime = time.Since(pi.Start)
 	pi.ReadBytes = int(size)
 
-	var wcd fspb.WrappedContactData
-	if err = proto.Unmarshal(buf, &wcd); err != nil {
+	wcd := &fspb.WrappedContactData{}
+	if err = proto.Unmarshal(buf, wcd); err != nil {
 		pi.Status = http.StatusBadRequest
-		return &pi, fmt.Errorf("error parsing streamed data: %v", err)
+		return pi, nil, fmt.Errorf("error parsing streamed data: %v", err)
 	}
 
+	// Validate message early to provide feedback to the agent and fail with a
+	// descriptive HTTP code.
+	_, err = m.s.fs.ValidateMessagesFromClient(context.Background(), m.info, wcd)
+	if err != nil {
+		pi.Status = http.StatusServiceUnavailable
+		return pi, nil, fmt.Errorf("message validation failed: %v", err)
+	}
+
+	pi.Status = http.StatusOK
+	return pi, wcd, nil
+}
+
+func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
 	var blockedServices []string
 	for k, v := range m.info.MessageTokens() {
 		if v == 0 {
@@ -373,16 +401,15 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 			}
 		}
 	}()
-	err = m.s.fs.HandleMessagesFromClient(ctx, m.info, &wcd)
+	err := m.s.fs.HandleMessagesFromClient(ctx, m.info, wcd)
 	fin()
 	if err != nil {
 		if err == comms.ErrNotAuthorized {
-			pi.Status = http.StatusServiceUnavailable
+			log.Infof("Message not authoried: %v", err)
 		} else {
-			pi.Status = http.StatusInternalServerError
 			err = fmt.Errorf("error processing streamed messages: %v", err)
 		}
-		return &pi, err
+		return err
 	}
 	tokens := m.info.MessageTokens()
 	for _, s := range blockedServices {
@@ -393,8 +420,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, error) {
 			}
 		}
 	}
-	pi.Status = http.StatusOK
-	return &pi, nil
+	return nil
 }
 
 func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {

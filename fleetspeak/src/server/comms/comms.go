@@ -133,7 +133,11 @@ type Context interface {
 	// messages for the client.
 	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (i *ConnectionInfo, d *fspb.ContactData, more bool, err error)
 
-	// HandleContactData processes the messages contained in a WrappedContactData
+	// ValidateMessagesFromClient validates the message contained in WrappedContactData.
+	// On successful validation it returns the fspb.ValidationInfo data structure.
+	ValidateMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) (*fspb.ValidationInfo, error)
+
+	// HandleMessagesFromClient processes the messages contained in a WrappedContactData
 	// received from the client.  The ConnectionInfo parameter should have been
 	// created by an InitializeConnection call made for this connection.
 	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
