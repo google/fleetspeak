@@ -85,6 +85,7 @@ type Params struct {
 	Listener           net.Listener  // Where to listen for connections, required.
 	Cert, Key          []byte        // x509 encoded certificate and matching private key, required.
 	Streaming          bool          // Whether to enable streaming communications.
+	ClientCertHeader   string        // Where to locate the client certificate from the request header, if not provided use TLS request.
 	StreamingLifespan  time.Duration // Maximum time to keep a streaming connection open, defaults to 10 min.
 	StreamingCloseTime time.Duration // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
 	StreamingJitter    time.Duration // Maximum amount of jitter to add to StreamingLifespan.
@@ -109,7 +110,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 		hs: http.Server{
 			Handler: mux,
 			TLSConfig: &tls.Config{
-				ClientAuth:   tls.RequireAnyClientCert,
+				ClientAuth:   tls.RequestClientCert,
 				Certificates: []tls.Certificate{c},
 				CipherSuites: []uint16{
 					// We may as well allow only the strongest (as far as we can guess)

@@ -94,10 +94,11 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			l = &chttps.ProxyListener{l}
 		}
 		comm, err = https.NewCommunicator(https.Params{
-			Listener:  l,
-			Cert:      []byte(hcfg.Certificates),
-			Key:       []byte(hcfg.Key),
-			Streaming: !hcfg.DisableStreaming,
+			Listener:         l,
+			Cert:             []byte(hcfg.Certificates),
+			ClientCertHeader: hcfg.ClientCertificateHeader,
+			Key:              []byte(hcfg.Key),
+			Streaming:        !hcfg.DisableStreaming,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)
