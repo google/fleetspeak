@@ -38,12 +38,10 @@ func WriteFirstProxyMessage(w io.Writer, srcAddr, dstAddr string) error {
 		return fmt.Errorf("Failed to parse destination (server) address: %v", err)
 	}
 	header := proxyproto.Header{
-		Version:            1,
-		TransportProtocol:  proxyproto.TCPv4,
-		SourceAddress:      srcHost,
-		DestinationAddress: dstHost,
-		SourcePort:         srcPort,
-		DestinationPort:    dstPort,
+		Version:           1,
+		TransportProtocol: proxyproto.TCPv4,
+		SourceAddr:        &net.TCPAddr{IP: srcHost, Port: int(srcPort)},
+		DestinationAddr:   &net.TCPAddr{IP: dstHost, Port: int(dstPort)},
 	}
 	_, err = header.WriteTo(w)
 	if err != nil {
