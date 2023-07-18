@@ -46,7 +46,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
-	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
 // MakeComponents creates server components from a given config.
@@ -126,7 +126,7 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	if acfg != nil {
 		as := admin.NewServer(db, nn)
 		admSrv := grpc.NewServer()
-		spb.RegisterAdminServer(admSrv, as)
+		sgrpc.RegisterAdminServer(admSrv, as)
 		aas, err := net.ResolveTCPAddr("tcp", acfg.ListenAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize admin server: %v", err)

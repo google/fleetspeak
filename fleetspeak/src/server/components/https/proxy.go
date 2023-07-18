@@ -56,7 +56,7 @@ func (l *ProxyListener) Accept() (net.Conn, error) {
 	return &proxyConn{
 		Conn:   c,
 		reader: r,
-		remote: &net.TCPAddr{IP: h.SourceAddress, Port: int(h.SourcePort)},
+		remote: h.SourceAddr,
 	}, nil
 }
 
