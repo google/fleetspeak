@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
+//go:build linux
 
 // Package monitoring contains utilities for gathering data about resource usage in
 // order to monitor client-side resource usage.
