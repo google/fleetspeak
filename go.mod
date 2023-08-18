@@ -8,7 +8,6 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.5.2
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
-	github.com/kolide/osquery-go v0.0.0-20190904034940-a74aa860032d
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/prometheus/client_golang v1.7.1
