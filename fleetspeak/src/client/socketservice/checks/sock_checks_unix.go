@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux darwin
+//go:build linux || darwin
 
 // Package checks implements code which checks permissions of socket files to
 // mitigate the possibility of a non-root attacker messing with socketservice
