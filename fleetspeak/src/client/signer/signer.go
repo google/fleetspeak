@@ -16,7 +16,7 @@
 // communications with the Fleetspeak server.
 package signer
 
-import "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+import fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 
 // A Signer is given a chance to sign all data sent to the server.
 type Signer interface {
@@ -25,5 +25,5 @@ type Signer interface {
 	//
 	// SignContact may return nil if the intended certificate is currently
 	// unavailable. Otherwise it should return a proto with all fields set.
-	SignContact(data []byte) *fleetspeak.Signature
+	SignContact(data []byte) *fspb.Signature
 }
