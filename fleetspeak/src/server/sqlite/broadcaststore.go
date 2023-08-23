@@ -21,15 +21,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
-	apb "github.com/golang/protobuf/ptypes/any"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // dbBroadcast matches the schema of the broadcasts table.
@@ -85,13 +84,13 @@ func toBroadcastProto(b *dbBroadcast) (*spb.Broadcast, error) {
 		MessageType: b.messageType,
 	}
 	if b.expirationTimeSeconds.Valid && b.expirationTimeNanos.Valid {
-		ret.ExpirationTime = &tpb.Timestamp{
+		ret.ExpirationTime = &tspb.Timestamp{
 			Seconds: b.expirationTimeSeconds.Int64,
 			Nanos:   int32(b.expirationTimeNanos.Int64),
 		}
 	}
 	if b.dataTypeURL.Valid {
-		ret.Data = &apb.Any{
+		ret.Data = &anypb.Any{
 			TypeUrl: b.dataTypeURL.String,
 			Value:   b.dataValue,
 		}
@@ -160,7 +159,7 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 
 	return d.runInTx(func(tx *sql.Tx) error {
 		var as, al uint64
-		var exp tpb.Timestamp
+		exp := &tspb.Timestamp{}
 		r := tx.QueryRowContext(ctx, "SELECT sent, message_limit, expiration_time_seconds, expiration_time_nanos FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.String(), aID.String())
 		if err := r.Scan(&as, &al, &exp.Seconds, &exp.Nanos); err != nil {
 			return err
@@ -168,10 +167,10 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 		if as >= al {
 			return fmt.Errorf("SaveBroadcastMessage: broadcast allocation [%v, %v] is full: Sent: %v Limit: %v", aID, bID, as, al)
 		}
-		et, err := ptypes.Timestamp(&exp)
-		if err != nil {
+		if err := exp.CheckValid(); err != nil {
 			return fmt.Errorf("SaveBroadcastMessage: unable to convert expiry to time: %v", err)
 		}
+		et := exp.AsTime()
 		if db.Now().After(et) {
 			return fmt.Errorf("SaveBroadcastMessage: broadcast allocation [%v, %v] is expired: %v", aID, bID, et)
 		}
@@ -307,8 +306,8 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 	defer d.l.Unlock()
 	var ret *db.AllocationInfo
 	err := d.runInTx(func(tx *sql.Tx) error {
-		ep, err := ptypes.TimestampProto(expiry)
-		if err != nil {
+		ep := tspb.New(expiry)
+		if err := ep.CheckValid(); err != nil {
 			return err
 		}
 		aid, err := ids.RandomAllocationID()

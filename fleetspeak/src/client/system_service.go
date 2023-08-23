@@ -22,9 +22,10 @@ import (
 	"sync"
 	"time"
 
+	anypb "google.golang.org/protobuf/types/known/anypb"
+
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -97,7 +98,7 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 		s.client.config.SendConfigUpdate()
 	case "Die":
 		dr := &fspb.DieRequest{}
-		if err := ptypes.UnmarshalAny(m.Data, dr); err != nil {
+		if err := m.Data.UnmarshalTo(dr); err != nil {
 			return fmt.Errorf("can't unmarshal DieRequest: %v", err)
 		}
 		if dr.Force {
@@ -117,7 +118,7 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 
 	case "RestartService":
 		rs := &fspb.RestartServiceRequest{}
-		if err := ptypes.UnmarshalAny(m.Data, rs); err != nil {
+		if err := m.Data.UnmarshalTo(rs); err != nil {
 			return fmt.Errorf("can't unmarshal RestartServiceRequest: %v", err)
 		}
 		log.Infof("Restarting service %s", rs.Name)
@@ -147,7 +148,7 @@ func (s *systemService) ackLoop() {
 		case <-s.done:
 			return
 		case mid := <-s.client.acks:
-			a := fspb.MessageAckData{MessageIds: [][]byte{mid.Bytes()}}
+			a := &fspb.MessageAckData{MessageIds: [][]byte{mid.Bytes()}}
 			t := time.NewTimer(time.Second)
 		groupLoop:
 			for {
@@ -161,7 +162,7 @@ func (s *systemService) ackLoop() {
 					break groupLoop
 				}
 			}
-			d, err := ptypes.MarshalAny(&a)
+			d, err := anypb.New(a)
 			if err != nil {
 				log.Fatalf("Unable to marshal MessageAckData: %v", err)
 			}
@@ -189,7 +190,7 @@ func (s *systemService) errLoop() {
 		case <-s.done:
 			return
 		case e := <-s.client.errs:
-			d, err := ptypes.MarshalAny(e)
+			d, err := anypb.New(e)
 			if err != nil {
 				log.Fatalf("unable to marshal MessageErrData: %v", err)
 			}
@@ -221,7 +222,7 @@ func (s *systemService) cfgLoop() {
 		case <-certTicker.C:
 			s.pollRevokedCerts()
 		case chg := <-s.configChanges:
-			d, err := ptypes.MarshalAny(chg)
+			d, err := anypb.New(chg)
 			if err != nil {
 				log.Fatalf("unable to marshal ClientInfoData: %v", err)
 			}

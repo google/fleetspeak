@@ -28,8 +28,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/command"
@@ -235,8 +236,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		if ret.waitResult != nil {
 			log.Warningf("subprocess ended with error: %v", ret.waitResult)
 		}
-		startTime, err := ptypes.TimestampProto(ret.StartTime)
-		if err != nil {
+		startTime := tspb.New(ret.StartTime)
+		if err := startTime.CheckValid(); err != nil {
 			log.Errorf("Failed to convert process start time: %v", err)
 			return
 		}
@@ -245,7 +246,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 				Scope:             ret.daemonServiceName,
 				Pid:               int64(ret.cmd.Process.Pid),
 				ProcessStartTime:  startTime,
-				DataTimestamp:     ptypes.TimestampNow(),
+				DataTimestamp:     tspb.Now(),
 				ResourceUsage:     &mpb.AggregatedResourceUsage{},
 				ProcessTerminated: true,
 			}
@@ -295,7 +296,7 @@ func (e *Execution) flushOut() {
 	e.setLastActive(n)
 
 	e.outData.Pid = int64(e.cmd.Process.Pid)
-	d, err := ptypes.MarshalAny(e.outData)
+	d, err := anypb.New(e.outData)
 	if err != nil {
 		log.Errorf("unable to marshal StdOutputData: %v", err)
 	} else {
@@ -457,7 +458,7 @@ func (e *Execution) inRoutine() {
 				startupDone = true
 
 				sd := &fcpb.StartupData{}
-				if err := ptypes.UnmarshalAny(m.Data, sd); err != nil {
+				if err := m.Data.UnmarshalTo(sd); err != nil {
 					log.Warningf("Failed to parse startup data from initial message: %v", err)
 				} else {
 					if sd.Version != "" {
@@ -597,8 +598,8 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 
 				// For consistency with MEMORY_EXCEEDED kills, send a notification before attempting to
 				// kill the process.
-				startTime, err := ptypes.TimestampProto(e.StartTime)
-				if err != nil {
+				startTime := tspb.New(e.StartTime)
+				if err := startTime.CheckValid(); err != nil {
 					log.Errorf("Failed to convert process start time: %v", err)
 					startTime = nil
 				}
@@ -606,7 +607,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 					Service:          e.daemonServiceName,
 					Pid:              int64(pid),
 					ProcessStartTime: startTime,
-					KilledWhen:       ptypes.TimestampNow(),
+					KilledWhen:       tspb.Now(),
 					Reason:           mpb.KillNotification_HEARTBEAT_FAILURE,
 				}
 				if version := e.serviceVersion.Get(); version != "" {

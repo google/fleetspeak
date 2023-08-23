@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
@@ -116,7 +117,7 @@ func TestFactory(t *testing.T) {
 	msgs, addr, fin := startServer()
 	defer fin()
 
-	cfg, err := ptypes.MarshalAny(&gpb.Config{
+	cfg, err := anypb.New(&gpb.Config{
 		Target:   addr,
 		Insecure: true,
 	})

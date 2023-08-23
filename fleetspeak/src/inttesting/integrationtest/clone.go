@@ -42,7 +42,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"

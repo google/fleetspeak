@@ -23,9 +23,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 
@@ -67,7 +66,7 @@ func (s contactSlice) Less(i, j int) bool {
 	return tsLess(s[i].Timestamp, s[j].Timestamp)
 }
 
-func tsLess(i, j *tpb.Timestamp) bool {
+func tsLess(i, j *tspb.Timestamp) bool {
 	return i.Seconds < j.Seconds || (i.Seconds == j.Seconds && i.Nanos < j.Nanos)
 }
 
@@ -90,8 +89,8 @@ func Summarize(cs []*spb.ClientContact) (*Summary, error) {
 	splits, splitPoints := countSplits(nm)
 	skips := countSkips(cs)
 
-	start, _ := ptypes.Timestamp(cs[0].Timestamp)
-	end, _ := ptypes.Timestamp(cs[len(cs)-1].Timestamp)
+	start := cs[0].Timestamp.AsTime()
+	end := cs[len(cs)-1].Timestamp.AsTime()
 
 	return &Summary{
 		Start:       start,
@@ -111,10 +110,10 @@ func validate(contacts []*spb.ClientContact) error {
 		// The datastore assigns and is responsible for preventing duplicate contact
 		// timestamps. If we see a duplicate, it is a data error that might confuse
 		// other analysis.
-		t, err := ptypes.Timestamp(c.Timestamp)
-		if err != nil {
+		if err := c.Timestamp.CheckValid(); err != nil {
 			return fmt.Errorf("bad timestamp proto [%v]: %v", c.Timestamp, err)
 		}
+		t := c.Timestamp.AsTime()
 		ts := t.UnixNano()
 		if times[ts] {
 			return fmt.Errorf("duplicate timestamp: %v", t)

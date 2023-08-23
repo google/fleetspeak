@@ -24,7 +24,8 @@ import (
 	"strings"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -43,7 +44,7 @@ import (
 // conf.Config should be of proto type DaemonServiceConfig.
 func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	ssConf := &sspb.Config{}
-	err := ptypes.UnmarshalAny(conf.Config, ssConf)
+	err := conf.Config.UnmarshalTo(ssConf)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	}
 
 	im := &sspb.InputMessage{}
-	if err := ptypes.UnmarshalAny(m.Data, im); err != nil {
+	if err := m.Data.UnmarshalTo(im); err != nil {
 		return fmt.Errorf("error while unmarshalling common.Message.data: %v", err)
 	}
 
@@ -147,7 +148,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		om.ResourceUsage = aggRU
 	}
 
-	om.Timestamp = ptypes.TimestampNow()
+	om.Timestamp = tspb.Now()
 	if err := s.respond(ctx, om); err != nil {
 		return fmt.Errorf("error while trying to send a response to the requesting server: %v", err)
 	}
@@ -169,7 +170,7 @@ func (s *StdinService) respond(ctx context.Context, om *sspb.OutputMessage) erro
 	}
 
 	var err error
-	m.Data, err = ptypes.MarshalAny(om)
+	m.Data, err = anypb.New(om)
 	if err != nil {
 		return err
 	}

@@ -30,11 +30,12 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	oldproto "github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
+	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -241,7 +242,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	}
 	pi.CacheHit = info.Client.Cached
 
-	out := proto.NewBuffer(make([]byte, 0, 1024))
+	out := oldproto.NewBuffer(make([]byte, 0, 1024))
 	// EncodeMessage prepends the size as a Varint.
 	if err := out.EncodeMessage(toSend); err != nil {
 		info.Fin()
@@ -572,7 +573,7 @@ func (m *streamManager) writeOne(cd *fspb.ContactData) (stats.PollInfo, error) {
 		pi.End = db.Now()
 	}()
 
-	buf := proto.NewBuffer(make([]byte, 0, 1024))
+	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
 	if err := buf.EncodeMessage(cd); err != nil {
 		return pi, err
 	}

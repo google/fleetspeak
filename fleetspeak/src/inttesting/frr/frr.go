@@ -27,9 +27,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -82,8 +82,8 @@ func (s *frrClientService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 }
 
 func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
-	var rd fpb.TrafficRequestData
-	if err := ptypes.UnmarshalAny(m.Data, &rd); err != nil {
+	rd := &fpb.TrafficRequestData{}
+	if err := m.Data.UnmarshalTo(rd); err != nil {
 		return fmt.Errorf("unable to parse data as TrafficRequestData: %v", err)
 	}
 	if rd.NumMessages == 0 {
@@ -110,14 +110,14 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 			b := make([]byte, jitter(rd.MessageSize, rd.Jitter))
 			rand.Read(b)
 
-			res := fpb.TrafficResponseData{
+			res := &fpb.TrafficResponseData{
 				MasterId:      rd.MasterId,
 				RequestId:     rd.RequestId,
 				ResponseIndex: i,
 				Data:          b,
 				Fin:           i == cnt-1,
 			}
-			d, err := ptypes.MarshalAny(&res)
+			d, err := anypb.New(res)
 			if err != nil {
 				log.Fatalf("failed to marshal TrafficResponseData: %v", err)
 			}
@@ -148,8 +148,8 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 }
 
 func (s *frrClientService) processFileRequest(ctx context.Context, m *fspb.Message) error {
-	var rd fpb.FileRequestData
-	if err := ptypes.UnmarshalAny(m.Data, &rd); err != nil {
+	rd := &fpb.FileRequestData{}
+	if err := m.Data.UnmarshalTo(rd); err != nil {
 		return fmt.Errorf("unable to parse data as TrafficRequestData: %v", err)
 	}
 	data, _, err := s.sc.GetFileIfModified(ctx, rd.Name, time.Time{})
@@ -161,12 +161,12 @@ func (s *frrClientService) processFileRequest(ctx context.Context, m *fspb.Messa
 	if err != nil {
 		return fmt.Errorf("unable to read file body [%v]: %v", rd.Name, err)
 	}
-	res := fpb.FileResponseData{
+	res := &fpb.FileResponseData{
 		MasterId: rd.MasterId,
 		Name:     rd.Name,
 		Size:     uint64(len(b)),
 	}
-	d, err := ptypes.MarshalAny(&res)
+	d, err := anypb.New(res)
 	if err != nil {
 		log.Fatalf("failed to marshal FileResponseData: %v", err)
 	}
@@ -213,8 +213,8 @@ func ServerServiceFactory(sc *srpb.ServiceConfig) (service.Service, error) {
 	if sc.Config == nil {
 		r.m = DefaultFRRMaster
 	} else {
-		var c fpb.Config
-		if err := ptypes.UnmarshalAny(sc.Config, &c); err != nil {
+		c := &fpb.Config{}
+		if err := sc.Config.UnmarshalTo(c); err != nil {
 			return nil, fmt.Errorf("Unable to parse Config attribute as frr.Config: %v", err)
 		}
 		conn, err := grpc.Dial(c.MasterServer, grpc.WithInsecure())
@@ -245,21 +245,21 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 	// get really bad data.
 	switch m.MessageType {
 	case "TrafficResponse":
-		var rd fpb.TrafficResponseData
-		if err := ptypes.UnmarshalAny(m.Data, &rd); err != nil {
+		rd := &fpb.TrafficResponseData{}
+		if err := m.Data.UnmarshalTo(rd); err != nil {
 			log.Fatalf("unable to parse data as TrafficResponseData: %v", err)
 		}
 		// Zero the data field - save bandwidth and cpu communicating with master.
 		rd.Data = nil
-		if _, err := s.m.RecordTrafficResponse(ctx, &fpb.MessageInfo{ClientId: m.Source.ClientId, Data: &rd}); err != nil {
+		if _, err := s.m.RecordTrafficResponse(ctx, &fpb.MessageInfo{ClientId: m.Source.ClientId, Data: rd}); err != nil {
 			return service.TemporaryError{E: fmt.Errorf("failed to reach FRR master server: %v", err)}
 		}
 	case "FileResponse":
-		var rd fpb.FileResponseData
-		if err := ptypes.UnmarshalAny(m.Data, &rd); err != nil {
+		rd := &fpb.FileResponseData{}
+		if err := m.Data.UnmarshalTo(rd); err != nil {
 			log.Fatalf("unable to parse data as FileResponseData: %v", err)
 		}
-		if _, err := s.m.RecordFileResponse(ctx, &fpb.FileResponseInfo{ClientId: m.Source.ClientId, Data: &rd}); err != nil {
+		if _, err := s.m.RecordFileResponse(ctx, &fpb.FileResponseInfo{ClientId: m.Source.ClientId, Data: rd}); err != nil {
 			return service.TemporaryError{E: fmt.Errorf("failed to reach FRR master server: %v", err)}
 		}
 	default:
@@ -481,7 +481,7 @@ func (s *MasterServer) WatchCompleted() <-chan common.ClientID {
 // every client, up to limit.
 func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.TrafficRequestData, limit uint64) error {
 	rd.MasterId = s.masterID
-	d, err := ptypes.MarshalAny(rd)
+	d, err := anypb.New(rd)
 	if err != nil {
 		return fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
 	}
@@ -515,7 +515,7 @@ func (s *MasterServer) CreateBroadcastRequest(ctx context.Context, rd *fpb.Traff
 
 func (s *MasterServer) createUnicastRequest(ctx context.Context, rd *fpb.TrafficRequestData, clientIDs []string) error {
 	rd.MasterId = s.masterID
-	dat, err := ptypes.MarshalAny(rd)
+	dat, err := anypb.New(rd)
 	if err != nil {
 		return fmt.Errorf("Unable to marshal TrafficRequestData: %v", err)
 	}
@@ -551,11 +551,11 @@ func (s *MasterServer) CreateHunt(ctx context.Context, hr *fpb.CreateHuntRequest
 // CreateFileDownloadHunt initiates a hunt which requests that up to limit clients download
 // the file identified by name.
 func (s *MasterServer) CreateFileDownloadHunt(ctx context.Context, name string, limit uint64) error {
-	rd := fpb.FileRequestData{
+	rd := &fpb.FileRequestData{
 		MasterId: s.masterID,
 		Name:     name,
 	}
-	d, err := ptypes.MarshalAny(&rd)
+	d, err := anypb.New(rd)
 	if err != nil {
 		return fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
@@ -30,12 +30,12 @@ func innerMain() {
 	if err != nil {
 		log.Exitf("Unable to read configuration file [%s]: %v", *configFile, err)
 	}
-	var cfgPB gpb.Config
-	if err := proto.UnmarshalText(string(b), &cfgPB); err != nil {
+	cfgPB := &gpb.Config{}
+	if err := prototext.Unmarshal(b, cfgPB); err != nil {
 		log.Exitf("Unable to parse configuration file [%s]: %v", *configFile, err)
 	}
 
-	cfg, err := generic.MakeConfiguration(&cfgPB)
+	cfg, err := generic.MakeConfiguration(cfgPB)
 	if err != nil {
 		log.Exitf("Error in configuration file: %v", err)
 	}

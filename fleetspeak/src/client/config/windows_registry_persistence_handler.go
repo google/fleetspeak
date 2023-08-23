@@ -22,7 +22,8 @@ import (
 	"path/filepath"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -135,7 +136,7 @@ func (h *WindowsRegistryPersistenceHandler) ReadCommunicatorConfig() (*clpb.Comm
 	}
 
 	ret := &clpb.CommunicatorConfig{}
-	if err := proto.UnmarshalText(string(fbytes), ret); err != nil {
+	if err := prototext.Unmarshal(fbytes, ret); err != nil {
 		return nil, fmt.Errorf("can't parse communicator config file [%s]: %v", fpath, err)
 	}
 
@@ -203,7 +204,7 @@ func (h *WindowsRegistryPersistenceHandler) ReadServices() ([]*fspb.ClientServic
 		}
 
 		service := &fspb.ClientServiceConfig{}
-		if err := proto.UnmarshalText(string(fbytes), service); err != nil {
+		if err := prototext.Unmarshal(fbytes, service); err != nil {
 			log.Errorf("Unable to parse service file [%s], ignoring: %v", fpath, err)
 			continue
 		}

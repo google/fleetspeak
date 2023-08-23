@@ -23,7 +23,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -66,7 +67,7 @@ func main() {
 	ts := testserver.Server{
 		DS: ds,
 	}
-	gc, err := ptypes.MarshalAny(&gpb.Config{
+	gc, err := anypb.New(&gpb.Config{
 		Target:   *messageAddr,
 		Insecure: true,
 	})

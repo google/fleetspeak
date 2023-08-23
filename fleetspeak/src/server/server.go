@@ -38,7 +38,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
 

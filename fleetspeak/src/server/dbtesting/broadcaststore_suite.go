@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
+	"google.golang.org/protobuf/proto"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
-	apb "github.com/golang/protobuf/ptypes/any"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 type idSet struct {
@@ -43,16 +43,13 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 		bid = append(bid, b)
 	}
 
-	future, err := ptypes.TimestampProto(time.Unix(200000, 0))
-	if err != nil {
-		t.Fatal(err)
-	}
+	future := tspb.New(time.Unix(200000, 0))
 
 	b0 := &spb.Broadcast{
 		BroadcastId: bid[0].Bytes(),
 		Source:      &fspb.Address{ServiceName: "testService"},
 		MessageType: "message type 1",
-		Data: &apb.Any{
+		Data: &anypb.Any{
 			TypeUrl: "message proto name 1",
 			Value:   []byte("message data 1"),
 		},

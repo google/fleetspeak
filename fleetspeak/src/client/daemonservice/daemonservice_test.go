@@ -23,16 +23,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-	durpb "github.com/golang/protobuf/ptypes/duration"
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	durpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 func testClient() []string {
@@ -64,9 +64,9 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 
-	dscAny, err := ptypes.MarshalAny(dsc)
+	dscAny, err := anypb.New(dsc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*daemonservice.Config): %v", err)
+		t.Fatalf("anypb.New(*daemonservice.Config): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestDaemonService",
@@ -189,7 +189,7 @@ func TestSelfReportedPIDs(t *testing.T) {
 				continue
 			}
 			rud := &mpb.ResourceUsageData{}
-			if err := ptypes.UnmarshalAny(m.Data, rud); err != nil {
+			if err := m.Data.UnmarshalTo(rud); err != nil {
 				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
 			t.Logf("Received resource-usage message (PID %d).", rud.Pid)
@@ -243,8 +243,8 @@ L:
 				t.Errorf("Received unexpected message type: %s", m.MessageType)
 				continue
 			}
-			var rud mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
+			rud := &mpb.ResourceUsageData{}
+			if err := m.Data.UnmarshalTo(rud); err != nil {
 				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
 			seen[rud.Pid] = true
@@ -263,15 +263,15 @@ func TestInactivityTimeout(t *testing.T) {
 		RespawnDelay = ord
 	}()
 
-	dsc := dspb.Config{
+	dsc := &dspb.Config{
 		InactivityTimeout: &durpb.Duration{Seconds: 1},
 	}
 	dsc.Argv = append(dsc.Argv, testClient()...)
 	dsc.Argv = append(dsc.Argv, "--mode=loopback")
 
-	dscAny, err := ptypes.MarshalAny(&dsc)
+	dscAny, err := anypb.New(dsc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*DaemonServiceConfig): %v", err)
+		t.Fatalf("anypb.New(*DaemonServiceConfig): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestDaemonService",
@@ -333,8 +333,8 @@ func TestInactivityTimeout(t *testing.T) {
 				t.Errorf("Received unexpected message type: %s", m.MessageType)
 				continue
 			}
-			var rud mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
+			rud := &mpb.ResourceUsageData{}
+			if err := m.Data.UnmarshalTo(rud); err != nil {
 				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
 			seen[rud.Pid] = true
@@ -431,12 +431,12 @@ func TestMemoryLimit(t *testing.T) {
 		m = <-sc.OutChan
 	}
 
-	var rud0 mpb.ResourceUsageData
-	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
+	rud0 := &mpb.ResourceUsageData{}
+	if err := m.Data.UnmarshalTo(rud0); err != nil {
 		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 	}
 
-	rud1 := proto.Clone(&rud0).(*mpb.ResourceUsageData)
+	rud1 := proto.Clone(rud0).(*mpb.ResourceUsageData)
 	// Wait for the process to be restarted.
 	for rud0.Pid == rud1.Pid {
 		// Get messages until a ResourceUsage message appears.
@@ -445,7 +445,7 @@ func TestMemoryLimit(t *testing.T) {
 			m = <-sc.OutChan
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, rud1); err != nil {
+		if err := m.Data.UnmarshalTo(rud1); err != nil {
 			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 		}
 	}
@@ -486,12 +486,12 @@ func TestNoHeartbeats(t *testing.T) {
 		m = <-sc.OutChan
 	}
 
-	var kn0 mpb.KillNotification
-	if err := ptypes.UnmarshalAny(m.Data, &kn0); err != nil {
+	kn0 := &mpb.KillNotification{}
+	if err := m.Data.UnmarshalTo(kn0); err != nil {
 		t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 	}
 
-	kn1 := proto.Clone(&kn0).(*mpb.KillNotification)
+	kn1 := proto.Clone(kn0).(*mpb.KillNotification)
 	// Wait for the process to be restarted.
 	for kn0.Pid == kn1.Pid {
 		// Get messages until a KillNotification message appears.
@@ -500,7 +500,7 @@ func TestNoHeartbeats(t *testing.T) {
 			m = <-sc.OutChan
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, kn1); err != nil {
+		if err := m.Data.UnmarshalTo(kn1); err != nil {
 			t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 		}
 	}
@@ -541,8 +541,9 @@ func TestHeartbeat(t *testing.T) {
 		m = <-sc.OutChan
 	}
 
-	var rud0, rud1 mpb.ResourceUsageData
-	if err := ptypes.UnmarshalAny(m.Data, &rud0); err != nil {
+	rud0 := &mpb.ResourceUsageData{}
+	rud1 := &mpb.ResourceUsageData{}
+	if err := m.Data.UnmarshalTo(rud0); err != nil {
 		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 	}
 
@@ -554,7 +555,7 @@ func TestHeartbeat(t *testing.T) {
 			continue
 		}
 
-		if err := ptypes.UnmarshalAny(m.Data, &rud1); err != nil {
+		if err := m.Data.UnmarshalTo(rud1); err != nil {
 			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 		}
 

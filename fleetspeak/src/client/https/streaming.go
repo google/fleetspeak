@@ -29,7 +29,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	oldproto "github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/watchdog"
@@ -240,7 +241,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		return nil, err
 	}
 	ret.processed = pm
-	buf := proto.NewBuffer(make([]byte, 0, 1024))
+	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
 	if err := buf.EncodeMessage(wcd); err != nil {
 		return nil, err
 	}
@@ -418,7 +419,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		log.V(2).Infof("<-%p: writeLoop stopped", c)
 	}()
 
-	buf := proto.NewBuffer(make([]byte, 0, 1024))
+	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
 	cnt := 1
 	var lastRate float64 // speed of last large-ish write, in bytes/sec
 	for {

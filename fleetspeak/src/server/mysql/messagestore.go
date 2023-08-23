@@ -26,14 +26,14 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
-	"github.com/golang/protobuf/proto"
-	apb "github.com/golang/protobuf/ptypes/any"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/proto"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // dbMessage matches the schema of the messages table, optionally joined to the
@@ -159,7 +159,7 @@ func toMessageResultProto(m *dbMessage) *fspb.MessageResult {
 	}
 
 	ret := &fspb.MessageResult{
-		ProcessedTime: &tpb.Timestamp{
+		ProcessedTime: &tspb.Timestamp{
 			Seconds: m.processedTimeSeconds.Int64,
 			Nanos:   int32(m.processedTimeNanos.Int64)},
 		Failed: m.failed.Valid && m.failed.Bool,
@@ -188,14 +188,14 @@ func toMessageProto(m *dbMessage) (*fspb.Message, error) {
 			ServiceName: m.destinationServiceName,
 		},
 		MessageType: m.messageType,
-		CreationTime: &tpb.Timestamp{
+		CreationTime: &tspb.Timestamp{
 			Seconds: m.creationTimeSeconds,
 			Nanos:   m.creationTimeNanos,
 		},
 		Result: toMessageResultProto(m),
 	}
 	if m.dataTypeURL.Valid {
-		pm.Data = &apb.Any{
+		pm.Data = &anypb.Any{
 			TypeUrl: m.dataTypeURL.String,
 			Value:   m.dataValue,
 		}

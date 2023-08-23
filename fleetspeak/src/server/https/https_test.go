@@ -35,7 +35,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	oldproto "github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -210,7 +211,7 @@ func makeWrapped() []byte {
 		ContactData:  b,
 		ClientLabels: []string{"linux", "test"},
 	}
-	buf := proto.NewBuffer(make([]byte, 0, 1024))
+	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
 	if err := buf.EncodeMessage(&wcd); err != nil {
 		log.Fatal(err)
 	}

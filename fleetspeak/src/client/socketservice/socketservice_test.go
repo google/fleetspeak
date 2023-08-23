@@ -27,8 +27,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
@@ -67,12 +67,12 @@ func isErrKilled(err error) bool {
 // exerciseLoopback attempts to send messages through a testclient in loopback mode using
 // socketPath.
 func exerciseLoopback(t *testing.T, socketPath string) {
-	ssc := sspb.Config{
+	ssc := &sspb.Config{
 		ApiProxyPath: socketPath,
 	}
-	sscAny, err := ptypes.MarshalAny(&ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*socketservice.Config): %v", err)
+		t.Fatalf("anypb.New(*socketservice.Config): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestSocketService",
@@ -212,12 +212,12 @@ func TestStutteringLoopback(t *testing.T) {
 		}
 	}()
 
-	ssc := sspb.Config{
+	ssc := &sspb.Config{
 		ApiProxyPath: socketPath,
 	}
-	sscAny, err := ptypes.MarshalAny(&ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*socketservice.Config): %v", err)
+		t.Fatalf("anypb.New(*socketservice.Config): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestSocketService",
@@ -303,14 +303,14 @@ func TestResourceMonitoring(t *testing.T) {
 		}
 	}()
 
-	ssc := sspb.Config{
+	ssc := &sspb.Config{
 		ApiProxyPath:                          socketPath,
 		ResourceMonitoringSampleSize:          2,
 		ResourceMonitoringSamplePeriodSeconds: 1,
 	}
-	sscAny, err := ptypes.MarshalAny(&ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*socketservice.Config): %v", err)
+		t.Fatalf("anypb.New(*socketservice.Config): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestSocketService",
@@ -342,7 +342,7 @@ func TestResourceMonitoring(t *testing.T) {
 			t.Errorf("expected ResourceUsage, got %+v", m)
 		}
 		rud := &mpb.ResourceUsageData{}
-		if err := ptypes.UnmarshalAny(m.Data, rud); err != nil {
+		if err := m.Data.UnmarshalTo(rud); err != nil {
 			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 		}
 		if rud.Pid != int64(cmd.Process.Pid) {
@@ -363,12 +363,12 @@ func TestStopDoesNotBlock(t *testing.T) {
 	socketPath := path.Join(tmpDir, "Loopback")
 	stopTimeout := 10 * time.Second
 
-	ssc := sspb.Config{
+	ssc := &sspb.Config{
 		ApiProxyPath: socketPath,
 	}
-	sscAny, err := ptypes.MarshalAny(&ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
-		t.Fatalf("ptypes.MarshalAny(*socketservice.Config): %v", err)
+		t.Fatalf("anypb.New(*socketservice.Config): %v", err)
 	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestSocketService",

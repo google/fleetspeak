@@ -21,14 +21,15 @@ import (
 	"math"
 	"time"
 
+	anypb "google.golang.org/protobuf/types/known/anypb"
+
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
-	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
@@ -222,11 +223,10 @@ type ResourceUsageMonitorParams struct {
 // Run() and stopped by closing params.Done.
 func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageMonitor, error) {
 	var startTimeProto *tspb.Timestamp
-	var err error
 
 	if !params.ProcessStartTime.IsZero() {
-		startTimeProto, err = ptypes.TimestampProto(params.ProcessStartTime)
-		if err != nil {
+		startTimeProto = tspb.New(params.ProcessStartTime)
+		if err := startTimeProto.CheckValid(); err != nil {
 			return nil, fmt.Errorf("process start time is invalid: %v", err)
 		}
 	}
@@ -348,7 +348,7 @@ func (m *ResourceUsageMonitor) Run() {
 					Pid:              int64(m.pid),
 					ProcessStartTime: m.processStartTime,
 					Version:          m.version,
-					DataTimestamp:    ptypes.TimestampNow(),
+					DataTimestamp:    tspb.Now(),
 					ResourceUsage:    &aggRU,
 					DebugStatus:      debugStatus,
 				}
@@ -376,7 +376,7 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool
 		Pid:              int64(m.pid),
 		Version:          m.version,
 		ProcessStartTime: m.processStartTime,
-		KilledWhen:       ptypes.TimestampNow(),
+		KilledWhen:       tspb.Now(),
 		Reason:           mpb.KillNotification_MEMORY_EXCEEDED,
 	}
 	if err := SendProtoToServer(kn, "KillNotification", m.sc); err != nil {
@@ -400,7 +400,7 @@ func (m *ResourceUsageMonitor) errorf(format string, a ...interface{}) {
 
 // SendProtoToServer wraps a proto in a fspb.Message and sends it to the server.
 func SendProtoToServer(pb proto.Message, msgType string, sc service.Context) error {
-	d, err := ptypes.MarshalAny(pb)
+	d, err := anypb.New(pb)
 	if err != nil {
 		return err
 	}

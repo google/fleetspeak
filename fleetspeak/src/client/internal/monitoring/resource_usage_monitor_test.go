@@ -19,14 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 
-	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type fakeResourceUsageFetcher struct {
@@ -110,11 +109,11 @@ func TestResourceUsageMonitor(t *testing.T) {
 	for protosReceived := 0; protosReceived < 2; protosReceived++ {
 		select {
 		case m := <-sc.OutChan:
-			var got mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(m.Data, &got); err != nil {
+			got := &mpb.ResourceUsageData{}
+			if err := m.Data.UnmarshalTo(got); err != nil {
 				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
-			want := mpb.ResourceUsageData{
+			want := &mpb.ResourceUsageData{
 				Scope:            "test-scope",
 				Pid:              int64(pid),
 				ProcessStartTime: &tspb.Timestamp{Seconds: fakeStart},
@@ -131,15 +130,15 @@ func TestResourceUsageMonitor(t *testing.T) {
 				DebugStatus:   fmt.Sprintf("Fake Debug Status %d", protosReceived),
 				DataTimestamp: got.DataTimestamp,
 			}
-			if !proto.Equal(&got, &want) {
+			if !proto.Equal(got, want) {
 				t.Errorf(
 					"Resource-usage proto %d received is not what we expect; got:\n%v\nwant:\n%v", protosReceived, got.String(), want.String())
 			}
 
-			timestamp, err := ptypes.Timestamp(got.DataTimestamp)
-			if err != nil {
+			if err := got.DataTimestamp.CheckValid(); err != nil {
 				t.Fatal(err)
 			}
+			timestamp := got.DataTimestamp.AsTime()
 			if timestamp.Before(start) {
 				t.Errorf(
 					"Timestamp for resource-usage proto %d [%v] is expected to be after %v",

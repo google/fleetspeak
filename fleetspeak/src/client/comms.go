@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -60,7 +60,7 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 	cd := fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
 		Messages:        toSend,
-		ClientClock:     ptypes.TimestampNow(),
+		ClientClock:     tspb.Now(),
 		AllowedMessages: allowedMessages,
 	}
 	b, err := proto.Marshal(&cd)

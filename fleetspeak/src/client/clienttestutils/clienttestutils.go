@@ -20,7 +20,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -42,10 +43,13 @@ func WriteSignedServiceConfig(dirpath, filename string, cfg *fspb.SignedClientSe
 
 // WriteServiceConfig saves the given config to a test location.
 func WriteServiceConfig(dirpath, filename string, cfg *fspb.ClientServiceConfig) error {
-	s := proto.MarshalTextString(cfg)
+	b, err := prototext.Marshal(cfg)
+	if err != nil {
+		return err
+	}
 
 	configPath := filepath.Join(dirpath, filename)
-	if err := ioutil.WriteFile(configPath, []byte(s), 0644); err != nil {
+	if err := ioutil.WriteFile(configPath, b, 0644); err != nil {
 		return fmt.Errorf("unable to write service config[%s]: %v", configPath, err)
 	}
 

@@ -24,8 +24,7 @@ import (
 	"context"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
@@ -204,10 +203,11 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 		}
 		st = cls[0].LastContactStreamingTo
 		if cls[0].LastContactTime != nil {
-			lc, err = ptypes.Timestamp(cls[0].LastContactTime)
-			if err != nil {
+			if err := cls[0].LastContactTime.CheckValid(); err != nil {
 				log.Errorf("Failed to convert last contact time from database: %v", err)
 				lc = time.Time{}
+			} else {
+				lc = cls[0].LastContactTime.AsTime()
 			}
 		}
 		msgSize := proto.Size(m)

@@ -18,10 +18,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Now is the clock used by the server. Normally just time.Now, but can be replaced to support testing. It should be used by db.Store implementations to determine the time.
@@ -30,9 +29,9 @@ func Now() time.Time {
 }
 
 // NowProto returns a proto representation of Now().
-func NowProto() *tpb.Timestamp {
-	n, err := ptypes.TimestampProto(Now())
-	if err != nil {
+func NowProto() *tspb.Timestamp {
+	n := tspb.New(Now())
+	if err := n.CheckValid(); err != nil {
 		// Really shouldn't happen; the most likely situation is that we
 		// are in a test using a badly broken Now.
 		log.Fatalf("Unable to convert Now() to a protocol buffer: %s", err)

@@ -27,7 +27,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -46,7 +47,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -173,8 +174,8 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	auth, signs := makeAuthorizerSigners(t)
 
 	// Create and start a FS server.
-	c := fpb.Config{MasterServer: tl.Addr().String()}
-	cfg, err := ptypes.MarshalAny(&c)
+	c := &fpb.Config{MasterServer: tl.Addr().String()}
+	cfg, err := anypb.New(c)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -32,7 +32,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -40,7 +40,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )

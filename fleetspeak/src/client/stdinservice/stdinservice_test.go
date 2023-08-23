@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 
@@ -33,7 +33,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	ssc := &sspb.Config{
 		Cmd: "python",
 	}
-	sscAny, err := ptypes.MarshalAny(ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	m := &sspb.InputMessage{
 		Args: []string{"-c", `print("foo bar")`},
 	}
-	mAny, err := ptypes.MarshalAny(m)
+	mAny, err := anypb.New(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	}
 
 	om := &sspb.OutputMessage{}
-	if err := ptypes.UnmarshalAny(output.Data, om); err != nil {
+	if err := output.Data.UnmarshalTo(om); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,7 +95,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 	ssc := &sspb.Config{
 		Cmd: "python",
 	}
-	sscAny, err := ptypes.MarshalAny(ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ except EOFError:
 		`},
 		Input: []byte("foo bar"),
 	}
-	mAny, err := ptypes.MarshalAny(m)
+	mAny, err := anypb.New(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ except EOFError:
 	}
 
 	om := &sspb.OutputMessage{}
-	if err := ptypes.UnmarshalAny(output.Data, om); err != nil {
+	if err := output.Data.UnmarshalTo(om); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,7 +164,7 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 	ssc := &sspb.Config{
 		Cmd: "python",
 	}
-	sscAny, err := ptypes.MarshalAny(ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ while time.time() - t0 < 1.:
   os.listdir(".")
 		`},
 	}
-	mAny, err := ptypes.MarshalAny(m)
+	mAny, err := anypb.New(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ while time.time() - t0 < 1.:
 	}
 
 	om := &sspb.OutputMessage{}
-	if err := ptypes.UnmarshalAny(output.Data, om); err != nil {
+	if err := output.Data.UnmarshalTo(om); err != nil {
 		t.Fatal(err)
 	}
 
@@ -247,7 +247,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 	ssc := &sspb.Config{
 		Cmd: "python",
 	}
-	sscAny, err := ptypes.MarshalAny(ssc)
+	sscAny, err := anypb.New(ssc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ import time
 time.sleep(%f)
 		`, clitesting.MockCommTimeout.Seconds())},
 	}
-	mAny, err := ptypes.MarshalAny(m)
+	mAny, err := anypb.New(m)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	oldproto "github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -27,7 +28,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
-	apb "github.com/golang/protobuf/ptypes/any"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -151,7 +152,7 @@ func (s *streamingTestServer) Start() {
 				AckIndex: cnt,
 			}
 			cnt++
-			out := proto.NewBuffer(make([]byte, 0, 1024))
+			out := oldproto.NewBuffer(make([]byte, 0, 1024))
 			if err := out.EncodeMessage(&cd); err != nil {
 				s.t.Errorf("Unable to encode response: %v", err)
 				return
@@ -400,7 +401,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 				},
 			},
@@ -427,7 +428,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 					Value:   randBytes(512 * 1024),
 				},
@@ -452,7 +453,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 			service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "DummyService"},
-					Data: &apb.Any{
+					Data: &anypb.Any{
 						TypeUrl: "Some proto",
 						Value:   randBytes(300 * 1024),
 					},
@@ -505,7 +506,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 				},
 			},
@@ -532,7 +533,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 					Value:   randBytes(512 * 1024),
 				},
@@ -557,7 +558,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 			service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "DummyService"},
-					Data: &apb.Any{
+					Data: &anypb.Any{
 						TypeUrl: "Some proto",
 						Value:   randBytes(1024 * 1024),
 					},

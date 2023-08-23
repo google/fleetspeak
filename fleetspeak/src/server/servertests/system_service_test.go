@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestSystemServiceClientInfo(t *testing.T) {
@@ -56,7 +56,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		MessageType:     "ClientInfo",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = ptypes.MarshalAny(&fspb.ClientInfoData{
+	m.Data, err = anypb.New(&fspb.ClientInfoData{
 		Labels: []*fspb.Label{
 			{ServiceName: "client", Label: "linux"},
 			{ServiceName: "client", Label: "corp"},
@@ -82,7 +82,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 
 	m.SourceMessageId = []byte("2")
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = ptypes.MarshalAny(&fspb.ClientInfoData{
+	m.Data, err = anypb.New(&fspb.ClientInfoData{
 		Labels: []*fspb.Label{
 			{ServiceName: "client", Label: "linux"},
 		},
@@ -160,7 +160,7 @@ func TestSystemServiceMessageAck(t *testing.T) {
 		MessageType:     "MessageAck",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{
+	m.Data, err = anypb.New(&fspb.MessageAckData{
 		MessageIds: [][]byte{mid.Bytes()},
 	})
 	if err != nil {
@@ -232,7 +232,7 @@ func TestSystemServiceMessageError(t *testing.T) {
 		MessageType:     "MessageError",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = ptypes.MarshalAny(&fspb.MessageErrorData{
+	m.Data, err = anypb.New(&fspb.MessageErrorData{
 		MessageId: mid.Bytes(),
 		Error:     "failed badly",
 	})
