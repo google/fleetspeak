@@ -29,7 +29,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	oldproto "github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
@@ -241,10 +240,13 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		return nil, err
 	}
 	ret.processed = pm
-	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
-	if err := buf.EncodeMessage(wcd); err != nil {
+
+	buf, err := proto.Marshal(wcd)
+	if err != nil {
 		return nil, err
 	}
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
 
 	br, bw := io.Pipe()
 
@@ -280,7 +282,8 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	// executes.
 	go func() {
 		binary.Write(bw, binary.LittleEndian, magic)
-		bw.Write(buf.Bytes())
+		bw.Write(sizeBuf)
+		bw.Write(buf)
 	}()
 	resp, err := c.hc.Do(req)
 	close(ok)
@@ -419,7 +422,6 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		log.V(2).Infof("<-%p: writeLoop stopped", c)
 	}()
 
-	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
 	cnt := 1
 	var lastRate float64 // speed of last large-ish write, in bytes/sec
 	for {
@@ -454,25 +456,37 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			log.Errorf("Error creating streaming contact data: %v", err)
 			return
 		}
-		if err := buf.EncodeMessage(wcd); err != nil {
+		
+		buf, err := proto.Marshal(wcd)
+		if err != nil {
 			log.Errorf("Error encoding streaming contact data: %v", err)
 			return
 		}
-		log.V(2).Infof("<-Starting write of %d bytes", len(buf.Bytes()))
+		sizeBuf := make([]byte, 0, 16)
+		sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
+		
+		log.V(2).Infof("<-Starting write of %d bytes", len(buf))
 		start := time.Now()
-		s, err := bw.Write(buf.Bytes())
+		sizeWritten, err := bw.Write(sizeBuf)
 		if err != nil {
 			if c.ctx.Err() == nil {
 				log.Errorf("Error writing streaming contact data: %v", err)
 			}
 			return
 		}
+		bufWritten, err := bw.Write(buf)
+		if err != nil {
+			if c.ctx.Err() == nil {
+				log.Errorf("Error writing streaming contact data: %v", err)
+			}
+			return
+		}
+		s := sizeWritten + bufWritten
 		delta := time.Since(start)
 		log.V(2).Infof("<-Wrote streaming ContactData of %d messages, and %d bytes in %v", len(fsmsgs), s, delta)
 		if s > minSendBytesThreshold {
 			lastRate = float64(s) / (float64(delta) / float64(time.Second))
 		}
-		buf.Reset()
 	}
 }
 

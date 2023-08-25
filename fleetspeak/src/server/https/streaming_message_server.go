@@ -30,7 +30,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	oldproto "github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -242,14 +241,21 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 	}
 	pi.CacheHit = info.Client.Cached
 
-	out := oldproto.NewBuffer(make([]byte, 0, 1024))
-	// EncodeMessage prepends the size as a Varint.
-	if err := out.EncodeMessage(toSend); err != nil {
+	outBuf, err := proto.Marshal(toSend)
+	if err != nil {
 		info.Fin()
 		return nil, false, makeError(fmt.Sprintf("error preparing messages: %v", err), http.StatusInternalServerError)
 	}
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(outBuf)))
+
 	st = time.Now()
-	sz, err := res.Write(out.Bytes())
+	sizeWritten, err := res.Write(sizeBuf)
+	if err != nil {
+		info.Fin()
+		return nil, false, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
+	}
+	bufWritten, err := res.Write(outBuf)
 	if err != nil {
 		info.Fin()
 		return nil, false, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
@@ -258,7 +264,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 
 	pi.WriteTime = time.Since(st)
 	pi.End = time.Now()
-	pi.WriteBytes = sz
+	pi.WriteBytes = sizeWritten + bufWritten
 	pi.Status = http.StatusOK
 	return info, more, nil
 }
@@ -573,19 +579,25 @@ func (m *streamManager) writeOne(cd *fspb.ContactData) (stats.PollInfo, error) {
 		pi.End = db.Now()
 	}()
 
-	buf := oldproto.NewBuffer(make([]byte, 0, 1024))
-	if err := buf.EncodeMessage(cd); err != nil {
+	buf, err := proto.Marshal(cd)
+	if err != nil {
 		return pi, err
 	}
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
 
 	sw := time.Now()
-	s, err := m.res.Write(buf.Bytes())
+	sizeWritten, err := m.res.Write(sizeBuf)
+	if err != nil {
+		return pi, err
+	}
+	bufWritten, err := m.res.Write(buf)
 	if err != nil {
 		return pi, err
 	}
 	m.res.Flush()
 	pi.WriteTime = time.Since(sw)
-	pi.WriteBytes = s
+	pi.WriteBytes = sizeWritten + bufWritten
 	pi.Status = http.StatusOK
 
 	return pi, nil
