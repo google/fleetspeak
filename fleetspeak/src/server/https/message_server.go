@@ -109,18 +109,13 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.TLS == nil {
+	cert, err := GetClientCert(req, s.p.ClientCertHeader)
+	if err != nil {
 		pi.Status = http.StatusBadRequest
-		http.Error(res, "TLS information not found", pi.Status)
-		return
-	}
-	if len(req.TLS.PeerCertificates) != 1 {
-		pi.Status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("expected 1 client cert, received %v", len(req.TLS.PeerCertificates)), pi.Status)
+		http.Error(res, err.Error(), pi.Status)
 		return
 	}
 
-	cert := req.TLS.PeerCertificates[0]
 	if cert.PublicKey == nil {
 		pi.Status = http.StatusBadRequest
 		http.Error(res, "public key not present in client cert", pi.Status)

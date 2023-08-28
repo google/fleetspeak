@@ -51,7 +51,7 @@ var (
 	serverCert []byte
 )
 
-func makeServer(t *testing.T, caseName string) (*server.Server, *sqlite.Datastore, string) {
+func makeServer(t *testing.T, caseName, clientCertHeader string) (*server.Server, *sqlite.Datastore, string) {
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func makeServer(t *testing.T, caseName string) (*server.Server, *sqlite.Datastor
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true})
+	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true, ClientCertHeader: clientCertHeader})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func makeServer(t *testing.T, caseName string) (*server.Server, *sqlite.Datastor
 	return ts.S, ts.DS, tl.Addr().String()
 }
 
-func makeClient(t *testing.T) (common.ClientID, *http.Client) {
+func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 	// Populate a CertPool with the server's certificate.
 	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(serverCert) {
@@ -129,14 +129,14 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client) {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	return id, &cl
+	return id, &cl, bc
 }
 
 func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "Normal")
-	id, cl := makeClient(t)
+	s, ds, addr := makeServer(t, "Normal", "")
+	id, cl, _ := makeClient(t)
 	defer s.Stop()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
@@ -171,8 +171,8 @@ func TestNormalPoll(t *testing.T) {
 func TestFile(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "File")
-	_, cl := makeClient(t)
+	s, ds, addr := makeServer(t, "File", "")
+	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
 	data := []byte("The quick sly fox jumped over the lazy dogs.")
@@ -241,8 +241,8 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 func TestStreaming(t *testing.T) {
 	ctx := context.Background()
 
-	s, _, addr := makeServer(t, "Streaming")
-	_, cl := makeClient(t)
+	s, _, addr := makeServer(t, "Streaming", "")
+	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -264,6 +264,116 @@ func TestStreaming(t *testing.T) {
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	// Read ContactData for first exchange.
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if err != nil {
+		t.Error(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+	}
+
+	for i := uint64(1); i < 10; i++ {
+		// Write another WrappedContactData.
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		cd, err := readContact(body)
+		if err != nil {
+			t.Error(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+		}
+	}
+
+	bw.Close()
+	resp.Body.Close()
+}
+
+func TestHeaderNormalPoll(t *testing.T) {
+	ctx := context.Background()
+
+	s, ds, addr := makeServer(t, "Normal", "ssl-client-cert")
+	id, cl, bc := makeClient(t)
+	defer s.Stop()
+
+	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
+
+	req, err := http.NewRequest("POST", u.String(), nil)
+	req.Close = true
+	cc := url.PathEscape(string(bc))
+	req.Header.Set("ssl-client-cert", cc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// An empty body is a valid, though atypical initial request.
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Error(err)
+	}
+	resp.Body.Close()
+
+	var cd fspb.ContactData
+	if err := proto.Unmarshal(b, &cd); err != nil {
+		t.Errorf("Unable to parse returned data as ContactData: %v", err)
+	}
+	if cd.SequencingNonce == 0 {
+		t.Error("Expected SequencingNonce in returned ContactData")
+	}
+
+	// The client should now exist in the datastore.
+	_, err = ds.GetClientData(ctx, id)
+	if err != nil {
+		t.Errorf("Error getting client data after poll: %v", err)
+	}
+}
+
+func TestHeaderStreaming(t *testing.T) {
+	ctx := context.Background()
+
+	s, _, addr := makeServer(t, "Streaming", "ssl-client-cert")
+	_, cl, bc := makeClient(t)
+	defer s.Stop()
+
+	br, bw := io.Pipe()
+	go func() {
+		// First exchange - these writes must happen during the http.Client.Do call
+		// below, because the server writes headers at the end of the first message
+		// exchange.
+
+		// Start with the magic number:
+		binary.Write(bw, binary.LittleEndian, magic)
+
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), br)
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+
+	cc := url.PathEscape(string(bc))
+	req.Header.Set("ssl-client-cert", cc)
 	if err != nil {
 		t.Fatal(err)
 	}

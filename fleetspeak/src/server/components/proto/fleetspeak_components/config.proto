@@ -81,6 +81,11 @@ message HttpsConfig {
   // connection causes more active connections but can reduce database load and
   // server->client communications latency.
   bool disable_streaming = 4;
+
+  // If set, the server will validate the client certificate from the request header.
+  // This should be used if TLS is terminated at the load balancer and client certificates
+  // can be passed upstream to the fleetspeak server as an http header.
+  string client_certificate_header = 5;
 }
 
 message AdminConfig {

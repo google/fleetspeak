@@ -94,17 +94,12 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 		return
 	}
 
-	if req.TLS == nil {
-		earlyError("TLS information not found", http.StatusBadRequest)
+	cert, err := GetClientCert(req, s.p.ClientCertHeader)
+	if err != nil {
+		earlyError(err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if len(req.TLS.PeerCertificates) != 1 {
-		earlyError(fmt.Sprintf("expected 1 client cert, received %v", len(req.TLS.PeerCertificates)), http.StatusBadRequest)
-		return
-	}
-
-	cert := req.TLS.PeerCertificates[0]
 	if cert.PublicKey == nil {
 		earlyError("public key not present in client cert", http.StatusBadRequest)
 		return
