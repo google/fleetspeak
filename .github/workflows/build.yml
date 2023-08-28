@@ -246,7 +246,7 @@ jobs:
           go test -race github.com/google/fleetspeak/fleetspeak/src/windows/... --timeout 180s
 
   upload-installers:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-22.04
     env:
       GCS_BUCKET: autobuilds-fleetspeak
