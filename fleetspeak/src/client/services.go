@@ -24,16 +24,15 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 const inboxSize = 100
-
-var protoTexter = proto.TextMarshaler{ExpandAny: true}
 
 // A serviceConfiguration manages and communicates the services installed on a
 // client. In normal use it is a singleton.
@@ -140,7 +139,11 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		old.stop()
 	}
 
-	log.Infof("Started service %v with config:\n%s", cfg.Name, protoTexter.Text(cfg))
+	b, err := prototext.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	log.Infof("Started service %v with config:\n%s", cfg.Name, string(b))
 	return nil
 }
 

@@ -28,8 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
@@ -183,7 +184,7 @@ func TestCommsContext(t *testing.T) {
 			},
 			SourceMessageId: []byte("AAABBBCCC"),
 			MessageType:     "TestMessage",
-			CreationTime:    &tpb.Timestamp{Seconds: 1234},
+			CreationTime:    &tspb.Timestamp{Seconds: 1234},
 		}
 		msgs[0].Result = nil
 		if !proto.Equal(msgs[0], want) {
@@ -486,7 +487,7 @@ func TestDie(t *testing.T) {
 		MessageType:     "MessageAck",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{
+	m.Data, err = anypb.New(&fspb.MessageAckData{
 		MessageIds: [][]byte{midFoo.Bytes()},
 	})
 	if err != nil {

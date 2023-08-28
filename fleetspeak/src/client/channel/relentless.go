@@ -20,7 +20,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
@@ -174,8 +175,8 @@ func (c *RelentlessChannel) processAck(m *fspb.Message) bool {
 	if m.MessageType != "LocalAck" || m.Source.ServiceName != "client" {
 		return false
 	}
-	var d fspb.MessageAckData
-	if err := ptypes.UnmarshalAny(m.Data, &d); err != nil {
+	d := &fspb.MessageAckData{}
+	if err := m.Data.UnmarshalTo(d); err != nil {
 		log.Errorf("Error parsing m.Data: %v", err)
 		return true
 	}
@@ -235,9 +236,9 @@ func NewRelentlessAcknowledger(c *Channel, size int) *RelentlessAcknowledger {
 // Channel.
 func (a *RelentlessAcknowledger) flush() {
 	if len(a.toAck) > 0 {
-		var d fspb.MessageAckData
+		d := &fspb.MessageAckData{}
 		d.MessageIds = a.toAck
-		data, err := ptypes.MarshalAny(&d)
+		data, err := anypb.New(d)
 		if err != nil {
 			// Should never happen.
 			log.Fatalf("Unable to marshal MessageAckData: %v", err)

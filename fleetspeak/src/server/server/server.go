@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/components"
@@ -56,11 +56,11 @@ func loadComponents() server.Components {
 	if err != nil {
 		log.Exitf("Unable to read component config file [%s]: %v", *componentsConfigPath, err)
 	}
-	var c cpb.Config
-	if err := proto.UnmarshalText(string(b), &c); err != nil {
+	c := &cpb.Config{}
+	if err := prototext.Unmarshal(b, c); err != nil {
 		log.Exitf("Unable to parse component config file [%s]: %v", *componentsConfigPath, err)
 	}
-	r, err := components.MakeComponents(&c)
+	r, err := components.MakeComponents(c)
 	if err != nil {
 		log.Exitf("Failed to load components: %v", err)
 	}
@@ -72,9 +72,9 @@ func readServicesConfig() *spb.ServerConfig {
 	if err != nil {
 		log.Exitf("Unable to read services configuration file [%v]: %v", *servicesConfigPath, err)
 	}
-	var conf spb.ServerConfig
-	if err := proto.UnmarshalText(string(cb), &conf); err != nil {
+	conf := &spb.ServerConfig{}
+	if err := prototext.Unmarshal(cb, conf); err != nil {
 		log.Exitf("Unable to parse services configuration file [%v]: %v", *servicesConfigPath, err)
 	}
-	return &conf
+	return conf
 }

@@ -24,15 +24,14 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
-	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -117,8 +116,8 @@ func (d *Datastore) ListClients(ctx context.Context, ids []common.ClientID) ([]*
 				return err
 			}
 
-			ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
-			if err != nil {
+			ts := tspb.New(time.Unix(0, timeNS))
+			if err := ts.CheckValid(); err != nil {
 				return err
 			}
 
@@ -339,8 +338,8 @@ func (d *Datastore) streamClientContacts(ctx context.Context, tx *sql.Tx, id com
 			c.ObservedAddress = addr.String
 		}
 
-		ts, err := ptypes.TimestampProto(time.Unix(0, timeNS))
-		if err != nil {
+		ts := tspb.New(time.Unix(0, timeNS))
+		if err := ts.CheckValid(); err != nil {
 			return err
 		}
 		c.Timestamp = ts
@@ -390,14 +389,14 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 }
 
 func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {
-	processStartTime, err := ptypes.Timestamp(rud.ProcessStartTime)
-	if err != nil {
+	if err := rud.ProcessStartTime.CheckValid(); err != nil {
 		return fmt.Errorf("failed to parse process start time: %v", err)
 	}
-	clientTimestamp, err := ptypes.Timestamp(rud.DataTimestamp)
-	if err != nil {
+	processStartTime := rud.ProcessStartTime.AsTime()
+	if err := rud.DataTimestamp.CheckValid(); err != nil {
 		return fmt.Errorf("failed to parse data timestamp: %v", err)
 	}
+	clientTimestamp := rud.DataTimestamp.AsTime()
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
@@ -422,19 +421,19 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 }
 
 func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error) {
-	startTimeRange, err := ptypes.Timestamp(startTimestamp)
-	if err != nil {
+	if err := startTimestamp.CheckValid(); err != nil {
 		return nil, err
 	}
-	endTimeRange, err := ptypes.Timestamp(endTimestamp)
-	if err != nil {
+	startTimeRange := startTimestamp.AsTime()
+	if err := endTimestamp.CheckValid(); err != nil {
 		return nil, err
 	}
+	endTimeRange := endTimestamp.AsTime()
 	if startTimeRange.After(endTimeRange) {
 		return nil, fmt.Errorf("timerange is invalid: start timestamp is after end timestamp")
 	}
 	var records []*spb.ClientResourceUsageRecord
-	err = d.runInTx(ctx, true, func(tx *sql.Tx) error {
+	err := d.runInTx(ctx, true, func(tx *sql.Tx) error {
 		records = nil
 		rows, err := tx.QueryContext(
 			ctx,

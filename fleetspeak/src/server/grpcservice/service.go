@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -144,8 +143,8 @@ L:
 // cfg must contain a fleetspeak.grpcservice.Config message describing
 // how to dial the target grpc server.
 func Factory(cfg *spb.ServiceConfig) (service.Service, error) {
-	var conf gpb.Config
-	if err := ptypes.UnmarshalAny(cfg.Config, &conf); err != nil {
+	conf := &gpb.Config{}
+	if err := cfg.Config.UnmarshalTo(conf); err != nil {
 		return nil, err
 	}
 

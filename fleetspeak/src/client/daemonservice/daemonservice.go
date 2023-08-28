@@ -23,7 +23,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
@@ -42,7 +41,7 @@ var RespawnDelay = time.Minute
 // provided configuration proto.
 func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	dsConf := &dspb.Config{}
-	if err := ptypes.UnmarshalAny(conf.Config, dsConf); err != nil {
+	if err := conf.Config.UnmarshalTo(dsConf); err != nil {
 		return nil, fmt.Errorf(
 			"can't unmarshal the given ClientServiceConfig.config (%q): %v",
 			conf.Config, err)
@@ -50,13 +49,12 @@ func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 
 	var timeout time.Duration
 	if dsConf.InactivityTimeout != nil {
-		var err error
-		timeout, err = ptypes.Duration(dsConf.InactivityTimeout)
-		if err != nil {
+		if err := dsConf.InactivityTimeout.CheckValid(); err != nil {
 			return nil, fmt.Errorf(
 				"can't convert the given DaemonServiceConfig.inactivity_timeout (%q) to time.Duration: %v",
 				dsConf.InactivityTimeout, err)
 		}
+		timeout = dsConf.InactivityTimeout.AsDuration()
 		dsConf.LazyStart = true
 	}
 

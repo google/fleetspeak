@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
 )
@@ -44,15 +44,14 @@ func WriteConfig(cfg *cpb.Config, certPEM, keyPEM []byte) error {
 	cc.HttpsConfig.Certificates = string(certPEM)
 	cc.HttpsConfig.Key = string(keyPEM)
 
-	f, err := os.OpenFile(cfg.ServerComponentConfigurationFile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0600)
+	b, err := prototext.Marshal(cc)
 	if err != nil {
-		return fmt.Errorf("unable to open server component configuration file [%s] for writing: %v", cfg.ServerComponentConfigurationFile, err)
+		return fmt.Errorf("failed to marshal server component configuration: %v", err)
 	}
-	if err := proto.MarshalText(f, cc); err != nil {
+	err = os.WriteFile(cfg.ServerComponentConfigurationFile, b, 0600)
+	if err != nil {
 		return fmt.Errorf("failed to write server component configuration file [%s]: %v", cfg.ServerComponentConfigurationFile, err)
 	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("failed to write server component configuration file [%s]: %v", cfg.ServerComponentConfigurationFile, err)
-	}
+
 	return nil
 }

@@ -4,25 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	ptypes "github.com/golang/protobuf/ptypes"
-	duration "github.com/golang/protobuf/ptypes/duration"
-	daemonservicePb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
-	clientConfigPb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
-	"github.com/google/fleetspeak/fleetspeak/src/common"
-	spb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
-	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
-	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
-	grpcServicePb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
-	servicesGrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	servicesPb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"time"
+
+	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
+	ccpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	cpb "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config"
+	fcpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
+	gspb "github.com/google/fleetspeak/fleetspeak/src/server/grpcservice/proto/fleetspeak_grpcservice"
+	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/prototext"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 type serverInfo struct {
@@ -92,11 +93,11 @@ func startCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
-func getNewClientIDs(admin servicesGrpc.AdminClient, startTime time.Time) ([]string, error) {
+func getNewClientIDs(admin sgrpc.AdminClient, startTime time.Time) ([]string, error) {
 	var ids [][]byte
 	ctx := context.Background()
 	res, err := admin.ListClients(ctx,
-		&servicesPb.ListClientsRequest{ClientIds: ids},
+		&spb.ListClientsRequest{ClientIds: ids},
 		grpc.MaxCallRecvMsgSize(1024*1024*1024))
 	if err != nil {
 		return nil, fmt.Errorf("ListClients RPC failed: %v", err)
@@ -104,10 +105,10 @@ func getNewClientIDs(admin servicesGrpc.AdminClient, startTime time.Time) ([]str
 
 	var newClients []string
 	for _, cl := range res.Clients {
-		lastContactTime, err := ptypes.Timestamp(cl.LastContactTime)
-		if err != nil {
+		if !cl.LastContactTime.IsValid() {
 			continue
 		}
+		lastContactTime := cl.LastContactTime.AsTime()
 		if lastContactTime.After(startTime) {
 			id, err := common.BytesToClientID(cl.ClientId)
 			if err != nil {
@@ -127,7 +128,7 @@ func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients in
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddress, err)
 	}
-	admin := servicesGrpc.NewAdminClient(conn)
+	admin := sgrpc.NewAdminClient(conn)
 	ids := make([]string, 0)
 	for i := 0; i < 10; i++ {
 		if i > 0 {
@@ -156,7 +157,7 @@ type MysqlCredentials struct {
 }
 
 func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials, frontendAddr string) error {
-	var config cpb.Config
+	config := &cpb.Config{}
 	config.ConfigurationName = "FleetspeakSetup"
 
 	config.ComponentsConfig = new(fcpb.Config)
@@ -182,7 +183,11 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	config.DarwinClientConfigurationFile = path.Join(configDir, "darwin_client.config")
 
 	builtConfiguratorConfigPath := path.Join(configDir, "configurator.config")
-	err := ioutil.WriteFile(builtConfiguratorConfigPath, []byte(proto.MarshalTextString(&config)), 0644)
+	b, err := prototext.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal config: %v", err)
+	}
+	err = ioutil.WriteFile(builtConfiguratorConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write configurator file: %v", err)
 	}
@@ -194,10 +199,10 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	}
 
 	// Client services configuration
-	clientServiceConfig := spb.ClientServiceConfig{Name: "FRR", Factory: "Daemon"}
-	var payload daemonservicePb.Config
+	clientServiceConfig := &fspb.ClientServiceConfig{Name: "FRR", Factory: "Daemon"}
+	payload := &dspb.Config{}
 	payload.Argv = append(payload.Argv, "python", "frr_python/frr_client.py")
-	clientServiceConfig.Config, err = ptypes.MarshalAny(&payload)
+	clientServiceConfig.Config, err = anypb.New(payload)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal client service configuration: %v", err)
 	}
@@ -213,7 +218,11 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	if err != nil {
 		return fmt.Errorf("Unable to create communicator.txt: %v", err)
 	}
-	err = ioutil.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), []byte(proto.MarshalTextString(&clientServiceConfig)), 0644)
+	b, err = prototext.Marshal(clientServiceConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal clientServiceConfig: %v", err)
+	}
+	err = ioutil.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
 	}
@@ -235,12 +244,12 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 	// Update server addresses
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
-	var serverConfig fcpb.Config
+	serverConfig := &fcpb.Config{}
 	serverConfigData, err := ioutil.ReadFile(serverBaseConfigurationPath)
 	if err != nil {
 		return fmt.Errorf("Unable to read server.config: %v", err)
 	}
-	err = proto.UnmarshalText(string(serverConfigData), &serverConfig)
+	err = prototext.Unmarshal(serverConfigData, serverConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal server.config: %v", err)
 	}
@@ -255,18 +264,27 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 	if fsServerConfigs.useProxyProtocol {
 		serverConfig.ProxyProtocol = true
 	}
-	err = ioutil.WriteFile(newServerConfigPath, []byte(proto.MarshalTextString(&serverConfig)), 0644)
+	b, err := prototext.Marshal(serverConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal serverConfig: %v", err)
+	}
+	err = ioutil.WriteFile(newServerConfigPath, b, 0644)
 
 	// Server services configuration
-	serverServiceConf := servicesPb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
-	grpcConfig := grpcServicePb.Config{Target: fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.frontendPort), Insecure: true}
-	serviceConfig, err := ptypes.MarshalAny(&grpcConfig)
+	serverServiceConf := spb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
+	grpcConfig := &gspb.Config{Target: fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.frontendPort), Insecure: true}
+	serviceConfig, err := anypb.New(grpcConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
 	}
 	serverServiceConf.Config = serviceConfig
-	serverConf := servicesPb.ServerConfig{Services: []*servicesPb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: &duration.Duration{Seconds: 1}}
-	err = ioutil.WriteFile(newServerServicesConfigPath, []byte(proto.MarshalTextString(&serverConf)), 0644)
+	serverConf := &spb.ServerConfig{Services: []*spb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: &dpb.Duration{Seconds: 1}}
+
+	b, err = prototext.Marshal(serverConf)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal serverConf: %v", err)
+	}
+	err = ioutil.WriteFile(newServerServicesConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write server.services.config: %v", err)
 	}
@@ -276,12 +294,12 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, newLinuxConfigPath, newStateFilePath, configDirForClient string) error {
 	linuxBaseConfigPath := path.Join(configDir, "linux_client.config")
 
-	var clientConfig clientConfigPb.Config
+	clientConfig := &ccpb.Config{}
 	clientConfigData, err := ioutil.ReadFile(linuxBaseConfigPath)
 	if err != nil {
 		return fmt.Errorf("Unable to read LinuxClientConfigurationFile: %v", err)
 	}
-	err = proto.UnmarshalText(string(clientConfigData), &clientConfig)
+	err = prototext.Unmarshal(clientConfigData, clientConfig)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal clientConfigData: %v", err)
 	}
@@ -292,7 +310,11 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 	if err != nil {
 		return fmt.Errorf("Failed to create client state file: %v", err)
 	}
-	err = ioutil.WriteFile(newLinuxConfigPath, []byte(proto.MarshalTextString(&clientConfig)), 0644)
+	b, err := prototext.Marshal(clientConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal clientConfig: %v", err)
+	}
+	err = ioutil.WriteFile(newLinuxConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to update LinuxClientConfigurationFile: %v", err)
 	}

@@ -21,7 +21,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 
@@ -57,7 +57,7 @@ func Init(version string) (*channel.Channel, error) {
 
 	pw := os.NewFile(uintptr(outFd), "-")
 	c := channel.New(pr, pw)
-	sd, err := ptypes.MarshalAny(&fcpb.StartupData{
+	sd, err := anypb.New(&fcpb.StartupData{
 		Pid:     int64(os.Getpid()),
 		Version: version,
 	})

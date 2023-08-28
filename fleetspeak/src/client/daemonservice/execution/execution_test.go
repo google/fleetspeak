@@ -23,8 +23,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 
@@ -167,8 +166,8 @@ func TestStd(t *testing.T) {
 			t.Errorf("Received unexpected message type: %s", m.MessageType)
 			continue
 		}
-		var od dspb.StdOutputData
-		if err := ptypes.UnmarshalAny(m.Data, &od); err != nil {
+		od := &dspb.StdOutputData{}
+		if err := m.Data.UnmarshalTo(od); err != nil {
 			t.Fatalf("Unable to unmarshal StdOutputData: %v", err)
 		}
 		bufIn.Write(od.Stdout)
@@ -241,8 +240,8 @@ func TestStats(t *testing.T) {
 				t.Errorf("Received unexpected message type: %s", m.MessageType)
 				continue
 			}
-			var rud mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(m.Data, &rud); err != nil {
+			rud := &mpb.ResourceUsageData{}
+			if err := m.Data.UnmarshalTo(rud); err != nil {
 				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 			}
 			ruCnt++

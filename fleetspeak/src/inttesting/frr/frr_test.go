@@ -28,9 +28,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -119,7 +119,7 @@ func TestClientService(t *testing.T) {
 		m := fspb.Message{
 			MessageType: "TrafficRequest",
 		}
-		m.Data, err = ptypes.MarshalAny(tc.rd)
+		m.Data, err = anypb.New(tc.rd)
 		if err != nil {
 			t.Errorf("unable to marshal TrafficRequestData: %v", err)
 			continue
@@ -130,8 +130,8 @@ func TestClientService(t *testing.T) {
 		}
 		for i := 0; i < tc.wantCount; i++ {
 			res := <-out
-			var d fpb.TrafficResponseData
-			if err := ptypes.UnmarshalAny(res.Data, &d); err != nil {
+			d := &fpb.TrafficResponseData{}
+			if err := res.Data.UnmarshalTo(d); err != nil {
 				t.Errorf("unable to unmarshal data")
 				clearChannel(out)
 				break
@@ -156,8 +156,8 @@ func TestClientService(t *testing.T) {
 		}
 	}
 
-	frd := fpb.FileRequestData{MasterId: 42, Name: "TestFile"}
-	d, err := ptypes.MarshalAny(&frd)
+	frd := &fpb.FileRequestData{MasterId: 42, Name: "TestFile"}
+	d, err := anypb.New(frd)
 	if err != nil {
 		t.Fatalf("Unable to marshal FileRequestData: %v", err)
 	}
@@ -168,8 +168,8 @@ func TestClientService(t *testing.T) {
 		t.Fatalf("Unable to process FileRequest: %v", err)
 	}
 	res := <-out
-	var got fpb.FileResponseData
-	if err := ptypes.UnmarshalAny(res.Data, &got); err != nil {
+	got := &fpb.FileResponseData{}
+	if err := res.Data.UnmarshalTo(got); err != nil {
 		t.Errorf("Unable unmarshal FileResponse: %v", err)
 	}
 	want := &fpb.FileResponseData{
@@ -177,8 +177,8 @@ func TestClientService(t *testing.T) {
 		Name:     "TestFile",
 		Size:     15,
 	}
-	if !proto.Equal(want, &got) {
-		t.Errorf("Unexpected FileResponse, want: %v, got %v", want, &got)
+	if !proto.Equal(want, got) {
+		t.Errorf("Unexpected FileResponse, want: %v, got %v", want, got)
 	}
 }
 
@@ -196,7 +196,7 @@ func TestClientServiceEarlyShutdown(t *testing.T) {
 	m := fspb.Message{
 		MessageType: "TrafficRequest",
 	}
-	m.Data, err = ptypes.MarshalAny(&fpb.TrafficRequestData{RequestId: 1, NumMessages: 5})
+	m.Data, err = anypb.New(&fpb.TrafficRequestData{RequestId: 1, NumMessages: 5})
 	if err != nil {
 		t.Fatalf("unable to marshal TrafficRequestData: %v", err)
 	}
@@ -261,8 +261,8 @@ func TestServerService(t *testing.T) {
 	}()
 
 	// Directly create and start a FRR service.
-	c := fpb.Config{MasterServer: tl.Addr().String()}
-	a, err := ptypes.MarshalAny(&c)
+	c := &fpb.Config{MasterServer: tl.Addr().String()}
+	a, err := anypb.New(c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,13 +276,13 @@ func TestServerService(t *testing.T) {
 	defer se.Stop()
 
 	// Build a message.
-	rd := fpb.TrafficResponseData{
+	rd := &fpb.TrafficResponseData{
 		RequestId:     42,
 		ResponseIndex: 24,
 		Data:          []byte("asdf"),
 		Fin:           true,
 	}
-	d, err := ptypes.MarshalAny(&rd)
+	d, err := anypb.New(rd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestServerService(t *testing.T) {
 	}
 
 	rd.Data = nil
-	if !proto.Equal(mi.Data, &rd) {
+	if !proto.Equal(mi.Data, rd) {
 		t.Errorf("Unexpected TrafficRequestData, got [%v], want [%v]", mi.Data, rd.String())
 	}
 }

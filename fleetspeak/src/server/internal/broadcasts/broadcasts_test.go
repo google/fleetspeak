@@ -28,7 +28,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 
-	apb "github.com/golang/protobuf/ptypes/any"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
@@ -61,7 +61,7 @@ func TestManager(t *testing.T) {
 				Source:         &fspb.Address{ServiceName: "testService"},
 				MessageType:    "WindowsBroadcast1",
 				RequiredLabels: []*fspb.Label{{ServiceName: "system", Label: "Windows"}},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "message proto name 1",
 					Value:   []byte("message data 1"),
 				},
@@ -135,7 +135,7 @@ func TestManager(t *testing.T) {
 		Source:         &fspb.Address{ServiceName: "testService"},
 		MessageType:    "WindowsBroadcast2",
 		RequiredLabels: []*fspb.Label{{ServiceName: "system", Label: "Windows"}},
-		Data: &apb.Any{
+		Data: &anypb.Any{
 			TypeUrl: "message proto name 2",
 			Value:   []byte("message data 2"),
 		}}

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 
 	"github.com/google/fleetspeak/fleetspeak/src/admin/history"
@@ -113,10 +112,7 @@ func ListClients(c sgrpc.AdminClient, args ...string) {
 		for _, l := range cl.Labels {
 			ls = append(ls, l.ServiceName+":"+l.Label)
 		}
-		ts, err := ptypes.Timestamp(cl.LastContactTime)
-		if err != nil {
-			log.Errorf("Unable to parse last contact time for %v: %v", id, err)
-		}
+		ts := cl.LastContactTime.AsTime()
 		tag := ""
 		if cl.Blacklisted {
 			tag = " *blacklisted*"
@@ -174,11 +170,11 @@ func ListContacts(c sgrpc.AdminClient, args ...string) {
 		if lim > 0 && i > lim {
 			break
 		}
-		ts, err := ptypes.Timestamp(con.Timestamp)
-		if err != nil {
+		if err := con.Timestamp.CheckValid(); err != nil {
 			log.Errorf("Unable to parse timestamp for contact: %v", err)
 			continue
 		}
+		ts := con.Timestamp.AsTime()
 		fmt.Printf("%s %s\n", ts.Format(dateFmt), con.ObservedAddress)
 	}
 }

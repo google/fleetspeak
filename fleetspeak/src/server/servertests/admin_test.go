@@ -24,8 +24,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
@@ -33,8 +33,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
-	apb "github.com/golang/protobuf/ptypes/any"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 )
@@ -106,7 +106,7 @@ func TestMessageStatusAPI(t *testing.T) {
 		MessageId:    bmid0,
 		Source:       addr,
 		Destination:  addr,
-		CreationTime: &tpb.Timestamp{Seconds: 42},
+		CreationTime: &tspb.Timestamp{Seconds: 42},
 	}
 
 	if err := ts.DS.StoreMessages(ctx, []*fspb.Message{m}, ""); err != nil {
@@ -121,7 +121,7 @@ func TestMessageStatusAPI(t *testing.T) {
 	}
 
 	gmsWant = &spb.GetMessageStatusResponse{
-		CreationTime: &tpb.Timestamp{Seconds: 42},
+		CreationTime: &tspb.Timestamp{Seconds: 42},
 	}
 	if !proto.Equal(gmsRes, gmsWant) {
 		t.Errorf("GetMessageStatus error: want [%v] got [%v]", gmsWant, gmsRes)
@@ -302,7 +302,7 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 
 	adminServer := admin.NewServer(server.DS, nil)
 
-	dummyProto, err := ptypes.MarshalAny(&fspb.Signature{
+	dummyProto, err := anypb.New(&fspb.Signature{
 		Signature: bytes.Repeat([]byte{0xa}, 2<<20+1),
 	})
 	if err != nil {
@@ -355,7 +355,7 @@ func TestPendingMessages(t *testing.T) {
 			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 			MessageType:  "DummyType",
 			CreationTime: db.NowProto(),
-			Data: &apb.Any{
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 0",
 				Value:   []byte("Test data proto 0")},
 		},
@@ -365,7 +365,7 @@ func TestPendingMessages(t *testing.T) {
 			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 			MessageType:  "DummyType",
 			CreationTime: db.NowProto(),
-			Data: &apb.Any{
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 1",
 				Value:   []byte("Test data proto 1")},
 		},
@@ -375,7 +375,7 @@ func TestPendingMessages(t *testing.T) {
 			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 			MessageType:  "DummyType",
 			CreationTime: db.NowProto(),
-			Data: &apb.Any{
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
 		},
@@ -385,7 +385,7 @@ func TestPendingMessages(t *testing.T) {
 			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 			MessageType:  "DummyType",
 			CreationTime: db.NowProto(),
-			Data: &apb.Any{
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 3",
 				Value:   []byte("Test data proto 3")},
 		},
@@ -395,7 +395,7 @@ func TestPendingMessages(t *testing.T) {
 			Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 			MessageType:  "DummyType",
 			CreationTime: db.NowProto(),
-			Data: &apb.Any{
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 4",
 				Value:   []byte("Test data proto 4")},
 		},

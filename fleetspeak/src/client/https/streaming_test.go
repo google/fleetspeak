@@ -18,8 +18,8 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -27,9 +27,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
-	apb "github.com/golang/protobuf/ptypes/any"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func randBytes(n int) []byte {
@@ -147,17 +147,25 @@ func (s *streamingTestServer) Start() {
 				return
 			}
 			s.received <- &rcd
-			cd := fspb.ContactData{
+			cd := &fspb.ContactData{
 				AckIndex: cnt,
 			}
 			cnt++
-			out := proto.NewBuffer(make([]byte, 0, 1024))
-			if err := out.EncodeMessage(&cd); err != nil {
+
+			outBuf, err := proto.Marshal(cd)
+			if err != nil {
 				s.t.Errorf("Unable to encode response: %v", err)
 				return
 			}
+			sizeBuf := make([]byte, 0, 16)
+			sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(outBuf)))
+
 			writeLock.Lock()
-			if _, err := res.Write(out.Bytes()); err != nil {
+			if _, err := res.Write(sizeBuf); err != nil {
+				s.t.Errorf("Unable to write response: %v", err)
+				return
+			}
+			if _, err := res.Write(outBuf); err != nil {
 				s.t.Errorf("Unable to write response: %v", err)
 				return
 			}
@@ -170,12 +178,21 @@ func (s *streamingTestServer) Start() {
 						for _, m := range cd.Messages {
 							m.Destination.ClientId = cid.Bytes()
 						}
-						if err := out.EncodeMessage(cd); err != nil {
+
+						outBuf, err := proto.Marshal(cd)
+						if err != nil {
 							s.t.Errorf("Unable to encode response: %v", err)
 							return
 						}
+						sizeBuf := make([]byte, 0, 16)
+						sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(outBuf)))
+
 						writeLock.Lock()
-						if _, err := res.Write(out.Bytes()); err != nil {
+						if _, err := res.Write(sizeBuf); err != nil {
+							s.t.Errorf("Unable to write response: %v", err)
+							return
+						}
+						if _, err := res.Write(outBuf); err != nil {
 							s.t.Errorf("Unable to write response: %v", err)
 							return
 						}
@@ -400,7 +417,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 				},
 			},
@@ -427,7 +444,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 					Value:   randBytes(512 * 1024),
 				},
@@ -452,7 +469,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 			service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "DummyService"},
-					Data: &apb.Any{
+					Data: &anypb.Any{
 						TypeUrl: "Some proto",
 						Value:   randBytes(300 * 1024),
 					},
@@ -505,7 +522,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 				},
 			},
@@ -532,7 +549,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		service.AckMessage{
 			M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
-				Data: &apb.Any{
+				Data: &anypb.Any{
 					TypeUrl: "Some proto",
 					Value:   randBytes(512 * 1024),
 				},
@@ -557,7 +574,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 			service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "DummyService"},
-					Data: &apb.Any{
+					Data: &anypb.Any{
 						TypeUrl: "Some proto",
 						Value:   randBytes(1024 * 1024),
 					},

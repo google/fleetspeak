@@ -37,12 +37,12 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // A Store describes the full persistence mechanism required by the base
@@ -183,10 +183,10 @@ type MessageProcessor interface {
 // ContactData provides basic information about a client's contact with a FS
 // server.
 type ContactData struct {
-	ClientID                 common.ClientID // ID of the client.
-	NonceSent, NonceReceived uint64          // Nonce sent to the client and received from the client.
-	Addr                     string          // Observed client network address.
-	ClientClock              *tpb.Timestamp  // Client's report of its current clock setting.
+	ClientID                 common.ClientID        // ID of the client.
+	NonceSent, NonceReceived uint64                 // Nonce sent to the client and received from the client.
+	Addr                     string                 // Observed client network address.
+	ClientClock              *tspb.Timestamp // Client's report of its current clock setting.
 
 	// If non-empty, indicates that the contact is or was a streaming contact to
 	// the listed FS server. (As defined by notifications module being used.)
@@ -243,7 +243,7 @@ type ClientStore interface {
 	RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error
 
 	// Fetches resource-usage records for a given client and time range from the data-store.
-	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tpb.Timestamp) ([]*spb.ClientResourceUsageRecord, error)
+	FetchResourceUsageRecords(ctx context.Context, id common.ClientID, startTimestamp, endTimestamp *tspb.Timestamp) ([]*spb.ClientResourceUsageRecord, error)
 }
 
 // Broadcast limits with special meaning.

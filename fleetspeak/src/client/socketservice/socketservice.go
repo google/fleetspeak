@@ -25,7 +25,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
@@ -40,7 +39,7 @@ import (
 // provided configuration proto.
 func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	ssConf := &sspb.Config{}
-	if err := ptypes.UnmarshalAny(conf.Config, ssConf); err != nil {
+	if err := conf.Config.UnmarshalTo(ssConf); err != nil {
 		return nil, fmt.Errorf(
 			"can't unmarshal the given ClientServiceConfig.config (%q): %v",
 			conf.Config, err)
@@ -138,7 +137,7 @@ L:
 					continue L
 				}
 				sd := &fcpb.StartupData{}
-				if err := ptypes.UnmarshalAny(m.M.Data, sd); err != nil {
+				if err := m.M.Data.UnmarshalTo(sd); err != nil {
 					log.Warningf("Failed to parse startup data from initial message: %v", err)
 				}
 				// Start resource monitoring.

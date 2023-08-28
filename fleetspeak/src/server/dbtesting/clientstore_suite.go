@@ -8,17 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/golang/protobuf/ptypes"
-	apb "github.com/golang/protobuf/ptypes/any"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type labelSorter struct {
@@ -169,7 +168,7 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 		NonceSent:     42,
 		NonceReceived: 54,
 		Addr:          longAddr,
-		ClientClock:   &tpb.Timestamp{Seconds: 21},
+		ClientClock:   &tspb.Timestamp{Seconds: 21},
 		StreamingTo:   "fs.servers.somewhere.com",
 	})
 	if err != nil {
@@ -188,8 +187,8 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type 1",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 42},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 1",
 				Value:   []byte("Test data proto 1"),
 			}},
@@ -219,9 +218,9 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 	// Some datastores might not respect db.Now for LastContactTime.  If it seems
 	// to be a current timestamp (2017-2030) assume it is fine, and adjust to the
 	// expected value.
-	adjustDbTimestamp := func(timestamp *tpb.Timestamp) {
+	adjustDbTimestamp := func(timestamp *tspb.Timestamp) {
 		if timestamp.Seconds > 1483228800 && timestamp.Seconds < 1893456000 {
-			*timestamp = tpb.Timestamp{Seconds: 84}
+			*timestamp = tspb.Timestamp{Seconds: 84}
 		}
 	}
 	adjustDbTimestamp(got.LastContactTime)
@@ -237,10 +236,10 @@ func clientStoreTest(t *testing.T, ds db.Store) {
 				Label:       "new label",
 			},
 		},
-		LastContactTime:        &tpb.Timestamp{Seconds: 84},
+		LastContactTime:        &tspb.Timestamp{Seconds: 84},
 		LastContactStreamingTo: "fs.servers.somewhere.com",
 		LastContactAddress:     longAddr,
-		LastClock:              &tpb.Timestamp{Seconds: 21},
+		LastClock:              &tspb.Timestamp{Seconds: 21},
 	}
 
 	labelSorter{got.Labels}.Sort()
@@ -511,8 +510,8 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 	rud := mpb.ResourceUsageData{
 		Scope:             "test-scope",
 		Pid:               1234,
-		ProcessStartTime:  &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
-		DataTimestamp:     &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ProcessStartTime:  &tspb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		DataTimestamp:     &tspb.Timestamp{Seconds: 1234567891, Nanos: 98765},
 		ProcessTerminated: true,
 		ResourceUsage: &mpb.AggregatedResourceUsage{
 			MeanUserCpuRate:    50.0,
@@ -528,12 +527,12 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 
 	beforeRecordTime := db.Now()
 	oneMinAfterRecordTime := beforeRecordTime.Add(time.Minute) // This isn't exactly 1 minute after record time.
-	beforeRecordTimestamp, err := ptypes.TimestampProto(beforeRecordTime)
-	if err != nil {
+	beforeRecordTimestamp := tspb.New(beforeRecordTime)
+	if err := beforeRecordTimestamp.CheckValid(); err != nil {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
-	afterRecordTimestamp, err := ptypes.TimestampProto(oneMinAfterRecordTime)
-	if err != nil {
+	afterRecordTimestamp := tspb.New(oneMinAfterRecordTime)
+	if err := afterRecordTimestamp.CheckValid(); err != nil {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
 
@@ -554,8 +553,8 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 	expected := &spb.ClientResourceUsageRecord{
 		Scope:                 "test-scope",
 		Pid:                   1234,
-		ProcessStartTime:      &tpb.Timestamp{Seconds: 1234567890, Nanos: 98765},
-		ClientTimestamp:       &tpb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+		ProcessStartTime:      &tspb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		ClientTimestamp:       &tspb.Timestamp{Seconds: 1234567891, Nanos: 98765},
 		ServerTimestamp:       record.ServerTimestamp,
 		ProcessTerminated:     true,
 		MeanUserCpuRate:       50.0,
@@ -572,25 +571,25 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		t.Errorf("Resource-usage record returned is different from what we expect; got:\n%q\nwant:\n%q", got, want)
 	}
 
-	recordExactTime, err := ptypes.Timestamp(record.ServerTimestamp)
-	if err != nil {
-		t.Fatalf("Invalid tpb.Timestamp object cannot be converted to time.Time object: %v", err)
+	if err := record.ServerTimestamp.CheckValid(); err != nil {
+		t.Fatalf("Invalid tspb.Timestamp object cannot be converted to time.Time object: %v", err)
 	}
+	recordExactTime := record.ServerTimestamp.AsTime()
 	nanoBeforeRecord := recordExactTime.Add(time.Duration(-1) * time.Nanosecond)
-	nanoBeforeRecordTS, err := ptypes.TimestampProto(nanoBeforeRecord)
-	if err != nil {
+	nanoBeforeRecordTS := tspb.New(nanoBeforeRecord)
+	if err := nanoBeforeRecordTS.CheckValid(); err != nil {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
 	nanoAfterRecord := recordExactTime.Add(time.Nanosecond)
-	nanoAfterRecordTS, err := ptypes.TimestampProto(nanoAfterRecord)
-	if err != nil {
+	nanoAfterRecordTS := tspb.New(nanoAfterRecord)
+	if err := nanoAfterRecordTS.CheckValid(); err != nil {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
 
 	for _, tr := range []struct {
 		desc            string
-		startTs         *tpb.Timestamp
-		endTs           *tpb.Timestamp
+		startTs         *tspb.Timestamp
+		endTs           *tspb.Timestamp
 		shouldErr       bool
 		recordsExpected int
 	}{

@@ -35,7 +35,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -199,22 +199,26 @@ func TestFile(t *testing.T) {
 }
 
 func makeWrapped() []byte {
-	cd := fspb.ContactData{
+	cd := &fspb.ContactData{
 		ClientClock: db.NowProto(),
 	}
-	b, err := proto.Marshal(&cd)
+	b, err := proto.Marshal(cd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	wcd := fspb.WrappedContactData{
+	wcd := &fspb.WrappedContactData{
 		ContactData:  b,
 		ClientLabels: []string{"linux", "test"},
 	}
-	buf := proto.NewBuffer(make([]byte, 0, 1024))
-	if err := buf.EncodeMessage(&wcd); err != nil {
+
+	buf, err := proto.Marshal(wcd)
+	if err != nil {
 		log.Fatal(err)
 	}
-	return buf.Bytes()
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
+
+	return append(sizeBuf, buf...)
 }
 
 func readContact(body *bufio.Reader) (*fspb.ContactData, error) {

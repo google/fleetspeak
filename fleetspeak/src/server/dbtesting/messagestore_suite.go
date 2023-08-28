@@ -7,13 +7,13 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 
-	apb "github.com/golang/protobuf/ptypes/any"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -44,8 +44,8 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type 2",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 42},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
 		},
@@ -60,8 +60,8 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type 2",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 42},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2"),
 			},
@@ -147,7 +147,7 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 		want := idMap[id]
 		want.Data = nil
 		want.Result = &fspb.MessageResult{
-			ProcessedTime: &tpb.Timestamp{Seconds: 84},
+			ProcessedTime: &tspb.Timestamp{Seconds: 84},
 		}
 		if !proto.Equal(want, m) {
 			t.Errorf("Got %v but want %v when reading message id %v", m, want, id)
@@ -159,7 +159,7 @@ func storeGetMessagesTest(t *testing.T, ms db.Store) {
 		t.Errorf("unexpected error while retrieving message result: %v", err)
 	} else {
 		want := &fspb.MessageResult{
-			ProcessedTime: &tpb.Timestamp{Seconds: 84},
+			ProcessedTime: &tspb.Timestamp{Seconds: 84},
 			Failed:        false,
 			FailedReason:  "",
 		}
@@ -357,8 +357,8 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 42},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
 		},
@@ -372,9 +372,9 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
+			CreationTime: &tspb.Timestamp{Seconds: 42},
 			Result: &fspb.MessageResult{
-				ProcessedTime: &tpb.Timestamp{Seconds: 42, Nanos: 20000},
+				ProcessedTime: &tspb.Timestamp{Seconds: 42, Nanos: 20000},
 			},
 		},
 		// New message, will become errored.
@@ -388,9 +388,9 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
+			CreationTime: &tspb.Timestamp{Seconds: 42},
 			Result: &fspb.MessageResult{
-				ProcessedTime: &tpb.Timestamp{Seconds: 42},
+				ProcessedTime: &tspb.Timestamp{Seconds: 42},
 				Failed:        true,
 				FailedReason:  "broken test message",
 			},
@@ -403,9 +403,9 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 		map[common.MessageID]*fspb.MessageResult{
 			newID: nil,
 			processedID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 42, Nanos: 20000}},
+				ProcessedTime: &tspb.Timestamp{Seconds: 42, Nanos: 20000}},
 			erroredID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 42},
+				ProcessedTime: &tspb.Timestamp{Seconds: 42},
 				Failed:        true,
 				FailedReason:  "broken test message",
 			},
@@ -414,8 +414,8 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 	// StoreMessages again, modeling that they were all resent, and that this time
 	// all processing completed.
 	for _, m := range msgs {
-		m.CreationTime = &tpb.Timestamp{Seconds: 52}
-		m.Result = &fspb.MessageResult{ProcessedTime: &tpb.Timestamp{Seconds: 52}}
+		m.CreationTime = &tspb.Timestamp{Seconds: 52}
+		m.Result = &fspb.MessageResult{ProcessedTime: &tspb.Timestamp{Seconds: 52}}
 		m.Data = nil
 	}
 	if err := ms.StoreMessages(ctx, msgs, contact); err != nil {
@@ -425,11 +425,11 @@ func storeMessagesTest(t *testing.T, ms db.Store) {
 	checkMessageResults(t, ms,
 		map[common.MessageID]*fspb.MessageResult{
 			newID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
+				ProcessedTime: &tspb.Timestamp{Seconds: 52}},
 			processedID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
+				ProcessedTime: &tspb.Timestamp{Seconds: 52}},
 			erroredID: {
-				ProcessedTime: &tpb.Timestamp{Seconds: 52}},
+				ProcessedTime: &tspb.Timestamp{Seconds: 52}},
 		})
 }
 
@@ -476,8 +476,8 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 42},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 42},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 0",
 				Value:   []byte("Test data proto 0")},
 		},
@@ -491,8 +491,8 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 1},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 1},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 1",
 				Value:   []byte("Test data proto 1")},
 		},
@@ -506,8 +506,8 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 2},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 2},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 2",
 				Value:   []byte("Test data proto 2")},
 		},
@@ -521,8 +521,8 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 3},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 3},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 3",
 				Value:   []byte("Test data proto 3")},
 		},
@@ -536,8 +536,8 @@ func pendingMessagesTest(t *testing.T, ms db.Store) {
 				ServiceName: "TestServiceName",
 			},
 			MessageType:  "Test message type",
-			CreationTime: &tpb.Timestamp{Seconds: 4},
-			Data: &apb.Any{
+			CreationTime: &tspb.Timestamp{Seconds: 4},
+			Data: &anypb.Any{
 				TypeUrl: "test data proto urn 4",
 				Value:   []byte("Test data proto 4")},
 		},
@@ -705,8 +705,8 @@ func registerMessageProcessorTest(t *testing.T, ms db.Store) {
 			ServiceName: "TestServiceName",
 		},
 		MessageType:  "Test message type 1",
-		CreationTime: &tpb.Timestamp{Seconds: 42},
-		Data: &apb.Any{
+		CreationTime: &tspb.Timestamp{Seconds: 42},
+		Data: &anypb.Any{
 			TypeUrl: "test data proto urn 1",
 			Value:   []byte("Test data proto 1"),
 		},

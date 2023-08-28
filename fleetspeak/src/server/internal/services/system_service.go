@@ -22,7 +22,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/time/rate"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -31,9 +30,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	apb "github.com/golang/protobuf/ptypes/any"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -95,9 +94,9 @@ func (s *systemService) ProcessMessage(ctx context.Context, m *fspb.Message) err
 }
 
 // processMessageAck processes a message MessageAck from a client.
-func (s *systemService) processMessageAck(ctx context.Context, mid common.MessageID, cid common.ClientID, d *apb.Any) error {
-	var data fspb.MessageAckData
-	if err := ptypes.UnmarshalAny(d, &data); err != nil {
+func (s *systemService) processMessageAck(ctx context.Context, mid common.MessageID, cid common.ClientID, d *anypb.Any) error {
+	data := &fspb.MessageAckData{}
+	if err := d.UnmarshalTo(data); err != nil {
 		return fmt.Errorf("unable to unmarshal data as MessageAckData: %v", err)
 	}
 
@@ -147,9 +146,9 @@ func (s *systemService) processMessageAck(ctx context.Context, mid common.Messag
 }
 
 // processMessageError processes a MessageError message.
-func (s *systemService) processMessageError(ctx context.Context, cid common.ClientID, d *apb.Any) error {
-	var data fspb.MessageErrorData
-	if err := ptypes.UnmarshalAny(d, &data); err != nil {
+func (s *systemService) processMessageError(ctx context.Context, cid common.ClientID, d *anypb.Any) error {
+	data := &fspb.MessageErrorData{}
+	if err := d.UnmarshalTo(data); err != nil {
 		return fmt.Errorf("unable to unmarshal data as MessageErrorData: %v", err)
 	}
 
@@ -185,9 +184,9 @@ func (s *systemService) processMessageError(ctx context.Context, cid common.Clie
 }
 
 // processClientInfo processes a ClientInfo message.
-func (s *systemService) processClientInfo(ctx context.Context, cid common.ClientID, d *apb.Any) error {
-	var data fspb.ClientInfoData
-	if err := ptypes.UnmarshalAny(d, &data); err != nil {
+func (s *systemService) processClientInfo(ctx context.Context, cid common.ClientID, d *anypb.Any) error {
+	data := &fspb.ClientInfoData{}
+	if err := d.UnmarshalTo(data); err != nil {
 		return fmt.Errorf("unable to unmarshal data as ClientInfoData: %v", err)
 	}
 	cd, err := s.datastore.GetClientData(ctx, cid)
@@ -238,9 +237,9 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 }
 
 // processResourceUsage processes a ResourceUsageData message.
-func (s *systemService) processResourceUsage(ctx context.Context, cid common.ClientID, d *apb.Any, v *fspb.ValidationInfo) error {
-	var rud mpb.ResourceUsageData
-	if err := ptypes.UnmarshalAny(d, &rud); err != nil {
+func (s *systemService) processResourceUsage(ctx context.Context, cid common.ClientID, d *anypb.Any, v *fspb.ValidationInfo) error {
+	rud := &mpb.ResourceUsageData{}
+	if err := d.UnmarshalTo(rud); err != nil {
 		return fmt.Errorf("unable to unmarshal data as ResourceUsageData: %v", err)
 	}
 
@@ -248,8 +247,8 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if err != nil {
 		log.Errorf("Failed to get client data for %v: %v", cid, err)
 	}
-	s.stats.ResourceUsageDataReceived(cd, &rud, v)
-	if err := s.datastore.RecordResourceUsageData(ctx, cid, &rud); err != nil {
+	s.stats.ResourceUsageDataReceived(cd, rud, v)
+	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
 		err = fmt.Errorf("failed to write resource-usage data: %v", err)
 		return err
 	}
@@ -257,9 +256,9 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 }
 
 // processKillNotification handles kill-notifications sent by clients.
-func (s *systemService) processKillNotification(ctx context.Context, cid common.ClientID, d *apb.Any) error {
-	var kn mpb.KillNotification
-	if err := ptypes.UnmarshalAny(d, &kn); err != nil {
+func (s *systemService) processKillNotification(ctx context.Context, cid common.ClientID, d *anypb.Any) error {
+	kn := &mpb.KillNotification{}
+	if err := d.UnmarshalTo(kn); err != nil {
 		return fmt.Errorf("unable to unmarshal KillNotification: %v", err)
 	}
 
@@ -271,6 +270,6 @@ func (s *systemService) processKillNotification(ctx context.Context, cid common.
 	if err != nil {
 		log.Errorf("Failed to get client data for %v: %v", cid, err)
 	}
-	s.stats.KillNotificationReceived(cd, &kn)
+	s.stats.KillNotificationReceived(cd, kn)
 	return nil
 }

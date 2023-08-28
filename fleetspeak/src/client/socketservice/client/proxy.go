@@ -20,11 +20,12 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // Back-off constants for retrying channel connections.
@@ -49,7 +50,7 @@ func backOffChannelRetryDelay(currentDelay time.Duration) time.Duration {
 func OpenChannel(socketPath string, version string) *channel.RelentlessChannel {
 	return channel.NewRelentlessChannel(
 		func() (*channel.Channel, func()) {
-			sd, err := ptypes.MarshalAny(&fcpb.StartupData{Pid: int64(os.Getpid()), Version: version})
+			sd, err := anypb.New(&fcpb.StartupData{Pid: int64(os.Getpid()), Version: version})
 			if err != nil {
 				log.Fatalf("unable to marshal StartupData: %v", err)
 			}

@@ -25,8 +25,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -108,7 +109,7 @@ func TestAckMsg(t *testing.T) {
 		Priority:    fspb.Message_HIGH,
 		Background:  true,
 	}
-	wantMessage.Data, err = ptypes.MarshalAny(&fspb.MessageAckData{MessageIds: [][]byte{id.Bytes()}})
+	wantMessage.Data, err = anypb.New(&fspb.MessageAckData{MessageIds: [][]byte{id.Bytes()}})
 	if err != nil {
 		t.Errorf("Unable to marshal MessageAckData: %v", err)
 	}
@@ -123,11 +124,11 @@ func TestErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to create testEnv: %v", err)
 	}
 	defer env.Close()
-	ed := fspb.MessageErrorData{
+	ed := &fspb.MessageErrorData{
 		MessageId: []byte("00000000000000000000000000000001"),
 		Error:     "a terrible test error",
 	}
-	env.c.errs <- &ed
+	env.c.errs <- ed
 	res := <-env.ctx.out
 	wantMessage := fspb.Message{
 		Destination: &fspb.Address{
@@ -137,7 +138,7 @@ func TestErrorMsg(t *testing.T) {
 		Priority:    fspb.Message_HIGH,
 		Background:  true,
 	}
-	wantMessage.Data, err = ptypes.MarshalAny(&ed)
+	wantMessage.Data, err = anypb.New(ed)
 	if err != nil {
 		t.Errorf("Unable to marshal MessageErrData: %v", err)
 	}
@@ -172,8 +173,8 @@ func TestStatsMsg(t *testing.T) {
 				t.Errorf("Received message of unexpected type '%s'", res.MessageType)
 				continue
 			}
-			var rud mpb.ResourceUsageData
-			if err := ptypes.UnmarshalAny(res.Data, &rud); err != nil {
+			rud := &mpb.ResourceUsageData{}
+			if err := res.Data.UnmarshalTo(rud); err != nil {
 				t.Fatalf("Failed to unmarshal resource-usage data: %v", err)
 			}
 			if rud.Scope != "system" {

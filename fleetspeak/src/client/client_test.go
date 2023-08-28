@@ -29,13 +29,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clienttestutils"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -197,7 +197,7 @@ func triggerDeath(force bool, t *testing.T) {
 		t.Fatalf("unable to create message id: %v", err)
 	}
 
-	data, err := ptypes.MarshalAny(&fspb.DieRequest{
+	data, err := anypb.New(&fspb.DieRequest{
 		Force: force,
 	})
 	if err != nil {
@@ -370,7 +370,7 @@ func TestRestartService(t *testing.T) {
 		t.Fatalf("unable to create message id: %v", err)
 	}
 
-	data, err := ptypes.MarshalAny(&fspb.RestartServiceRequest{
+	data, err := anypb.New(&fspb.RestartServiceRequest{
 		Name: "FakeService",
 	})
 	if err != nil {
