@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/google/fleetspeak)](https://goreportcard.com/report/github.com/google/fleetspeak)
 
 Fleetspeak is a framework for communicating with a fleet of machines, with a
-focus on security monitoring and basic administrative use cases.  It is a
+focus on security monitoring and basic administrative use cases. It is a
 subproject of [GRR](https://github.com/google/grr/blob/master/README.md), and
 can be seen as an effort to modularizing and modernizing its communication
 mechanism.
@@ -17,6 +17,7 @@ building out installation processes and otherwise preparing for broader external
 use, both as part of GRR and for other uses.
 
 ## Getting Started
+
 On linux, assuming a recent version of the go development environment (tested
 with 1.9, probably requires at least 1.8) and virtualenv, the following sequence
 of commands will build and test this pre-release:
@@ -54,6 +55,6 @@ Once built, you can take a look at the files and instructions in our
 ## DISCLAIMER
 
 While the code presented here is in some sense feature complete, much of it is
-barely tested or documented, and breaking changes are still possible.
-Therefore, please consider this a preview release while the dust settles.
-Suggestions and pull requests are very much appreciated.
+barely tested or documented, and breaking changes are still possible. Therefore,
+please consider this a preview release while the dust settles. Suggestions and
+pull requests are very much appreciated.
