@@ -31,8 +31,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
-	"google.golang.org/protobuf/proto"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 

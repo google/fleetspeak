@@ -7,14 +7,14 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
+	"google.golang.org/protobuf/proto"
 
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 type idPair struct {

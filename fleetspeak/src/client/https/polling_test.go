@@ -40,9 +40,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestCreate(t *testing.T) {

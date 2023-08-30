@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestSummary(t *testing.T) {

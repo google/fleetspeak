@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/proto"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestWithLoopback(t *testing.T) {

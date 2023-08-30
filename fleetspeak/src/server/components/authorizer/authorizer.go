@@ -47,7 +47,9 @@ func (f LabelFilter) Allow2(_ net.Addr, i authorizer.ContactInfo) bool {
 }
 
 // Allow3 implements Authorizer.
-func (f LabelFilter) Allow3(net.Addr, authorizer.ContactInfo, authorizer.ClientInfo) bool { return true }
+func (f LabelFilter) Allow3(net.Addr, authorizer.ContactInfo, authorizer.ClientInfo) bool {
+	return true
+}
 
 // Allow4 implements Authorizer.
 func (f LabelFilter) Allow4(net.Addr, authorizer.ContactInfo, authorizer.ClientInfo, []authorizer.SignatureInfo) (bool, *fspb.ValidationInfo) {

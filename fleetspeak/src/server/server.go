@@ -38,8 +38,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	dpb "google.golang.org/protobuf/types/known/durationpb"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 // Components gathers the external components required to instantiate a Fleetspeak Server.

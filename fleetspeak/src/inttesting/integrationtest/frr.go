@@ -47,7 +47,6 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	dpb "google.golang.org/protobuf/types/known/durationpb"
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -55,6 +54,7 @@ import (
 	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 const numClients = 5

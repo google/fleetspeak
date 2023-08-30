@@ -29,10 +29,10 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 // dbMessage matches the schema of the messages table, optionally joined to the

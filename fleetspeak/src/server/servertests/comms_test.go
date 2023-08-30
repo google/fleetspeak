@@ -28,9 +28,6 @@ import (
 	"testing"
 	"time"
 
-
-	anypb "google.golang.org/protobuf/types/known/anypb"
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
@@ -38,6 +35,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )

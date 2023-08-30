@@ -26,17 +26,16 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestBroadcastsAPI(t *testing.T) {

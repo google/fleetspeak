@@ -27,10 +27,10 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/watchdog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"google.golang.org/protobuf/proto"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"

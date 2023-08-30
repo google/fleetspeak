@@ -39,8 +39,8 @@ import (
 // - Steps 1) and 2) are in little endian byte order.
 //
 // - An orderly shutdown is to close the connection instead of performing step
-//   2. In particular, this means that a valid sequence begins and ends with the
-//   magic number.
+//  2. In particular, this means that a valid sequence begins and ends with the
+//     magic number.
 //
 // - Steps 1) and 3) are expected to happen without significant delay.
 const (

@@ -25,10 +25,10 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type noopStatsCollector struct{}

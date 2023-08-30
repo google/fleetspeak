@@ -25,8 +25,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func makeMessages(count, size int) []service.AckMessage {

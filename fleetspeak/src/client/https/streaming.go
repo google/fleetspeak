@@ -456,7 +456,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			log.Errorf("Error creating streaming contact data: %v", err)
 			return
 		}
-		
+
 		buf, err := proto.Marshal(wcd)
 		if err != nil {
 			log.Errorf("Error encoding streaming contact data: %v", err)
@@ -464,7 +464,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		}
 		sizeBuf := make([]byte, 0, 16)
 		sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
-		
+
 		log.V(2).Infof("<-Starting write of %d bytes", len(buf))
 		start := time.Now()
 		sizeWritten, err := bw.Write(sizeBuf)

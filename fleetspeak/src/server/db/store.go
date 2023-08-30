@@ -183,9 +183,9 @@ type MessageProcessor interface {
 // ContactData provides basic information about a client's contact with a FS
 // server.
 type ContactData struct {
-	ClientID                 common.ClientID        // ID of the client.
-	NonceSent, NonceReceived uint64                 // Nonce sent to the client and received from the client.
-	Addr                     string                 // Observed client network address.
+	ClientID                 common.ClientID // ID of the client.
+	NonceSent, NonceReceived uint64          // Nonce sent to the client and received from the client.
+	Addr                     string          // Observed client network address.
 	ClientClock              *tspb.Timestamp // Client's report of its current clock setting.
 
 	// If non-empty, indicates that the contact is or was a streaming contact to
