@@ -30,8 +30,9 @@ os.chdir(THIS_DIRECTORY)
 
 
 def _is_package(path):
-  return (os.path.isdir(path) and
-          [f for f in os.listdir(path) if f.endswith(".py")])
+  return os.path.isdir(path) and [
+      f for f in os.listdir(path) if f.endswith(".py")
+  ]
 
 
 def _find_packages(path, base="fleetspeak"):
@@ -71,9 +72,11 @@ def compile_protos():
   """Builds necessary assets from sources."""
   # Using Popen to effectively suppress the output of the command below - no
   # need to fill in the logs with protoc's help.
-  p = subprocess.Popen([sys.executable, "-m", "grpc_tools.protoc", "--help"],
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
+  p = subprocess.Popen(
+      [sys.executable, "-m", "grpc_tools.protoc", "--help"],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+  )
   p.communicate()
   # If protoc is not installed, install it. This seems to be the only reliable
   # way to make sure that grpcio-tools gets intalled, no matter which Python
@@ -84,8 +87,13 @@ def compile_protos():
     # version. Otherwise latest protobuf library will be installed with
     # grpcio-tools and then uninstalled when grr-response-proto's setup.py runs
     # and reinstalled to the version required by grr-response-proto.
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", f"grpcio-tools{GRPCIO_VERSION}"])
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        f"grpcio-tools{GRPCIO_VERSION}",
+    ])
 
   # If VERSION is present here, we're likely installing from an sdist,
   # so there's no need to compile the protos (they should be already
@@ -103,10 +111,15 @@ def compile_protos():
 
   root_dir = os.path.join(THIS_DIRECTORY, "..")
   protoc_command = [
-      "python", "-m", "grpc_tools.protoc",
-      "--python_out", THIS_DIRECTORY,
-      "--grpc_python_out", THIS_DIRECTORY,
-      "--proto_path", root_dir,
+      "python",
+      "-m",
+      "grpc_tools.protoc",
+      "--python_out",
+      THIS_DIRECTORY,
+      "--grpc_python_out",
+      THIS_DIRECTORY,
+      "--proto_path",
+      root_dir,
   ]
   protoc_command.extend(proto_files)
   subprocess.check_call(protoc_command, cwd=root_dir)
@@ -144,9 +157,7 @@ class BuildPy(build_py):
 
 setup(
     name="fleetspeak",
-
     version=VERSION,
-
     description="Fleetspeak",
     long_description=(
         "Fleetspeak is a framework for communicating with a fleet of "
@@ -154,16 +165,14 @@ setup(
         "administrative use cases. It is a subproject of GRR ( "
         "https://github.com/google/grr/blob/master/README.md ), and can be "
         "seen as an effort to modularizing and modernizing its communication "
-        "mechanism."),
-
+        "mechanism."
+    ),
     # The project"s main homepage.
     url="https://github.com/google/fleetspeak",
-
     # Maintainer details.
     maintainer="GRR Development Team",
     maintainer_email="grr-dev@googlegroups.com",
     license="Apache License, Version 2.0",
-
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -172,10 +181,8 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3.6",
     ],
-
     # What does your project relate to?
     keywords="",
-
     # Packaging details.
     packages=_find_packages("fleetspeak"),
     install_requires=[
@@ -187,11 +194,9 @@ setup(
             "pytest",
             f"grpcio-testing{GRPCIO_VERSION}",
         ],
-    },    
-    package_data={
     },
+    package_data={},
     data_files=["VERSION"],
-
     # Commands overrides.
     cmdclass={
         "build_py": BuildPy,

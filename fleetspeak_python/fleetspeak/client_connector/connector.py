@@ -27,7 +27,7 @@ import threading
 from fleetspeak.src.client.channel.proto.fleetspeak_channel import channel_pb2
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 
-_WINDOWS = (platform.system() == "Windows")
+_WINDOWS = platform.system() == "Windows"
 if _WINDOWS:
   import msvcrt  # pylint: disable=g-import-not-at-top
 
@@ -37,7 +37,7 @@ class ProtocolError(Exception):
 
 
 # Constants to match behavior of channel.go.
-_MAGIC = 0xf1ee1001
+_MAGIC = 0xF1EE1001
 
 # We recommend that messages be ~1MB or smaller, and daemonservice has has 2MB
 # hardcoded maximum.
@@ -86,14 +86,11 @@ class FleetspeakConnection(object):
     be created using the environment variables set by daemonservice.
 
     Args:
-
       version: A string identifying the version of the service being run. Will
         be included in resource reports for this service.
-
       read_file: A python file object, or similar, used to read bytes from
         Fleetspeak. If None, will be created based on the execution environment
         provided by daemonservice.
-
       write_file: A python file object, or similar, used to write bytes to
         Fleetspeak. If None, will be created based on the execution environment
         provided by daemonservice.
@@ -129,6 +126,7 @@ class FleetspeakConnection(object):
 
     Args:
       message: A message protocol buffer.
+
     Returns:
       Size of the message in bytes.
     Raises:
@@ -139,7 +137,9 @@ class FleetspeakConnection(object):
 
     if message.destination.service_name == "system":
       raise ValueError(
-          "Only predefined messages can have destination.service_name == \"system\"")
+          "Only predefined messages can have destination.service_name =="
+          ' "system"'
+      )
 
     return self._SendImpl(message)
 
@@ -150,8 +150,9 @@ class FleetspeakConnection(object):
     buf = message.SerializeToString()
     if len(buf) > MAX_SIZE:
       raise ValueError(
-          "Serialized message too large, size must be at most %d, got %d" %
-          (MAX_SIZE, len(buf)))
+          "Serialized message too large, size must be at most %d, got %d"
+          % (MAX_SIZE, len(buf))
+      )
 
     with self._write_lock:
       self._write_file.write(struct.pack(_STRUCT_FMT, len(buf)))
@@ -170,8 +171,9 @@ class FleetspeakConnection(object):
     """
     size = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]
     if size > MAX_SIZE:
-      raise ProtocolError("Expected size to be at most %d, got %d" % (MAX_SIZE,
-                                                                      size))
+      raise ProtocolError(
+          "Expected size to be at most %d, got %d" % (MAX_SIZE, size)
+      )
     with self._read_lock:
       buf = self._ReadN(size)
       self._ReadMagic()
@@ -190,14 +192,16 @@ class FleetspeakConnection(object):
     """
     heartbeat_msg = common_pb2.Message(
         message_type="Heartbeat",
-        destination=common_pb2.Address(service_name="system"))
+        destination=common_pb2.Address(service_name="system"),
+    )
     self._SendImpl(heartbeat_msg)
 
   def _ReadMagic(self):
     got = struct.unpack(_STRUCT_FMT, self._ReadN(_STRUCT_LEN))[0]
     if got != _MAGIC:
-      raise ProtocolError("Expected to read magic number {}, got {}.".format(
-          _MAGIC, got))
+      raise ProtocolError(
+          "Expected to read magic number {}, got {}.".format(_MAGIC, got)
+      )
 
   def _WriteMagic(self):
     buf = struct.pack(_STRUCT_FMT, _MAGIC)
@@ -207,9 +211,11 @@ class FleetspeakConnection(object):
   def _WriteStartupData(self, version):
     startup_msg = common_pb2.Message(
         message_type="StartupData",
-        destination=common_pb2.Address(service_name="system"))
+        destination=common_pb2.Address(service_name="system"),
+    )
     startup_msg.data.Pack(
-        channel_pb2.StartupData(pid=os.getpid(), version=version))
+        channel_pb2.StartupData(pid=os.getpid(), version=version)
+    )
     self._SendImpl(startup_msg)
 
   def _ReadN(self, n):

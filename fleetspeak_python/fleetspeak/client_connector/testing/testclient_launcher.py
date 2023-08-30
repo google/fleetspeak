@@ -19,20 +19,22 @@ import subprocess
 
 from absl import app
 
+
 def main(argv=None):
   del argv
   p = subprocess.Popen(
-    [
-      "python",
-      "-m",
-      "fleetspeak.client_connector.testing.testclient",
-      "--",
-      "--mode=loopback"
-    ],
-    # Make sure file descriptors passed from the parent Fleetspeak process are
-    # not closed. This is critical for inter-process communication between
-    # the Fleetspeak client and the test client.
-    close_fds=False)
+      [
+          "python",
+          "-m",
+          "fleetspeak.client_connector.testing.testclient",
+          "--",
+          "--mode=loopback",
+      ],
+      # Make sure file descriptors passed from the parent Fleetspeak process are
+      # not closed. This is critical for inter-process communication between
+      # the Fleetspeak client and the test client.
+      close_fds=False,
+  )
   p.communicate()
   p.wait()
 
