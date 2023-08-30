@@ -1,14 +1,14 @@
 from optparse import OptionParser
-from setuptools import setup
-from wheel.bdist_wheel import bdist_wheel
-
 import pathlib
 import sys
+
+from setuptools import setup
+from wheel.bdist_wheel import bdist_wheel
 
 
 class BdistWheel(bdist_wheel):
   user_options = [
-    ('platform-name=', None, 'Platform name to force.'),
+      ("platform-name=", None, "Platform name to force."),
   ]
 
   def initialize_options(self):

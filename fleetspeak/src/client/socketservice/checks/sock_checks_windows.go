@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	
+
 	log "github.com/golang/glog"
 
 	"github.com/hectane/go-acl/api"

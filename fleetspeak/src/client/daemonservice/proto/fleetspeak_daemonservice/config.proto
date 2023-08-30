@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package fleetspeak.daemonservice;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice";
-
 import "google/protobuf/duration.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice";
 
 // The configuration information expected by daemonservice.Factory in
 // ClientServiceConfig.config.
@@ -51,12 +51,12 @@ message Config {
   // message_type="StdOutput"
   // data=<fleetspeak.daemonservice.StdOutputData>
   message StdParams {
-    string service_name = 1; // Service on the server to forward to. Required.
+    string service_name = 1;  // Service on the server to forward to. Required.
 
     // A message will be sent when we have flush_bytes queued, or when we
     // have bytes flush_time_seconds old.
-    int32 flush_bytes = 2; // Default and maximum value is 1MB.
-    int32 flush_time_seconds = 3; // Default is 60.
+    int32 flush_bytes = 2;         // Default and maximum value is 1MB.
+    int32 flush_time_seconds = 3;  // Default is 60.
   }
   StdParams std_params = 11;
 }

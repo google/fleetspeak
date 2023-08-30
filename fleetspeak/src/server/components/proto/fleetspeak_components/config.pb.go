@@ -195,9 +195,10 @@ type HttpsConfig struct {
 	// connection causes more active connections but can reduce database load and
 	// server->client communications latency.
 	DisableStreaming bool `protobuf:"varint,4,opt,name=disable_streaming,json=disableStreaming,proto3" json:"disable_streaming,omitempty"`
-	// If set, the server will validate the client certificate from the request header.
-	// This should be used if TLS is terminated at the load balancer and client certificates
-	// can be passed upstream to the fleetspeak server as an http header.
+	// If set, the server will validate the client certificate from the request
+	// header. This should be used if TLS is terminated at the load balancer and
+	// client certificates can be passed upstream to the fleetspeak server as an
+	// http header.
 	ClientCertificateHeader string `protobuf:"bytes,5,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
 }
 

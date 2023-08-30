@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package fleetspeak.server;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server";
-
 import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server";
 
 // Represents client resource-usage data in the data-store.
 // Next id: 15

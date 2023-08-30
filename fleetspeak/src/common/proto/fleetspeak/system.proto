@@ -5,11 +5,11 @@ syntax = "proto3";
 
 package fleetspeak;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak";
-
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
-import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak";
 
 // A MessageAck message is sent from the client to the server to acknowledge the
 // successful receipt of one or more messages. Messages from the server to the
@@ -77,8 +77,8 @@ message ClientServiceConfig {
   // the client. All other labels are only checked on the server.
   repeated Label required_labels = 6;
 
-  // The time at which the service configuration was signed. Should be populated by
-  // the signing tool when creating a SignedClientServiceConfig.
+  // The time at which the service configuration was signed. Should be populated
+  // by the signing tool when creating a SignedClientServiceConfig.
   google.protobuf.Timestamp signed_time = 7;
 }
 

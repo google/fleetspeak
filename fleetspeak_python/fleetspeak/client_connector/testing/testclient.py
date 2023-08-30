@@ -25,12 +25,12 @@ import time
 
 from absl import app
 from absl import flags
-
 from fleetspeak.client_connector import connector
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("mode", "loopback",
-                    "Mode of operation. Options are: loopback")
+flags.DEFINE_string(
+    "mode", "loopback", "Mode of operation. Options are: loopback"
+)
 
 
 class FatalError(Exception):
@@ -52,7 +52,7 @@ def MemoryHog():
   logging.info("starting memory leak")
   con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
-  buf = "a" * (1024*1024*20)
+  buf = "a" * (1024 * 1024 * 20)
   while True:
     time.sleep(1)
 

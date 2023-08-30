@@ -28,9 +28,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestManager(t *testing.T) {

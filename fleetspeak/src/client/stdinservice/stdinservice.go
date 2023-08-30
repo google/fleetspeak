@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	log "github.com/golang/glog"
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"

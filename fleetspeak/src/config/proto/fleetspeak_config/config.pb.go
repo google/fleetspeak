@@ -43,8 +43,8 @@ type Config struct {
 	// A file containing the private key associated with trusted_cert_file, only
 	// required if it is necessary to create server certificates.
 	//
-	// NOTE: Contains private key material. Only needs to be online when creating new
-	// server certificates.
+	// NOTE: Contains private key material. Only needs to be online when creating
+	// new server certificates.
 	TrustedCertKeyFile string `protobuf:"bytes,4,opt,name=trusted_cert_key_file,json=trustedCertKeyFile,proto3" json:"trusted_cert_key_file,omitempty"`
 	// A file containing a PEM encoded certificate that the Fleetspeak server
 	// should use to identify itself. If this file is not already present, a 1

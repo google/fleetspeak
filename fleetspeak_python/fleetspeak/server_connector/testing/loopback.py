@@ -25,7 +25,6 @@ import time
 
 from absl import app
 from absl import flags
-
 from fleetspeak.server_connector import connector
 
 FLAGS = flags.FLAGS

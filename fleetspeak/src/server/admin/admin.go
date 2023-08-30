@@ -24,11 +24,11 @@ import (
 	"context"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
+	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"

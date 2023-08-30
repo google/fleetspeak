@@ -23,9 +23,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	"google.golang.org/protobuf/proto"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"

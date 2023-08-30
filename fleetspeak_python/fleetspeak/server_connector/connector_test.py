@@ -20,13 +20,12 @@ import time
 from unittest import mock
 
 from absl.testing import absltest
-import grpc
-import grpc_testing
-
 from fleetspeak.server_connector import connector
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2
 from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2_grpc
+import grpc
+import grpc_testing
 
 
 # Keeping additional reference to datetime.datetime, as it gets mocked
@@ -44,7 +43,8 @@ class RetryLoopTest(absltest.TestCase):
     result = connector.RetryLoop(
         func,
         timeout=datetime.timedelta(seconds=10.5),
-        single_try_timeout=datetime.timedelta(seconds=1))
+        single_try_timeout=datetime.timedelta(seconds=1),
+    )
 
     func.assert_called_once()
     sleep_mock.assert_not_called()
@@ -62,7 +62,8 @@ class RetryLoopTest(absltest.TestCase):
 
     sleep_mock.side_effect = SleepMock
     datetime_mock.now = mock.Mock(
-        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time))
+        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time)
+    )
 
     def Func(timeout: datetime.timedelta) -> None:
       nonlocal cur_time
@@ -72,9 +73,11 @@ class RetryLoopTest(absltest.TestCase):
     func = mock.Mock(wraps=Func)
 
     with self.assertRaises(grpc.RpcError):
-      connector.RetryLoop(func,
-                          timeout=datetime.timedelta(seconds=10.5),
-                          single_try_timeout=datetime.timedelta(seconds=1))
+      connector.RetryLoop(
+          func,
+          timeout=datetime.timedelta(seconds=10.5),
+          single_try_timeout=datetime.timedelta(seconds=1),
+      )
 
     # Expected timeline:
     # 0:    func(1)
@@ -86,13 +89,14 @@ class RetryLoopTest(absltest.TestCase):
     # 10:   func(0.5)
     # 10.5: -> done
     self.assertListEqual(
-        [c.args[0].total_seconds() for c in func.call_args_list],
-        [1, 1, 1, 0.5])
+        [c.args[0].total_seconds() for c in func.call_args_list], [1, 1, 1, 0.5]
+    )
 
   @mock.patch.object(time, "sleep")
   @mock.patch.object(datetime, "datetime", wraps=orig_datetime_datetime)
   def testDefaultSingleTryTimeoutIsEqualToDefaultTimeout(
-      self, datetime_mock, sleep_mock):
+      self, datetime_mock, sleep_mock
+  ):
     cur_time = 0
 
     def SleepMock(v: float) -> None:
@@ -101,7 +105,8 @@ class RetryLoopTest(absltest.TestCase):
 
     sleep_mock.side_effect = SleepMock
     datetime_mock.now = mock.Mock(
-        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time))
+        side_effect=lambda: orig_datetime_datetime.fromtimestamp(cur_time)
+    )
 
     def Func(timeout: datetime.timedelta) -> None:
       nonlocal cur_time
@@ -127,7 +132,9 @@ class ClientTest(absltest.TestCase):
             grpc_testing.channel(
                 [],
                 grpc_testing.strict_real_time(),
-            )))
+            )
+        )
+    )
 
   def testKeepAlive(self):
     event = threading.Event()
@@ -135,50 +142,48 @@ class ClientTest(absltest.TestCase):
     t = self._fakeStub()
     t.KeepAlive.side_effect = lambda *args, **kwargs: event.set()
 
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     self.assertTrue(event.wait(10))
 
     s.Shutdown()
 
   def testInsertMessageIsDelegatedToStub(self):
     t = self._fakeStub()
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.InsertMessage(common_pb2.Message())
 
     t.InsertMessage.assert_called_once()
     message = t.InsertMessage.call_args.args[0]
-    self.assertEqual(message.source.service_name, 'test')
+    self.assertEqual(message.source.service_name, "test")
 
   def testInsertMessageIsRetried(self):
     t = self._fakeStub()
     t.InsertMessage.side_effect = [grpc.RpcError("error"), mock.DEFAULT]
 
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.InsertMessage(common_pb2.Message())
 
     self.assertEqual(t.InsertMessage.call_count, 2)
 
   def testDeletePendingMessagesIsDelegatedToStub(self):
     t = self._fakeStub()
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
 
     t.DeletePendingMessages.assert_called_once()
 
   def testDeletePendingMessagesIsRetried(self):
     t = self._fakeStub()
-    t.DeletePendingMessages.side_effect = [
-        grpc.RpcError("error"), mock.DEFAULT
-    ]
+    t.DeletePendingMessages.side_effect = [grpc.RpcError("error"), mock.DEFAULT]
 
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.DeletePendingMessages(admin_pb2.DeletePendingMessagesRequest())
 
     self.assertEqual(t.DeletePendingMessages.call_count, 2)
 
   def testGetPendingMessagesIsDelegatedToStub(self):
     t = self._fakeStub()
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.GetPendingMessages(admin_pb2.GetPendingMessagesRequest())
 
     t.GetPendingMessages.assert_called_once()
@@ -187,14 +192,14 @@ class ClientTest(absltest.TestCase):
     t = self._fakeStub()
     t.GetPendingMessages.side_effect = [grpc.RpcError("error"), mock.DEFAULT]
 
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.GetPendingMessages(admin_pb2.GetPendingMessagesRequest())
 
     self.assertEqual(t.GetPendingMessages.call_count, 2)
 
   def testGetPendingMessageCountIsDelegatedToStub(self):
     t = self._fakeStub()
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.GetPendingMessageCount(admin_pb2.GetPendingMessageCountRequest())
 
     t.GetPendingMessageCount.assert_called_once()
@@ -202,14 +207,15 @@ class ClientTest(absltest.TestCase):
   def testGetPendingMessageCountIsRetried(self):
     t = self._fakeStub()
     t.GetPendingMessageCount.side_effect = [
-        grpc.RpcError("error"), mock.DEFAULT
+        grpc.RpcError("error"),
+        mock.DEFAULT,
     ]
 
-    s = connector.OutgoingConnection(None, 'test', t)
+    s = connector.OutgoingConnection(None, "test", t)
     s.GetPendingMessageCount(admin_pb2.GetPendingMessageCountRequest())
 
     self.assertEqual(t.GetPendingMessageCount.call_count, 2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   absltest.main()
