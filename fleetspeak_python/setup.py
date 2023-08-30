@@ -23,7 +23,7 @@ from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
 from setuptools.command.sdist import sdist
 
-GRPCIO_TOOLS = "grpcio-tools==1.46.3"
+GRPCIO_VERSION = "==1.57.0"
 
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)
@@ -85,7 +85,7 @@ def compile_protos():
     # grpcio-tools and then uninstalled when grr-response-proto's setup.py runs
     # and reinstalled to the version required by grr-response-proto.
     subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", GRPCIO_TOOLS])
+        [sys.executable, "-m", "pip", "install", f"grpcio-tools{GRPCIO_VERSION}"])
 
   # If VERSION is present here, we're likely installing from an sdist,
   # so there's no need to compile the protos (they should be already
@@ -180,10 +180,13 @@ setup(
     packages=_find_packages("fleetspeak"),
     install_requires=[
         "absl-py>=0.8.0",
-        "grpcio>=1.24.1",
+        f"grpcio{GRPCIO_VERSION}",
     ],
     extras_require={
-        "test": ["grpcio-testing==1.54.2"],
+        "test": [
+            "pytest",
+            f"grpcio-testing{GRPCIO_VERSION}",
+        ],
     },    
     package_data={
     },
