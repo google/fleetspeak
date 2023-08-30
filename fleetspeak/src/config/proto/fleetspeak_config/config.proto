@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package fleetspeak.config;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config";
-
 import "fleetspeak/src/server/components/proto/fleetspeak_components/config.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/config/proto/fleetspeak_config";
 
 // The configuration parameters needed by the configuration tool in order to
 // create the artifacts needed to run a fleetspeak installation.
@@ -27,8 +27,8 @@ message Config {
   // A file containing the private key associated with trusted_cert_file, only
   // required if it is necessary to create server certificates.
   //
-  // NOTE: Contains private key material. Only needs to be online when creating new
-  // server certificates.
+  // NOTE: Contains private key material. Only needs to be online when creating
+  // new server certificates.
   string trusted_cert_key_file = 4;
 
   // A file containing a PEM encoded certificate that the Fleetspeak server

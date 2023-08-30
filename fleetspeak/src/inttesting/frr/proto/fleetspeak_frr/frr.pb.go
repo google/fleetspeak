@@ -70,14 +70,15 @@ func (x *Config) GetMasterServer() string {
 	return ""
 }
 
-// A TrafficRequest message is sent from the server to the client which tells the
-// client to send random data back.
+// A TrafficRequest message is sent from the server to the client which tells
+// the client to send random data back.
 type TrafficRequestData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// An identifier used to identify the frr master instance responsible for this.
+	// An identifier used to identify the frr master instance responsible for
+	// this.
 	MasterId int64 `protobuf:"varint,1,opt,name=master_id,json=masterId,proto3" json:"master_id,omitempty"`
 	// An identifier used to link responses to requests.
 	RequestId int64 `protobuf:"varint,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
@@ -588,7 +589,8 @@ type CreateHuntRequest struct {
 	Data  *TrafficRequestData `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	Limit uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	// If client_ids is empty, the request is considered a broadcast request with
-	// specified limit, otherwise unicast requests are sent to the provided clients.
+	// specified limit, otherwise unicast requests are sent to the provided
+	// clients.
 	ClientIds []string `protobuf:"bytes,3,rep,name=client_ids,json=clientIds,proto3" json:"client_ids,omitempty"`
 }
 

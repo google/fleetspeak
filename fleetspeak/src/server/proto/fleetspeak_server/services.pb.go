@@ -21,8 +21,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A ServiceConfig describes how the server should configure a 'service', which is
-// a module that sends and processes messages.
+// A ServiceConfig describes how the server should configure a 'service', which
+// is a module that sends and processes messages.
 type ServiceConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -28,7 +28,7 @@ type Config struct {
 
 	Target   string `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`                     // The address to dial.
 	Insecure bool   `protobuf:"varint,2,opt,name=insecure,proto3" json:"insecure,omitempty"`                // If set, will not secure connection to the target.
-	CertFile string `protobuf:"bytes,3,opt,name=cert_file,json=certFile,proto3" json:"cert_file,omitempty"` // If set, a pool of trusted certificates will be read from this file and used to authenticate the connection to target.
+	CertFile string `protobuf:"bytes,3,opt,name=cert_file,json=certFile,proto3" json:"cert_file,omitempty"` // If set, a pool of trusted certificates will be read from this file
 }
 
 func (x *Config) Reset() {

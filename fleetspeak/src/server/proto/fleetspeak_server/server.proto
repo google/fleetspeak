@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package fleetspeak.server;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server";
-
-import "google/protobuf/duration.proto";
 import "fleetspeak/src/server/proto/fleetspeak_server/services.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server";
 
 // Describes a server's configuration. If unset, all values default to values
 // reasonable for a unit test or small installation. Larger installations may

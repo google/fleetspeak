@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package fleetspeak.frr;
 
-option go_package = "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr";
-
 import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr";
 
 // Contains the information needed to configure a frr server component.
 message Config {
@@ -12,10 +12,11 @@ message Config {
   string master_server = 1;
 }
 
-// A TrafficRequest message is sent from the server to the client which tells the
-// client to send random data back.
+// A TrafficRequest message is sent from the server to the client which tells
+// the client to send random data back.
 message TrafficRequestData {
-  // An identifier used to identify the frr master instance responsible for this.
+  // An identifier used to identify the frr master instance responsible for
+  // this.
   int64 master_id = 1;
 
   // An identifier used to link responses to requests.
@@ -56,7 +57,6 @@ message FileRequestData {
   string name = 2;
 }
 
-
 // A FileResponse is sent from the client to the server and
 // reports that the client successfully downloaded a file from the
 // server.
@@ -94,33 +94,30 @@ message CreateHuntRequest {
   TrafficRequestData data = 1;
   uint64 limit = 2;
   // If client_ids is empty, the request is considered a broadcast request with
-  // specified limit, otherwise unicast requests are sent to the provided clients.
+  // specified limit, otherwise unicast requests are sent to the provided
+  // clients.
   repeated string client_ids = 3;
 }
 
-message CreateHuntResponse {
-}
+message CreateHuntResponse {}
 
 // The service implemented by the FRR master server to collect data from the FRR
 // Fleetspeak server services.
 service Master {
   // RecordMessage records that a TrafficResponse message was received by
   // the FS server.
-  rpc RecordTrafficResponse(MessageInfo) returns (fleetspeak.EmptyMessage) {
-  }
+  rpc RecordTrafficResponse(MessageInfo) returns (fleetspeak.EmptyMessage) {}
 
   // RecordFileResponse records that a FileResponse message was received
   // by the FS server.
-  rpc RecordFileResponse(FileResponseInfo) returns (fleetspeak.EmptyMessage) {
-  }
+  rpc RecordFileResponse(FileResponseInfo) returns (fleetspeak.EmptyMessage) {}
 
-  // CompletedRequests returns a list of requests made to a client which have been
-  // completed.
-  rpc CompletedRequests(CompletedRequestsRequest) returns (CompletedRequestsResponse) {
-  }
+  // CompletedRequests returns a list of requests made to a client which have
+  // been completed.
+  rpc CompletedRequests(CompletedRequestsRequest)
+      returns (CompletedRequestsResponse) {}
 
   // CreateHunt initiates a hunt which sends the provided TrafficRequestData to
   // every client, up to limit.
-  rpc CreateHunt(CreateHuntRequest) returns (CreateHuntResponse) {
-  }
+  rpc CreateHunt(CreateHuntRequest) returns (CreateHuntResponse) {}
 }

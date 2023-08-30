@@ -679,8 +679,9 @@ type ContactData struct {
 	// will be sent.
 	DoneSending bool `protobuf:"varint,5,opt,name=done_sending,json=doneSending,proto3" json:"done_sending,omitempty"`
 	// Set by the client to indicate how many messages it is willing to accept for
-	// each installed service. After the first exchange of an streaming connection, it
-	// represents the number of additional messages that will be accepted.
+	// each installed service. After the first exchange of an streaming
+	// connection, it represents the number of additional messages that will be
+	// accepted.
 	AllowedMessages map[string]uint64 `protobuf:"bytes,6,rep,name=AllowedMessages,proto3" json:"AllowedMessages,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 }
 

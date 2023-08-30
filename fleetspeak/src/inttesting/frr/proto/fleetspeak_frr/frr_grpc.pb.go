@@ -29,8 +29,8 @@ type MasterClient interface {
 	// RecordFileResponse records that a FileResponse message was received
 	// by the FS server.
 	RecordFileResponse(ctx context.Context, in *FileResponseInfo, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
-	// CompletedRequests returns a list of requests made to a client which have been
-	// completed.
+	// CompletedRequests returns a list of requests made to a client which have
+	// been completed.
 	CompletedRequests(ctx context.Context, in *CompletedRequestsRequest, opts ...grpc.CallOption) (*CompletedRequestsResponse, error)
 	// CreateHunt initiates a hunt which sends the provided TrafficRequestData to
 	// every client, up to limit.
@@ -91,8 +91,8 @@ type MasterServer interface {
 	// RecordFileResponse records that a FileResponse message was received
 	// by the FS server.
 	RecordFileResponse(context.Context, *FileResponseInfo) (*fleetspeak.EmptyMessage, error)
-	// CompletedRequests returns a list of requests made to a client which have been
-	// completed.
+	// CompletedRequests returns a list of requests made to a client which have
+	// been completed.
 	CompletedRequests(context.Context, *CompletedRequestsRequest) (*CompletedRequestsResponse, error)
 	// CreateHunt initiates a hunt which sends the provided TrafficRequestData to
 	// every client, up to limit.
