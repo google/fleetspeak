@@ -52,6 +52,7 @@ options = GetOptions()
 setup(
     name="fleetspeak-client-bin",
     version=options.version,
+    packages=[],
     cmdclass={
         "bdist_wheel": BdistWheel,
     },

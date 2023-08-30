@@ -25,7 +25,7 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -111,7 +111,7 @@ jobs:
           go-version: '^1.21'
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.10'
       - name: Install dependencies
         run: |
           powershell Install-WindowsFeature Net-Framework-Core
@@ -150,7 +150,7 @@ jobs:
           go-version: '^1.21'
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Install dependencies
         run: |
           pip install wheel
@@ -189,7 +189,7 @@ jobs:
           go-version: '^1.21'
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Install dependencies
         run: |
           pip install wheel pytest
@@ -223,7 +223,7 @@ jobs:
           path: ${{ env.GOPATH }}/src/github.com/google/fleetspeak
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Install dependencies
         shell: bash
         run: |
