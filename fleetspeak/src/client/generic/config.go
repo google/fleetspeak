@@ -77,5 +77,6 @@ func MakeConfiguration(cfg *gpb.Config) (config.Configuration, error) {
 		PersistenceHandler: ph,
 		ClientLabels:       labels,
 		Proxy:              proxy,
+		ClientCertificateHeader: cfg.ClientCertificateHeader,
 	}, nil
 }

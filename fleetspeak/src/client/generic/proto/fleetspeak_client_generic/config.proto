@@ -30,6 +30,11 @@ message Config {
   // The format is a URL.
   // See https://golang.org/pkg/net/http/#Transport.Proxy for details.
   string proxy = 7;
+
+  // If set, the server will validate the client certificate from the request header.
+  // This should be used if TLS is terminated at the load balancer and client certificates
+  // can be passed upstream to the fleetspeak server as an http header.
+  string client_certificate_header = 8;
 }
 
 message FilesystemHandler {
