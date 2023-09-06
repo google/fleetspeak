@@ -373,7 +373,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 	firstAdminPort := 6061
 
 	// Start Master server
-	cc.masterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main", "--listen_address", msAddress, "--admin_address", fmt.Sprintf("localhost:%v", firstAdminPort))
+	cc.masterServerCmd = exec.Command("fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main", "--listen_address", msAddress, "--admin_address", fmt.Sprintf("localhost:%v", firstAdminPort))
 	startCommand(cc.masterServerCmd)
 
 	// Start servers and their services
