@@ -97,6 +97,7 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			Listener:         l,
 			Cert:             []byte(hcfg.Certificates),
 			ClientCertHeader: hcfg.ClientCertificateHeader,
+			FrontendMode:     hcfg.FrontendMode,
 			Key:              []byte(hcfg.Key),
 			Streaming:        !hcfg.DisableStreaming,
 		})

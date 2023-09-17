@@ -18,6 +18,14 @@ package fleetspeak.components;
 
 option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components";
 
+enum FrontendMode {
+  MTLS = 0;
+  HEADER_TLS = 1;
+//  HEADER_TLS_CHECKSUM = 2;
+//  HEADER_CLEARTEXT = 3;
+//  HEADER_CLEARTEXT_CHECKSUM = 4;
+}
+
 message Config {
   // Mysql connection string. Required.
   //
@@ -86,7 +94,19 @@ message HttpsConfig {
   // header. This should be used if TLS is terminated at the load balancer and
   // client certificates can be passed upstream to the fleetspeak server as an
   // http header.
+  // Note for this parameter to take effect you also need to set the frontend_mode
+  // parameter below accordingly. This is a safety net mechanism to avoid scenarios
+  // where client_certificate_header is set to non-empty unintentionally.
   string client_certificate_header = 5;
+
+  
+  // The frontend_mode parameter serves as a safety net to avoid scenarios where
+  // the client_certificate_header is set accidentially.
+  // frontend_mode defaults to mTLS where the client certificate is delivered
+  // in Fleetspeaks' original design.
+  // In case certificate delivery is desired through a HTTP header you need set
+  // both the frontend_mode and the certificate_channel parameters accordingly.
+  FrontendMode frontend_mode = 6;
 }
 
 message AdminConfig {

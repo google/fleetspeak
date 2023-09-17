@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+
+	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
-func GetClientCert(req *http.Request, hn string) (*x509.Certificate, error) {
-	if hn != "" {
+func GetClientCert(req *http.Request, hn string, frontendMode cpb.FrontendMode) (*x509.Certificate, error) {
+	if frontendMode == cpb.FrontendMode_HEADER_TLS && hn != "" {
 		return getCertFromHeader(hn, req.Header)
 	} else {
 		return getCertFromTLS(req)

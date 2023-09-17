@@ -39,3 +39,6 @@ fleetspeak/src/osquery/connector
 # fleetspeak/build-pkgs.sh
 fleetspeak/server-pkg/
 fleetspeak/client-pkg/
+
+fleetspeak/src/e2etesting/balancer/balancer
+fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main
