@@ -38,7 +38,7 @@ Replies with an appropriate
     TrafficResponseData.
 7.  Forwards the received TrafficResponseData to the FRR master server.
 
-8.  [frr_master_server_main.go](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main.go)
+8.  [frr_master_server_main.go](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main.go)
 
 9.  [frr.go](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/inttesting/frr/frr.go)
     contains the logic to run a FRR master server, however the logic can't be
