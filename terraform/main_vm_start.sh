@@ -53,7 +53,7 @@ python3 frr_python/setup.py bdist_wheel
 gsutil cp frr_python/dist/* ${storage_bucket_url}/frr_python/wheel/
 pip3 install fleetspeak
 fleetspeak/build.sh
-gsutil cp fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main ${storage_bucket_url}/bin/frr_master_server_main
+gsutil cp fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main ${storage_bucket_url}/bin/frr_master_server_main
 gsutil cp fleetspeak/src/client/client/client ${storage_bucket_url}/bin/client
 gsutil cp fleetspeak/src/server/server/server ${storage_bucket_url}/bin/server
 
