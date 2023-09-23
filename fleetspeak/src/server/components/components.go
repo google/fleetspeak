@@ -104,6 +104,12 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)
 		}
+		if hcfg.FrontendMode != cpb.FrontendMode_MTLS {
+			fmt.Println("########################################################################")
+			fmt.Println("# You are running Fleetspeak in a frontend mode other than mTLS.       #")
+			fmt.Println("# If that is not your intention you need to change your configuration. #")
+			fmt.Println("########################################################################")
+		}
 	}
 	// Notification setup.
 	var nn notifications.Notifier

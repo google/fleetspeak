@@ -13,11 +13,15 @@ import (
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
 func GetClientCert(req *http.Request, hn string, frontendMode cpb.FrontendMode) (*x509.Certificate, error) {
-	if frontendMode == cpb.FrontendMode_HEADER_TLS && hn != "" {
-		return getCertFromHeader(hn, req.Header)
-	} else {
+	switch frontendMode {
+	case cpb.FrontendMode_MTLS:
 		return getCertFromTLS(req)
+	case cpb.FrontendMode_HEADER_TLS:
+		if hn != "" {
+			return getCertFromHeader(hn, req.Header)
+		}
 	}
+	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode: %s, clientCertHeader: %s", frontendMode, hn)
 }
 
 func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, error) {
