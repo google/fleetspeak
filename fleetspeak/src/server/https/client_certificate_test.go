@@ -103,7 +103,7 @@ func TestFrontendMode_MTLS(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// test the valid frontend mode combination of receiving the client cert in the req
+		// make sure we received the client cert in the req
 		if cert == nil {
 			t.Error("Expected client certificate but received none")
 		}
@@ -144,9 +144,14 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// make sure we got the client cert in the header
+		// make sure we received the client cert in the header
 		if cert == nil {
 			t.Error("Expected client certificate but received none")
+		}
+		// test the invalid frontend mode combination
+		cert, err = GetClientCert(req, clientCertHeader, cpb.FrontendMode_MTLS)
+		if err == nil {
+			t.Error("Expected error for invalid frontend mode combination but received none")
 		}
 		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_TLS")
 	}))
