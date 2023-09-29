@@ -45,13 +45,15 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
+
+	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
 var (
 	serverCert []byte
 )
 
-func makeServer(t *testing.T, caseName, clientCertHeader string) (*server.Server, *sqlite.Datastore, string) {
+func makeServer(t *testing.T, caseName, clientCertHeader string, frontendMode cpb.FrontendMode) (*server.Server, *sqlite.Datastore, string) {
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +68,7 @@ func makeServer(t *testing.T, caseName, clientCertHeader string) (*server.Server
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true, ClientCertHeader: clientCertHeader})
+	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true, ClientCertHeader: clientCertHeader, FrontendMode: frontendMode})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +137,7 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "Normal", "")
+	s, ds, addr := makeServer(t, "Normal", "", cpb.FrontendMode_MTLS)
 	id, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -171,7 +173,7 @@ func TestNormalPoll(t *testing.T) {
 func TestFile(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "File", "")
+	s, ds, addr := makeServer(t, "File", "", cpb.FrontendMode_MTLS)
 	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -241,7 +243,7 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 func TestStreaming(t *testing.T) {
 	ctx := context.Background()
 
-	s, _, addr := makeServer(t, "Streaming", "")
+	s, _, addr := makeServer(t, "Streaming", "", cpb.FrontendMode_MTLS)
 	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -303,7 +305,7 @@ func TestStreaming(t *testing.T) {
 func TestHeaderNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "Normal", "ssl-client-cert")
+	s, ds, addr := makeServer(t, "Normal", "ssl-client-cert", cpb.FrontendMode_HEADER_TLS)
 	id, cl, bc := makeClient(t)
 	defer s.Stop()
 
@@ -348,7 +350,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 func TestHeaderStreaming(t *testing.T) {
 	ctx := context.Background()
 
-	s, _, addr := makeServer(t, "Streaming", "ssl-client-cert")
+	s, _, addr := makeServer(t, "Streaming", "ssl-client-cert", cpb.FrontendMode_HEADER_TLS)
 	_, cl, bc := makeClient(t)
 	defer s.Stop()
 

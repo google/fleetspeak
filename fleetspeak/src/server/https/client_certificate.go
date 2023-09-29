@@ -10,15 +10,23 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+
+	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
-func GetClientCert(req *http.Request, hn string) (*x509.Certificate, error) {
-	if hn != "" {
-		return getCertFromHeader(hn, req.Header)
-	} else {
-		return getCertFromTLS(req)
+func GetClientCert(req *http.Request, hn string, frontendMode cpb.FrontendMode) (*x509.Certificate, error) {
+	switch frontendMode {
+	case cpb.FrontendMode_MTLS:
+		if hn == "" {
+			return getCertFromTLS(req)
+		}
+	case cpb.FrontendMode_HEADER_TLS:
+		if hn != "" {
+			return getCertFromHeader(hn, req.Header)
+		}
 	}
+	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode=%s, clientCertHeader=%s", frontendMode, hn)
 }
 
 func calcClientCertSha256(clientCert string) (string) {
