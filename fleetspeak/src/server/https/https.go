@@ -84,14 +84,15 @@ func (l listener) Accept() (net.Conn, error) {
 
 // Params wraps the parameters required to create an https communicator.
 type Params struct {
-	Listener           net.Listener     // Where to listen for connections, required.
-	Cert, Key          []byte           // x509 encoded certificate and matching private key, required.
-	Streaming          bool             // Whether to enable streaming communications.
-	ClientCertHeader   string           // Where to locate the client certificate from the request header, if not provided use TLS request.
-	FrontendMode       cpb.FrontendMode // Safety net to explicitly select the mode how client certificates are delivered (MTLS or HEADER_TLS)
-	StreamingLifespan  time.Duration    // Maximum time to keep a streaming connection open, defaults to 10 min.
-	StreamingCloseTime time.Duration    // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
-	StreamingJitter    time.Duration    // Maximum amount of jitter to add to StreamingLifespan.
+	Listener                 net.Listener     // Where to listen for connections, required.
+	Cert, Key                []byte           // x509 encoded certificate and matching private key, required.
+	Streaming                bool             // Whether to enable streaming communications.
+	ClientCertHeader         string           // Where to locate the client certificate from the request header, if not provided use TLS request.
+	ClientCertChecksumHeader string           // Where to locate the client certificate checksum from the request header.
+	FrontendMode             cpb.FrontendMode // Safety net to explicitly select the mode how client certificates are delivered (MTLS or HEADER_TLS)
+	StreamingLifespan        time.Duration    // Maximum time to keep a streaming connection open, defaults to 10 min.
+	StreamingCloseTime       time.Duration    // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
+	StreamingJitter          time.Duration    // Maximum amount of jitter to add to StreamingLifespan.
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies

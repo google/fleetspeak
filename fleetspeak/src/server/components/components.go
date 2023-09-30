@@ -95,12 +95,13 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			l = &chttps.ProxyListener{l}
 		}
 		comm, err = https.NewCommunicator(https.Params{
-			Listener:         l,
-			Cert:             []byte(hcfg.Certificates),
-			ClientCertHeader: hcfg.ClientCertificateHeader,
-			FrontendMode:     hcfg.FrontendMode,
-			Key:              []byte(hcfg.Key),
-			Streaming:        !hcfg.DisableStreaming,
+			Listener:                 l,
+			Cert:                     []byte(hcfg.Certificates),
+			ClientCertHeader:         hcfg.ClientCertificateHeader,
+			ClientCertChecksumHeader: hcfg.ClientCertificateChecksumHeader,
+			FrontendMode:             hcfg.FrontendMode,
+			Key:                      []byte(hcfg.Key),
+			Streaming:                !hcfg.DisableStreaming,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)
@@ -114,9 +115,11 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			log.Warningln("####################################################################")
 		}
 		if (hcfg.FrontendMode == cpb.FrontendMode_MTLS && hcfg.ClientCertificateHeader != "") ||
-		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader =="") {
-			   return nil, fmt.Errorf("Invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s",
-						hcfg.FrontendMode, hcfg.ClientCertificateHeader)
+		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader == "") ||
+		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS_CHECKSUM && (hcfg.ClientCertificateHeader == "" || 
+		    hcfg.ClientCertificateChecksumHeader == "")) {
+			   return nil, fmt.Errorf("Invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s, clientCertificateChecksumHeader=%s",
+						hcfg.FrontendMode, hcfg.ClientCertificateHeader, hcfg.ClientCertificateChecksumHeader)
 		}
 	}
 	// Notification setup.

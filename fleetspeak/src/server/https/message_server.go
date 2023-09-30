@@ -109,7 +109,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cert, err := GetClientCert(req, s.p.ClientCertHeader, s.p.FrontendMode)
+	cert, err := GetClientCert(req, s.p.ClientCertHeader, s.p.FrontendMode, s.p.ClientCertChecksumHeader)
 	if err != nil {
 		pi.Status = http.StatusBadRequest
 		http.Error(res, err.Error(), pi.Status)

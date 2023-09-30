@@ -32,7 +32,13 @@ enum FrontendMode {
   // This requires the that the client certificate is delivered via a HTTP header.
   // Use the HttpsConfig.client_certificate_header below to set the header's name.
   HEADER_TLS = 1;
-  // HEADER_TLS_CHECKSUM = 2;        // reserved for future use
+  // In cases where the layer 7 load balancer that terminates the mTLS connection
+  // also provides the client certificate checksum in and additional header
+  // we want to cross check that checksum.
+  // Use the HttpsConfig.client_certificate_header and also the 
+  // HttpsConfig.client_certificate_checksum_header below to set the names for
+  // these headers.
+  HEADER_TLS_CHECKSUM = 2;
   // HEADER_CLEARTEXT = 3;           // reserved for future use
   // HEADER_CLEARTEXT_CHECKSUM = 4;  // reserved for future use
 }
@@ -115,8 +121,18 @@ message HttpsConfig {
   // frontend_mode defaults to mTLS where the client certificate is delivered
   // in Fleetspeaks' original design.
   // In case certificate delivery is desired through a HTTP header you need set
-  // both the frontend_mode and the client_certificate_header parameters accordingly.
+  // both the frontend_mode and the client_certificate_header (and for some cases
+  // the client_certificate_checksum_header) parameter accordingly.
   FrontendMode frontend_mode = 6;
+
+  // If set, the server will validate the client certificate from the request
+  // header and also calculate and verify the checksum against the value provided
+  // in this header.
+  // This should be used if TLS is terminated at the load balancer and client
+  // certificates can be passed upstream to the fleetspeak server as an http header.
+  // Note for this parameter to take effect you also need to set the frontend_mode
+  // and the client_certificate_header parameter accordingly.
+  string client_certificate_checksum_header = 7;
 }
 
 message AdminConfig {
