@@ -154,7 +154,7 @@ func GetClientCertTestCase(t *testing.T, frontendMode cpb.FrontendMode, clientCe
 	if err != nil {
 		t.Fatal(err)
 	}
-	res.Body.Close()
+	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
