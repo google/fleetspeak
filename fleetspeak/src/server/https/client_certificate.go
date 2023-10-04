@@ -13,100 +13,110 @@ import (
 	"strings"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
-	log "github.com/golang/glog"
+	"github.com/golang/glog"
 )
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
-func GetClientCert(req *http.Request, hn string, frontendMode cpb.FrontendMode, chcksumHeader string) (*x509.Certificate, error) {
-	switch frontendMode {
-	case cpb.FrontendMode_MTLS:
-		if hn == "" && chcksumHeader == "" {
-			return getCertFromTLS(req)
+func GetClientCert(req *http.Request, hn string, mode cpb.FrontendMode, checksumHeader string) (*x509.Certificate, error) {
+	switch {
+	case mode == cpb.FrontendMode_MTLS && hn == "" && checksumHeader == "": 
+		return getCertFromTLS(req)
+	case mode == cpb.FrontendMode_HEADER_TLS && hn != "" && checksumHeader == "": 
+		cert, _, err := getCertFromHeader(hn, req.Header)
+		return cert, err
+	case mode == cpb.FrontendMode_HEADER_TLS_CHECKSUM && (hn != "" && checksumHeader != ""): 
+		cert, headerCert, err := getCertFromHeader(hn, req.Header)
+		if err != nil {
+			return nil, err
 		}
-	case cpb.FrontendMode_HEADER_TLS:
-		if hn != "" && chcksumHeader == "" {
-			return getCertFromHeader(hn, req.Header, "", false)
+		err = verifyCertSha256Fingerprint(headerCert, req.Header.Get(checksumHeader))
+		if err != nil {
+			return nil, err
 		}
-	case cpb.FrontendMode_HEADER_TLS_CHECKSUM:
-		if (hn != "" && chcksumHeader != "") {
-			return getCertFromHeader(hn, req.Header, chcksumHeader, true)
-		}
+		return cert, nil
 	}
-	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode=%s, clientCertHeader=%s, clientCertHeaderChecksum=%s",
-				frontendMode, hn, chcksumHeader)
+	glog.Warningln("#####################################################################")
+	glog.Warningln("# Valid combinations are:                                           #")
+	glog.Warningln("# Frontend Mode       | clientCertHeader | clientCertChecksumHeader #")
+	glog.Warningln("# ------------------------------------------------------------------#")
+	glog.Warningln("# MTLS                |       no         |           no             #")
+	glog.Warningln("# HEADER_TLS          |       yes        |           no             #")
+	glog.Warningln("# HEADER_TLS_CHECKSUM |       yes        |           yes            #")
+	glog.Warningln("###################################################################################")
+	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode=%s, clientCertHeader=%s, clientCertChecksumHeader=%s",
+				mode, hn, checksumHeader)
 }
 
+// This function is mimicking the behaviour of how the GLB7 is calculating the the cert fingerprint.
+// We can also do so on the command line using openssl to calculate the cert fingerprint.
+// openssl x509 -in mclient.crt -outform DER | openssl dgst -sha256 | cut -d ' ' -f2 | xxd -r -p - | openssl enc -a
+// For more info check out: https://gist.github.com/salrashid123/6e2a1eb9be95fb49506f1554e2d3d392
 func calcClientCertSha256(clientCert string) (string) {
 	// Decode the PEM string
-	block, _ := pem.Decode([]byte(clientCert))
-	if block == nil {
-		log.Warningln("Failed to decode PEM certificate")
+	block, rest := pem.Decode([]byte(clientCert))
+	if block == nil || len(rest) !=0 {
+		glog.Warningln("Failed to decode PEM certificate")
 		return ""
 	}
 	// Calculate the SHA-256 digest of the DER certificate
 	sha256Digest := sha256.Sum256(block.Bytes)
 
 	// Convert the SHA-256 digest to a hexadecimal string
+	// sha256HexStr equivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256
 	sha256HexStr := fmt.Sprintf("%x", sha256Digest)
 
+	// sha256Binaryequivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256 | xxd -r -p -
 	sha256Binary, err := hex.DecodeString(sha256HexStr)
 	if err != nil {
-		log.Warningf("error decoding hexdump: %v\n", err)
+		glog.Warningf("error decoding hexdump: %v\n", err)
 		return ""
 	}
 
 	// Convert the hexadecimal string to a base64 encoded string
+	// base64EncodedStr equivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256 | xxd -r -p - | openssl enc -a
 	// It also removes trailing "=" padding characters
 	base64EncodedStr := strings.TrimRight(base64.StdEncoding.EncodeToString(sha256Binary), "=")
 
-	// Rreturn the base64 encoded string
+	// Return the base64 encoded string
 	return base64EncodedStr
 }
 
-func verifyCertSha256Fingerprint(chcksumHeader string, rh http.Header, headerCert string) (error) {
-	//fmt.Println("--------------------------- received cert in header")
-	clientCertSha256Fingerprint := rh.Get(chcksumHeader)
-	if clientCertSha256Fingerprint != "" {
-		//fmt.Println("----- received client_cert_sha256_fingerprint:")
-		//fmt.Println(clientCertSha256Fingerprint)
-		calculatedClientCertSha256 := calcClientCertSha256(headerCert)
-		//fmt.Println("----- calculated client cert sha256 fingerprint:")
-		//fmt.Println(calculatedClientCertSha256)
-		if (calculatedClientCertSha256 != clientCertSha256Fingerprint) {
-			return errors.New("received client certificate checksum is invalid")
-		}
-	} else {
+func verifyCertSha256Fingerprint(headerCert string, clientCertSha256Fingerprint string) (error) {
+	if clientCertSha256Fingerprint == "" {
 		return errors.New("no client certificate checksum received in header")
 	}
+
+	calculatedClientCertSha256 := calcClientCertSha256(headerCert)
+	if (calculatedClientCertSha256 != clientCertSha256Fingerprint) {
+		return errors.New("received client certificate checksum is invalid")
+	}
+
 	return nil
 }
 
-func getCertFromHeader(hn string, rh http.Header, chcksumHeader string, verifyFingerprint bool) (*x509.Certificate, error) {
+func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, string, error) {
 	headerCert := rh.Get(hn)
 	if headerCert == "" {
-		return nil, errors.New("no certificate found in header")
+		return nil, "", errors.New("no certificate found in header")
 	}
 	// Most certificates are URL PEM encoded
 	if decodedCert, err := url.PathUnescape(headerCert); err != nil {
-		return nil, err
+		return nil, "", err
 	} else {
 		headerCert = decodedCert
 	}
 	block, rest := pem.Decode([]byte(headerCert))
 	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, errors.New("failed to decode PEM block containing certificate")
+		return nil, "", errors.New("failed to decode PEM block containing certificate")
 	}
 	if len(rest) != 0 {
-		return nil, errors.New("received more than 1 client cert")
+		return nil, "", errors.New("received more than 1 client cert")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	if verifyFingerprint {
-		err = verifyCertSha256Fingerprint(chcksumHeader, rh, headerCert)
-	}
-	return cert, err
+	return cert, headerCert, err
 }
 
 func getCertFromTLS(req *http.Request) (*x509.Certificate, error) {

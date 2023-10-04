@@ -467,6 +467,9 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
@@ -474,9 +477,6 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	cc := url.PathEscape(string(bc))
 	req.Header.Set(clientCertHeader, cc)
 	req.Header.Set(clientCertChecksumHeader, fp)
-	if err != nil {
-		t.Fatal(err)
-	}
 	req = req.WithContext(ctx)
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -485,6 +485,9 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	// Read ContactData for first exchange.
 	body := bufio.NewReader(resp.Body)
 	cd, err := readContact(body)
+	if cd == nil {
+		t.Fatalf("Read Contact returned nil: %v", err)
+	}
 	if err != nil {
 		t.Error(err)
 	}
