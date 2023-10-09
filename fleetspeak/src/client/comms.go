@@ -136,9 +136,10 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 	cfg := c.c.config.Configuration()
 
 	return comms.ServerInfo{
-		TrustedCerts: cfg.TrustedCerts,
-		Servers:      cfg.Servers,
-		Proxy:        cfg.Proxy,
+		TrustedCerts:            cfg.TrustedCerts,
+		Servers:                 cfg.Servers,
+		Proxy:                   cfg.Proxy,
+		ClientCertificateHeader: cfg.ClientCertificateHeader,
 	}, nil
 }
 

@@ -102,7 +102,7 @@ func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, 
 }
 
 func (c *StreamingCommunicator) configure() error {
-	id, tr, err := makeTransport(c.cctx, c.DialContext)
+	id, tr, certBytes, err := makeTransport(c.cctx, c.DialContext)
 	if err != nil {
 		return err
 	}
@@ -120,6 +120,8 @@ func (c *StreamingCommunicator) configure() error {
 		Transport: tr,
 		Timeout:   15 * time.Minute,
 	}
+	c.clientCertificateHeader = si.ClientCertificateHeader
+	c.certBytes = certBytes
 	return nil
 }
 

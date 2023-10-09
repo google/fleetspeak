@@ -75,6 +75,10 @@ type ServerInfo struct {
 	// If non-nil, proxy used for connecting to the server.
 	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
 	Proxy *url.URL
+
+	// If non-empty, populated with the header to use for the
+	// client certificate header
+	ClientCertificateHeader string
 }
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.
