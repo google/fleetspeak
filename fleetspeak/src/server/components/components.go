@@ -23,15 +23,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
 	"net"
 	"net/http"
 
+	"google.golang.org/grpc"
+
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
-	log "github.com/golang/glog"
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
@@ -114,9 +115,9 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			log.Warningln("####################################################################")
 		}
 		if (hcfg.FrontendMode == cpb.FrontendMode_MTLS && hcfg.ClientCertificateHeader != "") ||
-		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader =="") {
-			   return nil, fmt.Errorf("Invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s",
-						hcfg.FrontendMode, hcfg.ClientCertificateHeader)
+			(hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader == "") {
+			return nil, fmt.Errorf("Invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s",
+				hcfg.FrontendMode, hcfg.ClientCertificateHeader)
 		}
 	}
 	// Notification setup.

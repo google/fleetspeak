@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
 )
 
 var (

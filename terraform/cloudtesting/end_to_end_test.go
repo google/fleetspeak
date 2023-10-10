@@ -3,14 +3,15 @@ package cloudtesting_test
 import (
 	"flag"
 	"fmt"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 )
 
 var (

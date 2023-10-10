@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
+	"os"
+
 	frr "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr"
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
-	"net"
-	"os"
 )
 
 var (

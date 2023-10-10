@@ -16,9 +16,10 @@ package sqlite
 
 import (
 	"fmt"
-	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"path"
 	"testing"
+
+	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	log "github.com/golang/glog"
 

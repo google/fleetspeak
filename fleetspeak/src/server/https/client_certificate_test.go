@@ -81,8 +81,8 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 	cl := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:      cp,
-				Certificates: []tls.Certificate{clientCert},
+				RootCAs:            cp,
+				Certificates:       []tls.Certificate{clientCert},
 				InsecureSkipVerify: true,
 			},
 			Dial: (&net.Dialer{
@@ -108,7 +108,7 @@ func TestFrontendMode_MTLS(t *testing.T) {
 			t.Error("Expected client certificate but received none")
 		}
 		// test the invalid frontend mode combination
-		cert, err = GetClientCert(req, "", cpb.FrontendMode_HEADER_TLS)
+		_, err = GetClientCert(req, "", cpb.FrontendMode_HEADER_TLS)
 		if err == nil {
 			t.Error("Expected error for invalid frontend mode combination but received none")
 		}
@@ -116,7 +116,7 @@ func TestFrontendMode_MTLS(t *testing.T) {
 	}))
 	ts.TLS = &tls.Config{
 		ClientAuth: tls.RequireAnyClientCert,
-        }
+	}
 	ts.StartTLS()
 	defer ts.Close()
 
@@ -149,7 +149,7 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 			t.Error("Expected client certificate but received none")
 		}
 		// test the invalid frontend mode combination
-		cert, err = GetClientCert(req, clientCertHeader, cpb.FrontendMode_MTLS)
+		_, err = GetClientCert(req, clientCertHeader, cpb.FrontendMode_MTLS)
 		if err == nil {
 			t.Error("Expected error for invalid frontend mode combination but received none")
 		}
@@ -157,7 +157,7 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 	}))
 	ts.TLS = &tls.Config{
 		ClientAuth: tls.RequireAnyClientCert,
-        }
+	}
 	ts.StartTLS()
 	defer ts.Close()
 
