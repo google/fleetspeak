@@ -234,12 +234,13 @@ while time.time() - t0 < 1.:
 		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_system_cpu_rate not set: %q", om)
 	}
 
+	// We don't test for ResourceUsage.MeanResidentMemory because memory can't be queried after the
+	// process has terminated. Relying on memory usage during execution can result in "0" being
+	// recorded which would be indistinguishable from it not being set at all, resulting in a flaky
+	// test case. The fact that the other resource usage metrics have been set here is good enough.
+
 	if om.Timestamp.Seconds <= 0 {
 		t.Fatalf("unexpected output; StdinServiceOutputMessage.timestamp.seconds not set: %q", om)
-	}
-
-	if om.ResourceUsage.MeanResidentMemory <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_resident_memory not set: %q", om)
 	}
 }
 
