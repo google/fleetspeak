@@ -2,10 +2,11 @@ package proxyproto
 
 import (
 	"fmt"
-	proxyproto "github.com/pires/go-proxyproto"
 	"io"
 	"net"
 	"strconv"
+
+	proxyproto "github.com/pires/go-proxyproto"
 )
 
 func splitHostPort(addr string) (net.IP, uint16, error) {

@@ -2,11 +2,12 @@ package localtesting_test
 
 import (
 	"flag"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
-	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/setup"
+	"github.com/google/fleetspeak/fleetspeak/src/e2etesting/tests"
 )
 
 var (

@@ -34,21 +34,23 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// FrontendMode defines the connectivity setup between the Fleetspeak agents (clients) and the frontend (server).
-// It is key to Fleetspeak's design that agents connect via mTLS.
-// However, the mTLS connection can either be terminated by the Fleetspeak frontend (as per the original design)
-// or on an intermediate layer 7 load balancer.
-// Depending on the setup choose the matching mode below.
+// FrontendMode defines the connectivity setup between the Fleetspeak agents
+// (clients) and the frontend (server). It is key to Fleetspeak's design that
+// agents connect via mTLS. However, the mTLS connection can either be
+// terminated by the Fleetspeak frontend (as per the original design) or on an
+// intermediate layer 7 load balancer. Depending on the setup choose the
+// matching mode below.
 type FrontendMode int32
 
 const (
-	// In this mode Fleetspeak terminates the mTLS connection (as per original design).
-	// The Fleetspeak frontend can extract the mTLS client certificate from the HTTP
-	// request to identify client.
+	// In this mode Fleetspeak terminates the mTLS connection (as per original
+	// design). The Fleetspeak frontend can extract the mTLS client certificate
+	// from the HTTP request to identify client.
 	FrontendMode_MTLS FrontendMode = 0
 	// In this mode a layer 7 load balancer is terminating the mTLS connection.
-	// This requires the that the client certificate is delivered via a HTTP header.
-	// Use the HttpsConfig.client_certificate_header below to set the header's name.
+	// This requires the that the client certificate is delivered via a HTTP
+	// header. Use the HttpsConfig.client_certificate_header below to set the
+	// header's name.
 	FrontendMode_HEADER_TLS FrontendMode = 1
 )
 
@@ -256,16 +258,18 @@ type HttpsConfig struct {
 	// header. This should be used if TLS is terminated at the load balancer and
 	// client certificates can be passed upstream to the fleetspeak server as an
 	// http header.
-	// Note for this parameter to take effect you also need to set the frontend_mode
-	// parameter below accordingly. This is a safety net mechanism to avoid scenarios
-	// where client_certificate_header is set to non-empty unintentionally.
+	// Note for this parameter to take effect you also need to set the
+	// frontend_mode parameter below accordingly. This is a safety net mechanism
+	// to avoid scenarios where client_certificate_header is set to non-empty
+	// unintentionally.
 	ClientCertificateHeader string `protobuf:"bytes,5,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
 	// The frontend_mode parameter serves as a safety net to avoid scenarios where
 	// the client_certificate_header is set accidentially.
 	// frontend_mode defaults to mTLS where the client certificate is delivered
 	// in Fleetspeaks' original design.
 	// In case certificate delivery is desired through a HTTP header you need set
-	// both the frontend_mode and the client_certificate_header parameters accordingly.
+	// both the frontend_mode and the client_certificate_header parameters
+	// accordingly.
 	FrontendMode FrontendMode `protobuf:"varint,6,opt,name=frontend_mode,json=frontendMode,proto3,enum=fleetspeak.components.FrontendMode" json:"frontend_mode,omitempty"`
 }
 

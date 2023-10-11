@@ -11,10 +11,10 @@ openssl keys. Specifically, client creates a keypair on startup, or when asked
 to rekey. The Fleetspeak
 [`common.ClientID`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/common#ClientID)
 is the first 8 bytes of a sha256 hash of the public part of this key. It is the
-[Server Communicator's](#server-communicator) responsibility to verify the identity of
-clients. The recommended approach is to communicate over TLS using the client's
-Fleetspeak key as TLS client identification. The [`https.Communicator`
-source](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/server/https/https.go)
+[Server Communicator's](#server-communicator) responsibility to verify the
+identity of clients. The recommended approach is to communicate over TLS using
+the client's Fleetspeak key as TLS client identification. The
+[`https.Communicator` source](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/server/https/https.go)
 has an example of this.
 
 ## Messages
@@ -41,8 +41,8 @@ instantiate a
 [`server.Server`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server#Server),
 providing the components needed for your particular installation.
 
-
 ## Miniserver: An Example
+
 The
 [`miniserver`](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/demo/miniserver/miniserver.go)
 binary from the demo directory defines a Fleetspeak Server in a way suitable for
@@ -51,19 +51,19 @@ demonstrations and small installations.
 When run, the miniserver binary binds two ports, and accepts bind addresses for
 each from the command line. The `--https_addr` flag determines the interface and
 port that clients will connect to. It needs to be open to the internet, or at
-least to all Fleetspeak client machines. See [Server
-Communicator](#server-communicator), below.
+least to all Fleetspeak client machines. See
+[Server Communicator](#server-communicator), below.
 
 The `--admin_addr` flag determines the interface and port that the
 [Administrative Interface](#administrative-interface) listens on. The miniserver
 binary does not perform any authentication of administrative requests. Therefore
 access to this port needs to be limited to trusted processes.
 
-The miniserver process stores all of its state in an SQLite version 3
-database. The location of this database file is set by the flag
-`--database_path`. This file will be created if missing. After running
-miniserver, you can examine the system state using, e.g., the `sqlite3` command
-and package on Debian systems. See [Datastore](#datastore) below.
+The miniserver process stores all of its state in an SQLite version 3 database.
+The location of this database file is set by the flag `--database_path`. This
+file will be created if missing. After running miniserver, you can examine the
+system state using, e.g., the `sqlite3` command and package on Debian systems.
+See [Datastore](#datastore) below.
 
 ## Administrative Interface
 
@@ -83,7 +83,8 @@ Datastore implementation providing a view of the same database. Currently we
 provide two Datastore implementations.
 
 At a minimum, any Datastore implementation should pass the tests implemented by
-the [`dbtesting`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/dbtesting)
+the
+[`dbtesting`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/dbtesting)
 package.
 
 ### SQLite
@@ -101,6 +102,7 @@ It does not support multiple servers processes - the SQLite database file should
 only be opened by one instance of `sqlite.Datastore` at a time.
 
 ### Mysql
+
 The
 [`mysql.Datastore`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/mysql#Datastore)
 implements
@@ -129,14 +131,14 @@ reverse proxying.
 
 When messages arrive on a Fleetspeak server, they must be addressed to a
 particular service - the `destination` field as described in
-[Messages](#messages).  A Fleetspeak server runs one or more Services in order
-to handle these messages.  By configuring additional independent services a
-single Fleetspeak installation can handle messages for independent purposes.
+[Messages](#messages). A Fleetspeak server runs one or more Services in order to
+handle these messages. By configuring additional independent services a single
+Fleetspeak installation can handle messages for independent purposes.
 
 A service is configured by a
 [`fleetspeak.server.ServiceConfig`](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/server/proto/fleetspeak_server/services.proto)
-protocol buffer. Besides the name, used to address the service, the most important parameter
-is `factory`. This string is used to look up a
+protocol buffer. Besides the name, used to address the service, the most
+important parameter is `factory`. This string is used to look up a
 [`service.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/service#Factory),
 which determines what code to use to process incoming messages.
 
@@ -160,16 +162,15 @@ It expects configuration parameters to be provided in a
 protocol buffer, and the target GRPC server must implement the
 `fleetspeak.grpcservice.Processor` GRPC interface.
 
-In addition to the factory, the grpcservice package also exports a [concrete
-type](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/grpcservice#GRPCService)
+In addition to the factory, the grpcservice package also exports a
+[concrete type](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/server/grpcservice#GRPCService)
 which can be used to derive a GRPC-based service with more control over how and
 when it dials a new GRPC target.
-
 
 # Client
 
 The Fleetspeak Client is a small process which runs on an endpoint and
-communicates with a Fleetspeak Server.  Much like the server, it consists of a
+communicates with a Fleetspeak Server. Much like the server, it consists of a
 base
 [`client.Client`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client#Client)
 along with a collection of components, and individual installations may adjust
@@ -209,15 +210,17 @@ the Fleetspeak client binary as trusted.
 In addition to the security critical parameters described in the previous
 section, a Fleetspeak client normally requires a configuration directory to
 store its private key and to look for additional configuration. See the comments
-on [`config.Configuration`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/config#Configuration) for details.
+on
+[`config.Configuration`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/config#Configuration)
+for details.
 
 ## Client Communicator
 
 Every client requires a
 [`Communicator`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/comms#Communicator)
-component which handles communication with the server. This component defines how
-the client communicates with the Fleetspeak server and should agree on protocol
-with a corresponding [Server Communicator](#server-communicator).
+component which handles communication with the server. This component defines
+how the client communicates with the Fleetspeak server and should agree on
+protocol with a corresponding [Server Communicator](#server-communicator).
 
 The quintessential example is
 [`https.Communicator`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/https#Communicator)
@@ -230,10 +233,10 @@ support for specialized tunneling or proxying.
 
 When messages arrive on a Fleetspeak client, they must be addressed to a
 particular service - the `destination` field as described in
-[Messages](#messages).  A Fleetspeak client runs one or more Services in order
-to handle these messages, and create message to send to the server.  By
-configuring additional independent services a single Fleetspeak client process
-can handle messages for independent purposes.
+[Messages](#messages). A Fleetspeak client runs one or more Services in order to
+handle these messages, and create message to send to the server. By configuring
+additional independent services a single Fleetspeak client process can handle
+messages for independent purposes.
 
 A service is typically configured by dropping a
 [`fleetspeak.SignedClientServiceConfig`](https://github.com/google/fleetspeak/blob/master/fleetspeak/src/common/proto/fleetspeak/system.proto)
@@ -242,21 +245,20 @@ the most important parameter is `factory`. This string is used to look up a
 [`service.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/service#Factory),
 which determines what code to use to process incoming messages.
 
-This dropped configuration file must be signed with the deployment
-key. Therefore by controlling access to the private part of the deployment key,
-and hardcoding the public exponent into the client binary, allows an
-installation to maintain strong control over what a particular client binary is
-capable of.
+This dropped configuration file must be signed with the deployment key.
+Therefore by controlling access to the private part of the deployment key, and
+hardcoding the public exponent into the client binary, allows an installation to
+maintain strong control over what a particular client binary is capable of.
 
 ### Stdinservice
 
 The
 [`stdinservice.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/stdinservice#Factory)
 runs a binary with flags and standard input provided by a message, and returns
-the output it produces. The service configuration determines what binary to
-run. Every message received by the service causes and execution of the
-binary. The configuration used in the [`demo`
-directory](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/demo)
+the output it produces. The service configuration determines what binary to run.
+Every message received by the service causes and execution of the binary. The
+configuration used in the
+[`demo` directory](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/demo)
 sets up services based on this for the `ls` and `cat` binaries.
 
 ### Daemonservice
@@ -266,8 +268,8 @@ The
 handles the use case in which you want Fleetspeak to run a sub-process and
 send/receive [messages](#messages) to/from it. This gives full control over what
 is sent to the server, but requires more integration. The sub-process should use
-the [`daemonservice` client
-library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/daemonservice/client)
+the
+[`daemonservice` client library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/daemonservice/client)
 (currently available for go and python) to communicate through Fleetspeak.
 
 ### Socketservice
@@ -275,9 +277,9 @@ library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/
 The
 [`socketservice.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/socketservice#Factory)
 handles the use case in which you want Fleetspeak and some separately running
-process to find each other and communicate using a local filesystem path,
-e.g. through a UNIX domain socket.  Much like [`Daemonservice`](#daemonservice)
-this also gives full control over what is sent to the server and requires some
-integration. The sister process should use the [`socketservice` client
-library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/socketservice/client)
+process to find each other and communicate using a local filesystem path, e.g.
+through a UNIX domain socket. Much like [`Daemonservice`](#daemonservice) this
+also gives full control over what is sent to the server and requires some
+integration. The sister process should use the
+[`socketservice` client library](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/client/socketservice/client)
 to communicate through Fleetspeak.
