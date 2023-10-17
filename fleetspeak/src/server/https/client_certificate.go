@@ -17,37 +17,21 @@ import (
 )
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
-func GetClientCert(req *http.Request, hn string, mode cpb.FrontendMode, checksumHeader string) (*x509.Certificate, error) {
-	switch {
-	case mode == cpb.FrontendMode_MTLS && hn == "" && checksumHeader == "":
-		// If running in MTLS mode neither the client certficate nor the checksum headers should be set
+func GetClientCert(req *http.Request, frontendConfig *cpb.FrontendConfig) (*x509.Certificate, error) {
+	// Default to using mTLS if frontend_config or frontend_mode have not been set
+	if frontendConfig.GetFrontendMode() == nil {
 		return getCertFromTLS(req)
-	case mode == cpb.FrontendMode_HEADER_TLS && hn != "" && checksumHeader == "":
-		// If running in HEADER TLS mode only the client certficate header should be set
-		cert, _, err := getCertFromHeader(hn, req.Header)
-		return cert, err
-	case mode == cpb.FrontendMode_HEADER_TLS_CHECKSUM && hn != "" && checksumHeader != "":
-		// If running in HEADER TLS CHECKSUM mode both the client certficate and the checksum headers must be set
-		cert, headerCert, err := getCertFromHeader(hn, req.Header)
-		if err != nil {
-			return nil, err
-		}
-		err = verifyCertSha256Fingerprint(headerCert, req.Header.Get(checksumHeader))
-		if err != nil {
-			return nil, err
-		}
-		return cert, nil
 	}
-	log.Warningln("#####################################################################")
-	log.Warningln("# Valid combinations are:                                           #")
-	log.Warningln("# Frontend Mode       | clientCertHeader | clientCertChecksumHeader #")
-	log.Warningln("# ------------------------------------------------------------------#")
-	log.Warningln("# MTLS                |       no         |           no             #")
-	log.Warningln("# HEADER_TLS          |       yes        |           no             #")
-	log.Warningln("# HEADER_TLS_CHECKSUM |       yes        |           yes            #")
-	log.Warningln("###################################################################################")
-	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode=%s, clientCertHeader=%s, clientCertChecksumHeader=%s",
-				mode, hn, checksumHeader)
+
+	switch {
+	case frontendConfig.GetMtlsConfig() != nil:
+		return getCertFromTLS(req)
+	case frontendConfig.GetHttpsHeaderConfig() != nil:
+		return getCertFromHeader(frontendConfig.GetHttpsHeaderConfig().GetClientCertificateHeader(), req.Header)
+	}
+
+	// Given the above switch statement is exhaustive, this error should never be reached
+	return nil, errors.New("invalid frontend_config")
 }
 
 // This function is mimicking the behaviour of how the GLB7 is calculating the the cert fingerprint.
@@ -100,26 +84,26 @@ func verifyCertSha256Fingerprint(headerCert string, clientCertSha256Fingerprint 
 func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, string, error) {
 	headerCert := rh.Get(hn)
 	if headerCert == "" {
-		return nil, "", errors.New("no certificate found in header")
+		return nil, fmt.Errorf("no certificate found in header with name %q", hn)
 	}
+
+	decodedCert, err := url.PathUnescape(headerCert)
+	if err != nil {
+		return nil, err
+	}
+
 	// Most certificates are URL PEM encoded
-	if decodedCert, err := url.PathUnescape(headerCert); err != nil {
-		return nil, "", err
-	} else {
-		headerCert = decodedCert
+	block, rest := pem.Decode([]byte(decodedCert))
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block")
 	}
-	block, rest := pem.Decode([]byte(headerCert))
-	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, "", errors.New("failed to decode PEM block containing certificate")
+	if block.Type != "CERTIFICATE" {
+		return nil, errors.New("PEM block is not a certificate")
 	}
 	if len(rest) != 0 {
 		return nil, "", errors.New("received more than 1 client cert")
 	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, "", err
-	}
-	return cert, headerCert, err
+	return x509.ParseCertificate(block.Bytes)
 }
 
 func getCertFromTLS(req *http.Request) (*x509.Certificate, error) {

@@ -3,12 +3,13 @@ package tests
 import (
 	"context"
 	"fmt"
-	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
-	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
-	"google.golang.org/grpc"
 	"math/rand"
 	"testing"
 	"time"
+
+	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
+	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
+	"google.golang.org/grpc"
 )
 
 var (

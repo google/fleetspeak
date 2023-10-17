@@ -107,8 +107,8 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 	cl := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:      cp,
-				Certificates: []tls.Certificate{clientCert},
+				RootCAs:            cp,
+				Certificates:       []tls.Certificate{clientCert},
 				InsecureSkipVerify: true,
 			},
 			Dial: (&net.Dialer{
@@ -122,88 +122,40 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 	return id, &cl, bc, clientCertFingerprint
 }
 
-func TestGetClientCert(t *testing.T) {
-	tests := []struct {
-		frontendMode cpb.FrontendMode
-		clientCertHeader string
-		clientCertChecksumHeader string
-		wantCert bool
-		wantErr bool
+func TestFrontendMode_MTLS(t *testing.T) {
+	// These test cases should all make the frontend use mTLS mode
+	testCases := []struct {
+		config *cpb.FrontendConfig
 	}{
 		{
-			frontendMode: cpb.FrontendMode_MTLS,	// if the frontend mode is MTLS (original Fleetspeak design)
-			clientCertHeader: "",			// and neither the client certification header,
-			clientCertChecksumHeader: "",		// nor the client certification checksum header are set
-			wantCert: true,				// GetClientCert() returns the certificate
-			wantErr: false,				// and no error.
+			config: &cpb.FrontendConfig{
+				FrontendMode: &cpb.FrontendConfig_MtlsConfig{
+					MtlsConfig: &cpb.MTlsConfig{},
+				},
+			},
 		},
 		{
-			frontendMode: cpb.FrontendMode_MTLS,	// if the frontend mode is MTLS (original Fleetspeak design)
-			clientCertHeader: "ssl-client-cert",	// and the client certifcation header is set
-			clientCertChecksumHeader: "",		// and the client certification checksum header is not set
-			wantCert: false,			// GetClientCert() returns no certificate
-			wantErr: true,				// but returns an error.
+			config: &cpb.FrontendConfig{
+				FrontendMode: nil,
+			},
 		},
 		{
-			frontendMode: cpb.FrontendMode_MTLS,			//if the fontend mode is MTLS (original Fleetspeak design)
-			clientCertHeader: "",					// and the client certification header is not set
-			clientCertChecksumHeader: "ssl-client-cert-checksum",	// but the client certification checksum header is set
-			wantCert: false,					// GetClientCert() returns no certificate
-			wantErr: true,						// but an error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS,	// if the frontend mode is HEADER_TLS (catering for L7 load balancer)
-			clientCertHeader: "ssl-client-cert",		// and the client certification header is set
-			clientCertChecksumHeader: "",			// and the client certification checksum header is not set
-			wantCert: true,					// GetClientCert() returns the certificate
-			wantErr: false,					// and no error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS,	// if the frontend mode is HEADER_TLS (catering for L7 load balancer)
-			clientCertHeader: "",				// and neither the client certificate header is set
-			clientCertChecksumHeader: "",			// nor the client certificate checksum header is set
-			wantCert: false,				// GetClientCert() returns no certificate
-			wantErr: true,					// but an error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS,		// if the frontend mode is HEADER_TLS (catering for L7 load balancer)
-			clientCertHeader: "",					// and the client certificate header is not set
-			clientCertChecksumHeader: "ssl-client-cert-checksum",	// and the client certificate checksum header is set
-			wantCert: false,					// GetClientCert() return no certificate
-			wantErr: true,						// but an error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS_CHECKSUM,	// if the frontend mode is HEADER_TLS_CHECKSUM (catering for L7 load balancer)
-			clientCertHeader: "ssl-client-cert",			// and both the client certificate header
-			clientCertChecksumHeader: "ssl-client-cert-checksum",	// and the client certificate checksum header are set
-			wantCert: true,						// GetClientCert() returns teh certificate
-			wantErr: false,						// and no error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS_CHECKSUM,	// if the frontend mode is HEADER_TLS_CHECKSUM (catering for L7 load balancer)
-			clientCertHeader: "ssl-client-cert",			// and the client certificate header is set
-			clientCertChecksumHeader: "",				// but the client certificate checksum header is not set
-			wantCert: false,					// GetClientCert() returns no certificate
-			wantErr: true,						// but an error.
-		},
-		{
-			frontendMode: cpb.FrontendMode_HEADER_TLS_CHECKSUM,	//if the frontend mode is HEADER_TLS_CHECKSUM (catering for L7 load balancer)
-			clientCertHeader: "",					// and the client certificate header is not set
-			clientCertChecksumHeader: "ssl-client-cert-checksum",	// and the client certificate checksum header is set
-			wantCert: false,					// GetClientCert() returns no certificate
-			wantErr: true,						// but an error.
+			config: nil,
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range testCases {
 		ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			cert, err := GetClientCert(req, tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader)
-			if err != nil && !tc.wantErr {
-				t.Errorf("GetClientCert(%s, %s, %s) = _, %v; wantErr %t", tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader, err, tc.wantErr)
+			// test the valid frontend mode combination of receiving the client cert in the req
+			cert, err := GetClientCert(req, tc.config)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if cert != nil && !tc.wantCert {
-				t.Errorf("GetClientCert(%s, %s, %s) = %v, _; wantCert %t", tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader, cert, tc.wantCert)
+			// make sure we received the client cert in the req
+			if cert == nil {
+				t.Error("Expected client certificate but received none")
 			}
+			fmt.Fprintln(w, "Testing Frontend Mode: MTLS")
 		}))
 		ts.TLS = &tls.Config{
 			ClientAuth: tls.RequireAnyClientCert,
@@ -211,9 +163,33 @@ func TestGetClientCert(t *testing.T) {
 		ts.StartTLS()
 		defer ts.Close()
 
-		_, client, bc, clientCertChecksum := makeTestClient(t)
+		_, client, _ := makeTestClient(t)
 
-		req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+		res, err := client.Get(ts.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = io.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFrontendMode_HEADER_TLS(t *testing.T) {
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderConfig{
+			HttpsHeaderConfig: &cpb.HttpsHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// test the valid frontend mode combination of receiving the client cert in the header
+		cert, err := GetClientCert(req, frontendConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -221,20 +197,31 @@ func TestGetClientCert(t *testing.T) {
 		if tc.clientCertHeader != "" {
 			req.Header.Set(tc.clientCertHeader, url.PathEscape(string(bc)))
 		}
-		if tc.clientCertChecksumHeader != "" {
-			req.Header.Set(tc.clientCertChecksumHeader, clientCertChecksum)
-		}
-
-		res, err := client.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer res.Body.Close()
-
-		_, err = io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
+		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_TLS")
+	}))
+	ts.TLS = &tls.Config{
+		ClientAuth: tls.RequireAnyClientCert,
 	}
+	ts.StartTLS()
+	defer ts.Close()
 
+	_, client, bc := makeTestClient(t)
+
+	clientCert := url.PathEscape(string(bc))
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(clientCertHeader, clientCert)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	_, err = io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
