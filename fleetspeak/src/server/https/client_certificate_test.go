@@ -122,48 +122,6 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 	return id, &cl, bc, clientCertFingerprint
 }
 
-func GetClientCertTestCase(t *testing.T, frontendMode cpb.FrontendMode, clientCertHeader string, clientCertChecksumHeader string,
-		  wantCert bool, wantErr bool) () {
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		cert, err := GetClientCert(req, clientCertHeader, frontendMode, clientCertChecksumHeader)
-		if ((cert == nil) == wantCert) || ((err == nil) == wantErr) {
-			t.Errorf("GetClientCertTestCase(%s, %s, %s) got certificate: %t, error: %t, want certificate: %t, error: %t", frontendMode, clientCertHeader, clientCertChecksumHeader, (cert != nil), (err != nil), wantCert, wantErr)
-		}
-	}))
-	ts.TLS = &tls.Config{
-		ClientAuth: tls.RequireAnyClientCert,
-        }
-	ts.StartTLS()
-	defer ts.Close()
-
-	_, client, bc, clientCertChecksum := makeTestClient(t)
-
-	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if clientCertHeader != "" {
-		req.Header.Set(clientCertHeader, url.PathEscape(string(bc)))
-	}
-	if clientCertChecksumHeader != "" {
-		req.Header.Set(clientCertChecksumHeader, clientCertChecksum)
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Printf("%s", body)
-}
-
 func TestGetClientCert(t *testing.T) {
 	tests := []struct {
 		frontendMode cpb.FrontendMode
@@ -238,6 +196,45 @@ func TestGetClientCert(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		GetClientCertTestCase(t, tc.frontendMode, tc.clientCertHeader, tc.clientCertChecksumHeader, tc.wantCert, tc.wantErr)
+		ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			cert, err := GetClientCert(req, tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader)
+			if err != nil && !tc.wantErr {
+				t.Errorf("GetClientCert(%s, %s, %s) = _, %v; wantErr %t", tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader, err, tc.wantErr)
+			}
+			if cert != nil && !tc.wantCert {
+				t.Errorf("GetClientCert(%s, %s, %s) = %v, _; wantCert %t", tc.clientCertHeader, tc.frontendMode, tc.clientCertChecksumHeader, cert, tc.wantCert)
+			}
+		}))
+		ts.TLS = &tls.Config{
+			ClientAuth: tls.RequireAnyClientCert,
+		}
+		ts.StartTLS()
+		defer ts.Close()
+
+		_, client, bc, clientCertChecksum := makeTestClient(t)
+
+		req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if tc.clientCertHeader != "" {
+			req.Header.Set(tc.clientCertHeader, url.PathEscape(string(bc)))
+		}
+		if tc.clientCertChecksumHeader != "" {
+			req.Header.Set(tc.clientCertChecksumHeader, clientCertChecksum)
+		}
+
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+
+		_, err = io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
+
 }

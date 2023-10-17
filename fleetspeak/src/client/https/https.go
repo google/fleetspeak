@@ -69,7 +69,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, ci.Public, ci.Private)
 	if err != nil {
-		return common.ClientID{}, nil, certBytes, fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
+		return common.ClientID{}, nil, nil, fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
 	}
 
 	if dc == nil {

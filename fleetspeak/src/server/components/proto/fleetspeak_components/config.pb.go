@@ -274,8 +274,8 @@ type HttpsConfig struct {
 	// frontend_mode defaults to mTLS where the client certificate is delivered
 	// in Fleetspeaks' original design.
 	// In case certificate delivery is desired through a HTTP header you need set
-	// both the frontend_mode and the client_certificate_header (and for some cases
-	// the client_certificate_checksum_header) parameter accordingly.
+	// both the frontend_mode and the client_certificate_header parameters
+	// accordingly.
 	FrontendMode FrontendMode `protobuf:"varint,6,opt,name=frontend_mode,json=frontendMode,proto3,enum=fleetspeak.components.FrontendMode" json:"frontend_mode,omitempty"`
 	// If set, the server will validate the client certificate from the request
 	// header and also calculate and verify the checksum against the value provided

@@ -31,7 +31,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
-	"github.com/golang/glog"
+	log "github.com/golang/glog"
 	cauthorizer "github.com/google/fleetspeak/fleetspeak/src/server/components/authorizer"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
@@ -107,25 +107,25 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)
 		}
 		if hcfg.FrontendMode != cpb.FrontendMode_MTLS {
-			glog.Warningln("####################################################################")
-			glog.Warningln("# Note:                                                            #")
-			glog.Warningln("#  Your are running Fleetspeak in a frontend mode other than mTLS. #")
-			glog.Warningln("#  This only makes sense if you run Fleetspeak frontends behind a  #")
-			glog.Warningln("#  TLS-terminating load balancer.                                  #")
-			glog.Warningln("####################################################################")
+			log.Warningln("####################################################################")
+			log.Warningln("# Note:                                                            #")
+			log.Warningln("#  You are running Fleetspeak in a frontend mode other than mTLS.  #")
+			log.Warningln("#  This only makes sense if you run Fleetspeak frontends behind a  #")
+			log.Warningln("#  TLS-terminating load balancer.                                  #")
+			log.Warningln("####################################################################")
 		}
 		if (hcfg.FrontendMode == cpb.FrontendMode_MTLS && hcfg.ClientCertificateHeader != "") ||
 		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader == "") ||
 		   (hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS_CHECKSUM && (hcfg.ClientCertificateHeader == "" ||
 		    hcfg.ClientCertificateChecksumHeader == "")) {
-			    glog.Warningln("###################################################################################")
-			    glog.Warningln("# Valid combinations are:                                                         #")
-			    glog.Warningln("# Frontend Mode       | clientCertificateHeader | clientCertificateChecksumHeader #")
-			    glog.Warningln("# --------------------------------------------------------------------------------#")
-			    glog.Warningln("# MTLS                |           no            |                 no              #")
-			    glog.Warningln("# HEADER_TLS          |           yes           |                 no              #")
-			    glog.Warningln("# HEADER_TLS_CHECKSUM |           yes           |                 yes             #")
-			    glog.Warningln("###################################################################################")
+			    log.Warningln("###################################################################################")
+			    log.Warningln("# Valid combinations are:                                                         #")
+			    log.Warningln("# Frontend Mode       | clientCertificateHeader | clientCertificateChecksumHeader #")
+			    log.Warningln("# --------------------------------------------------------------------------------#")
+			    log.Warningln("# MTLS                |           no            |                 no              #")
+			    log.Warningln("# HEADER_TLS          |           yes           |                 no              #")
+			    log.Warningln("# HEADER_TLS_CHECKSUM |           yes           |                 yes             #")
+			    log.Warningln("###################################################################################")
 			    return nil, fmt.Errorf("invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s, clientCertificateChecksumHeader=%s",
 						   hcfg.FrontendMode, hcfg.ClientCertificateHeader, hcfg.ClientCertificateChecksumHeader)
 		}
