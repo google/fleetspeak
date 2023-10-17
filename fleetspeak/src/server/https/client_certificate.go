@@ -81,7 +81,7 @@ func verifyCertSha256Fingerprint(headerCert string, clientCertSha256Fingerprint 
 	return nil
 }
 
-func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, string, error) {
+func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, error) {
 	headerCert := rh.Get(hn)
 	if headerCert == "" {
 		return nil, fmt.Errorf("no certificate found in header with name %q", hn)
@@ -101,7 +101,7 @@ func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, string, er
 		return nil, errors.New("PEM block is not a certificate")
 	}
 	if len(rest) != 0 {
-		return nil, "", errors.New("received more than 1 client cert")
+		return nil, errors.New("received more than 1 client cert")
 	}
 	return x509.ParseCertificate(block.Bytes)
 }

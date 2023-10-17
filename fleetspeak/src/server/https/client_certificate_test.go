@@ -163,7 +163,7 @@ func TestFrontendMode_MTLS(t *testing.T) {
 		ts.StartTLS()
 		defer ts.Close()
 
-		_, client, _ := makeTestClient(t)
+		_, client, _, _ := makeTestClient(t)
 
 		res, err := client.Get(ts.URL)
 		if err != nil {
@@ -193,9 +193,9 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if tc.clientCertHeader != "" {
-			req.Header.Set(tc.clientCertHeader, url.PathEscape(string(bc)))
+		// make sure we received the client cert in the header
+		if cert == nil {
+			t.Error("Expected client certificate but received none")
 		}
 		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_TLS")
 	}))
@@ -205,7 +205,7 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 	ts.StartTLS()
 	defer ts.Close()
 
-	_, client, bc := makeTestClient(t)
+	_, client, bc, _ := makeTestClient(t)
 
 	clientCert := url.PathEscape(string(bc))
 	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)

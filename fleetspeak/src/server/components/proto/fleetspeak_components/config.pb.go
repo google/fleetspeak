@@ -453,13 +453,6 @@ func (x *HttpsConfig) GetFrontendConfig() *FrontendConfig {
 	return nil
 }
 
-func (x *HttpsConfig) GetClientCertificateChecksumHeader() string {
-	if x != nil {
-		return x.ClientCertificateChecksumHeader
-	}
-	return ""
-}
-
 type AdminConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
