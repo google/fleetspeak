@@ -97,61 +97,79 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 }
 
 func TestFrontendMode_MTLS(t *testing.T) {
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// test the valid frontend mode combination of receiving the client cert in the req
-		cert, err := GetClientCert(req, "", cpb.FrontendMode_MTLS)
+	// These test cases should all make the frontend use mTLS mode
+	testCases := []struct {
+		config *cpb.FrontendConfig
+	}{
+		{
+			config: &cpb.FrontendConfig{
+				FrontendMode: &cpb.FrontendConfig_MtlsConfig{
+					MtlsConfig: &cpb.MTlsConfig{},
+				},
+			},
+		},
+		{
+			config: &cpb.FrontendConfig{
+				FrontendMode: nil,
+			},
+		},
+		{
+			config: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// test the valid frontend mode combination of receiving the client cert in the req
+			cert, err := GetClientCert(req, tc.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// make sure we received the client cert in the req
+			if cert == nil {
+				t.Error("Expected client certificate but received none")
+			}
+			fmt.Fprintln(w, "Testing Frontend Mode: MTLS")
+		}))
+		ts.TLS = &tls.Config{
+			ClientAuth: tls.RequireAnyClientCert,
+		}
+		ts.StartTLS()
+		defer ts.Close()
+
+		_, client, _ := makeTestClient(t)
+
+		res, err := client.Get(ts.URL)
 		if err != nil {
 			t.Fatal(err)
 		}
-		// make sure we received the client cert in the req
-		if cert == nil {
-			t.Error("Expected client certificate but received none")
+
+		_, err = io.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			t.Fatal(err)
 		}
-		// test the invalid frontend mode combination
-		_, err = GetClientCert(req, "", cpb.FrontendMode_HEADER_TLS)
-		if err == nil {
-			t.Error("Expected error for invalid frontend mode combination but received none")
-		}
-		fmt.Fprintln(w, "Testing Frontend Mode: MTLS")
-	}))
-	ts.TLS = &tls.Config{
-		ClientAuth: tls.RequireAnyClientCert,
 	}
-	ts.StartTLS()
-	defer ts.Close()
-
-	_, client, _ := makeTestClient(t)
-
-	res, err := client.Get(ts.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Printf("%s", body)
 }
 
 func TestFrontendMode_HEADER_TLS(t *testing.T) {
 	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderConfig{
+			HttpsHeaderConfig: &cpb.HttpsHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// test the valid frontend mode combination of receiving the client cert in the header
-		cert, err := GetClientCert(req, clientCertHeader, cpb.FrontendMode_HEADER_TLS)
+		cert, err := GetClientCert(req, frontendConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// make sure we received the client cert in the header
 		if cert == nil {
 			t.Error("Expected client certificate but received none")
-		}
-		// test the invalid frontend mode combination
-		_, err = GetClientCert(req, clientCertHeader, cpb.FrontendMode_MTLS)
-		if err == nil {
-			t.Error("Expected error for invalid frontend mode combination but received none")
 		}
 		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_TLS")
 	}))
@@ -175,11 +193,9 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	body, err := io.ReadAll(res.Body)
+	_, err = io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Printf("%s", body)
 }

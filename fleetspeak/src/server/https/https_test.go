@@ -53,7 +53,7 @@ var (
 	serverCert []byte
 )
 
-func makeServer(t *testing.T, caseName, clientCertHeader string, frontendMode cpb.FrontendMode) (*server.Server, *sqlite.Datastore, string) {
+func makeServer(t *testing.T, caseName string, frontendConfig *cpb.FrontendConfig) (*server.Server, *sqlite.Datastore, string) {
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func makeServer(t *testing.T, caseName, clientCertHeader string, frontendMode cp
 	if err != nil {
 		t.Fatal(err)
 	}
-	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true, ClientCertHeader: clientCertHeader, FrontendMode: frontendMode})
+	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true, FrontendConfig: frontendConfig})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "Normal", "", cpb.FrontendMode_MTLS)
+	s, ds, addr := makeServer(t, "Normal", nil)
 	id, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -173,7 +173,7 @@ func TestNormalPoll(t *testing.T) {
 func TestFile(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "File", "", cpb.FrontendMode_MTLS)
+	s, ds, addr := makeServer(t, "File", nil)
 	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -243,7 +243,7 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 func TestStreaming(t *testing.T) {
 	ctx := context.Background()
 
-	s, _, addr := makeServer(t, "Streaming", "", cpb.FrontendMode_MTLS)
+	s, _, addr := makeServer(t, "Streaming", nil)
 	_, cl, _ := makeClient(t)
 	defer s.Stop()
 
@@ -304,8 +304,16 @@ func TestStreaming(t *testing.T) {
 
 func TestHeaderNormalPoll(t *testing.T) {
 	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderConfig{
+			HttpsHeaderConfig: &cpb.HttpsHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
 
-	s, ds, addr := makeServer(t, "Normal", "ssl-client-cert", cpb.FrontendMode_HEADER_TLS)
+	s, ds, addr := makeServer(t, "Normal", frontendConfig)
 	id, cl, bc := makeClient(t)
 	defer s.Stop()
 
@@ -314,7 +322,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 	req, err := http.NewRequest("POST", u.String(), nil)
 	req.Close = true
 	cc := url.PathEscape(string(bc))
-	req.Header.Set("ssl-client-cert", cc)
+	req.Header.Set(clientCertHeader, cc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,8 +357,16 @@ func TestHeaderNormalPoll(t *testing.T) {
 
 func TestHeaderStreaming(t *testing.T) {
 	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderConfig{
+			HttpsHeaderConfig: &cpb.HttpsHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
 
-	s, _, addr := makeServer(t, "Streaming", "ssl-client-cert", cpb.FrontendMode_HEADER_TLS)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
 	_, cl, bc := makeClient(t)
 	defer s.Stop()
 
@@ -375,7 +391,7 @@ func TestHeaderStreaming(t *testing.T) {
 	req.Header.Set("Expect", "100-continue")
 
 	cc := url.PathEscape(string(bc))
-	req.Header.Set("ssl-client-cert", cc)
+	req.Header.Set(clientCertHeader, cc)
 	if err != nil {
 		t.Fatal(err)
 	}

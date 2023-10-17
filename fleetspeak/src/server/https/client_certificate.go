@@ -12,40 +12,46 @@ import (
 )
 
 // GetClientCert returns the client certificate from either the request header or TLS connection state.
-func GetClientCert(req *http.Request, hn string, frontendMode cpb.FrontendMode) (*x509.Certificate, error) {
-	switch frontendMode {
-	case cpb.FrontendMode_MTLS:
-		if hn == "" {
-			return getCertFromTLS(req)
-		}
-	case cpb.FrontendMode_HEADER_TLS:
-		if hn != "" {
-			return getCertFromHeader(hn, req.Header)
-		}
+func GetClientCert(req *http.Request, frontendConfig *cpb.FrontendConfig) (*x509.Certificate, error) {
+	// Default to using mTLS if frontend_config or frontend_mode have not been set
+	if frontendConfig.GetFrontendMode() == nil {
+		return getCertFromTLS(req)
 	}
-	return nil, fmt.Errorf("received invalid frontend mode combination: frontendMode=%s, clientCertHeader=%s", frontendMode, hn)
+
+	switch {
+	case frontendConfig.GetMtlsConfig() != nil:
+		return getCertFromTLS(req)
+	case frontendConfig.GetHttpsHeaderConfig() != nil:
+		return getCertFromHeader(frontendConfig.GetHttpsHeaderConfig().GetClientCertificateHeader(), req.Header)
+	}
+
+	// Given the above switch statement is exhaustive, this error should never be reached
+	return nil, errors.New("invalid frontend_config")
 }
 
 func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, error) {
 	headerCert := rh.Get(hn)
 	if headerCert == "" {
-		return nil, errors.New("no certificate found in header")
+		return nil, fmt.Errorf("no certificate found in header with name %q", hn)
 	}
-	// Most certificates are URL PEM encoded
-	if decodedCert, err := url.PathUnescape(headerCert); err != nil {
+
+	decodedCert, err := url.PathUnescape(headerCert)
+	if err != nil {
 		return nil, err
-	} else {
-		headerCert = decodedCert
 	}
-	block, rest := pem.Decode([]byte(headerCert))
-	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, errors.New("failed to decode PEM block containing certificate")
+
+	// Most certificates are URL PEM encoded
+	block, rest := pem.Decode([]byte(decodedCert))
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block")
+	}
+	if block.Type != "CERTIFICATE" {
+		return nil, errors.New("PEM block is not a certificate")
 	}
 	if len(rest) != 0 {
 		return nil, errors.New("received more than 1 client cert")
 	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	return cert, err
+	return x509.ParseCertificate(block.Bytes)
 }
 
 func getCertFromTLS(req *http.Request) (*x509.Certificate, error) {

@@ -28,7 +28,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
@@ -96,28 +95,14 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			l = &chttps.ProxyListener{l}
 		}
 		comm, err = https.NewCommunicator(https.Params{
-			Listener:         l,
-			Cert:             []byte(hcfg.Certificates),
-			ClientCertHeader: hcfg.ClientCertificateHeader,
-			FrontendMode:     hcfg.FrontendMode,
-			Key:              []byte(hcfg.Key),
-			Streaming:        !hcfg.DisableStreaming,
+			Listener:       l,
+			Cert:           []byte(hcfg.Certificates),
+			FrontendConfig: hcfg.GetFrontendConfig(),
+			Key:            []byte(hcfg.Key),
+			Streaming:      !hcfg.DisableStreaming,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)
-		}
-		if hcfg.FrontendMode != cpb.FrontendMode_MTLS {
-			log.Warningln("####################################################################")
-			log.Warningln("# Note:                                                            #")
-			log.Warningln("#  Your are running Fleetspeak in a frontend mode other than mTLS. #")
-			log.Warningln("#  This only makes sense if you run Fleetspeak frontends behind a  #")
-			log.Warningln("#  TLS-terminating load balancer.                                  #")
-			log.Warningln("####################################################################")
-		}
-		if (hcfg.FrontendMode == cpb.FrontendMode_MTLS && hcfg.ClientCertificateHeader != "") ||
-			(hcfg.FrontendMode == cpb.FrontendMode_HEADER_TLS && hcfg.ClientCertificateHeader == "") {
-			return nil, fmt.Errorf("Invalid frontend mode combination for running Fleetspeak: frontendMode=%s, clientCertificateHeader=%s",
-				hcfg.FrontendMode, hcfg.ClientCertificateHeader)
 		}
 	}
 	// Notification setup.
