@@ -453,14 +453,20 @@ func TestHeaderStreaming(t *testing.T) {
 	resp.Body.Close()
 }
 
-/*
 func TestHeaderStreamingChecksum(t *testing.T) {
 	ctx := context.Background()
-
 	clientCertHeader := "ssl-client-cert"
 	clientCertChecksumHeader := "ssl-client-cert-checksum"
-	s, _, addr := makeServer(t, "Streaming", clientCertHeader,
-				 clientCertChecksumHeader, cpb.FrontendMode_HEADER_TLS_CHECKSUM)
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderChecksumConfig{
+			HttpsHeaderChecksumConfig: &cpb.HttpsHeaderChecksumConfig{
+				ClientCertificateHeader: clientCertHeader,
+				ClientCertificateChecksumHeader: clientCertChecksumHeader,
+			},
+		},
+	}
+
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
 	_, cl, bc, fp := makeClient(t)
 	defer s.Stop()
 
@@ -525,4 +531,3 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	bw.Close()
 	resp.Body.Close()
 }
-*/

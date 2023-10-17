@@ -40,7 +40,7 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
-func calcClientCertFingerprint(derBytes []byte) (string) {
+func calcClientCertChecksum(derBytes []byte) (string) {
         // Calculate the SHA-256 digest of the DER certificate
         sha256Digest := sha256.Sum256(derBytes)
 
@@ -97,7 +97,7 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 		t.Fatal(err)
 	}
 	bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: b})
-	clientCertFingerprint := calcClientCertFingerprint(b)
+	clientCertChecksum := calcClientCertChecksum(b)
 
 	clientCert, err := tls.X509KeyPair(bc, bk)
 	if err != nil {
@@ -119,7 +119,7 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	return id, &cl, bc, clientCertFingerprint
+	return id, &cl, bc, clientCertChecksum
 }
 
 func TestFrontendMode_MTLS(t *testing.T) {
@@ -213,6 +213,57 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set(clientCertHeader, clientCert)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	_, err = io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFrontendMode_HEADER_TLS_CHECKSUM(t *testing.T) {
+	clientCertHeader := "ssl-client-cert"
+	clientCertChecksumHeader := "ssl-client-cert-checksum"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderChecksumConfig{
+			HttpsHeaderChecksumConfig: &cpb.HttpsHeaderChecksumConfig{
+				ClientCertificateHeader: clientCertHeader,
+				ClientCertificateChecksumHeader: clientCertChecksumHeader,
+			},
+		},
+	}
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// test the valid frontend mode combination of receiving the client cert in the header
+		cert, err := GetClientCert(req, frontendConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// make sure we received the client cert in the header
+		if cert == nil {
+			t.Error("Expected client certificate but received none")
+		}
+		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_TLS_CHECKSUM")
+	}))
+	ts.TLS = &tls.Config{
+		ClientAuth: tls.RequireAnyClientCert,
+	}
+	ts.StartTLS()
+	defer ts.Close()
+
+	_, client, bc, clientCertChecksum := makeTestClient(t)
+
+	clientCert := url.PathEscape(string(bc))
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(clientCertHeader, clientCert)
+	req.Header.Set(clientCertChecksumHeader, clientCertChecksum)
 
 	res, err := client.Do(req)
 	if err != nil {

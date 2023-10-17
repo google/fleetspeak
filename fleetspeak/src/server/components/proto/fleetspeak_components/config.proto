@@ -82,7 +82,24 @@ message HttpsHeaderConfig {
   string client_certificate_header = 1;
 }
 
-// The fronted config determines how the Fleetspeak frontend communicates with
+// In this mode Fleetspeak accepts a TLS connection from an intermediate actor
+// which terminates the TLS protocol (typically a layer 7 load balancer).
+// The intermediate actor passes the client certificate it receives from the
+// original TLS connection to the frontend via an HTTP header.
+// Furthermore, the intermediate actor also passes the client certificate
+// checksum in an addtional header.
+// The Fleetspeak frontend uses the certificate and the checksum passed
+// in these headers to identify the client.
+message HttpsHeaderChecksumConfig {
+  // The name of the HTTP header set by the intermediary that contains the
+  // forwarded client certificate. Required.
+  string client_certificate_header = 1;
+  // The name of the HTTP header set by the intermediary that contains the
+  // forwarded client certificate checksum. Required.
+  string client_certificate_checksum_header = 2;
+}
+
+// The frontend config determines how the Fleetspeak frontend communicates with
 // clients and how it identifies them.
 message FrontendConfig {
   // The mode in which the frontend should operate. Defaults to MTlsConfig.
@@ -93,6 +110,7 @@ message FrontendConfig {
   oneof frontend_mode {
     MTlsConfig mtls_config = 7;
     HttpsHeaderConfig https_header_config = 8;
+    HttpsHeaderChecksumConfig https_header_checksum_config = 9;
   }
 }
 
