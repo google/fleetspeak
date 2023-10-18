@@ -47,9 +47,8 @@ type Config struct {
 	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
 	Proxy string `protobuf:"bytes,7,opt,name=proxy,proto3" json:"proxy,omitempty"`
 	// The name of the HTTP header that the client uses to pass its certificate to
-	// the server frontend for identification.
-	// Required only if the server frontend is configured to use https_header_config or
-	// https_header_checksum_config.
+	// the server frontend for identification. Required only if the server
+	// frontend is configured to use https_header_checksum_config.
 	ClientCertificateHeader string `protobuf:"bytes,8,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
 }
 
