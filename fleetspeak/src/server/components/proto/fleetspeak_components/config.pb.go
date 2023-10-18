@@ -276,22 +276,24 @@ func (x *HttpsHeaderConfig) GetClientCertificateHeader() string {
 
 // In this mode Fleetspeak accepts a TLS connection from an intermediate actor
 // which terminates the TLS protocol (typically a layer 7 load balancer).
-// The intermediate actor passes the client certificate it receives from the
-// original TLS connection to the frontend via an HTTP header.
-// Furthermore, the intermediate actor also passes the client certificate
-// checksum in an addtional header.
-// The Fleetspeak frontend uses the certificate and the checksum passed
-// in these headers to identify the client.
+// The original client passes the certificate it uses for the TLS protocol to
+// the frontend via an HTTP header.
+// The intermediate actor passes a SHA256 checksum of client certificate it
+// receives from the original TLS connection to the frontend via a second HTTP
+// header.
+// The Fleetspeak frontend uses the certificate passed passed from the client
+// to identify it, and uses the hash from the intermediate actor to verify that
+// this certificate was in fact used in the original TLS connection.
 type HttpsHeaderChecksumConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The name of the HTTP header set by the intermediary that contains the
-	// forwarded client certificate. Required.
+	// The name of the HTTP header set by the client that contains the original
+	// client certificate. Required.
 	ClientCertificateHeader string `protobuf:"bytes,1,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
 	// The name of the HTTP header set by the intermediary that contains the
-	// forwarded client certificate checksum. Required.
+	// client certificate checksum. Required.
 	ClientCertificateChecksumHeader string `protobuf:"bytes,2,opt,name=client_certificate_checksum_header,json=clientCertificateChecksumHeader,proto3" json:"client_certificate_checksum_header,omitempty"`
 }
 
