@@ -60,7 +60,7 @@ func (c *Communicator) Setup(cl comms.Context) error {
 }
 
 func (c *Communicator) configure() error {
-	id, tr, err := makeTransport(c.cctx, c.DialContext)
+	id, tr, _, err := makeTransport(c.cctx, c.DialContext)
 	if err != nil {
 		return err
 	}

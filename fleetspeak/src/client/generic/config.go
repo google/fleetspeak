@@ -72,10 +72,11 @@ func MakeConfiguration(cfg *gpb.Config) (config.Configuration, error) {
 	}
 
 	return config.Configuration{
-		TrustedCerts:       trustedCerts,
-		Servers:            cfg.Server,
-		PersistenceHandler: ph,
-		ClientLabels:       labels,
-		Proxy:              proxy,
+		TrustedCerts:            trustedCerts,
+		Servers:                 cfg.Server,
+		PersistenceHandler:      ph,
+		ClientLabels:            labels,
+		Proxy:                   proxy,
+		ClientCertificateHeader: cfg.ClientCertificateHeader,
 	}, nil
 }

@@ -71,6 +71,11 @@ type Configuration struct {
 	// If non-nil, proxy used for connecting to the server.
 	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
 	Proxy *url.URL
+
+	// If set, the server will validate the client certificate from the request header.
+	// This should be used if TLS is terminated at the load balancer and client certificates
+	// can be passed upstream to the fleetspeak server as an http header.
+	ClientCertificateHeader string
 }
 
 // PersistenceHandler manages client's configuration storage.

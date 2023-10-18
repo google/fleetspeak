@@ -95,6 +95,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	}
 
 	cert, err := GetClientCert(req, s.p.FrontendConfig)
+
 	if err != nil {
 		earlyError(err.Error(), http.StatusBadRequest)
 		return

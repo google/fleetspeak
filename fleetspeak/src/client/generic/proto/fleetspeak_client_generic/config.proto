@@ -30,6 +30,11 @@ message Config {
   // The format is a URL.
   // See https://golang.org/pkg/net/http/#Transport.Proxy for details.
   string proxy = 7;
+
+  // The name of the HTTP header that the client uses to pass its certificate to
+  // the server frontend for identification. Required only if the server
+  // frontend is configured to use https_header_checksum_config.
+  string client_certificate_header = 8;
 }
 
 message FilesystemHandler {

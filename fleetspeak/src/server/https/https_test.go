@@ -21,16 +21,21 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,7 +84,28 @@ func makeServer(t *testing.T, caseName string, frontendConfig *cpb.FrontendConfi
 	return ts.S, ts.DS, tl.Addr().String()
 }
 
-func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
+func clientCertFingerprint(derBytes []byte) string {
+	// Calculate the SHA-256 digest of the DER certificate
+	sha256Digest := sha256.Sum256(derBytes)
+
+	// Convert the SHA-256 digest to a hexadecimal string
+	sha256HexStr := fmt.Sprintf("%x", sha256Digest)
+
+	sha256Binary, err := hex.DecodeString(sha256HexStr)
+	if err != nil {
+		log.Errorf("error decoding hexdump: %v\n", err)
+		return ""
+	}
+
+	// Convert the hexadecimal string to a base64 encoded string
+	// It also removes trailing "=" padding characters
+	base64EncodedStr := strings.TrimRight(base64.StdEncoding.EncodeToString(sha256Binary), "=")
+
+	// Rreturn the base64 encoded string
+	return base64EncodedStr
+}
+
+func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte, string) {
 	// Populate a CertPool with the server's certificate.
 	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(serverCert) {
@@ -110,6 +136,7 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fp := clientCertFingerprint(b)
 	bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: b})
 
 	clientCert, err := tls.X509KeyPair(bc, bk)
@@ -131,14 +158,14 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte) {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	return id, &cl, bc
+	return id, &cl, bc, fp
 }
 
 func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
 	s, ds, addr := makeServer(t, "Normal", nil)
-	id, cl, _ := makeClient(t)
+	id, cl, _, _ := makeClient(t)
 	defer s.Stop()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
@@ -172,9 +199,8 @@ func TestNormalPoll(t *testing.T) {
 
 func TestFile(t *testing.T) {
 	ctx := context.Background()
-
 	s, ds, addr := makeServer(t, "File", nil)
-	_, cl, _ := makeClient(t)
+	_, cl, _, _ := makeClient(t)
 	defer s.Stop()
 
 	data := []byte("The quick sly fox jumped over the lazy dogs.")
@@ -242,9 +268,8 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 
 func TestStreaming(t *testing.T) {
 	ctx := context.Background()
-
 	s, _, addr := makeServer(t, "Streaming", nil)
-	_, cl, _ := makeClient(t)
+	_, cl, _, _ := makeClient(t)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -314,7 +339,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 	}
 
 	s, ds, addr := makeServer(t, "Normal", frontendConfig)
-	id, cl, bc := makeClient(t)
+	id, cl, bc, _ := makeClient(t)
 	defer s.Stop()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
@@ -367,7 +392,7 @@ func TestHeaderStreaming(t *testing.T) {
 	}
 
 	s, _, addr := makeServer(t, "Streaming", frontendConfig)
-	_, cl, bc := makeClient(t)
+	_, cl, bc, _ := makeClient(t)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -403,6 +428,85 @@ func TestHeaderStreaming(t *testing.T) {
 	// Read ContactData for first exchange.
 	body := bufio.NewReader(resp.Body)
 	cd, err := readContact(body)
+	if err != nil {
+		t.Error(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+	}
+
+	for i := uint64(1); i < 10; i++ {
+		// Write another WrappedContactData.
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		cd, err := readContact(body)
+		if err != nil {
+			t.Error(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+		}
+	}
+
+	bw.Close()
+	resp.Body.Close()
+}
+
+func TestHeaderStreamingChecksum(t *testing.T) {
+	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	clientCertChecksumHeader := "ssl-client-cert-checksum"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpsHeaderChecksumConfig{
+			HttpsHeaderChecksumConfig: &cpb.HttpsHeaderChecksumConfig{
+				ClientCertificateHeader:         clientCertHeader,
+				ClientCertificateChecksumHeader: clientCertChecksumHeader,
+			},
+		},
+	}
+
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	_, cl, bc, fp := makeClient(t)
+	defer s.Stop()
+
+	br, bw := io.Pipe()
+	go func() {
+		// First exchange - these writes must happen during the http.Client.Do call
+		// below, because the server writes headers at the end of the first message
+		// exchange.
+
+		// Start with the magic number:
+		binary.Write(bw, binary.LittleEndian, magic)
+
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, cc)
+	req.Header.Set(clientCertChecksumHeader, fp)
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	// Read ContactData for first exchange.
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if cd == nil {
+		t.Fatalf("Read Contact returned nil: %v", err)
+	}
 	if err != nil {
 		t.Error(err)
 	}

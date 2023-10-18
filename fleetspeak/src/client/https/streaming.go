@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -57,6 +58,11 @@ type StreamingCommunicator struct {
 
 	// 1 hour watchdog for server communication attempts.
 	wd *watchdog.Watchdog
+
+	// header name for the client certificate
+	clientCertificateHeader string
+
+	certBytes []byte
 }
 
 func (c *StreamingCommunicator) Setup(cl comms.Context) error {
@@ -96,7 +102,7 @@ func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, 
 }
 
 func (c *StreamingCommunicator) configure() error {
-	id, tr, err := makeTransport(c.cctx, c.DialContext)
+	id, tr, certBytes, err := makeTransport(c.cctx, c.DialContext)
 	if err != nil {
 		return err
 	}
@@ -114,6 +120,8 @@ func (c *StreamingCommunicator) configure() error {
 		Transport: tr,
 		Timeout:   15 * time.Minute,
 	}
+	c.clientCertificateHeader = si.ClientCertificateHeader
+	c.certBytes = certBytes
 	return nil
 }
 
@@ -258,6 +266,11 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
+	if c.clientCertificateHeader != "" {
+		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})
+		cc := url.PathEscape(string(bc))
+		req.Header.Set(c.clientCertificateHeader, cc)
+	}
 	req = req.WithContext(ret.ctx)
 
 	// If ctx terminates during the initial Do, we want ret.ctx to end, but

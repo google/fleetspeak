@@ -43,14 +43,14 @@ const (
 	closeWaitThreshold    = 30 * time.Second // Matches IdleTimeout in server/https.
 )
 
-func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, error) {
+func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, []byte, error) {
 	ci, err := cctx.CurrentIdentity()
 	if err != nil {
-		return common.ClientID{}, nil, err
+		return common.ClientID{}, nil, nil, err
 	}
 	si, err := cctx.ServerInfo()
 	if err != nil {
-		return common.ClientID{}, nil, err
+		return common.ClientID{}, nil, nil, err
 	}
 
 	cv := func(_ [][]byte, chains [][]*x509.Certificate) error {
@@ -69,7 +69,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, ci.Public, ci.Private)
 	if err != nil {
-		return common.ClientID{}, nil, fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
+		return common.ClientID{}, nil, nil, fmt.Errorf("unable to configure communicator, could not create client cert: %v", err)
 	}
 
 	if dc == nil {
@@ -112,7 +112,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		DialContext:           dc,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}, nil
+	}, certBytes, nil
 }
 
 // jitter adds up to 50% random jitter, and converts to time.Duration.

@@ -1,13 +1,18 @@
 package https
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
+	log "github.com/golang/glog"
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
@@ -23,10 +28,74 @@ func GetClientCert(req *http.Request, frontendConfig *cpb.FrontendConfig) (*x509
 		return getCertFromTLS(req)
 	case frontendConfig.GetHttpsHeaderConfig() != nil:
 		return getCertFromHeader(frontendConfig.GetHttpsHeaderConfig().GetClientCertificateHeader(), req.Header)
+	case frontendConfig.GetHttpsHeaderChecksumConfig() != nil:
+		cert, err := getCertFromHeader(frontendConfig.GetHttpsHeaderChecksumConfig().GetClientCertificateHeader(), req.Header)
+		if err != nil {
+			return nil, err
+		}
+		err = verifyCertSha256Checksum(req.Header.Get(frontendConfig.GetHttpsHeaderChecksumConfig().GetClientCertificateHeader()),
+			req.Header.Get(frontendConfig.GetHttpsHeaderChecksumConfig().GetClientCertificateChecksumHeader()))
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
 	}
 
 	// Given the above switch statement is exhaustive, this error should never be reached
 	return nil, errors.New("invalid frontend_config")
+}
+
+// This function is calculating the client certificate checksum in the same fashion the GLB7 does.
+// We can also do so on the command line using openssl to calculate the certificate checksum.
+// openssl x509 -in mclient.crt -outform DER | openssl dgst -sha256 | cut -d ' ' -f2 | xxd -r -p - | openssl enc -a
+// For more info check out: https://gist.github.com/salrashid123/6e2a1eb9be95fb49506f1554e2d3d392
+func calculateClientCertificateChecksum(clientCert string) string {
+	// Most certificates are URL PEM encoded
+	if decodedCert, err := url.PathUnescape(clientCert); err != nil {
+		return ""
+	} else {
+		clientCert = decodedCert
+	}
+	// Decode the PEM string
+	block, rest := pem.Decode([]byte(clientCert))
+	if block == nil || len(rest) != 0 {
+		log.Warningln("Failed to decode PEM certificate")
+		return ""
+	}
+	// Calculate the SHA-256 digest of the DER certificate
+	sha256Digest := sha256.Sum256(block.Bytes)
+
+	// Convert the SHA-256 digest to a hexadecimal string
+	// sha256HexStr equivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256
+	sha256HexStr := fmt.Sprintf("%x", sha256Digest)
+
+	// sha256Binaryequivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256 | xxd -r -p -
+	sha256Binary, err := hex.DecodeString(sha256HexStr)
+	if err != nil {
+		log.Warningf("error decoding hexdump: %v\n", err)
+		return ""
+	}
+
+	// Convert the hexadecimal string to a base64 encoded string
+	// base64EncodedStr equivalent to: openssl x509 -n mclient.crt -outform DER | openssl dgst -sha256 | xxd -r -p - | openssl enc -a
+	// It also removes trailing "=" padding characters
+	base64EncodedStr := strings.TrimRight(base64.StdEncoding.EncodeToString(sha256Binary), "=")
+
+	// Return the base64 encoded string
+	return base64EncodedStr
+}
+
+func verifyCertSha256Checksum(headerCert string, clientCertSha256Checksum string) error {
+	if clientCertSha256Checksum == "" {
+		return errors.New("no client certificate checksum received in header")
+	}
+
+	calculatedClientCertSha256 := calculateClientCertificateChecksum(headerCert)
+	if calculatedClientCertSha256 != clientCertSha256Checksum {
+		return errors.New("received client certificate checksum is invalid")
+	}
+
+	return nil
 }
 
 func getCertFromHeader(hn string, rh http.Header) (*x509.Certificate, error) {
