@@ -84,13 +84,14 @@ func (l listener) Accept() (net.Conn, error) {
 
 // Params wraps the parameters required to create an https communicator.
 type Params struct {
-	Listener           net.Listener        // Where to listen for connections, required.
-	Cert, Key          []byte              // x509 encoded certificate and matching private key, required.
-	Streaming          bool                // Whether to enable streaming communications.
-	FrontendConfig     *cpb.FrontendConfig // Configure how the frontend identifies and communicates with clients
-	StreamingLifespan  time.Duration       // Maximum time to keep a streaming connection open, defaults to 10 min.
-	StreamingCloseTime time.Duration       // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
-	StreamingJitter    time.Duration       // Maximum amount of jitter to add to StreamingLifespan.
+	Listener                    net.Listener        // Where to listen for connections, required.
+	Cert, Key                   []byte              // x509 encoded certificate and matching private key, required.
+	Streaming                   bool                // Whether to enable streaming communications.
+	FrontendConfig              *cpb.FrontendConfig // Configure how the frontend identifies and communicates with clients
+	StreamingLifespan           time.Duration       // Maximum time to keep a streaming connection open, defaults to 10 min.
+	StreamingCloseTime          time.Duration       // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
+	StreamingJitter             time.Duration       // Maximum amount of jitter to add to StreamingLifespan.
+	MaxPerClientBatchProcessors uint32              // Maximum number of concurrent processors for messages coming from a single client.
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
@@ -102,6 +103,10 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	if p.StreamingCloseTime == 0 {
 		p.StreamingCloseTime = 30 * time.Second
 	}
+	if p.MaxPerClientBatchProcessors == 0 {
+		p.MaxPerClientBatchProcessors = 10
+	}
+
 	mux := http.NewServeMux()
 	c, err := tls.X509KeyPair(p.Cert, p.Key)
 	if err != nil {
@@ -138,7 +143,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	}
 	mux.Handle("/message", messageServer{&h})
 	if p.Streaming {
-		mux.Handle("/streaming-message", streamingMessageServer{&h})
+		mux.Handle("/streaming-message", newStreamingMessageServer(&h, p.MaxPerClientBatchProcessors))
 	}
 	mux.Handle("/files/", fileServer{&h})
 

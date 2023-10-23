@@ -60,12 +60,17 @@ func writeUint32(res fullResponseWriter, i uint32) error {
 	return binary.Write(res, binary.LittleEndian, i)
 }
 
+func newStreamingMessageServer(c *Communicator, maxPerClientBatchProcessors uint32) *streamingMessageServer {
+	return &streamingMessageServer{c, maxPerClientBatchProcessors}
+}
+
 // messageServer wraps a Communicator in order to handle clients polls.
 type streamingMessageServer struct {
 	*Communicator
+	maxPerClientBatchProcessors uint32
 }
 
-func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	earlyError := func(msg string, status int) {
 		log.ErrorDepth(1, fmt.Sprintf("%s: %s", http.StatusText(status), msg))
 		s.fs.StatsCollector().ClientPoll(stats.PollInfo{
@@ -168,7 +173,7 @@ func (s streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Req
 	m.cancel()
 }
 
-func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, bool, error) {
+func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, bool, error) {
 	ctx, fin := context.WithTimeout(ctx, 3*time.Minute)
 
 	pi := stats.PollInfo{
@@ -267,7 +272,7 @@ func (s streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, 
 
 type streamManager struct {
 	ctx context.Context
-	s   streamingMessageServer
+	s   *streamingMessageServer
 
 	info *comms.ConnectionInfo
 	res  fullResponseWriter
@@ -294,7 +299,7 @@ func (m *streamManager) readLoop() {
 
 	// Number of batches from the same client that will be processed concurrently.
 	const maxBatchProcessors = 10
-	batchCh := make(chan *fspb.WrappedContactData, maxBatchProcessors)
+	batchCh := make(chan *fspb.WrappedContactData, m.s.maxPerClientBatchProcessors)
 
 	for {
 		pi, wcd, err := m.readOne()
@@ -310,19 +315,27 @@ func (m *streamManager) readLoop() {
 			return
 		}
 
+		// Increment the counter with every processed message.
+		cnt++
+
 		// This will block if number of concurrent processors is greater than maxBatchProcessors.
 		batchCh <- wcd
-		go func() {
+		// Ensure the m.out stays open while the message processing is not done.
+		m.reading.Add(1)
+		// Given that the processing is done concurrently, capture the current counter value in
+		// the function argument.
+		go func(curCnt uint64) {
+			defer m.reading.Done()
+
 			wcd := <-batchCh
 			if err := m.processOne(wcd); err != nil {
 				log.Errorf("Error processing message from %v: %v", m.info.Client.ID, err)
+				return
 			}
-		}()
+			m.out <- &fspb.ContactData{AckIndex: curCnt}
+		}(cnt)
 
 		m.s.fs.StatsCollector().ClientPoll(*pi)
-		cnt++
-
-		m.out <- &fspb.ContactData{AckIndex: cnt}
 	}
 }
 
