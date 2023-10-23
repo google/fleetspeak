@@ -16,6 +16,9 @@
 
 readonly ARGV0=${0}
 
+# Make sure Fleetspeak client and server binaries are static.
+export CGO_ENABLED=0
+
 # Get absolute path to symlink's directory
 set +e # Do not exit if readlink errors out
 SCRIPT_DIR="$(/usr/bin/dirname "$(readlink -e "${ARGV0}" 2>/dev/null)")"
