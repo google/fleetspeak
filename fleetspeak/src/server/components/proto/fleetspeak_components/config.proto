@@ -101,6 +101,43 @@ message HttpsHeaderChecksumConfig {
   string client_certificate_checksum_header = 2;
 }
 
+// In this mode Fleetspeak runs in clear text (HTTP). This for example allows
+// Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
+// offers a secure communications channel.
+// Fleetspeak accepts a TLS connection from an intermediate actor which
+// terminates the TLS protocol (typically a layer 7 load balancer).
+// The intermediate actor passes the client certificate it receives from the
+// original TLS connection to the frontend via an HTTP header.
+// The Fleetspeak frontend uses the certificate passed in this header to
+// identify the client.
+message HttpHeaderConfig {
+  // The name of the HTTP header set by the intermediary that contains the
+  // forwarded client certificate. Required.
+  string client_certificate_header = 1;
+}
+
+// In this mode Fleetspeak runs in clear text (HTTP). This for example allows
+// Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
+// offers a secure communications channel.
+// Fleetspeak accepts a TLS connection from an intermediate actor which
+// terminates the TLS protocol (typically a layer 7 load balancer).
+// The original client passes the certificate it uses for the TLS protocol to
+// the frontend via an HTTP header.
+// The intermediate actor passes a SHA256 checksum of client certificate it
+// receives from the original TLS connection to the frontend via a second HTTP
+// header.
+// The Fleetspeak frontend uses the certificate passed passed from the client
+// to identify it, and uses the hash from the intermediate actor to verify that
+// this certificate was in fact used in the original TLS connection.
+message HttpHeaderChecksumConfig {
+  // The name of the HTTP header set by the client that contains the original
+  // client certificate. Required.
+  string client_certificate_header = 1;
+  // The name of the HTTP header set by the intermediary that contains the
+  // client certificate checksum. Required.
+  string client_certificate_checksum_header = 2;
+}
+
 // The frontend config determines how the Fleetspeak frontend communicates with
 // clients and how it identifies them.
 message FrontendConfig {
@@ -113,6 +150,8 @@ message FrontendConfig {
     MTlsConfig mtls_config = 7;
     HttpsHeaderConfig https_header_config = 8;
     HttpsHeaderChecksumConfig https_header_checksum_config = 9;
+    HttpHeaderConfig http_header_config = 10;
+    HttpHeaderChecksumConfig http_header_checksum_config = 11;
   }
 }
 
