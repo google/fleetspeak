@@ -108,44 +108,47 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	}
 
 	mux := http.NewServeMux()
-	c, err := tls.X509KeyPair(p.Cert, p.Key)
-	if err != nil {
-		return nil, err
-	}
-	httpServer := http.Server{
-		Handler: mux,
-		TLSConfig: &tls.Config{
-			ClientAuth:   tls.RequestClientCert,
-			Certificates: []tls.Certificate{c},
-			CipherSuites: []uint16{
-				// We may as well allow only the strongest (as far as we can guess)
-				// ciphers. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 is
-				// required by the https library.
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
-			// Correctly implementing session tickets means sharing and rotating a
-			// secret key between servers, with implications if it leaks. Simply
-			// disable for the moment.
-			SessionTicketsDisabled: true,
-			MinVersion:             tls.VersionTLS12,
-			NextProtos:             []string{"h2"},
-		},
-		ReadTimeout:       20 * time.Minute,
-		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      20 * time.Minute,
-		IdleTimeout:       30 * time.Second,
-	}
-	if p.FrontendConfig.GetHttpHeaderConfig() != nil ||
-	   p.FrontendConfig.GetHttpHeaderChecksumConfig() != nil {
-			httpServer = http.Server{
-				Handler: mux,
-				ReadTimeout:       20 * time.Minute,
-				ReadHeaderTimeout: 10 * time.Second,
-				WriteTimeout:      20 * time.Minute,
-				IdleTimeout:       30 * time.Second,
-			}
+	var httpServer http.Server
+	switch {
+	case p.FrontendConfig.GetHttpHeaderConfig() != nil,
+	     p.FrontendConfig.GetHttpHeaderChecksumConfig() != nil:
+		httpServer = http.Server{
+			Handler: mux,
+			ReadTimeout:       20 * time.Minute,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      20 * time.Minute,
+			IdleTimeout:       30 * time.Second,
+		}
+	default:
+		c, err := tls.X509KeyPair(p.Cert, p.Key)
+		if err != nil {
+			return nil, err
+		}
+		httpServer = http.Server{
+			Handler: mux,
+			TLSConfig: &tls.Config{
+				ClientAuth:   tls.RequestClientCert,
+				Certificates: []tls.Certificate{c},
+				CipherSuites: []uint16{
+					// We may as well allow only the strongest (as far as we can guess)
+					// ciphers. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 is
+					// required by the https library.
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+				// Correctly implementing session tickets means sharing and rotating a
+				// secret key between servers, with implications if it leaks. Simply
+				// disable for the moment.
+				SessionTicketsDisabled: true,
+				MinVersion:             tls.VersionTLS12,
+				NextProtos:             []string{"h2"},
+			},
+			ReadTimeout:       20 * time.Minute,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      20 * time.Minute,
+			IdleTimeout:       30 * time.Second,
+		}
 	}
 	h := Communicator{
 		p: p,
@@ -182,8 +185,13 @@ func (c *Communicator) Setup(fs comms.Context) error {
 }
 
 func (c *Communicator) Start() error {
-	go c.serve(tls.NewListener(c.p.Listener, c.hs.TLSConfig))
-
+	switch {
+	case c.p.FrontendConfig.GetHttpHeaderConfig() != nil,
+	     c.p.FrontendConfig.GetHttpHeaderChecksumConfig() != nil:
+		go c.serve(c.p.Listener)
+	default:
+		go c.serve(tls.NewListener(c.p.Listener, c.hs.TLSConfig))
+	}
 	c.runningLock.Lock()
 	defer c.runningLock.Unlock()
 	c.running = true

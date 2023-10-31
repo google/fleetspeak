@@ -56,8 +56,18 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		return nil, errors.New("mysql_data_source_name is required")
 	}
 	hcfg := cfg.HttpsConfig
-	if hcfg != nil && (hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "") {
-		return nil, errors.New("https_config requires listen_address, certificates and key")
+	if hcfg != nil {
+		switch {
+		case hcfg.GetFrontendConfig().GetHttpHeaderConfig() != nil,
+		     hcfg.GetFrontendConfig().GetHttpHeaderChecksumConfig() != nil:
+			if hcfg.ListenAddress == "" {
+				return nil, errors.New("http_config requires listen_address")
+			}
+		default:
+			if (hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "") {
+				return nil, errors.New("https_config requires listen_address, certificates and key")
+			}
+		}
 	}
 
 	acfg := cfg.AdminConfig

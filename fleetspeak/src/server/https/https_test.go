@@ -105,7 +105,7 @@ func clientCertFingerprint(derBytes []byte) string {
 	return base64EncodedStr
 }
 
-func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte, string) {
+func makeClient(t *testing.T, doTls bool) (common.ClientID, *http.Client, []byte, string) {
 	// Populate a CertPool with the server's certificate.
 	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(serverCert) {
@@ -143,20 +143,32 @@ func makeClient(t *testing.T) (common.ClientID, *http.Client, []byte, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	cl := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:      cp,
-				Certificates: []tls.Certificate{clientCert},
+	var cl http.Client
+	if doTls {
+		cl = http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs:      cp,
+					Certificates: []tls.Certificate{clientCert},
+				},
+				Dial: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).Dial,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
 			},
-			Dial: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
+		}
+	} else {
+		cl = http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).Dial,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		}
 	}
 	return id, &cl, bc, fp
 }
@@ -165,7 +177,7 @@ func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
 	s, ds, addr := makeServer(t, "Normal", nil)
-	id, cl, _, _ := makeClient(t)
+	id, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
@@ -200,7 +212,7 @@ func TestNormalPoll(t *testing.T) {
 func TestFile(t *testing.T) {
 	ctx := context.Background()
 	s, ds, addr := makeServer(t, "File", nil)
-	_, cl, _, _ := makeClient(t)
+	_, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
 	data := []byte("The quick sly fox jumped over the lazy dogs.")
@@ -269,7 +281,7 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 func TestStreaming(t *testing.T) {
 	ctx := context.Background()
 	s, _, addr := makeServer(t, "Streaming", nil)
-	_, cl, _, _ := makeClient(t)
+	_, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -339,7 +351,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 	}
 
 	s, ds, addr := makeServer(t, "Normal", frontendConfig)
-	id, cl, bc, _ := makeClient(t)
+	id, cl, bc, _ := makeClient(t, true)
 	defer s.Stop()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
@@ -392,7 +404,7 @@ func TestHeaderStreaming(t *testing.T) {
 	}
 
 	s, _, addr := makeServer(t, "Streaming", frontendConfig)
-	_, cl, bc, _ := makeClient(t)
+	_, cl, bc, _ := makeClient(t, true)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -467,7 +479,7 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	}
 
 	s, _, addr := makeServer(t, "Streaming", frontendConfig)
-	_, cl, bc, fp := makeClient(t)
+	_, cl, bc, fp := makeClient(t, true)
 	defer s.Stop()
 
 	br, bw := io.Pipe()
@@ -485,6 +497,158 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	}()
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, cc)
+	req.Header.Set(clientCertChecksumHeader, fp)
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	// Read ContactData for first exchange.
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if cd == nil {
+		t.Fatalf("Read Contact returned nil: %v", err)
+	}
+	if err != nil {
+		t.Error(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+	}
+
+	for i := uint64(1); i < 10; i++ {
+		// Write another WrappedContactData.
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		cd, err := readContact(body)
+		if err != nil {
+			t.Error(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+		}
+	}
+
+	bw.Close()
+	resp.Body.Close()
+}
+
+func TestHttpHeaderStreaming(t *testing.T) {
+	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpHeaderConfig{
+			HttpHeaderConfig: &cpb.HttpHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
+
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	_, cl, bc, _ := makeClient(t, false)
+	defer s.Stop()
+
+	br, bw := io.Pipe()
+	go func() {
+		// First exchange - these writes must happen during the http.Client.Do call
+		// below, because the server writes headers at the end of the first message
+		// exchange.
+
+		// Start with the magic number:
+		binary.Write(bw, binary.LittleEndian, magic)
+
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	u := url.URL{Scheme: "http", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), br)
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, cc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	// Read ContactData for first exchange.
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if err != nil {
+		t.Error(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+	}
+
+	for i := uint64(1); i < 10; i++ {
+		// Write another WrappedContactData.
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		cd, err := readContact(body)
+		if err != nil {
+			t.Error(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+		}
+	}
+
+	bw.Close()
+	resp.Body.Close()
+}
+
+func TestHttpHeaderStreamingChecksum(t *testing.T) {
+	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	clientCertChecksumHeader := "ssl-client-cert-checksum"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_HttpHeaderChecksumConfig{
+			HttpHeaderChecksumConfig: &cpb.HttpHeaderChecksumConfig{
+				ClientCertificateHeader:         clientCertHeader,
+				ClientCertificateChecksumHeader: clientCertChecksumHeader,
+			},
+		},
+	}
+
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	_, cl, bc, fp := makeClient(t, false)
+	defer s.Stop()
+
+	br, bw := io.Pipe()
+	go func() {
+		// First exchange - these writes must happen during the http.Client.Do call
+		// below, because the server writes headers at the end of the first message
+		// exchange.
+
+		// Start with the magic number:
+		binary.Write(bw, binary.LittleEndian, magic)
+
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	u := url.URL{Scheme: "http", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
 	if err != nil {
 		t.Fatal(err)

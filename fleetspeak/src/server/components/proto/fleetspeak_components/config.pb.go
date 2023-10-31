@@ -343,7 +343,7 @@ func (x *HttpsHeaderChecksumConfig) GetClientCertificateChecksumHeader() string 
 	return ""
 }
 
-// In this mode Fleetspeak runs in clear text (HTTP). This for example allows
+// In this mode Fleetspeak runs in clear text (HTTP). This allows for
 // Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
 // offers a secure communications channel.
 // Fleetspeak accepts a TLS connection from an intermediate actor which
@@ -401,7 +401,7 @@ func (x *HttpHeaderConfig) GetClientCertificateHeader() string {
 	return ""
 }
 
-// In this mode Fleetspeak runs in clear text (HTTP). This for example allows
+// In this mode Fleetspeak runs in clear text (HTTP). This allows for
 // Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
 // offers a secure communications channel.
 // Fleetspeak accepts a TLS connection from an intermediate actor which
@@ -613,10 +613,12 @@ type HttpsConfig struct {
 	// "localhost:1234". Required.
 	ListenAddress string `protobuf:"bytes,1,opt,name=listen_address,json=listenAddress,proto3" json:"listen_address,omitempty"`
 	// A certificate chain which identifies the server to clients. Must lead to a
-	// certificate known to the clients. x509 format. Required.
+	// certificate known to the clients. x509 format. Required, if frontend mode is
+	// not cleartext (ie neither HttpHeaderConfig nor HttpHeaderChecksumConfig)
 	Certificates string `protobuf:"bytes,2,opt,name=certificates,proto3" json:"certificates,omitempty"`
 	// The private key used to identify the server. Must match the first entry in
-	// certificates. x509 format. Required.
+	// certificates. x509 format. Required, if frontend mode is not cleartext
+	// (ie neither HttpHeaderConfig nor HttpHeaderChecksumConfig)
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
 	// If set, disables long running (streaming) connections. This type of
 	// connection causes more active connections but can reduce database load and
