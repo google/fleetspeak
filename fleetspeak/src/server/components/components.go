@@ -58,8 +58,8 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	hcfg := cfg.HttpsConfig
 	if hcfg != nil {
 		switch {
-		case hcfg.GetFrontendConfig().GetHttpHeaderConfig() != nil,
-		     hcfg.GetFrontendConfig().GetHttpHeaderChecksumConfig() != nil:
+		case hcfg.GetFrontendConfig().GetCleartextHeaderConfig() != nil,
+		     hcfg.GetFrontendConfig().GetCleartextHeaderChecksumConfig() != nil:
 			if hcfg.ListenAddress == "" {
 				return nil, errors.New("http_config requires listen_address")
 			}

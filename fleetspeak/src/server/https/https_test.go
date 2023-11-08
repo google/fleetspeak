@@ -544,12 +544,12 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 	resp.Body.Close()
 }
 
-func TestHttpHeaderStreaming(t *testing.T) {
+func TestCleartextHeaderStreaming(t *testing.T) {
 	ctx := context.Background()
 	clientCertHeader := "ssl-client-cert"
 	frontendConfig := &cpb.FrontendConfig{
-		FrontendMode: &cpb.FrontendConfig_HttpHeaderConfig{
-			HttpHeaderConfig: &cpb.HttpHeaderConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderConfig{
+			CleartextHeaderConfig: &cpb.CleartextHeaderConfig{
 				ClientCertificateHeader: clientCertHeader,
 			},
 		},
@@ -617,13 +617,13 @@ func TestHttpHeaderStreaming(t *testing.T) {
 	resp.Body.Close()
 }
 
-func TestHttpHeaderStreamingChecksum(t *testing.T) {
+func TestCleartextHeaderStreamingChecksum(t *testing.T) {
 	ctx := context.Background()
 	clientCertHeader := "ssl-client-cert"
 	clientCertChecksumHeader := "ssl-client-cert-checksum"
 	frontendConfig := &cpb.FrontendConfig{
-		FrontendMode: &cpb.FrontendConfig_HttpHeaderChecksumConfig{
-			HttpHeaderChecksumConfig: &cpb.HttpHeaderChecksumConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderChecksumConfig{
+			CleartextHeaderChecksumConfig: &cpb.CleartextHeaderChecksumConfig{
 				ClientCertificateHeader:         clientCertHeader,
 				ClientCertificateChecksumHeader: clientCertChecksumHeader,
 			},

@@ -123,7 +123,6 @@ func makeTestClient(t *testing.T, clearText bool) (common.ClientID, *http.Client
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).Dial,
-			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		}
 	}
@@ -288,12 +287,12 @@ func TestFrontendMode_HEADER_TLS_CHECKSUM(t *testing.T) {
 	}
 }
 
-func TestFrontendMode_HEADER_HTTP(t *testing.T) {
+func TestFrontendMode_HEADER_CLEARTEXT(t *testing.T) {
 	clientCertHeader := "ssl-client-cert"
 	frontendConfig := &cpb.FrontendConfig{
-		FrontendMode: &cpb.FrontendConfig_HttpHeaderConfig{
-			HttpHeaderConfig: &cpb.HttpHeaderConfig{
-				ClientCertificateHeader:         clientCertHeader,
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderConfig{
+			CleartextHeaderConfig: &cpb.CleartextHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
 			},
 		},
 	}
@@ -333,12 +332,12 @@ func TestFrontendMode_HEADER_HTTP(t *testing.T) {
 	}
 }
 
-func TestFrontendMode_HEADER_HTTP_CHECKSUM(t *testing.T) {
+func TestFrontendMode_HEADER_CLEARTEXT_CHECKSUM(t *testing.T) {
 	clientCertHeader := "ssl-client-cert"
 	clientCertChecksumHeader := "ssl-client-cert-checksum"
 	frontendConfig := &cpb.FrontendConfig{
-		FrontendMode: &cpb.FrontendConfig_HttpHeaderChecksumConfig{
-			HttpHeaderChecksumConfig: &cpb.HttpHeaderChecksumConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderChecksumConfig{
+			CleartextHeaderChecksumConfig: &cpb.CleartextHeaderChecksumConfig{
 				ClientCertificateHeader:         clientCertHeader,
 				ClientCertificateChecksumHeader: clientCertChecksumHeader,
 			},

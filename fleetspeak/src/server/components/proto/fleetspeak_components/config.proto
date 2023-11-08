@@ -110,7 +110,7 @@ message HttpsHeaderChecksumConfig {
 // original TLS connection to the frontend via an HTTP header.
 // The Fleetspeak frontend uses the certificate passed in this header to
 // identify the client.
-message HttpHeaderConfig {
+message CleartextHeaderConfig {
   // The name of the HTTP header set by the intermediary that contains the
   // forwarded client certificate. Required.
   string client_certificate_header = 1;
@@ -129,7 +129,7 @@ message HttpHeaderConfig {
 // The Fleetspeak frontend uses the certificate passed passed from the client
 // to identify it, and uses the hash from the intermediate actor to verify that
 // this certificate was in fact used in the original TLS connection.
-message HttpHeaderChecksumConfig {
+message CleartextHeaderChecksumConfig {
   // The name of the HTTP header set by the client that contains the original
   // client certificate. Required.
   string client_certificate_header = 1;
@@ -150,8 +150,8 @@ message FrontendConfig {
     MTlsConfig mtls_config = 7;
     HttpsHeaderConfig https_header_config = 8;
     HttpsHeaderChecksumConfig https_header_checksum_config = 9;
-    HttpHeaderConfig http_header_config = 10;
-    HttpHeaderChecksumConfig http_header_checksum_config = 11;
+    CleartextHeaderConfig cleartext_header_config = 10;
+    CleartextHeaderChecksumConfig cleartext_header_checksum_config = 11;
   }
 }
 
@@ -164,12 +164,12 @@ message HttpsConfig {
 
   // A certificate chain which identifies the server to clients. Must lead to a
   // certificate known to the clients. x509 format. Required, if frontend mode is
-  // not cleartext (ie neither HttpHeaderConfig nor HttpHeaderChecksumConfig)
+  // not cleartext (ie neither CleartextHeaderConfig nor CleartextHeaderChecksumConfig)
   string certificates = 2;
 
   // The private key used to identify the server. Must match the first entry in
   // certificates. x509 format. Required, if frontend mode is not cleartext
-  // (ie neither HttpHeaderConfig nor HttpHeaderChecksumConfig)
+  // (ie neither CleartextHeaderConfig nor CleartextHeaderChecksumConfig)
   string key = 3;
 
   // If set, disables long running (streaming) connections. This type of
