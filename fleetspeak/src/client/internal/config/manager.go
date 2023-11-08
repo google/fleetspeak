@@ -28,6 +28,7 @@ import (
 
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"google.golang.org/protobuf/proto"
 
@@ -39,8 +40,9 @@ import (
 // It exports a view of the current configuration and is safe for concurrent
 // access.
 type Manager struct {
-	cfg *config.Configuration // does not change
-	cc  *clpb.CommunicatorConfig
+	cfg   *config.Configuration // does not change
+	cc    *clpb.CommunicatorConfig
+	stats stats.Collector
 
 	lock            sync.RWMutex // protects the state variables below
 	state           *clpb.ClientState
@@ -60,7 +62,9 @@ type Manager struct {
 //
 // The labels parameter defines what client labels the client should
 // report to the server.
-func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientInfoData) (*Manager, error) {
+// TODO(b/297019580): Consider defining and consuming a more specific `ConfigManagerCollector`
+// interface here, containing only the methods that Manager actually cares about.
+func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientInfoData, c stats.Collector) (*Manager, error) {
 	if cfg == nil {
 		return nil, errors.New("configuration must be provided")
 	}
@@ -77,8 +81,9 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	}
 
 	r := Manager{
-		cfg: cfg,
-		cc:  cfg.CommunicatorConfig,
+		cfg:   cfg,
+		cc:    cfg.CommunicatorConfig,
+		stats: c,
 
 		state:           &clpb.ClientState{},
 		revokedSerials:  make(map[string]bool),
@@ -174,7 +179,9 @@ func (m *Manager) Sync() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if err := m.cfg.PersistenceHandler.WriteState(m.state); err != nil {
+	err := m.cfg.PersistenceHandler.WriteState(m.state)
+	m.stats.AfterConfigSync(err)
+	if err != nil {
 		return fmt.Errorf("Failed to sync state to writeback: %v", err)
 	}
 

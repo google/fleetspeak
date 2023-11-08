@@ -33,6 +33,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/message"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/signer"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -50,6 +51,7 @@ type Components struct {
 	ServiceFactories map[string]service.Factory // Required to instantiate any local services.
 	Signers          []signer.Signer            // If set, will be given a chance to sign data before sending it to the server.
 	Filter           *flow.Filter               // If set, will be used to filter messages to the server.
+	Stats            stats.Collector
 }
 
 // A Client is an active fleetspeak client instance.
@@ -94,8 +96,12 @@ type Client struct {
 //
 // TODO: Add support for multiple Communicators.
 func New(cfg config.Configuration, cmps Components) (*Client, error) {
+	if cmps.Stats == nil {
+		cmps.Stats = stats.NoopCollector{}
+	}
+
 	configChanges := make(chan *fspb.ClientInfoData)
-	cm, err := intconfig.StartManager(&cfg, configChanges)
+	cm, err := intconfig.StartManager(&cfg, configChanges, cmps.Stats)
 	if err != nil {
 		return nil, fmt.Errorf("bad configuration: %v", err)
 	}

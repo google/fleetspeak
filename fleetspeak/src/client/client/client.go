@@ -15,6 +15,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/https"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stdinservice"
 
 	gpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
@@ -56,6 +57,7 @@ func innerMain() {
 				"Stdin":  stdinservice.Factory,
 			},
 			Communicator: com,
+			Stats:        stats.NoopCollector{},
 		})
 	if err != nil {
 		log.Exitf("Error starting client: %v", err)
