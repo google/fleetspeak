@@ -167,26 +167,33 @@ func (m *Manager) Rekey() error {
 	return nil
 }
 
-// Sync writes the current dynamic state to the writeback location. This saves the current state, so changing data (e.g. the deduplication nonces) is persisted across restarts.
-func (m *Manager) Sync() error {
+func (m *Manager) needsSync() bool {
 	m.lock.RLock()
-	d := m.dirty
-	m.lock.RUnlock()
-	if !d {
-		return nil
-	}
+	defer m.lock.RUnlock()
+	return m.dirty
+}
+
+func (m *Manager) doSync() (err error) {
+	defer func() {
+		m.stats.AfterConfigSync(err)
+	}()
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	err := m.cfg.PersistenceHandler.WriteState(m.state)
-	m.stats.AfterConfigSync(err)
-	if err != nil {
+	if err = m.cfg.PersistenceHandler.WriteState(m.state); err != nil {
 		return fmt.Errorf("Failed to sync state to writeback: %v", err)
 	}
-
 	m.dirty = false
 	return nil
+}
+
+// Sync writes the current dynamic state to the writeback location. This saves the current state, so changing data (e.g. the deduplication nonces) is persisted across restarts.
+func (m *Manager) Sync() error {
+	if !m.needsSync() {
+		return nil
+	}
+	return m.doSync()
 }
 
 // AddRevokedSerials takes a list of revoked certificate serial numbers and adds
