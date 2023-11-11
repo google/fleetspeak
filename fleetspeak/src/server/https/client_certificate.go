@@ -26,8 +26,21 @@ func GetClientCert(req *http.Request, frontendConfig *cpb.FrontendConfig) (*x509
 	switch {
 	case frontendConfig.GetMtlsConfig() != nil:
 		return getCertFromTLS(req)
+	case frontendConfig.GetCleartextHeaderConfig() != nil:
+		return getCertFromHeader(frontendConfig.GetCleartextHeaderConfig().GetClientCertificateHeader(), req.Header)
 	case frontendConfig.GetHttpsHeaderConfig() != nil:
 		return getCertFromHeader(frontendConfig.GetHttpsHeaderConfig().GetClientCertificateHeader(), req.Header)
+	case frontendConfig.GetCleartextHeaderChecksumConfig() != nil:
+		cert, err := getCertFromHeader(frontendConfig.GetCleartextHeaderChecksumConfig().GetClientCertificateHeader(), req.Header)
+		if err != nil {
+			return nil, err
+		}
+		err = verifyCertSha256Checksum(req.Header.Get(frontendConfig.GetCleartextHeaderChecksumConfig().GetClientCertificateHeader()),
+			req.Header.Get(frontendConfig.GetCleartextHeaderChecksumConfig().GetClientCertificateChecksumHeader()))
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
 	case frontendConfig.GetHttpsHeaderChecksumConfig() != nil:
 		cert, err := getCertFromHeader(frontendConfig.GetHttpsHeaderChecksumConfig().GetClientCertificateHeader(), req.Header)
 		if err != nil {

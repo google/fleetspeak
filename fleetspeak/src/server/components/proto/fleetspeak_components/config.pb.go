@@ -343,6 +343,136 @@ func (x *HttpsHeaderChecksumConfig) GetClientCertificateChecksumHeader() string 
 	return ""
 }
 
+// In this mode Fleetspeak runs in clear text (HTTP). This allows for
+// Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
+// offers a secure communications channel.
+// Fleetspeak accepts a TLS connection from an intermediate actor which
+// terminates the TLS protocol (typically a layer 7 load balancer).
+// The intermediate actor passes the client certificate it receives from the
+// original TLS connection to the frontend via an HTTP header.
+// The Fleetspeak frontend uses the certificate passed in this header to
+// identify the client.
+type CleartextHeaderConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The name of the HTTP header set by the intermediary that contains the
+	// forwarded client certificate. Required.
+	ClientCertificateHeader string `protobuf:"bytes,1,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
+}
+
+func (x *CleartextHeaderConfig) Reset() {
+	*x = CleartextHeaderConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CleartextHeaderConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleartextHeaderConfig) ProtoMessage() {}
+
+func (x *CleartextHeaderConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleartextHeaderConfig.ProtoReflect.Descriptor instead.
+func (*CleartextHeaderConfig) Descriptor() ([]byte, []int) {
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CleartextHeaderConfig) GetClientCertificateHeader() string {
+	if x != nil {
+		return x.ClientCertificateHeader
+	}
+	return ""
+}
+
+// In this mode Fleetspeak runs in clear text (HTTP). This allows for
+// Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
+// offers a secure communications channel.
+// Fleetspeak accepts a TLS connection from an intermediate actor which
+// terminates the TLS protocol (typically a layer 7 load balancer).
+// The original client passes the certificate it uses for the TLS protocol to
+// the frontend via an HTTP header.
+// The intermediate actor passes a SHA256 checksum of client certificate it
+// receives from the original TLS connection to the frontend via a second HTTP
+// header.
+// The Fleetspeak frontend uses the certificate passed passed from the client
+// to identify it, and uses the hash from the intermediate actor to verify that
+// this certificate was in fact used in the original TLS connection.
+type CleartextHeaderChecksumConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The name of the HTTP header set by the client that contains the original
+	// client certificate. Required.
+	ClientCertificateHeader string `protobuf:"bytes,1,opt,name=client_certificate_header,json=clientCertificateHeader,proto3" json:"client_certificate_header,omitempty"`
+	// The name of the HTTP header set by the intermediary that contains the
+	// client certificate checksum. Required.
+	ClientCertificateChecksumHeader string `protobuf:"bytes,2,opt,name=client_certificate_checksum_header,json=clientCertificateChecksumHeader,proto3" json:"client_certificate_checksum_header,omitempty"`
+}
+
+func (x *CleartextHeaderChecksumConfig) Reset() {
+	*x = CleartextHeaderChecksumConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CleartextHeaderChecksumConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleartextHeaderChecksumConfig) ProtoMessage() {}
+
+func (x *CleartextHeaderChecksumConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleartextHeaderChecksumConfig.ProtoReflect.Descriptor instead.
+func (*CleartextHeaderChecksumConfig) Descriptor() ([]byte, []int) {
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CleartextHeaderChecksumConfig) GetClientCertificateHeader() string {
+	if x != nil {
+		return x.ClientCertificateHeader
+	}
+	return ""
+}
+
+func (x *CleartextHeaderChecksumConfig) GetClientCertificateChecksumHeader() string {
+	if x != nil {
+		return x.ClientCertificateChecksumHeader
+	}
+	return ""
+}
+
 // The frontend config determines how the Fleetspeak frontend communicates with
 // clients and how it identifies them.
 type FrontendConfig struct {
@@ -361,13 +491,15 @@ type FrontendConfig struct {
 	//	*FrontendConfig_MtlsConfig
 	//	*FrontendConfig_HttpsHeaderConfig
 	//	*FrontendConfig_HttpsHeaderChecksumConfig
+	//	*FrontendConfig_CleartextHeaderConfig
+	//	*FrontendConfig_CleartextHeaderChecksumConfig
 	FrontendMode isFrontendConfig_FrontendMode `protobuf_oneof:"frontend_mode"`
 }
 
 func (x *FrontendConfig) Reset() {
 	*x = FrontendConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4]
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -380,7 +512,7 @@ func (x *FrontendConfig) String() string {
 func (*FrontendConfig) ProtoMessage() {}
 
 func (x *FrontendConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4]
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -393,7 +525,7 @@ func (x *FrontendConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendConfig.ProtoReflect.Descriptor instead.
 func (*FrontendConfig) Descriptor() ([]byte, []int) {
-	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{4}
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{6}
 }
 
 func (m *FrontendConfig) GetFrontendMode() isFrontendConfig_FrontendMode {
@@ -424,6 +556,20 @@ func (x *FrontendConfig) GetHttpsHeaderChecksumConfig() *HttpsHeaderChecksumConf
 	return nil
 }
 
+func (x *FrontendConfig) GetCleartextHeaderConfig() *CleartextHeaderConfig {
+	if x, ok := x.GetFrontendMode().(*FrontendConfig_CleartextHeaderConfig); ok {
+		return x.CleartextHeaderConfig
+	}
+	return nil
+}
+
+func (x *FrontendConfig) GetCleartextHeaderChecksumConfig() *CleartextHeaderChecksumConfig {
+	if x, ok := x.GetFrontendMode().(*FrontendConfig_CleartextHeaderChecksumConfig); ok {
+		return x.CleartextHeaderChecksumConfig
+	}
+	return nil
+}
+
 type isFrontendConfig_FrontendMode interface {
 	isFrontendConfig_FrontendMode()
 }
@@ -440,11 +586,23 @@ type FrontendConfig_HttpsHeaderChecksumConfig struct {
 	HttpsHeaderChecksumConfig *HttpsHeaderChecksumConfig `protobuf:"bytes,9,opt,name=https_header_checksum_config,json=httpsHeaderChecksumConfig,proto3,oneof"`
 }
 
+type FrontendConfig_CleartextHeaderConfig struct {
+	CleartextHeaderConfig *CleartextHeaderConfig `protobuf:"bytes,10,opt,name=cleartext_header_config,json=cleartextHeaderConfig,proto3,oneof"`
+}
+
+type FrontendConfig_CleartextHeaderChecksumConfig struct {
+	CleartextHeaderChecksumConfig *CleartextHeaderChecksumConfig `protobuf:"bytes,11,opt,name=cleartext_header_checksum_config,json=cleartextHeaderChecksumConfig,proto3,oneof"`
+}
+
 func (*FrontendConfig_MtlsConfig) isFrontendConfig_FrontendMode() {}
 
 func (*FrontendConfig_HttpsHeaderConfig) isFrontendConfig_FrontendMode() {}
 
 func (*FrontendConfig_HttpsHeaderChecksumConfig) isFrontendConfig_FrontendMode() {}
+
+func (*FrontendConfig_CleartextHeaderConfig) isFrontendConfig_FrontendMode() {}
+
+func (*FrontendConfig_CleartextHeaderChecksumConfig) isFrontendConfig_FrontendMode() {}
 
 type HttpsConfig struct {
 	state         protoimpl.MessageState
@@ -455,10 +613,12 @@ type HttpsConfig struct {
 	// "localhost:1234". Required.
 	ListenAddress string `protobuf:"bytes,1,opt,name=listen_address,json=listenAddress,proto3" json:"listen_address,omitempty"`
 	// A certificate chain which identifies the server to clients. Must lead to a
-	// certificate known to the clients. x509 format. Required.
+	// certificate known to the clients. x509 format. Required, if frontend mode is
+	// not cleartext (ie neither CleartextHeaderConfig nor CleartextHeaderChecksumConfig)
 	Certificates string `protobuf:"bytes,2,opt,name=certificates,proto3" json:"certificates,omitempty"`
 	// The private key used to identify the server. Must match the first entry in
-	// certificates. x509 format. Required.
+	// certificates. x509 format. Required, if frontend mode is not cleartext
+	// (ie neither CleartextHeaderConfig nor CleartextHeaderChecksumConfig)
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
 	// If set, disables long running (streaming) connections. This type of
 	// connection causes more active connections but can reduce database load and
@@ -472,7 +632,7 @@ type HttpsConfig struct {
 func (x *HttpsConfig) Reset() {
 	*x = HttpsConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[5]
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -485,7 +645,7 @@ func (x *HttpsConfig) String() string {
 func (*HttpsConfig) ProtoMessage() {}
 
 func (x *HttpsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[5]
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +658,7 @@ func (x *HttpsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HttpsConfig.ProtoReflect.Descriptor instead.
 func (*HttpsConfig) Descriptor() ([]byte, []int) {
-	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{5}
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HttpsConfig) GetListenAddress() string {
@@ -549,7 +709,7 @@ type AdminConfig struct {
 func (x *AdminConfig) Reset() {
 	*x = AdminConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6]
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -562,7 +722,7 @@ func (x *AdminConfig) String() string {
 func (*AdminConfig) ProtoMessage() {}
 
 func (x *AdminConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6]
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -575,7 +735,7 @@ func (x *AdminConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminConfig.ProtoReflect.Descriptor instead.
 func (*AdminConfig) Descriptor() ([]byte, []int) {
-	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{6}
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AdminConfig) GetListenAddress() string {
@@ -600,7 +760,7 @@ type StatsConfig struct {
 func (x *StatsConfig) Reset() {
 	*x = StatsConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[7]
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -613,7 +773,7 @@ func (x *StatsConfig) String() string {
 func (*StatsConfig) ProtoMessage() {}
 
 func (x *StatsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[7]
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -626,7 +786,7 @@ func (x *StatsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatsConfig.ProtoReflect.Descriptor instead.
 func (*StatsConfig) Descriptor() ([]byte, []int) {
-	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{7}
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StatsConfig) GetAddress() string {
@@ -649,7 +809,7 @@ type HealthCheckConfig struct {
 func (x *HealthCheckConfig) Reset() {
 	*x = HealthCheckConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[8]
+		mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -662,7 +822,7 @@ func (x *HealthCheckConfig) String() string {
 func (*HealthCheckConfig) ProtoMessage() {}
 
 func (x *HealthCheckConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[8]
+	mi := &file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,7 +835,7 @@ func (x *HealthCheckConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckConfig.ProtoReflect.Descriptor instead.
 func (*HealthCheckConfig) Descriptor() ([]byte, []int) {
-	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{8}
+	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *HealthCheckConfig) GetListenAddress() string {
@@ -750,7 +910,23 @@ var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pro
 	0x61, 0x74, 0x65, 0x5f, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x5f, 0x68, 0x65, 0x61,
 	0x64, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x1f, 0x63, 0x6c, 0x69, 0x65, 0x6e,
 	0x74, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x43, 0x68, 0x65, 0x63,
-	0x6b, 0x73, 0x75, 0x6d, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x22, 0xb8, 0x02, 0x0a, 0x0e, 0x46,
+	0x6b, 0x73, 0x75, 0x6d, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x22, 0x53, 0x0a, 0x15, 0x43, 0x6c,
+	0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x12, 0x3a, 0x0a, 0x19, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x63, 0x65,
+	0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x17, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x65,
+	0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x22,
+	0xa8, 0x01, 0x0a, 0x1d, 0x43, 0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x48, 0x65, 0x61,
+	0x64, 0x65, 0x72, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69,
+	0x67, 0x12, 0x3a, 0x0a, 0x19, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x63, 0x65, 0x72, 0x74,
+	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x17, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x65, 0x72, 0x74,
+	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x12, 0x4b, 0x0a,
+	0x22, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63,
+	0x61, 0x74, 0x65, 0x5f, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x5f, 0x68, 0x65, 0x61,
+	0x64, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x1f, 0x63, 0x6c, 0x69, 0x65, 0x6e,
+	0x74, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x43, 0x68, 0x65, 0x63,
+	0x6b, 0x73, 0x75, 0x6d, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x22, 0xa1, 0x04, 0x0a, 0x0e, 0x46,
 	0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x44, 0x0a,
 	0x0b, 0x6d, 0x74, 0x6c, 0x73, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x07, 0x20, 0x01,
 	0x28, 0x0b, 0x32, 0x21, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e,
@@ -769,39 +945,54 @@ var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pro
 	0x74, 0x70, 0x73, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75,
 	0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x00, 0x52, 0x19, 0x68, 0x74, 0x74, 0x70, 0x73,
 	0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x42, 0x0f, 0x0a, 0x0d, 0x66, 0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64,
-	0x5f, 0x6d, 0x6f, 0x64, 0x65, 0x22, 0xf3, 0x01, 0x0a, 0x0b, 0x48, 0x74, 0x74, 0x70, 0x73, 0x43,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25, 0x0a, 0x0e, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x5f,
-	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x6c,
-	0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x22, 0x0a, 0x0c,
-	0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x0c, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x73,
-	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
-	0x65, 0x79, 0x12, 0x2b, 0x0a, 0x11, 0x64, 0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x73, 0x74,
-	0x72, 0x65, 0x61, 0x6d, 0x69, 0x6e, 0x67, 0x18, 0x04, 0x20, 0x01, 0x28, 0x08, 0x52, 0x10, 0x64,
-	0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x69, 0x6e, 0x67, 0x12,
-	0x4e, 0x0a, 0x0f, 0x66, 0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64, 0x5f, 0x63, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x25, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74,
-	0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73,
-	0x2e, 0x46, 0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
-	0x0e, 0x66, 0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x4a,
-	0x04, 0x08, 0x05, 0x10, 0x06, 0x4a, 0x04, 0x08, 0x06, 0x10, 0x07, 0x22, 0x34, 0x0a, 0x0b, 0x41,
-	0x64, 0x6d, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25, 0x0a, 0x0e, 0x6c, 0x69,
-	0x73, 0x74, 0x65, 0x6e, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x0d, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x22, 0x27, 0x0a, 0x0b, 0x53, 0x74, 0x61, 0x74, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x3a, 0x0a, 0x11, 0x48, 0x65,
-	0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12,
-	0x25, 0x0a, 0x0e, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
-	0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41,
-	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x42, 0x5b, 0x5a, 0x59, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
-	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x66, 0x6c, 0x65, 0x65,
-	0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61,
-	0x6b, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6d,
-	0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x66, 0x6c,
-	0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x5f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65,
-	0x6e, 0x74, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6e, 0x66, 0x69, 0x67, 0x12, 0x66, 0x0a, 0x17, 0x63, 0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78,
+	0x74, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18,
+	0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2c, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65,
+	0x61, 0x6b, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73, 0x2e, 0x43, 0x6c,
+	0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x48, 0x00, 0x52, 0x15, 0x63, 0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74,
+	0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x7f, 0x0a, 0x20,
+	0x63, 0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72,
+	0x5f, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x18, 0x0b, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x34, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70,
+	0x65, 0x61, 0x6b, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73, 0x2e, 0x43,
+	0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43, 0x68,
+	0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x00, 0x52, 0x1d,
+	0x63, 0x6c, 0x65, 0x61, 0x72, 0x74, 0x65, 0x78, 0x74, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x43,
+	0x68, 0x65, 0x63, 0x6b, 0x73, 0x75, 0x6d, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x42, 0x0f, 0x0a,
+	0x0d, 0x66, 0x72, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x64, 0x5f, 0x6d, 0x6f, 0x64, 0x65, 0x22, 0xf3,
+	0x01, 0x0a, 0x0b, 0x48, 0x74, 0x74, 0x70, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25,
+	0x0a, 0x0e, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x22, 0x0a, 0x0c, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69,
+	0x63, 0x61, 0x74, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x63, 0x65, 0x72,
+	0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2b, 0x0a, 0x11, 0x64,
+	0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x69, 0x6e, 0x67,
+	0x18, 0x04, 0x20, 0x01, 0x28, 0x08, 0x52, 0x10, 0x64, 0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x53,
+	0x74, 0x72, 0x65, 0x61, 0x6d, 0x69, 0x6e, 0x67, 0x12, 0x4e, 0x0a, 0x0f, 0x66, 0x72, 0x6f, 0x6e,
+	0x74, 0x65, 0x6e, 0x64, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x07, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x25, 0x2e, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2e, 0x63,
+	0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73, 0x2e, 0x46, 0x72, 0x6f, 0x6e, 0x74, 0x65,
+	0x6e, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0e, 0x66, 0x72, 0x6f, 0x6e, 0x74, 0x65,
+	0x6e, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x4a, 0x04, 0x08, 0x05, 0x10, 0x06, 0x4a, 0x04,
+	0x08, 0x06, 0x10, 0x07, 0x22, 0x34, 0x0a, 0x0b, 0x41, 0x64, 0x6d, 0x69, 0x6e, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x12, 0x25, 0x0a, 0x0e, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x5f, 0x61, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x6c, 0x69, 0x73,
+	0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x27, 0x0a, 0x0b, 0x53, 0x74,
+	0x61, 0x74, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64,
+	0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72,
+	0x65, 0x73, 0x73, 0x22, 0x3a, 0x0a, 0x11, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65,
+	0x63, 0x6b, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x25, 0x0a, 0x0e, 0x6c, 0x69, 0x73, 0x74,
+	0x65, 0x6e, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0d, 0x6c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x42,
+	0x5b, 0x5a, 0x59, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f,
+	0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73,
+	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61,
+	0x6b, 0x5f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x73, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -816,32 +1007,36 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 	return file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDescData
 }
 
-var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_goTypes = []interface{}{
-	(*Config)(nil),                    // 0: fleetspeak.components.Config
-	(*MTlsConfig)(nil),                // 1: fleetspeak.components.MTlsConfig
-	(*HttpsHeaderConfig)(nil),         // 2: fleetspeak.components.HttpsHeaderConfig
-	(*HttpsHeaderChecksumConfig)(nil), // 3: fleetspeak.components.HttpsHeaderChecksumConfig
-	(*FrontendConfig)(nil),            // 4: fleetspeak.components.FrontendConfig
-	(*HttpsConfig)(nil),               // 5: fleetspeak.components.HttpsConfig
-	(*AdminConfig)(nil),               // 6: fleetspeak.components.AdminConfig
-	(*StatsConfig)(nil),               // 7: fleetspeak.components.StatsConfig
-	(*HealthCheckConfig)(nil),         // 8: fleetspeak.components.HealthCheckConfig
+	(*Config)(nil),                        // 0: fleetspeak.components.Config
+	(*MTlsConfig)(nil),                    // 1: fleetspeak.components.MTlsConfig
+	(*HttpsHeaderConfig)(nil),             // 2: fleetspeak.components.HttpsHeaderConfig
+	(*HttpsHeaderChecksumConfig)(nil),     // 3: fleetspeak.components.HttpsHeaderChecksumConfig
+	(*CleartextHeaderConfig)(nil),         // 4: fleetspeak.components.CleartextHeaderConfig
+	(*CleartextHeaderChecksumConfig)(nil), // 5: fleetspeak.components.CleartextHeaderChecksumConfig
+	(*FrontendConfig)(nil),                // 6: fleetspeak.components.FrontendConfig
+	(*HttpsConfig)(nil),                   // 7: fleetspeak.components.HttpsConfig
+	(*AdminConfig)(nil),                   // 8: fleetspeak.components.AdminConfig
+	(*StatsConfig)(nil),                   // 9: fleetspeak.components.StatsConfig
+	(*HealthCheckConfig)(nil),             // 10: fleetspeak.components.HealthCheckConfig
 }
 var file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_depIdxs = []int32{
-	5, // 0: fleetspeak.components.Config.https_config:type_name -> fleetspeak.components.HttpsConfig
-	6, // 1: fleetspeak.components.Config.admin_config:type_name -> fleetspeak.components.AdminConfig
-	7, // 2: fleetspeak.components.Config.stats_config:type_name -> fleetspeak.components.StatsConfig
-	8, // 3: fleetspeak.components.Config.health_check_config:type_name -> fleetspeak.components.HealthCheckConfig
-	1, // 4: fleetspeak.components.FrontendConfig.mtls_config:type_name -> fleetspeak.components.MTlsConfig
-	2, // 5: fleetspeak.components.FrontendConfig.https_header_config:type_name -> fleetspeak.components.HttpsHeaderConfig
-	3, // 6: fleetspeak.components.FrontendConfig.https_header_checksum_config:type_name -> fleetspeak.components.HttpsHeaderChecksumConfig
-	4, // 7: fleetspeak.components.HttpsConfig.frontend_config:type_name -> fleetspeak.components.FrontendConfig
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	7,  // 0: fleetspeak.components.Config.https_config:type_name -> fleetspeak.components.HttpsConfig
+	8,  // 1: fleetspeak.components.Config.admin_config:type_name -> fleetspeak.components.AdminConfig
+	9,  // 2: fleetspeak.components.Config.stats_config:type_name -> fleetspeak.components.StatsConfig
+	10, // 3: fleetspeak.components.Config.health_check_config:type_name -> fleetspeak.components.HealthCheckConfig
+	1,  // 4: fleetspeak.components.FrontendConfig.mtls_config:type_name -> fleetspeak.components.MTlsConfig
+	2,  // 5: fleetspeak.components.FrontendConfig.https_header_config:type_name -> fleetspeak.components.HttpsHeaderConfig
+	3,  // 6: fleetspeak.components.FrontendConfig.https_header_checksum_config:type_name -> fleetspeak.components.HttpsHeaderChecksumConfig
+	4,  // 7: fleetspeak.components.FrontendConfig.cleartext_header_config:type_name -> fleetspeak.components.CleartextHeaderConfig
+	5,  // 8: fleetspeak.components.FrontendConfig.cleartext_header_checksum_config:type_name -> fleetspeak.components.CleartextHeaderChecksumConfig
+	6,  // 9: fleetspeak.components.HttpsConfig.frontend_config:type_name -> fleetspeak.components.FrontendConfig
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_init() }
@@ -899,7 +1094,7 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FrontendConfig); i {
+			switch v := v.(*CleartextHeaderConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -911,7 +1106,7 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HttpsConfig); i {
+			switch v := v.(*CleartextHeaderChecksumConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -923,7 +1118,7 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AdminConfig); i {
+			switch v := v.(*FrontendConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -935,7 +1130,7 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StatsConfig); i {
+			switch v := v.(*HttpsConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -947,6 +1142,30 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*AdminConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StatsConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*HealthCheckConfig); i {
 			case 0:
 				return &v.state
@@ -959,10 +1178,12 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			}
 		}
 	}
-	file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[4].OneofWrappers = []interface{}{
+	file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_msgTypes[6].OneofWrappers = []interface{}{
 		(*FrontendConfig_MtlsConfig)(nil),
 		(*FrontendConfig_HttpsHeaderConfig)(nil),
 		(*FrontendConfig_HttpsHeaderChecksumConfig)(nil),
+		(*FrontendConfig_CleartextHeaderConfig)(nil),
+		(*FrontendConfig_CleartextHeaderChecksumConfig)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -970,7 +1191,7 @@ func file_fleetspeak_src_server_components_proto_fleetspeak_components_config_pr
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_fleetspeak_src_server_components_proto_fleetspeak_components_config_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

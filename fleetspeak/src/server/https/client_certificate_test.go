@@ -61,7 +61,7 @@ func calcClientCertChecksum(derBytes []byte) string {
 	return base64EncodedStr
 }
 
-func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string) {
+func makeTestClient(t *testing.T, clearText bool) (common.ClientID, *http.Client, []byte, string) {
 	serverCert, _, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -104,20 +104,30 @@ func makeTestClient(t *testing.T) (common.ClientID, *http.Client, []byte, string
 		t.Fatal(err)
 	}
 
-	cl := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:            cp,
-				Certificates:       []tls.Certificate{clientCert},
-				InsecureSkipVerify: true,
-			},
+	httpTransport := http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:            cp,
+			Certificates:       []tls.Certificate{clientCert},
+			InsecureSkipVerify: true,
+		},
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if clearText {
+		httpTransport = http.Transport{
 			Dial: (&net.Dialer{
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).Dial,
-			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-		},
+		}
+	}
+	cl := http.Client{
+		Transport: &httpTransport,
 	}
 	return id, &cl, bc, clientCertChecksum
 }
@@ -163,7 +173,7 @@ func TestFrontendMode_MTLS(t *testing.T) {
 		ts.StartTLS()
 		defer ts.Close()
 
-		_, client, _, _ := makeTestClient(t)
+		_, client, _, _ := makeTestClient(t, false)
 
 		res, err := client.Get(ts.URL)
 		if err != nil {
@@ -205,7 +215,7 @@ func TestFrontendMode_HEADER_TLS(t *testing.T) {
 	ts.StartTLS()
 	defer ts.Close()
 
-	_, client, bc, _ := makeTestClient(t)
+	_, client, bc, _ := makeTestClient(t, false)
 
 	clientCert := url.PathEscape(string(bc))
 	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
@@ -255,7 +265,100 @@ func TestFrontendMode_HEADER_TLS_CHECKSUM(t *testing.T) {
 	ts.StartTLS()
 	defer ts.Close()
 
-	_, client, bc, clientCertChecksum := makeTestClient(t)
+	_, client, bc, clientCertChecksum := makeTestClient(t, false)
+
+	clientCert := url.PathEscape(string(bc))
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(clientCertHeader, clientCert)
+	req.Header.Set(clientCertChecksumHeader, clientCertChecksum)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	_, err = io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFrontendMode_HEADER_CLEARTEXT(t *testing.T) {
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderConfig{
+			CleartextHeaderConfig: &cpb.CleartextHeaderConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// test the valid frontend mode combination of receiving the client cert in the header
+		cert, err := GetClientCert(req, frontendConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// make sure we received the client cert in the header
+		if cert == nil {
+			t.Error("Expected client certificate but received none")
+		}
+		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_HEADER")
+	}))
+	ts.Start()
+	defer ts.Close()
+
+	_, client, bc, _ := makeTestClient(t, false)
+
+	clientCert := url.PathEscape(string(bc))
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(clientCertHeader, clientCert)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	_, err = io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFrontendMode_HEADER_CLEARTEXT_CHECKSUM(t *testing.T) {
+	clientCertHeader := "ssl-client-cert"
+	clientCertChecksumHeader := "ssl-client-cert-checksum"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextHeaderChecksumConfig{
+			CleartextHeaderChecksumConfig: &cpb.CleartextHeaderChecksumConfig{
+				ClientCertificateHeader:         clientCertHeader,
+				ClientCertificateChecksumHeader: clientCertChecksumHeader,
+			},
+		},
+	}
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// test the valid frontend mode combination of receiving the client cert in the header
+		cert, err := GetClientCert(req, frontendConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// make sure we received the client cert in the header
+		if cert == nil {
+			t.Error("Expected client certificate but received none")
+		}
+		fmt.Fprintln(w, "Testing Frontend Mode: HEADER_CHECKSUM")
+	}))
+	ts.Start()
+	defer ts.Close()
+
+	_, client, bc, clientCertChecksum := makeTestClient(t, true)
 
 	clientCert := url.PathEscape(string(bc))
 	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
