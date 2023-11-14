@@ -269,7 +269,9 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 		return fmt.Errorf("Unable to marshal serverConfig: %v", err)
 	}
 	err = ioutil.WriteFile(newServerConfigPath, b, 0644)
-
+	if err != nil {
+		return fmt.Errorf("Unable to write serverConfig to file: %w", err)
+	}
 	// Server services configuration
 	serverServiceConf := spb.ServiceConfig{Name: "FRR", Factory: "GRPC"}
 	grpcConfig := &gspb.Config{Target: fmt.Sprintf("%v:%v", fsServerConfigs.host, fsServerConfigs.frontendPort), Insecure: true}
