@@ -613,8 +613,9 @@ type HttpsConfig struct {
 	// "localhost:1234". Required.
 	ListenAddress string `protobuf:"bytes,1,opt,name=listen_address,json=listenAddress,proto3" json:"listen_address,omitempty"`
 	// A certificate chain which identifies the server to clients. Must lead to a
-	// certificate known to the clients. x509 format. Required, if frontend mode is
-	// not cleartext (ie neither CleartextHeaderConfig nor CleartextHeaderChecksumConfig)
+	// certificate known to the clients. x509 format. Required, if frontend mode
+	// is not cleartext (ie neither CleartextHeaderConfig nor
+	// CleartextHeaderChecksumConfig)
 	Certificates string `protobuf:"bytes,2,opt,name=certificates,proto3" json:"certificates,omitempty"`
 	// The private key used to identify the server. Must match the first entry in
 	// certificates. x509 format. Required, if frontend mode is not cleartext
