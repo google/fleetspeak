@@ -18,7 +18,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -84,6 +83,7 @@ type Client struct {
 	config  *intconfig.Manager
 
 	processingBeacon chan struct{}
+	stats            stats.Collector
 }
 
 // New creates a new Client object based on the provided components.
@@ -129,6 +129,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		signers: cmps.Signers,
 
 		processingBeacon: make(chan struct{}, 1),
+		stats:            cmps.Stats,
 	}
 	ret.sc.client = ret
 	ret.retryLoopsDone.Add(3)
@@ -209,18 +210,24 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 // it. If m for the a server component, it will queue up the message to be
 // delivered to the server. Fleetspeak does not support direct messages from one
 // client to another.
-func (c *Client) ProcessMessage(ctx context.Context, am service.AckMessage) error {
-	id := c.config.ClientID().Bytes()
+func (c *Client) ProcessMessage(ctx context.Context, am service.AckMessage) (err error) {
 	m := am.M
+
+	var isLocal bool
+	defer func() {
+		c.stats.AfterMessageProcessed(m, isLocal, err)
+	}()
+
 	if m.Destination == nil || m.Destination.ServiceName == "" {
 		return fmt.Errorf("destination must have ServiceName, got: %v", m.Destination)
 	}
-
-	if bytes.Equal(m.Destination.ClientId, id) {
+	if clientID := m.Destination.ClientId; len(clientID) != 0 {
+		// This is a local message. No need to send it to the server.
+		isLocal = true
+		if myID := c.config.ClientID().Bytes(); !bytes.Equal(clientID, myID) {
+			return fmt.Errorf("cannot send directly to client %x from client %x", clientID, myID)
+		}
 		return c.sc.ProcessMessage(ctx, m)
-	}
-	if m.Destination.ClientId != nil {
-		return fmt.Errorf("cannot send directly to client %v from client %v", hex.EncodeToString(m.Destination.ClientId), hex.EncodeToString(id))
 	}
 
 	var out chan service.AckMessage

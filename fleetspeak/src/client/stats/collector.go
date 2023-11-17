@@ -16,13 +16,21 @@
 // statistics from a fleetspeak client.
 package stats
 
+import (
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+)
+
 // Collector is a component which is notified when certain events occur. It can be implemented with
 // different metric backends to enable monitoring of a the Fleetspeak client.
 // Implementations of this interface must be thread-safe.
 type Collector interface {
 	// AfterConfigSync is called after each config sync attempt by the config manager.
-	// error is the result of the operation.
+	// err is the result of the operation.
 	AfterConfigSync(err error)
+	// AfterMessageProcessed is called after a message is processed in the client and queued for
+	// delivery to the server or a local service.
+	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
+	AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error)
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -30,3 +38,6 @@ type NoopCollector struct{}
 
 // AfterConfigSync implements Collector by doing nothing.
 func (c NoopCollector) AfterConfigSync(err error) {}
+
+// AfterMessageProcessed implements Collector by doing nothing.
+func (c NoopCollector) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {}
