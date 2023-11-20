@@ -45,7 +45,7 @@ Full instructions for installing Docker can be found on the [Docker website](htt
 ### Install docker compose
 The examples use [Docker compose configuration version 3.8](https://docs.docker.com/compose/compose-file/compose-versioning/#version-38).
 
-You will need to a fairly recent version of [Docker Compose](https://docs.docker.com/compose/)  
+You will need to a fairly recent version of [Docker Compose](https://docs.docker.com/compose/).  
 
 ### Install Git
 The Fleetspeak project repository is managed using [Git](https://git-scm.com/).
@@ -58,4 +58,16 @@ If you have not cloned the Fleetspeak repository already, clone it with:
 
 ```
 git clone https://github.com/google/fleetspeak
+```
+
+### Create configurations
+
+```
+cd fleetspeak/docs/sandboxes
+openssl req -nodes -x509 -sha256 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -subj "/C=AU/CN=front-envoy" -addext "subjectAltName = DNS:front-envoy"
+
+FRONTEND_CERTIFICATE=$(sed ':a;N;$!ba;s/\n/\\\\n/g' cert.pem)
+FRONTEND_KEY=$(sed ':a;N;$!ba;s/\n/\\\\n/g' private-key.pem)
+sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' k8s/config/cfm-fleetspeak-frontend-components.yaml
+sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' k8s/config/cfm-fleetspeak-frontend-components.yaml
 ```

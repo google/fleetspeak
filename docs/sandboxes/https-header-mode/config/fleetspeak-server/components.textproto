@@ -1,8 +1,8 @@
 mysql_data_source_name:"fleetspeak-user:fleetspeak-password@tcp(mysql-server:3306)/fleetspeak"
 https_config: {
   listen_address: "0.0.0.0:9090"
-  certificates:"-----BEGIN CERTIFICATE-----\nMIIBxTCCAWugAwIBAgIRALbxIL3uDoN4xjoyRWG5ybcwCgYIKoZIzj0EAwIwIDEe\nMBwGA1UEAxMVRXhhbXBsZSBGbGVldHNwZWFrIENBMB4XDTIzMTExNDE0MTE0MFoX\nDTI0MTExMzE0MTE0MFowJDEiMCAGA1UEAxMZRXhhbXBsZSBGbGVldHNwZWFrIFNl\ncnZlcjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABN30OzvfqSTgLLMbHC7VGR3t\nz6q5swL6jUARUe0Kao4HRYsXIW7OJJzMrgPdYcKh4rKqAViwNx9p6DjkViJLIzaj\ngYEwfzAOBgNVHQ8BAf8EBAMCAoQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU\na7cqD/FdFWdvVUhaiAUDN4PlUDswHwYDVR0jBBgwFoAUKZASPSTN+Qkp1OapMY9c\nifx2lI8wHAYDVR0RBBUwE4IRZmxlZXRzcGVhay1zZXJ2ZXIwCgYIKoZIzj0EAwID\nSAAwRQIhALiv1TpfvNe1ptt15EDnqeqnVdmnI2qgz/IfANdXPkVYAiBeTTGrWw1L\nHXc6wW8SIYl3DomTGLyKmcznkVR+uyVCKw==\n-----END CERTIFICATE-----\n"
-  key:"-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIFzFHCcvK5aTuj+JaabXPVYSLkrTc0v73uIlq1TG20gwoAoGCCqGSM49\nAwEHoUQDQgAE3fQ7O9+pJOAssxscLtUZHe3PqrmzAvqNQBFR7QpqjgdFixchbs4k\nnMyuA91hwqHisqoBWLA3H2noOORWIksjNg==\n-----END EC PRIVATE KEY-----\n"
+  certificates:"FRONTEND_CERTIFICATE"
+  key:"FRONTEND_KEY"
   frontend_config: {
     https_header_checksum_config: {
       client_certificate_header: "client-certificate"
