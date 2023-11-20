@@ -23,7 +23,7 @@ Before you begin you will need to install the sandbox environment.
     - L7 proxy terminates mTLS connection
     - Proxy passes client side certificate and checksum via HTTP headers
     - TLS connection from proxy to Fleetspeak
-- [Cleartext header mode(./sandboxes/cleartext-header-mode)
+- [Cleartext header mode](./sandboxes/cleartext-header-mode)
      - L7 proxy terminates mTLS connection
     - Proxy passes client side certificate and checksum via HTTP headers
     - Cleartext connection from proxy to Fleetspeak
