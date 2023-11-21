@@ -18,23 +18,23 @@ services:
       timeout: 5s
       retries: 10
 
-  fleetspeak-server:
+  front-envoy:
     build:
       context: .
       dockerfile: ../shared/envoy/Dockerfile
       args:
         ENVOY_CONFIG: ./envoy-https-passthrough.yaml
-    hostname: fleetspeak-server
+    hostname: front-envoy
     ports:
     - "10003:10003"
     expose:
       - '10003'
 
-  fleetspeak-server-passthrough:
+  fleetspeak-server:
     build:
       context: .
       dockerfile: ../shared/fleetspeak-server/Dockerfile
-    hostname: fleetspeak-server-passthrough
+    hostname: fleetspeak-server
     depends_on:
       mysql-server:
         condition: service_healthy
@@ -60,7 +60,7 @@ services:
       dockerfile: ../shared/fleetspeak-client/Dockerfile
     hostname: fleetspeak-client
     depends_on:
-      fleetspeak-server-passthrough:
+      fleetspeak-server:
         condition: service_healthy
     entrypoint: ["/app/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
     volumes:

@@ -42,3 +42,6 @@ fleetspeak/client-pkg/
 
 fleetspeak/src/e2etesting/balancer/balancer
 fleetspeak/src/e2etesting/frr-master-server-main/frr_master_server_main
+
+# Ignore pki files
+*.pem

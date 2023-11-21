@@ -2,7 +2,7 @@ mysql_data_source_name:"fleetspeak-user:fleetspeak-password@tcp(mysql-server:330
 https_config: {
   listen_address: "0.0.0.0:9090"
   certificates:"FRONTEND_CERTIFICATE"
-  key:"FRONTEND_CERTIFICATE"
+  key:"FRONTEND_KEY"
 }
 admin_config: {
   listen_address: "0.0.0.0:9091"

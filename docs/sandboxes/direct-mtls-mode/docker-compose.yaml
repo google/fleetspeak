@@ -22,7 +22,7 @@ services:
     build:
       context: .
       dockerfile: ../shared/fleetspeak-server/Dockerfile
-    hostname: fleetspeak-server
+    hostname: front-envoy
     depends_on:
       mysql-server:
         condition: service_healthy
