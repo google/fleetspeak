@@ -1,4 +1,4 @@
-server: "front-envoy:10000"
+server: "fleetspeak-frontend:10000"
 client_certificate_header: "client-certificate"
 trusted_certs:"FRONTEND_CERTIFICATE"
 client_label: ""

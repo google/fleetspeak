@@ -24,7 +24,7 @@ services:
       dockerfile: ../shared/envoy/Dockerfile
       args:
         ENVOY_CONFIG: ./envoy-https-passthrough.yaml
-    hostname: front-envoy
+    hostname: fleetspeak-frontend
     ports:
     - "10003:10003"
     expose:

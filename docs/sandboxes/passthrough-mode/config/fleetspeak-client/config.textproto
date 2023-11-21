@@ -1,4 +1,4 @@
-server:"fleetspeak-server:10003"
+server:"fleetspeak-frontend:10003"
 trusted_certs:"FRONTEND_CERTIFICATE"
 client_label:""
 filesystem_handler: {
