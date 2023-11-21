@@ -41,7 +41,7 @@ docker run -it --name greeter --network cleartext-header-mode_default -p 1337:13
 export CLIENT_ID=768dbfef556d2341
 
 # Start the test app, when it runs add your input and hit enter. You should see the string being ecohed.
-/venv/FSENV/bin/python ./greeter.py --client_id="$CLIEND_ID" --fleetspeak_message_listen_address="0.0.0.0:1337" \
+/venv/FSENV/bin/python ./greeter.py --client_id=$CLIENT_ID --fleetspeak_message_listen_address="0.0.0.0:1337" \
     --fleetspeak_server="fleetspeak-server:9091" --alsologtostderr
 ```
 

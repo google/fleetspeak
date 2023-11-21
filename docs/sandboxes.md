@@ -73,7 +73,7 @@ cd -
 ### Build test app
 
 ```
-cd fleetpspeak/docs/sandboxes/greeter
+cd fleetspeak/docs/sandboxes/shared/greeter/
 docker build -t greeter .
 cd -
 ```
