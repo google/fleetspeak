@@ -2,7 +2,7 @@
 
 ## Introduction
 This sandbox demonstrates how to run Fleetspeak in 'cleartext header mode'.  
-![Cleartext Header Mode](../diagrams/cleartextHeaderMode_355.png "Cleartext Header Mode")`
+![Cleartext Header Mode](../diagrams/cleartextHeaderMode_355.png "Cleartext Header Mode")
 
 ## Setup
 Before you run the commands below make sure that you successfully executed the steps outlined in the [setup instructions](../../sandboxes.md#setup-instructions).

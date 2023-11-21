@@ -2,7 +2,7 @@
 
 ## Introduction
 This sandbox demonstrates how to run Fleetspeak in 'passthrough mode'.  
-![Passthrough Mode](../diagrams/passthroughMode_355.png "Passthrough Mode")`
+![Passthrough Mode](../diagrams/passthroughMode_355.png "Passthrough Mode")
 
 ## Setup
 Before you run the commands below make sure that you successfully executed the steps outlined in the [setup instructions](../../sandboxes.md#setup-instructions).
