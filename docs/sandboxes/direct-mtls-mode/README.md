@@ -1,8 +1,8 @@
 # Direct mTLS Mode
 
 ## Introduction
-This sandbox demonstrates how to run Fleetspeak in 'direct mTLS mode'.
-![Direct MTLS Mode](../sandboxes/diagrams/directMode_355.png "Direct MTLS Mode")`
+This sandbox demonstrates how to run Fleetspeak in 'direct mTLS mode'.  
+![Direct MTLS Mode](../diagrams/directMode_355.png "Direct MTLS Mode")`
 
 ## Setup
 Before you run the commands below make sure that you successfully executed the steps outlined in the [setup instructions](../../sandboxes.md#setup-instructions).

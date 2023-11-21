@@ -1,8 +1,8 @@
 # HTTPS Header Mode
 
 ## Introduction
-This sandbox demonstrates how to run Fleetspeak in 'https header mode'.
-![HTTPS Header Mode](../sandboxes/diagrams/httpsHeaderMode_355.png "HTTPS Header Mode")`
+This sandbox demonstrates how to run Fleetspeak in 'https header mode'.  
+![HTTPS Header Mode](../diagrams/httpsHeaderMode_355.png "HTTPS Header Mode")`
 
 ## Setup
 Before you run the commands below make sure that you successfully executed the steps outlined in the [setup instructions](../../sandboxes.md#setup-instructions).
