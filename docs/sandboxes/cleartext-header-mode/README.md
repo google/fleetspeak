@@ -9,7 +9,7 @@ In cases where the mTLS connection is terminated on a load balancer between the 
 
 This sandbox demonstrates how this can be achieved by adding the certificate into an additional header (the ```client_certificate_header``` in the diagram below).  
 
-Furthermore, this sandbox also demonstrates how the client certificate checksum (the ```client_certificate_checksum_header``` in the diagram below) that the some load balancers provide can be used to verify that the certificate received in the additional header is the same that the load balancer received during the mTLS exchange.  
+Furthermore, this sandbox also demonstrates how the client certificate checksum (the ```client_certificate_checksum_header``` in the diagram below) that the load balancers provide can be used to verify that the certificate received in the additional header is the same that the load balancer received during the mTLS exchange.  
 Additional information on how the checksum is derived from the certificate can be [found here](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-mtls-17#section-3.1).
 
 The setup in this sandbox with the Fleetspeak frontend running in cleartext mode would be useful for cases where the Fleetspeak server is operated in a Service Mesh environment.
