@@ -121,7 +121,8 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	}
 
 	if p.FrontendConfig.GetCleartextHeaderConfig() == nil &&
-		p.FrontendConfig.GetCleartextHeaderChecksumConfig() == nil {
+	   p.FrontendConfig.GetCleartextHeaderChecksumConfig() == nil &&
+	   p.FrontendConfig.GetCleartextXfccConfig() == nil {
 		c, err := tls.X509KeyPair(p.Cert, p.Key)
 		if err != nil {
 			return nil, err
@@ -177,7 +178,8 @@ func (c *Communicator) Setup(fs comms.Context) error {
 func (c *Communicator) Start() error {
 	switch {
 	case c.p.FrontendConfig.GetCleartextHeaderConfig() != nil,
-		c.p.FrontendConfig.GetCleartextHeaderChecksumConfig() != nil:
+	     c.p.FrontendConfig.GetCleartextHeaderChecksumConfig() != nil,
+	     c.p.FrontendConfig.GetCleartextXfccConfig() != nil:
 		go c.serve(c.p.Listener)
 	default:
 		go c.serve(tls.NewListener(c.p.Listener, c.hs.TLSConfig))
