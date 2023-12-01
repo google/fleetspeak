@@ -11,6 +11,9 @@ static_resources:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
           codec_type: AUTO
           stat_prefix: ingress_http
+          forward_client_cert_details: APPEND_FORWARD
+          set_current_client_cert_details:
+            cert: true
           proxy_100_continue: true
           access_log:
           - name: envoy.access_loggers.stdout
@@ -33,42 +36,6 @@ static_resources:
                   timeout: 0s
                   idle_timeout: 0s
           http_filters:
-          - name: envoy.filters.http.lua
-            typed_config:   
-              '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-              inlineCode: |
-               
-                function string.fromhex(str)
-                  return (str:gsub('..', function (cc)
-                    return string.char(tonumber(cc, 16))
-                  end))
-                end
-
-                local rtrim = function(str)
-                  if str == nil then
-                    return
-                  end
-                  str = string.gsub(str, "=+$", '')
-                  return str
-                end
-
-                function envoy_on_request(request_handle)
-                  local stream = request_handle:streamInfo()
-                  local headers = request_handle:headers()  
-                  if stream:downstreamSslConnection():peerCertificatePresented() then
-                    local peerCertificate = stream:downstreamSslConnection():urlEncodedPemEncodedPeerCertificate()
-                    request_handle:logInfo("Peer Certificate: "..peerCertificate)
-                    
-                    local peerDigest = stream:downstreamSslConnection():sha256PeerCertificateDigest()
-                    request_handle:logInfo("Peer Digest: "..peerDigest)
-                    
-                    local base64Encoded = rtrim(request_handle:base64Escape(peerDigest:fromhex()))
-                    request_handle:logInfo("Peer base64: "..base64Encoded)
-                    request_handle:headers():add("x-client-cert-hash", base64Encoded)
-                  else 
-                    request_handle:respond({[":status"] = "403"},"mTLS Required")
-                  end
-                end 
           - name: envoy.filters.http.router
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -107,7 +74,3 @@ static_resources:
               socket_address:
                 address: fleetspeak-server
                 port_value: 9090
-    transport_socket:
-      name: envoy.transport_sockets.tls
-      typed_config:
-        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext

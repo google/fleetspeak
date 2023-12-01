@@ -1,0 +1,25 @@
+configuration_name: "Example"
+
+components_config {
+
+  mysql_data_source_name: "fleetspeak-user:fleetspeak-password@tcp(mysql-server:3306)/fleetspeak"
+
+  https_config {
+    listen_address: "fleetspeak-server:9090"
+  }
+
+  admin_config {
+    listen_address: "fleetspeak-server:9091"
+  }
+}
+
+public_host_port: "fleetspeak-server:9090"
+
+trusted_cert_file: "/config/fleetspeak-server/ca.pem"
+trusted_cert_key_file: "/config/fleetspeak-server/ca-key.pem"
+
+server_cert_file: "/config/fleetspeak-server/server.pem"
+server_cert_key_file: "/config/fleetspeak-server/server-key.pem"
+
+server_component_configuration_file: "/config/fleetspeak-server/components.textproto"
+linux_client_configuration_file: "/config/fleetspeak-client/config.textproto"

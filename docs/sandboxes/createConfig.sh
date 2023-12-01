@@ -14,21 +14,25 @@ FRONTEND_CERTIFICATE=$(sed ':a;N;$!ba;s/\n/\\\\n/g' cert.pem)
 FRONTEND_KEY=$(sed ':a;N;$!ba;s/\n/\\\\n/g' key.pem)
 
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./cleartext-header-mode/config/fleetspeak-client/config.textproto
+sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./cleartext-xfcc-mode/config/fleetspeak-client/config.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./direct-mtls-mode/config/fleetspeak-client/config.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./https-header-mode/config/fleetspeak-client/config.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./passthrough-mode/config/fleetspeak-client/config.textproto
 
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./cleartext-header-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./cleartext-xfcc-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./direct-mtls-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./https-header-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_CERTIFICATE@'"$FRONTEND_CERTIFICATE"'@' ./passthrough-mode/config/fleetspeak-server/components.textproto
 
 sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' ./cleartext-header-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' ./cleartext-xfcc-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' ./direct-mtls-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' ./https-header-mode/config/fleetspeak-server/components.textproto
 sed -i 's@FRONTEND_KEY@'"$FRONTEND_KEY"'@' ./passthrough-mode/config/fleetspeak-server/components.textproto
 
 cp cert.pem key.pem ./cleartext-header-mode/
+cp cert.pem key.pem ./cleartext-xfcc-mode/
 cp cert.pem key.pem ./direct-mtls-mode/
 cp cert.pem key.pem ./https-header-mode/
 cp cert.pem key.pem ./passthrough-mode/
