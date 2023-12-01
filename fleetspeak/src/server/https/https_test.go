@@ -695,3 +695,79 @@ func TestCleartextHeaderStreamingChecksum(t *testing.T) {
 	bw.Close()
 	resp.Body.Close()
 }
+
+func TestCleartextXfccStreaming(t *testing.T) {
+	ctx := context.Background()
+	clientCertHeader := "ssl-client-cert"
+	frontendConfig := &cpb.FrontendConfig{
+		FrontendMode: &cpb.FrontendConfig_CleartextXfccConfig{
+			CleartextXfccConfig: &cpb.CleartextXfccConfig{
+				ClientCertificateHeader: clientCertHeader,
+			},
+		},
+	}
+
+	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	_, cl, bc, _ := makeClient(t, false)
+	defer s.Stop()
+
+	br, bw := io.Pipe()
+	go func() {
+		// First exchange - these writes must happen during the http.Client.Do call
+		// below, because the server writes headers at the end of the first message
+		// exchange.
+
+		// Start with the magic number:
+		binary.Write(bw, binary.LittleEndian, magic)
+
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	u := url.URL{Scheme: "http", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, `Cert=`+cc)
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	// Read ContactData for first exchange.
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if cd == nil {
+		t.Fatalf("Read Contact returned nil: %v", err)
+	}
+	if err != nil {
+		t.Error(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+	}
+
+	for i := uint64(1); i < 10; i++ {
+		// Write another WrappedContactData.
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		cd, err := readContact(body)
+		if err != nil {
+			t.Error(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+		}
+	}
+
+	bw.Close()
+	resp.Body.Close()
+}

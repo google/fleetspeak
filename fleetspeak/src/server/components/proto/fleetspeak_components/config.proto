@@ -138,6 +138,21 @@ message CleartextHeaderChecksumConfig {
   string client_certificate_checksum_header = 2;
 }
 
+// In this mode Fleetspeak runs in clear text (HTTP). This allows for
+// Fleetspeak to be deployed in a Service Mesh behind a side car proxy that
+// offers a secure communications channel.
+// Fleetspeak accepts a TLS connection from an intermediate envoy which
+// terminates the mTLS protocol exchange.
+// The intermediate envoy passes the client certificate it receives from the
+// original mTLS connection to the frontend via an HTTP header.
+// The Fleetspeak frontend uses the certificate passed in this header to
+// identify the client.
+message CleartextXfccConfig {
+  // The name of the HTTP header set by the intermediary envoy that contains
+  // the forwarded client certificate. Required.
+  string client_certificate_header = 1;
+}
+
 // The frontend config determines how the Fleetspeak frontend communicates with
 // clients and how it identifies them.
 message FrontendConfig {
@@ -152,6 +167,7 @@ message FrontendConfig {
     HttpsHeaderChecksumConfig https_header_checksum_config = 9;
     CleartextHeaderConfig cleartext_header_config = 10;
     CleartextHeaderChecksumConfig cleartext_header_checksum_config = 11;
+    CleartextXfccConfig cleartext_xfcc_config = 12;
   }
 }
 
