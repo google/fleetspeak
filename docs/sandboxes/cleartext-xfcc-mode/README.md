@@ -1,7 +1,7 @@
 # Cleartext XFCC Mode
 
 ## Introduction
-This sandbox demonstrates how to run Fleetspeak in 'cleartext mode'.  
+This sandbox demonstrates how to run Fleetspeak in 'cleartext xfcc mode'.  
 
 The Fleetspeak frontend (the server) is using the Fleetspeak client's certficiate to identify it by deriving the client id from the certficiate.   
 
