@@ -16,20 +16,20 @@ Before you begin you will need to install the sandbox environment.
 - [Build test app](#build-test-app)
 
 ## The following sandboxes are available
-- [Direct mTLS mode](./sandboxes/direct-mtls-mode)
+- [Direct mTLS mode](./direct-mtls-mode)
     - end-to-end mTLS
     - Fleetspeak's original design
-- [Passthrough mode](./sandboxes/passthrough-mode)
+- [Passthrough mode](./passthrough-mode)
     - TCP proxy passthrough
-- [HTTPS header mode](./sandboxes/https-header-mode)
+- [HTTPS header mode](./https-header-mode)
     - L7 proxy terminates mTLS connection
     - Proxy passes client side certificate and checksum via HTTP headers
     - TLS connection from proxy to Fleetspeak
-- [Cleartext header mode](./sandboxes/cleartext-header-mode)
+- [Cleartext header mode](./cleartext-header-mode)
     - L7 proxy terminates mTLS connection
     - Proxy passes client side certificate and checksum via HTTP headers
     - Cleartext connection from proxy to Fleetspeak
-- [Cleartext xfcc mode](./sandboxes/cleartext-xfcc-mode)
+- [Cleartext xfcc mode](./cleartext-xfcc-mode)
     - L7 proxy terminates mTLS connection
     - Proxy passes client side certificate and via HTTP header
     - Cleartext connection from proxy to Fleetspeak
@@ -69,7 +69,7 @@ git clone https://github.com/google/fleetspeak
 ### Create configurations
 
 ```
-cd fleetspeak/docs/sandboxes
+cd fleetspeak/sandboxes
 ./createConfig.sh
 cd -
 ```
@@ -77,7 +77,7 @@ cd -
 ### Build test app
 
 ```
-cd fleetspeak/docs/sandboxes/shared/greeter/
+cd fleetspeak/sandboxes/shared/greeter/
 docker build -t greeter .
 cd -
 ```
