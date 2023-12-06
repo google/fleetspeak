@@ -36,7 +36,7 @@ docker logs https-header-mode-fleetspeak-client-1
 
 # config.go:44] Read 1 trusted certificates.
 # manager.go:103] initial load of writeback failed (continuing): open /fleetspeak-client.state: no such file or directory
-# manager.go:165] Using new client id: 33d0e02455c7be1b
+# manager.go:165] Using new client id: **33d0e02455c7be1b**
 # client.go:175] No signed service configs could be read; continuing: invalid signed services directory path: unable to stat path [/config/fleetspeak-client/services]: stat /config/fleetspeak-client/services: no such file or directory
 # services.go:146] Started service hello with config:
 #   name:"hello"  factory:"Daemon"  config:{[type.googleapis.com/fleetspeak.daemonservice.Config]:{argv:"/venv/FSENV/bin/python"  argv:"/config/hello.py"}}
@@ -49,7 +49,7 @@ docker run -it --name greeter --network https-header-mode_default -p 1337:1337 -
 ## Run the test app
 ```
 # In the above find the client id and export it in a variable
-export CLIENT_ID=33d0e02455c7be1b
+export CLIENT_ID=**33d0e02455c7be1b**
 
 # Start the test app, when it runs add your input and hit enter. You should see the string being ecohed.
 /venv/FSENV/bin/python ./greeter.py --client_id=$CLIENT_ID --fleetspeak_message_listen_address="0.0.0.0:1337" \
