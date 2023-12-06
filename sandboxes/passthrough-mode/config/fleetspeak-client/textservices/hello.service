@@ -1,0 +1,8 @@
+name: "hello"
+factory: "Daemon"
+config: {
+  [type.googleapis.com/fleetspeak.daemonservice.Config]: {
+    argv: "/venv/FSENV/bin/python"
+    argv: "/config/hello.py"
+  }
+}
