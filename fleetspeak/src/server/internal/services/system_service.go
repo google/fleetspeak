@@ -65,7 +65,7 @@ func (s *systemService) Stop() error {
 func (s *systemService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	mid, _ := common.BytesToMessageID(m.MessageId)
 	if m.Source == nil {
-		return errors.New("Source is nil")
+		return errors.New("source is nil")
 	}
 	cid, err := common.BytesToClientID(m.Source.ClientId)
 	if err != nil || cid.IsNil() {
