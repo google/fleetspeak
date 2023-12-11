@@ -65,7 +65,7 @@ func (s *systemService) Stop() error {
 func (s *systemService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	mid, _ := common.BytesToMessageID(m.MessageId)
 	if m.Source == nil {
-		return errors.New("Source is nil")
+		return errors.New("source is nil")
 	}
 	cid, err := common.BytesToClientID(m.Source.ClientId)
 	if err != nil || cid.IsNil() {
@@ -245,7 +245,7 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 
 	cd, err := s.sctx.GetClientData(ctx, cid)
 	if err != nil {
-		log.Errorf("Failed to get client data for %v: %v", cid, err)
+		return fmt.Errorf("failed to get client data for %v: %v", cid, err)
 	}
 	s.stats.ResourceUsageDataReceived(cd, rud, v)
 	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
@@ -268,7 +268,7 @@ func (s *systemService) processKillNotification(ctx context.Context, cid common.
 
 	cd, err := s.sctx.GetClientData(ctx, cid)
 	if err != nil {
-		log.Errorf("Failed to get client data for %v: %v", cid, err)
+		return fmt.Errorf("failed to get client data for %v: %v", cid, err)
 	}
 	s.stats.KillNotificationReceived(cd, kn)
 	return nil
