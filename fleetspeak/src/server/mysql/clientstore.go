@@ -53,7 +53,7 @@ func uint64ToBytes(i uint64) []byte {
 
 func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error {
 	return d.runOnce(ctx, true, func(tx *sql.Tx) error {
-		args := []interface{}{}
+		args := []any{}
 		query := "SELECT client_id FROM clients"
 
 		conditions := []string{}

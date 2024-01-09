@@ -157,7 +157,7 @@ func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool
 	d.l.Lock()
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
-		args := []interface{}{}
+		args := []any{}
 		query := "SELECT client_id FROM clients"
 
 		conditions := []string{}

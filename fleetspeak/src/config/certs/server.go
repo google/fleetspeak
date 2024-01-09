@@ -37,7 +37,7 @@ import (
 
 // GetServerCert returns the server certificate associated with cfg, creating
 // it if necessary.  If available, priv is the private key associated with cert.
-func GetServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv interface{}) (cert, key []byte, err error) {
+func GetServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv any) (cert, key []byte, err error) {
 	if cfg.ServerCertFile == "" {
 		return nil, nil, errors.New("server_cert_file not set")
 	}
@@ -57,7 +57,7 @@ func GetServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv interface{}) (c
 	return getServerCert(cfg)
 }
 
-func makeServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv interface{}) error {
+func makeServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv any) error {
 	if cfg.ServerCertKeyFile == "" {
 		return errors.New("unable to create a server cert: server_cert_key_file not set")
 	}

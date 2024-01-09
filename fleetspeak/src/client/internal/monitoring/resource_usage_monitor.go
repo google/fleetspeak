@@ -389,7 +389,7 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool
 	return false
 }
 
-func (m *ResourceUsageMonitor) errorf(format string, a ...interface{}) {
+func (m *ResourceUsageMonitor) errorf(format string, a ...any) {
 	err := fmt.Errorf(format, a...)
 	if m.errChan == nil {
 		log.Errorf("Resource-usage monitor encountered an error: %v", err)

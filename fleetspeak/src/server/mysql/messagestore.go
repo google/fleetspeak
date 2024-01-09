@@ -249,7 +249,7 @@ func (d *Datastore) getPendingMessageRawIds(ctx context.Context, tx *sql.Tx, ids
 		squery += " FOR UPDATE"
 	}
 
-	args := make([]interface{}, len(ids), len(ids)+2)
+	args := make([]any, len(ids), len(ids)+2)
 	for i, v := range ids {
 		args[i] = v.Bytes()
 	}
@@ -290,7 +290,7 @@ func (d *Datastore) GetPendingMessageCount(ctx context.Context, ids []common.Cli
 			"WHERE m.destination_client_id IN (%s) AND m.message_id=pm.message_id ",
 			genPlaceholders((len(ids))))
 
-		args := make([]interface{}, len(ids))
+		args := make([]any, len(ids))
 		for i, v := range ids {
 			args[i] = v.Bytes()
 		}
@@ -340,7 +340,7 @@ func (d *Datastore) DeletePendingMessages(ctx context.Context, ids []common.Clie
 			return err
 		}
 
-		idsToProc := make([]interface{}, len(messageIds))
+		idsToProc := make([]any, len(messageIds))
 		for i, id := range messageIds {
 			idsToProc[i] = id
 		}
@@ -358,7 +358,7 @@ func (d *Datastore) DeletePendingMessages(ctx context.Context, ids []common.Clie
 
 		ps := genPlaceholders(len(idsToProc))
 		uquery := fmt.Sprintf("UPDATE messages SET failed=?, failed_reason=?, processed_time_seconds=?, processed_time_nanos=? WHERE message_id IN (%s)", ps)
-		_, err = tx.ExecContext(ctx, uquery, append([]interface{}{failed, failedReason, ptimeSecs, ptimeNanoSecs}, idsToProc...)...)
+		_, err = tx.ExecContext(ctx, uquery, append([]any{failed, failedReason, ptimeSecs, ptimeNanoSecs}, idsToProc...)...)
 		if err != nil {
 			return err
 		}
