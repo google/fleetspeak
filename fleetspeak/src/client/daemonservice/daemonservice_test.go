@@ -394,7 +394,7 @@ func exerciseBacklog(t *testing.T, client []string) {
 		t.Errorf("Expected DeadlineExceeded error from last ProcessMessage, got: %v", err)
 	}
 	t.Logf("buffers filled after %d messages", msgCnt)
-	for i := 0; i < msgCnt; i++ {
+	for range msgCnt {
 		<-sc.OutChan
 	}
 }

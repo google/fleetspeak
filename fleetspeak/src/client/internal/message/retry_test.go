@@ -31,7 +31,7 @@ import (
 
 func makeMessages(count, size int) []service.AckMessage {
 	var ret []service.AckMessage
-	for i := 0; i < count; i++ {
+	for i := range count {
 		payload := make([]byte, size)
 		rand.Read(payload)
 		ret = append(ret, service.AckMessage{
@@ -127,7 +127,7 @@ func TestRetryLoopSizing(t *testing.T) {
 
 		// shouldFit should fit
 		msgs := makeMessages(tc.count, tc.size)
-		for i := 0; i < tc.shouldFit; i++ {
+		for i := range tc.shouldFit {
 			in <- msgs[i]
 		}
 

@@ -70,7 +70,7 @@ func clientDataEqual(a, b *db.ClientData) bool {
 		if l != len(b.Labels) {
 			return false
 		}
-		for i := 0; i < l; i++ {
+		for i := range l {
 			if !proto.Equal(a.Labels[i], b.Labels[i]) {
 				return false
 			}

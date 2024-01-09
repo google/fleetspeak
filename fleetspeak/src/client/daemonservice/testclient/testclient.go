@@ -121,7 +121,7 @@ func stdSpam() {
 		log.Exitf("Unable to initialize client: %v", err)
 	}
 
-	for i := 0; i < 128*1024; i++ {
+	for range 128 * 1024 {
 		fmt.Println("The quick brown fox jumped over the lazy dogs.")
 		fmt.Fprintln(os.Stderr, "The brown quick fox jumped over some lazy dogs.")
 	}

@@ -30,7 +30,7 @@ func TestCreate(t *testing.T) {
 func TestReset(t *testing.T) {
 	w := MakeWatchdog("asdf", "asdf", time.Second, true)
 	defer w.Stop()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		time.Sleep(2 * time.Second)
 		w.Reset()
 	}

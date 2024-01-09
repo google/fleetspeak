@@ -128,7 +128,7 @@ func TestClientService(t *testing.T) {
 			t.Errorf("unable to process message [%v]: %v", tc.rd.String(), err)
 			continue
 		}
-		for i := 0; i < tc.wantCount; i++ {
+		for i := range tc.wantCount {
 			res := <-out
 			d := &fpb.TrafficResponseData{}
 			if err := res.Data.UnmarshalTo(d); err != nil {

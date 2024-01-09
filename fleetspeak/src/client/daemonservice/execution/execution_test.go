@@ -211,7 +211,7 @@ func TestStats(t *testing.T) {
 	// report to be sent every 2000 milliseconds (samplePeriod * sampleSize).
 	done := make(chan struct{})
 	go func() {
-		for i := 0; i < 42; i++ {
+		for i := range 42 {
 			time.Sleep(100 * time.Millisecond)
 			m := fspb.Message{
 				MessageId:   []byte{byte(i)},

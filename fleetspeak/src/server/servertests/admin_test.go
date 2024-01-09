@@ -458,7 +458,7 @@ func TestPendingMessages(t *testing.T) {
 		if len(gresp.Messages) != 2 {
 			t.Fatalf("Bad size of returned messages. Expected: %v. Got: %v.", len(msgs), len(gresp.Messages))
 		}
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			if !proto.Equal(gresp.Messages[i], msgs[1+i]) {
 				t.Fatalf("Got bad message. Expected: [%v]. Got: [%v].", msgs[1+i], gresp.Messages[i])
 			}

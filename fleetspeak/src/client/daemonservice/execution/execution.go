@@ -549,7 +549,7 @@ func (e *Execution) statsRoutine() {
 // when the Fleetspeak process is suspended. Returns true if execution
 // should continue (i.e if the daemon process is still alive).
 func (e *Execution) busySleep(sleepSecs int) bool {
-	for i := 0; i < sleepSecs; i++ {
+	for range sleepSecs {
 		select {
 		// With very high probability, if the system gets suspended, it will occur
 		// while waiting for this channel.

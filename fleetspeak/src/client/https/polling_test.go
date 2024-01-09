@@ -258,7 +258,7 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 	}
 
 	// 105 small messages
-	for i := 0; i < sendCountThreshold+5; i++ {
+	for range sendCountThreshold + 5 {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"}}},
@@ -295,7 +295,7 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 	if _, err := rand.Read(payload); err != nil {
 		t.Fatalf("Unable to read random bytes: %v", err)
 	}
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{M: &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "DummyService"},
