@@ -103,7 +103,7 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			return nil, fmt.Errorf("failed to listen on [%v]: %v", cfg.HttpsConfig.ListenAddress, err)
 		}
 		if cfg.ProxyProtocol {
-			l = &chttps.ProxyListener{l}
+			l = &chttps.ProxyListener{Listener: l}
 		}
 		comm, err = https.NewCommunicator(https.Params{
 			Listener:       l,

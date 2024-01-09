@@ -75,5 +75,5 @@ func (d *Datastore) ReadFile(ctx context.Context, service, name string) (data db
 	if b == nil {
 		b = []byte{}
 	}
-	return db.NOOPCloser{bytes.NewReader(b)}, time.Unix(0, ts).UTC(), nil
+	return db.NOOPCloser{ReadSeeker: bytes.NewReader(b)}, time.Unix(0, ts).UTC(), nil
 }
