@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/Microsoft/go-winio v0.4.12
 	github.com/go-sql-driver/mysql v1.4.1
-	github.com/golang/glog v1.1.0
+	github.com/golang/glog v1.2.0
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/pires/go-proxyproto v0.6.2
@@ -27,10 +27,8 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.1.3 // indirect
-	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/tools v0.15.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 )
