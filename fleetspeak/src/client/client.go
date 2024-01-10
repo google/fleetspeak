@@ -134,15 +134,15 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	ret.sc.client = ret
 	ret.retryLoopsDone.Add(3)
 	go func() {
-		message.RetryLoop(ret.outLow, ret.outUnsorted, maxBufferBytes, maxBufferCount)
+		message.RetryLoop(ret.outLow, ret.outUnsorted, cmps.Stats, maxBufferBytes, maxBufferCount)
 		ret.retryLoopsDone.Done()
 	}()
 	go func() {
-		message.RetryLoop(ret.outMedium, ret.outUnsorted, maxBufferBytes, maxBufferCount)
+		message.RetryLoop(ret.outMedium, ret.outUnsorted, cmps.Stats, maxBufferBytes, maxBufferCount)
 		ret.retryLoopsDone.Done()
 	}()
 	go func() {
-		message.RetryLoop(ret.outHigh, ret.outUnsorted, maxBufferBytes, maxBufferCount)
+		message.RetryLoop(ret.outHigh, ret.outUnsorted, cmps.Stats, maxBufferBytes, maxBufferCount)
 		ret.retryLoopsDone.Done()
 	}()
 	f := cmps.Filter

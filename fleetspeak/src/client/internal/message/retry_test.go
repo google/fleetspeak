@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -54,7 +55,7 @@ func makeMessages(count, size int) []service.AckMessage {
 func TestRetryLoopNormal(t *testing.T) {
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, 20*1024*1024, 100)
+	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
 	defer close(in)
 
 	// Normal flow.
@@ -80,7 +81,7 @@ func TestRetryLoopNormal(t *testing.T) {
 func TestRetryLoopNACK(t *testing.T) {
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, 20*1024*1024, 100)
+	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
 	defer close(in)
 
 	// Nack flow.
@@ -113,7 +114,7 @@ func TestRetryLoopNACK(t *testing.T) {
 func TestRetryLoopSizing(t *testing.T) {
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, 20*1024*1024, 100)
+	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
 	defer close(in)
 
 	// Two test cases in which we try to overfill the buffer.

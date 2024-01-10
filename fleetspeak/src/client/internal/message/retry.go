@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 )
 
 type sizedMessage struct {
@@ -35,7 +36,7 @@ type sizedMessage struct {
 // when at least maxSize bytes of messages, or maxCount messages are pending.
 //
 // To shutdown gracefully, close out and Ack any pending messages.
-func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, maxSize, maxCount int) {
+func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats stats.Collector, maxSize, maxCount int) {
 	// Used to send acks/nacks back to this loop. Buffered to prevent ack,nack
 	// callbacks from ever blocking.
 	acks := make(chan sizedMessage, maxCount)
@@ -69,6 +70,7 @@ func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, maxSi
 			count--
 		case sm := <-nacks:
 			out <- makeInfo(sm)
+			stats.BeforeMessageRetry(sm.m.M)
 		case m, ok := <-optIn:
 			if !ok {
 				return

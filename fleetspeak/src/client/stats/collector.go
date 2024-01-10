@@ -31,6 +31,9 @@ type Collector interface {
 	// delivery to the server or a local service.
 	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
 	AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error)
+	// BeforeMessageRetry is called when a message has been nacked and got readded to the outbound
+	// message queue.
+	BeforeMessageRetry(msg *fspb.Message)
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -41,3 +44,6 @@ func (c NoopCollector) AfterConfigSync(err error) {}
 
 // AfterMessageProcessed implements Collector by doing nothing.
 func (c NoopCollector) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {}
+
+// BeforeMessageRetry implements Collector by doing nothing.
+func (c NoopCollector) BeforeMessageRetry(msg *fspb.Message) {}
