@@ -27,6 +27,8 @@ type Collector interface {
 	// AfterConfigSync is called after each config sync attempt by the config manager.
 	// err is the result of the operation.
 	AfterConfigSync(err error)
+	// AfterRekey is called after each rekey attempt by the config manager.
+	AfterRekey(err error)
 	// AfterMessageProcessed is called after a message is processed in the client and queued for
 	// delivery to the server or a local service.
 	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
@@ -47,3 +49,6 @@ func (c NoopCollector) AfterMessageProcessed(msg *fspb.Message, isLocal bool, er
 
 // BeforeMessageRetry implements Collector by doing nothing.
 func (c NoopCollector) BeforeMessageRetry(msg *fspb.Message) {}
+
+// AfterRekey implements Collector by doing nothing.
+func (c NoopCollector) AfterRekey(err error) {}

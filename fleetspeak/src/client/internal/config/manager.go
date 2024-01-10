@@ -142,7 +142,11 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 }
 
 // Rekey creates a new private key and identity for the client.
-func (m *Manager) Rekey() error {
+func (m *Manager) Rekey() (err error) {
+	defer func() {
+		m.stats.AfterRekey(err)
+	}()
+
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return fmt.Errorf("unable to generate new key: %v", err)
