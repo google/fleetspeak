@@ -27,6 +27,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
@@ -108,7 +109,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
 	go func() {
 		log.Infof("Finished with AdminServer[%v]: %v", asl.Addr(), gas.Serve(asl))
 	}()
-	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("unable to connect to FS AdminInterface: %v", err)
 	}

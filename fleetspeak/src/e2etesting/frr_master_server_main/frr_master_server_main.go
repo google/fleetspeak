@@ -10,6 +10,7 @@ import (
 	fgrpc "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 
 // StartMasterServer starts FRR Master Server listening to listenAddr
 func StartMasterServer(listenAddr, adminAddr string) error {
-	conn, err := grpc.Dial(adminAddr, grpc.WithInsecure())
+	conn, err := grpc.Dial(adminAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("Unable to connect to FS server: %v", err)
 	}

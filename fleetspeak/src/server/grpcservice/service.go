@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -150,7 +151,7 @@ func Factory(cfg *spb.ServiceConfig) (service.Service, error) {
 
 	switch {
 	case conf.Insecure:
-		con, err := grpc.DialContext(context.Background(), conf.Target, grpc.WithInsecure())
+		con, err := grpc.DialContext(context.Background(), conf.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}

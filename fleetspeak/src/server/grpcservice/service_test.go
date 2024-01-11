@@ -23,6 +23,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -64,7 +65,7 @@ func TestNewUpdate(t *testing.T) {
 	msgs1, addr1, fin1 := startServer()
 	defer fin1()
 
-	con1, err := grpc.DialContext(context.Background(), addr1, grpc.WithInsecure())
+	con1, err := grpc.DialContext(context.Background(), addr1, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +94,7 @@ func TestNewUpdate(t *testing.T) {
 
 	msgs2, addr2, fin2 := startServer()
 	defer fin2()
-	con2, err := grpc.DialContext(context.Background(), addr2, grpc.WithInsecure())
+	con2, err := grpc.DialContext(context.Background(), addr2, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}

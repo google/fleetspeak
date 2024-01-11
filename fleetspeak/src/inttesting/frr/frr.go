@@ -29,6 +29,7 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -217,7 +218,7 @@ func ServerServiceFactory(sc *srpb.ServiceConfig) (service.Service, error) {
 		if err := sc.Config.UnmarshalTo(c); err != nil {
 			return nil, fmt.Errorf("Unable to parse Config attribute as frr.Config: %v", err)
 		}
-		conn, err := grpc.Dial(c.MasterServer, grpc.WithInsecure())
+		conn, err := grpc.Dial(c.MasterServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("Unable to connect to master server[%v]: %v", c.MasterServer, err)
 		}

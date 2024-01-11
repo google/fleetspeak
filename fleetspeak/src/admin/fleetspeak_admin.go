@@ -25,6 +25,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/google/fleetspeak/fleetspeak/src/admin/cli"
 )
@@ -34,7 +35,7 @@ var adminAddr = flag.String("admin_addr", "localhost:6061", "Address for the adm
 func main() {
 	flag.Parse()
 
-	conn, err := grpc.Dial(*adminAddr, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(*adminAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		log.Exitf("Unable to connect to fleetspeak admin interface [%v]: %v", *adminAddr, err)
 	}

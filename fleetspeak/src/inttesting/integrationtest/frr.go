@@ -30,6 +30,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
 	ccomms "github.com/google/fleetspeak/fleetspeak/src/client/comms"
@@ -218,7 +219,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	}()
 
 	// Connect the FRR master to the resulting FS AdminInterface.
-	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("unable to connect to FS AdminInterface")
 	}
