@@ -24,11 +24,22 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
-	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
+
+type statsCollector struct {
+	RetryLoopStatsCollector
+	mu      sync.Mutex
+	retries int
+}
+
+func (sc *statsCollector) BeforeMessageRetry(msg *fspb.Message) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.retries++
+}
 
 func makeMessages(count, size int) []service.AckMessage {
 	var ret []service.AckMessage
@@ -53,9 +64,10 @@ func makeMessages(count, size int) []service.AckMessage {
 }
 
 func TestRetryLoopNormal(t *testing.T) {
+	sc := &statsCollector{}
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
+	go RetryLoop(in, out, sc, 20*1024*1024, 100)
 	defer close(in)
 
 	// Normal flow.
@@ -76,12 +88,19 @@ func TestRetryLoopNormal(t *testing.T) {
 		t.Errorf("Expected empty output channel, but read: %v", mi.M)
 	default:
 	}
+
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if sc.retries != 0 {
+		t.Errorf("Unexpected number of retries reported, got: %d, want: 0", sc.retries)
+	}
 }
 
 func TestRetryLoopNACK(t *testing.T) {
+	sc := &statsCollector{}
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
+	go RetryLoop(in, out, sc, 20*1024*1024, 100)
 	defer close(in)
 
 	// Nack flow.
@@ -109,12 +128,19 @@ func TestRetryLoopNACK(t *testing.T) {
 		t.Errorf("Expected empty output channel, but read: %v", mi.M)
 	default:
 	}
+
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if sc.retries != 10 {
+		t.Errorf("Unexpected number of retries reported, got: %d, want: 10", sc.retries)
+	}
 }
 
 func TestRetryLoopSizing(t *testing.T) {
+	sc := &statsCollector{}
 	in := make(chan service.AckMessage)
 	out := make(chan comms.MessageInfo, 100)
-	go RetryLoop(in, out, stats.NoopCollector{}, 20*1024*1024, 100)
+	go RetryLoop(in, out, sc, 20*1024*1024, 100)
 	defer close(in)
 
 	// Two test cases in which we try to overfill the buffer.
@@ -125,44 +151,51 @@ func TestRetryLoopSizing(t *testing.T) {
 		{"Small Messages", 300, 5, 100},
 		{"Large Messages", 30, 1024 * 1024, 20},
 	} {
-
-		// shouldFit should fit
-		msgs := makeMessages(tc.count, tc.size)
-		for i := 0; i < tc.shouldFit; i++ {
-			in <- msgs[i]
-		}
-
-		// Another message should not fit. Wait just a bit to make sure that it
-		// really won't fit.
-		select {
-		case in <- service.AckMessage{M: &fspb.Message{MessageId: []byte("asdf")}}:
-			t.Fatalf("%s: Was able to overstuff in.", tc.name)
-		case <-time.After(100 * time.Millisecond):
-		}
-
-		var w sync.WaitGroup
-		w.Add(1)
-		// stuff the rest in as they fit:
-		go func() {
-			for i := tc.shouldFit; i < len(msgs); i++ {
+		t.Run(tc.name, func(t *testing.T) {
+			// shouldFit should fit
+			msgs := makeMessages(tc.count, tc.size)
+			for i := 0; i < tc.shouldFit; i++ {
 				in <- msgs[i]
 			}
-			w.Done()
-		}()
 
-		// Reading them all should be fine, so long as we ack them.
-		for _, m := range msgs {
-			got := <-out
-			if !proto.Equal(m.M, got.M) {
-				t.Errorf("%s: Unexpected read from output channel. Got %v, want %v.", tc.name, got.M, m)
+			// Another message should not fit. Wait just a bit to make sure that it
+			// really won't fit.
+			select {
+			case in <- service.AckMessage{M: &fspb.Message{MessageId: []byte("asdf")}}:
+				t.Error("Was able to overstuff in.")
+			case <-time.After(100 * time.Millisecond):
 			}
-			got.Ack()
-		}
-		w.Wait()
-		select {
-		case mi := <-out:
-			t.Errorf("%s: Expected empty output channel, but read: %v", tc.name, mi.M)
-		default:
-		}
+
+			var w sync.WaitGroup
+			w.Add(1)
+			// stuff the rest in as they fit:
+			go func() {
+				for i := tc.shouldFit; i < len(msgs); i++ {
+					in <- msgs[i]
+				}
+				w.Done()
+			}()
+
+			// Reading them all should be fine, so long as we ack them.
+			for _, m := range msgs {
+				got := <-out
+				if !proto.Equal(m.M, got.M) {
+					t.Errorf("Unexpected read from output channel. Got %v, want %v.", got.M, m)
+				}
+				got.Ack()
+			}
+			w.Wait()
+			select {
+			case mi := <-out:
+				t.Errorf("Expected empty output channel, but read: %v", mi.M)
+			default:
+			}
+
+			sc.mu.Lock()
+			defer sc.mu.Unlock()
+			if sc.retries != 0 {
+				t.Errorf("Unexpected number of retries reported, got: %d, want: 0", sc.retries)
+			}
+		})
 	}
 }

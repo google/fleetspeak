@@ -16,21 +16,38 @@ package config
 
 import (
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
-	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-func TestRekey(t *testing.T) {
+// statsCollector implements stats.ConfigManagerStatsCollector
+type statsCollector struct {
+	ManagerStatsCollector
+	mu     sync.Mutex
+	rekeys int
+}
 
+func (sc *statsCollector) AfterRekey(err error) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.rekeys++
+}
+
+func (sc *statsCollector) AfterConfigSync(err error) {
+
+}
+
+func TestRekey(t *testing.T) {
+	sc := &statsCollector{}
 	m, err := StartManager(&config.Configuration{
 		FixedServices: make([]*fspb.ClientServiceConfig, 0),
-	}, make(chan *fspb.ClientInfoData), stats.NoopCollector{})
+	}, make(chan *fspb.ClientInfoData), sc)
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)
 		return
@@ -48,6 +65,12 @@ func TestRekey(t *testing.T) {
 	if (id2 == common.ClientID{}) || id2 == id1 {
 		t.Errorf("ClientID after rekey is %v, expected to be non-trivial and different from %v", id2, id1)
 	}
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	// 1 initial attempt, 1 explicit attempt
+	if sc.rekeys != 2 {
+		t.Errorf("Unexpected amount of rekeys reported, got: %d, want: 2", sc.rekeys)
+	}
 }
 
 func TestWriteback(t *testing.T) {
@@ -61,7 +84,7 @@ func TestWriteback(t *testing.T) {
 
 	m1, err := StartManager(&config.Configuration{
 		PersistenceHandler: ph,
-	}, make(chan *fspb.ClientInfoData), stats.NoopCollector{})
+	}, make(chan *fspb.ClientInfoData), &statsCollector{})
 	if err != nil {
 		t.Errorf("unable to create config manager: %v", err)
 		return
@@ -79,7 +102,7 @@ func TestWriteback(t *testing.T) {
 
 	m2, err := StartManager(&config.Configuration{
 		PersistenceHandler: ph,
-	}, make(chan *fspb.ClientInfoData), stats.NoopCollector{})
+	}, make(chan *fspb.ClientInfoData), &statsCollector{})
 	if err != nil {
 		t.Errorf("Unable to create new config manager: %v", err)
 		return

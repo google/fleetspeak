@@ -17,25 +17,22 @@
 package stats
 
 import (
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/config"
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/message"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 // Collector is a component which is notified when certain events occur. It can be implemented with
-// different metric backends to enable monitoring of a the Fleetspeak client.
+// different metric backends to enable monitoring of a Fleetspeak client.
 // Implementations of this interface must be thread-safe.
 type Collector interface {
-	// AfterConfigSync is called after each config sync attempt by the config manager.
-	// err is the result of the operation.
-	AfterConfigSync(err error)
-	// AfterRekey is called after each rekey attempt by the config manager.
-	AfterRekey(err error)
+	message.RetryLoopStatsCollector
+	config.ManagerStatsCollector
+
 	// AfterMessageProcessed is called after a message is processed in the client and queued for
 	// delivery to the server or a local service.
 	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
 	AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error)
-	// BeforeMessageRetry is called when a message has been nacked and got readded to the outbound
-	// message queue.
-	BeforeMessageRetry(msg *fspb.Message)
 }
 
 // NoopCollector implements Collector by doing nothing.
