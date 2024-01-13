@@ -32,6 +32,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/clienttestutils"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"google.golang.org/protobuf/proto"
@@ -91,13 +92,13 @@ func TestMessageDelivery(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
@@ -109,23 +110,23 @@ func TestMessageDelivery(t *testing.T) {
 					ClientId:    cl.config.ClientID().Bytes(),
 					ServiceName: "FakeService"},
 			}}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	m := <-msgs
 
 	if !bytes.Equal(m.MessageId, mid.Bytes()) {
-		t.Errorf("Expected message with id: %v, got: %v", mid, m)
+		t.Errorf("Got message with id: %v, want: %v", m, mid)
 	}
 
 	// Check that the service.Context provided to fs has a working LocalInfo.
 	// TODO: move this to a separate test.
 	li := fs.sc.GetLocalInfo()
 	if li.ClientID != cl.config.ClientID() {
-		t.Errorf("Expected LocalInfo to have ClientID: %v, got %v", cl.config.ClientID(), li.ClientID)
+		t.Errorf("Got LocalInfo.ClientID: %v, want %v", li.ClientID, cl.config.ClientID())
 	}
 	if !reflect.DeepEqual(li.Services, []string{"FakeService"}) {
-		t.Errorf("Expected LocalInfo to be %v, got %v", []string{"FakeService"}, li.Services)
+		t.Errorf("Got LocalInfo.Services: %v, want %v", li.Services, []string{"FakeService"})
 	}
 }
 
@@ -140,7 +141,7 @@ func TestRekey(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
@@ -148,7 +149,7 @@ func TestRekey(t *testing.T) {
 
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
@@ -162,7 +163,7 @@ func TestRekey(t *testing.T) {
 				MessageType: "RekeyRequest",
 			},
 		}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	tk := time.NewTicker(200 * time.Millisecond)
@@ -186,7 +187,7 @@ func triggerDeath(force bool, t *testing.T) {
 		config.Configuration{},
 		Components{})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
@@ -194,14 +195,14 @@ func triggerDeath(force bool, t *testing.T) {
 
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 
 	data, err := anypb.New(&fspb.DieRequest{
 		Force: force,
 	})
 	if err != nil {
-		t.Fatalf("can't marshal the DieRequest: %v", err)
+		t.Fatalf("Can't marshal the DieRequest: %v", err)
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
@@ -216,7 +217,7 @@ func triggerDeath(force bool, t *testing.T) {
 				Data:        data,
 			},
 		}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	tk := time.NewTicker(200 * time.Millisecond)
@@ -252,7 +253,7 @@ func TestDie(t *testing.T) {
 					return
 				}
 			}
-			t.Fatalf("process ran with err %v, want exit status %d", err, SuicideExitCode)
+			t.Fatalf("Process ran with err %v, want exit status %d", err, SuicideExitCode)
 		})
 	}
 }
@@ -263,7 +264,7 @@ func TestDieDoesNotAck(t *testing.T) {
 		Components{},
 	)
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 
 	clientStopped := false
@@ -280,11 +281,11 @@ func TestDieDoesNotAck(t *testing.T) {
 
 	midDie, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 	midFoo, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 
 	// Replace system service with a fake service
@@ -306,7 +307,7 @@ func TestDieDoesNotAck(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(), am); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	// Send a Foo message
@@ -323,7 +324,7 @@ func TestDieDoesNotAck(t *testing.T) {
 	}
 
 	if err := cl.ProcessMessage(context.Background(), am); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	// Stop the client to make sure processing has finished.
@@ -331,7 +332,7 @@ func TestDieDoesNotAck(t *testing.T) {
 	stopClientOnce()
 
 	if len(cl.acks) != 1 {
-		t.Fatalf("Expected 1 ack only, but got %v.", len(cl.acks))
+		t.Fatalf("Got %v acks, want 1", len(cl.acks))
 	}
 }
 
@@ -359,7 +360,7 @@ func TestRestartService(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
@@ -367,14 +368,14 @@ func TestRestartService(t *testing.T) {
 
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 
 	data, err := anypb.New(&fspb.RestartServiceRequest{
 		Name: "FakeService",
 	})
 	if err != nil {
-		t.Fatalf("can't marshal the RestartServiceRequest: %v", err)
+		t.Fatalf("Can't marshal the RestartServiceRequest: %v", err)
 	}
 
 	if err := cl.ProcessMessage(context.Background(),
@@ -389,7 +390,7 @@ func TestRestartService(t *testing.T) {
 				Data:        data,
 			},
 		}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	tk := time.NewTicker(200 * time.Millisecond)
@@ -433,7 +434,7 @@ func TestMessageValidation(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 
 	for _, tc := range []struct {
@@ -452,7 +453,7 @@ func TestMessageValidation(t *testing.T) {
 	} {
 		err := cl.ProcessMessage(context.Background(), service.AckMessage{M: tc.m})
 		if err == nil || !strings.HasPrefix(err.Error(), tc.want) {
-			t.Errorf("ProcessMessage(%v) should give error starting with [%v] but got [%v]", tc.m.String(), tc.want, err)
+			t.Errorf("ProcessMessage(%v) got [%v] but should give error starting with [%v]", tc.m.String(), err, tc.want)
 		}
 	}
 
@@ -520,14 +521,14 @@ func TestServiceValidation(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
 	// Check that the good service started by passing a message through it.
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
@@ -538,13 +539,13 @@ func TestServiceValidation(t *testing.T) {
 					ClientId:    cl.config.ClientID().Bytes(),
 					ServiceName: "FakeService"},
 			}}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	m := <-msgs
 
 	if !bytes.Equal(m.MessageId, mid.Bytes()) {
-		t.Errorf("Expected message with id: %v, got: %v", mid, m)
+		t.Errorf("Got message with id: %v, want: %v", m, mid)
 	}
 }
 
@@ -591,14 +592,14 @@ func TestTextServiceConfig(t *testing.T) {
 			},
 		})
 	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
+		t.Fatalf("Unable to create client: %v", err)
 	}
 	defer cl.Stop()
 
 	// Check that the service started by passing a message through it.
 	mid, err := common.RandomMessageID()
 	if err != nil {
-		t.Fatalf("unable to create message id: %v", err)
+		t.Fatalf("Unable to create message id: %v", err)
 	}
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
@@ -609,13 +610,73 @@ func TestTextServiceConfig(t *testing.T) {
 					ClientId:    cl.config.ClientID().Bytes(),
 					ServiceName: "FakeService"},
 			}}); err != nil {
-		t.Fatalf("unable to process message: %v", err)
+		t.Fatalf("Unable to process message: %v", err)
 	}
 
 	m := <-msgs
 
 	if !bytes.Equal(m.MessageId, mid.Bytes()) {
-		t.Errorf("Expected message with id: %v, got: %v", mid, m)
+		t.Errorf("Got message with id: %v, want: %v", m, mid)
+	}
+}
+
+type clientStats struct {
+	stats.ClientCollector
+	mu       sync.Mutex
+	messages int
+}
+
+func (cs *clientStats) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {
+	if msg.GetSource().GetServiceName() != "NOOPService" {
+		return
+	}
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.messages++
+}
+
+func TestClientStats(t *testing.T) {
+	cs := &clientStats{}
+
+	cl, err := New(
+		config.Configuration{
+			FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		},
+		Components{
+			ServiceFactories: map[string]service.Factory{
+				"NOOP": service.NOOPFactory,
+			},
+		})
+	if err != nil {
+		t.Fatalf("Unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	cl.stats = cs
+
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				MessageId: mid.Bytes(),
+				Source:    &fspb.Address{ServiceName: "NOOPService"},
+				Destination: &fspb.Address{
+					ClientId:    cl.config.ClientID().Bytes(),
+					ServiceName: "NOOPService",
+				},
+			},
+		}); err != nil {
+		t.Fatalf("Unable to process message: %v", err)
+	}
+
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if cs.messages != 1 {
+		t.Errorf("Unexpected number of messages reported, got: %d, want: 1", cs.messages)
 	}
 }
 

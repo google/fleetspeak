@@ -83,7 +83,7 @@ type Client struct {
 	config  *intconfig.Manager
 
 	processingBeacon chan struct{}
-	stats            stats.Collector
+	stats            stats.ClientCollector
 }
 
 // New creates a new Client object based on the provided components.

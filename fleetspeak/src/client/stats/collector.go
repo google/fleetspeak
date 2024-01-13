@@ -28,11 +28,7 @@ import (
 type Collector interface {
 	message.RetryLoopStatsCollector
 	config.ManagerStatsCollector
-
-	// AfterMessageProcessed is called after a message is processed in the client and queued for
-	// delivery to the server or a local service.
-	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
-	AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error)
+	ClientCollector
 }
 
 // NoopCollector implements Collector by doing nothing.
