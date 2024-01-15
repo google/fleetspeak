@@ -28,3 +28,16 @@ type ClientCollector interface {
 	// isLocal is set when a message is sent to a local service instead of the Fleetspeak server.
 	AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error)
 }
+
+// CommsContextCollector gets notified when the Communicator makes use of its comms.Context.
+// Implementations of this interface must be thread-safe.
+type CommsContextCollector interface {
+	// ContactDataCreated is called by the comms.Context when the Communicator uses it to create a
+	// ContactData to be sent to the server.
+	// wcd can be nil if an error occurred.
+	ContactDataCreated(wcd *fspb.WrappedContactData, err error)
+
+	// ContactDataProcessed is called by the comms.Context when the Communicator retrieves cd from the
+	// server and passes it to the comms.Context for processing.
+	ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error)
+}

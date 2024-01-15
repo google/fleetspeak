@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -33,7 +34,8 @@ import (
 )
 
 type commsContext struct {
-	c *Client
+	c     *Client
+	stats stats.CommsContextCollector
 }
 
 func (c commsContext) Outbox() <-chan comms.MessageInfo {
@@ -44,7 +46,11 @@ func (c commsContext) ProcessingBeacon() <-chan struct{} {
 	return c.c.processingBeacon
 }
 
-func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (wcd *fspb.WrappedContactData, processedMessages map[string]uint64, err error) {
+	defer func() {
+		c.stats.ContactDataCreated(wcd, err)
+	}()
+
 	am, pm := c.c.sc.Counts()
 	allowedMessages := make(map[string]uint64)
 	for k, a := range am {
@@ -57,19 +63,18 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 	log.V(2).Infof("Creating ContactData with %d messages and giving tokens: %v", len(toSend), allowedMessages)
 
 	// Create the bytes transferred with this contact.
-	cd := fspb.ContactData{
+	cd := &fspb.ContactData{
 		SequencingNonce: c.c.config.SequencingNonce(),
 		Messages:        toSend,
 		ClientClock:     tspb.Now(),
 		AllowedMessages: allowedMessages,
 	}
-	b, err := proto.Marshal(&cd)
+	b, err := proto.Marshal(cd)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Pick the non-repetitious part out of the config manager's
-	// labels.
+	// Pick the non-repetitive part out of the config manager's labels.
 	labels := c.c.config.Labels()
 	stringLabels := make([]string, 0, len(labels))
 	for _, l := range labels {
@@ -90,7 +95,11 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 	}, pm, nil
 }
 
-func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {
+func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) (err error) {
+	defer func() {
+		c.stats.ContactDataProcessed(cd, streaming, err)
+	}()
+
 	if !streaming {
 		c.c.config.SetSequencingNonce(cd.SequencingNonce)
 	}

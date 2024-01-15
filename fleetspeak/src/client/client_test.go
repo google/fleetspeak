@@ -35,6 +35,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -622,17 +623,13 @@ func TestTextServiceConfig(t *testing.T) {
 
 type clientStats struct {
 	stats.ClientCollector
-	mu       sync.Mutex
-	messages int
+	messages atomic.Int32
 }
 
 func (cs *clientStats) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {
-	if msg.GetSource().GetServiceName() != "NOOPService" {
-		return
+	if msg.GetSource().GetServiceName() == "NOOPService" {
+		cs.messages.Inc()
 	}
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	cs.messages++
 }
 
 func TestClientStats(t *testing.T) {
@@ -652,6 +649,11 @@ func TestClientStats(t *testing.T) {
 	}
 	defer cl.Stop()
 
+	// Before overwriting the client's stats collector we have to wait until any
+	// initial system service messages have been processed to not end up in a data race.
+	// The client does not offer synchronization capabilities for this, but 1 second is
+	// enough to prevent simultaneous data access.
+	time.Sleep(time.Second)
 	cl.stats = cs
 
 	mid, err := common.RandomMessageID()
@@ -673,10 +675,9 @@ func TestClientStats(t *testing.T) {
 		t.Fatalf("Unable to process message: %v", err)
 	}
 
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	if cs.messages != 1 {
-		t.Errorf("Unexpected number of messages reported, got: %d, want: 1", cs.messages)
+	messageCount := cs.messages.Load()
+	if messageCount != 1 {
+		t.Errorf("Unexpected number of messages reported, got: %d, want: 1", messageCount)
 	}
 }
 
