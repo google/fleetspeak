@@ -29,6 +29,7 @@ type Collector interface {
 	message.RetryLoopStatsCollector
 	config.ManagerStatsCollector
 	ClientCollector
+	CommsContextCollector
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -45,3 +46,9 @@ func (c NoopCollector) BeforeMessageRetry(msg *fspb.Message) {}
 
 // AfterRekey implements Collector by doing nothing.
 func (c NoopCollector) AfterRekey(err error) {}
+
+// ContactDataCreated implements Collector by doing nothing.
+func (c NoopCollector) ContactDataCreated(wcd *fspb.WrappedContactData, err error) {}
+
+// ContactDataProcessed implements Collector by doing nothing.
+func (c NoopCollector) ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error) {}

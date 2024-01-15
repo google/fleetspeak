@@ -192,7 +192,11 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	}
 
 	if ret.com != nil {
-		if err := ret.com.Setup(commsContext{ret}); err != nil {
+		cctx := commsContext{
+			c:     ret,
+			stats: cmps.Stats,
+		}
+		if err := ret.com.Setup(cctx); err != nil {
 			ssd.stop()
 			return nil, fmt.Errorf("unable to configure communicator: %v", err)
 		}
