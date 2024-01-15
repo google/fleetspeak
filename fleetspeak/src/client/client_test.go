@@ -618,7 +618,7 @@ type clientStats struct {
 
 func (cs *clientStats) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {
 	if msg.GetSource().GetServiceName() == "NOOPService" {
-		cs.messages.Add(1)
+		// cs.messages.Add(1)
 	}
 }
 
