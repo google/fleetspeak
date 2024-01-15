@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -35,7 +36,6 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
-	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -628,7 +628,7 @@ type clientStats struct {
 
 func (cs *clientStats) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {
 	if msg.GetSource().GetServiceName() == "NOOPService" {
-		cs.messages.Inc()
+		cs.messages.Add(1)
 	}
 }
 
