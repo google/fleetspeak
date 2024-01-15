@@ -25,6 +25,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"google3/base/go/runfiles"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
@@ -41,15 +43,15 @@ func testClient() []string {
 		return []string{`testclient\testclient.exe`}
 	}
 
-	return []string{"testclient/testclient"}
+	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/daemonservice/testclient/testclient")}
 }
 
 func testClientPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient"}
+	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak_python/fleetspeak/client_connector/testing/testclient")}
 }
 
 func testClientLauncherPY() []string {
-	return []string{"python", "-m", "fleetspeak.client_connector.testing.testclient_launcher"}
+	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak_python/fleetspeak/client_connector/testing/testclient_launcher")}
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {

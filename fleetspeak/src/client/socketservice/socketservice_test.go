@@ -28,6 +28,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
+	"google3/base/go/runfiles"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
@@ -54,7 +55,7 @@ func getTempDir() (string, func(), error) {
 }
 
 func testClient() string {
-	return "testclient/testclient"
+	return runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/socketservice/testclient/testclient")
 }
 
 func isErrKilled(err error) bool {

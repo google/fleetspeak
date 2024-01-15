@@ -26,6 +26,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"google.golang.org/protobuf/proto"
+	"google3/base/go/runfiles"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -37,7 +38,7 @@ func testClient() string {
 		return `..\testclient\testclient.exe`
 	}
 
-	return "../testclient/testclient"
+	return runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/daemonservice/testclient/testclient")
 }
 
 func TestFailures(t *testing.T) {
