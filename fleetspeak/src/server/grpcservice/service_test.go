@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	log "github.com/golang/glog"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
@@ -118,16 +118,11 @@ func TestFactory(t *testing.T) {
 	msgs, addr, fin := startServer()
 	defer fin()
 
-	cfg, err := anypb.New(&gpb.Config{
-		Target:   addr,
-		Insecure: true,
-	})
-	if err != nil {
-		t.Fatalf("Unable to marshal config: %v", err)
-	}
-
 	svc, err := Factory(&spb.ServiceConfig{
-		Config: cfg,
+		Config: anypbtest.New(t, &gpb.Config{
+			Target:   addr,
+			Insecure: true,
+		}),
 	})
 	if err != nil {
 		t.Fatalf("Unable to create service: %v", err)

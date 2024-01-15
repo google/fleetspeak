@@ -29,13 +29,13 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -161,9 +161,13 @@ func TestCommsContext(t *testing.T) {
 		}
 		fakeTime.SetSeconds(3000)
 
-		mid := common.MakeMessageID(&fspb.Address{ClientId: id.Bytes(),
-			ServiceName: "TestService"},
-			[]byte("AAABBBCCC"))
+		mid := common.MakeMessageID(
+			&fspb.Address{
+				ClientId:    id.Bytes(),
+				ServiceName: "TestService",
+			},
+			[]byte("AAABBBCCC"),
+		)
 		msgs, err := ts.DS.GetMessages(ctx, []common.MessageID{mid}, false)
 
 		if err != nil {
@@ -473,7 +477,6 @@ func TestDie(t *testing.T) {
 	}
 
 	// The client sends a MessageAck for the Foo message
-
 	m = &fspb.Message{
 		Source: &fspb.Address{
 			ClientId:    id.Bytes(),
@@ -484,14 +487,11 @@ func TestDie(t *testing.T) {
 		},
 		SourceMessageId: []byte("1"),
 		MessageType:     "MessageAck",
+		Data: anypbtest.New(t, &fspb.MessageAckData{
+			MessageIds: [][]byte{midFoo.Bytes()},
+		}),
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = anypb.New(&fspb.MessageAckData{
-		MessageIds: [][]byte{midFoo.Bytes()},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	err = ts.ProcessMessageFromClient(k, m)
 	if err != nil {

@@ -35,9 +35,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -199,13 +199,6 @@ func triggerDeath(force bool, t *testing.T) {
 		t.Fatalf("Unable to create message id: %v", err)
 	}
 
-	data, err := anypb.New(&fspb.DieRequest{
-		Force: force,
-	})
-	if err != nil {
-		t.Fatalf("Can't marshal the DieRequest: %v", err)
-	}
-
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
 			M: &fspb.Message{
@@ -215,7 +208,9 @@ func triggerDeath(force bool, t *testing.T) {
 					ClientId:    oid.Bytes(),
 					ServiceName: "system"},
 				MessageType: "Die",
-				Data:        data,
+				Data: anypbtest.New(t, &fspb.DieRequest{
+					Force: force,
+				}),
 			},
 		}); err != nil {
 		t.Fatalf("Unable to process message: %v", err)
@@ -372,13 +367,6 @@ func TestRestartService(t *testing.T) {
 		t.Fatalf("Unable to create message id: %v", err)
 	}
 
-	data, err := anypb.New(&fspb.RestartServiceRequest{
-		Name: "FakeService",
-	})
-	if err != nil {
-		t.Fatalf("Can't marshal the RestartServiceRequest: %v", err)
-	}
-
 	if err := cl.ProcessMessage(context.Background(),
 		service.AckMessage{
 			M: &fspb.Message{
@@ -388,7 +376,9 @@ func TestRestartService(t *testing.T) {
 					ClientId:    oid.Bytes(),
 					ServiceName: "system"},
 				MessageType: "RestartService",
-				Data:        data,
+				Data: anypbtest.New(t, &fspb.RestartServiceRequest{
+					Name: "FakeService",
+				}),
 			},
 		}); err != nil {
 		t.Fatalf("Unable to process message: %v", err)

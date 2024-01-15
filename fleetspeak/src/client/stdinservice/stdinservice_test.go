@@ -21,26 +21,19 @@ import (
 	"strings"
 	"testing"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
-
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 func TestStdinServiceWithEcho(t *testing.T) {
-	ssc := &sspb.Config{
-		Cmd: "python",
-	}
-	sscAny, err := anypb.New(ssc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	s, err := Factory(&fspb.ClientServiceConfig{
-		Name:   "EchoService",
-		Config: sscAny,
+		Name: "EchoService",
+		Config: anypbtest.New(t, &sspb.Config{
+			Cmd: "python",
+		}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -54,18 +47,12 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := &sspb.InputMessage{
-		Args: []string{"-c", `print("foo bar")`},
-	}
-	mAny, err := anypb.New(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	err = s.ProcessMessage(context.Background(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
-			Data:        mAny,
+			Data: anypbtest.New(t, &sspb.InputMessage{
+				Args: []string{"-c", `print("foo bar")`},
+			}),
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -92,17 +79,11 @@ func TestStdinServiceWithEcho(t *testing.T) {
 }
 
 func TestStdinServiceWithCat(t *testing.T) {
-	ssc := &sspb.Config{
-		Cmd: "python",
-	}
-	sscAny, err := anypb.New(ssc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	s, err := Factory(&fspb.ClientServiceConfig{
-		Name:   "CatService",
-		Config: sscAny,
+		Name: "CatService",
+		Config: anypbtest.New(t, &sspb.Config{
+			Cmd: "python",
+		}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -116,28 +97,27 @@ func TestStdinServiceWithCat(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := &sspb.InputMessage{
-		Args: []string{"-c", `
-try:
-  while True:
-    print(input())
-except EOFError:
-  pass
-		`},
-		Input: []byte("foo bar"),
-	}
-	mAny, err := anypb.New(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	err = s.ProcessMessage(context.Background(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
-			Data:        mAny,
+			Data: anypbtest.New(t, &sspb.InputMessage{
+				Args: []string{"-c", `
+try:
+  my_input = raw_input  # Python2 compat
+except NameError:
+  my_input = input
+
+try:
+  while True:
+    print(my_input())
+except EOFError:
+  pass
+		`},
+				Input: []byte("foo bar"),
+			}),
 		})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("s.ProcessMessage(...) = %q, want success", err)
 	}
 
 	var output *fspb.Message
@@ -161,17 +141,11 @@ except EOFError:
 }
 
 func TestStdinServiceReportsResourceUsage(t *testing.T) {
-	ssc := &sspb.Config{
-		Cmd: "python",
-	}
-	sscAny, err := anypb.New(ssc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	s, err := Factory(&fspb.ClientServiceConfig{
-		Name:   "BashService",
-		Config: sscAny,
+		Name: "BashService",
+		Config: anypbtest.New(t, &sspb.Config{
+			Cmd: "python",
+		}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -185,9 +159,12 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := &sspb.InputMessage{
-		// Generate some system (os.listdir) and user (everything else) execution time...
-		Args: []string{"-c", `
+	err = s.ProcessMessage(context.Background(),
+		&fspb.Message{
+			MessageType: "StdinServiceInputMessage",
+			Data: anypbtest.New(t, &sspb.InputMessage{
+				// Generate some system (os.listdir) and user (everything else) execution time...
+				Args: []string{"-c", `
 import os
 import time
 
@@ -195,16 +172,7 @@ t0 = time.time()
 while time.time() - t0 < 1.:
   os.listdir(".")
 		`},
-	}
-	mAny, err := anypb.New(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = s.ProcessMessage(context.Background(),
-		&fspb.Message{
-			MessageType: "StdinServiceInputMessage",
-			Data:        mAny,
+			}),
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -246,17 +214,11 @@ while time.time() - t0 < 1.:
 }
 
 func TestStdinServiceCancellation(t *testing.T) {
-	ssc := &sspb.Config{
-		Cmd: "python",
-	}
-	sscAny, err := anypb.New(ssc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	s, err := Factory(&fspb.ClientServiceConfig{
-		Name:   "SleepService",
-		Config: sscAny,
+		Name: "SleepService",
+		Config: anypbtest.New(t, &sspb.Config{
+			Cmd: "python",
+		}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -270,25 +232,19 @@ func TestStdinServiceCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := &sspb.InputMessage{
-		Args: []string{"-c", fmt.Sprintf(`
-import time
-
-time.sleep(%f)
-		`, clitesting.MockCommTimeout.Seconds())},
-	}
-	mAny, err := anypb.New(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	ctx, c := context.WithCancel(context.Background())
 	c()
 
 	if err := s.ProcessMessage(ctx,
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
-			Data:        mAny,
+			Data: anypbtest.New(t, &sspb.InputMessage{
+				Args: []string{"-c", fmt.Sprintf(`
+import time
+
+time.sleep(%f)
+		`, clitesting.MockCommTimeout.Seconds())},
+			}),
 		}); err != nil && !strings.HasSuffix(err.Error(), "context canceled") {
 		t.Fatal(err)
 	} else if err == nil {

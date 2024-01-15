@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/admin"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
@@ -301,20 +302,15 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 
 	adminServer := admin.NewServer(server.DS, nil)
 
-	dummyProto, err := anypb.New(&fspb.Signature{
-		Signature: bytes.Repeat([]byte{0xa}, 2<<20+1),
-	})
-	if err != nil {
-		t.Fatalf("Unable to marshal dummy proto: %v", err)
-	}
-
 	msg := fspb.Message{
 		MessageId:    mid.Bytes(),
 		Source:       &fspb.Address{ServiceName: "TestService"},
 		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
 		MessageType:  "DummyType",
 		CreationTime: db.NowProto(),
-		Data:         dummyProto,
+		Data: anypbtest.New(t, &fspb.Signature{
+			Signature: bytes.Repeat([]byte{0xa}, 2<<20+1),
+		}),
 	}
 
 	if _, err := adminServer.InsertMessage(ctx, &msg); err == nil {

@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestSystemServiceClientInfo(t *testing.T) {
@@ -54,20 +54,18 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		},
 		SourceMessageId: []byte("1"),
 		MessageType:     "ClientInfo",
+		Data: anypbtest.New(t, &fspb.ClientInfoData{
+			Labels: []*fspb.Label{
+				{ServiceName: "client", Label: "linux"},
+				{ServiceName: "client", Label: "corp"},
+			},
+			Services: []*fspb.ClientInfoData_ServiceID{
+				{Name: "TestService", Signature: []byte("signature")},
+			},
+		}),
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = anypb.New(&fspb.ClientInfoData{
-		Labels: []*fspb.Label{
-			{ServiceName: "client", Label: "linux"},
-			{ServiceName: "client", Label: "corp"},
-		},
-		Services: []*fspb.ClientInfoData_ServiceID{
-			{Name: "TestService", Signature: []byte("signature")},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +80,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 
 	m.SourceMessageId = []byte("2")
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = anypb.New(&fspb.ClientInfoData{
+	m.Data = anypbtest.New(t, &fspb.ClientInfoData{
 		Labels: []*fspb.Label{
 			{ServiceName: "client", Label: "linux"},
 		},
@@ -90,9 +88,6 @@ func TestSystemServiceClientInfo(t *testing.T) {
 			{Name: "TestService", Signature: []byte("signature")},
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
@@ -160,12 +155,9 @@ func TestSystemServiceMessageAck(t *testing.T) {
 		MessageType:     "MessageAck",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = anypb.New(&fspb.MessageAckData{
+	m.Data = anypbtest.New(t, &fspb.MessageAckData{
 		MessageIds: [][]byte{mid.Bytes()},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
@@ -232,13 +224,10 @@ func TestSystemServiceMessageError(t *testing.T) {
 		MessageType:     "MessageError",
 	}
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
-	m.Data, err = anypb.New(&fspb.MessageErrorData{
+	m.Data = anypbtest.New(t, &fspb.MessageErrorData{
 		MessageId: mid.Bytes(),
 		Error:     "failed badly",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}

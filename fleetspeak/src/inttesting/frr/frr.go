@@ -69,7 +69,7 @@ func (s *frrClientService) Start(sc cservice.Context) error {
 func (s *frrClientService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	// Currently, all messages require data.
 	if m.Data == nil {
-		log.Fatalf("received message with nil Data: %v", m)
+		log.Fatalf("Received message with nil Data: %v", m)
 	}
 
 	switch m.MessageType {
@@ -120,7 +120,7 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 			}
 			d, err := anypb.New(res)
 			if err != nil {
-				log.Fatalf("failed to marshal TrafficResponseData: %v", err)
+				log.Fatalf("Failed to marshal TrafficResponseData: %v", err)
 			}
 			m := &fspb.Message{
 				Destination: &fspb.Address{ServiceName: "FRR"},
@@ -169,7 +169,7 @@ func (s *frrClientService) processFileRequest(ctx context.Context, m *fspb.Messa
 	}
 	d, err := anypb.New(res)
 	if err != nil {
-		log.Fatalf("failed to marshal FileResponseData: %v", err)
+		log.Fatalf("Failed to marshal FileResponseData: %v", err)
 	}
 	return s.sc.Send(ctx, cservice.AckMessage{M: &fspb.Message{
 		Destination: &fspb.Address{ServiceName: "FRR"},
@@ -248,7 +248,7 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 	case "TrafficResponse":
 		rd := &fpb.TrafficResponseData{}
 		if err := m.Data.UnmarshalTo(rd); err != nil {
-			log.Fatalf("unable to parse data as TrafficResponseData: %v", err)
+			log.Fatalf("Unable to parse data as TrafficResponseData: %v", err)
 		}
 		// Zero the data field - save bandwidth and cpu communicating with master.
 		rd.Data = nil
@@ -258,13 +258,13 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 	case "FileResponse":
 		rd := &fpb.FileResponseData{}
 		if err := m.Data.UnmarshalTo(rd); err != nil {
-			log.Fatalf("unable to parse data as FileResponseData: %v", err)
+			log.Fatalf("Unable to parse data as FileResponseData: %v", err)
 		}
 		if _, err := s.m.RecordFileResponse(ctx, &fpb.FileResponseInfo{ClientId: m.Source.ClientId, Data: rd}); err != nil {
 			return service.TemporaryError{E: fmt.Errorf("failed to reach FRR master server: %v", err)}
 		}
 	default:
-		log.Fatalf("unknown message type: [%v]", m.MessageType)
+		log.Fatalf("Unknown message type: [%v]", m.MessageType)
 	}
 
 	return nil
@@ -272,7 +272,7 @@ func (s *frrServerService) ProcessMessage(ctx context.Context, m *fspb.Message) 
 
 // A MasterServer implements fgrpc.MasterServer which records (in ram)
 // metadata about received messages.  It also provides methods to examine this
-// metatdata, check it for consistency and trigger FRR operations.
+// metadata, check it for consistency and trigger FRR operations.
 type MasterServer struct {
 	fgrpc.UnimplementedMasterServer
 
@@ -518,13 +518,13 @@ func (s *MasterServer) createUnicastRequest(ctx context.Context, rd *fpb.Traffic
 	rd.MasterId = s.masterID
 	dat, err := anypb.New(rd)
 	if err != nil {
-		return fmt.Errorf("Unable to marshal TrafficRequestData: %v", err)
+		return fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
 	}
 
 	for _, cid := range clientIDs {
 		bcid, err := hex.DecodeString(cid)
 		if err != nil {
-			return fmt.Errorf("Failed to decode client id: %v", err)
+			return fmt.Errorf("failed to decode client id: %v", err)
 		}
 		m := &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "FRR", ClientId: bcid},
@@ -558,7 +558,7 @@ func (s *MasterServer) CreateFileDownloadHunt(ctx context.Context, name string, 
 	}
 	d, err := anypb.New(rd)
 	if err != nil {
-		return fmt.Errorf("unable to marshal TrafficRequestData: %v", err)
+		return fmt.Errorf("unable to marshal FileRequestData: %v", err)
 	}
 
 	bid, err := ids.RandomBroadcastID()

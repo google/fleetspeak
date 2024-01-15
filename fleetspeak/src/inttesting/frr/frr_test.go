@@ -30,10 +30,10 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
@@ -116,54 +116,48 @@ func TestClientService(t *testing.T) {
 			wantSize:  1024,
 		},
 	} {
-		m := fspb.Message{
-			MessageType: "TrafficRequest",
-		}
-		m.Data, err = anypb.New(tc.rd)
-		if err != nil {
-			t.Errorf("unable to marshal TrafficRequestData: %v", err)
-			continue
-		}
-		if err := cs.ProcessMessage(context.Background(), &m); err != nil {
-			t.Errorf("unable to process message [%v]: %v", tc.rd.String(), err)
-			continue
-		}
-		for i := 0; i < tc.wantCount; i++ {
-			res := <-out
-			d := &fpb.TrafficResponseData{}
-			if err := res.Data.UnmarshalTo(d); err != nil {
-				t.Errorf("unable to unmarshal data")
-				clearChannel(out)
-				break
+		t.Run(fmt.Sprintf("TrafficRequestData%v", tc.wantCount), func(t *testing.T) {
+			if err := cs.ProcessMessage(context.Background(), &fspb.Message{
+				MessageType: "TrafficRequest",
+				Data:        anypbtest.New(t, tc.rd),
+			}); err != nil {
+				t.Fatalf("unable to process message [%v]: %v", tc.rd.String(), err)
 			}
-			if d.RequestId != tc.rd.RequestId {
-				t.Errorf("expected response for request %v got response for request %v", tc.rd.RequestId, d.RequestId)
-				clearChannel(out)
-				break
+			for i := 0; i < tc.wantCount; i++ {
+				res := <-out
+				d := &fpb.TrafficResponseData{}
+				if err := res.Data.UnmarshalTo(d); err != nil {
+					t.Errorf("unable to unmarshal data")
+					clearChannel(out)
+					break
+				}
+				if d.RequestId != tc.rd.RequestId {
+					t.Errorf("expected response for request %v got response for request %v", tc.rd.RequestId, d.RequestId)
+					clearChannel(out)
+					break
+				}
+				if len(d.Data) != tc.wantSize {
+					t.Errorf("wanted data size of %v got size of %v", tc.wantSize, len(d.Data))
+					clearChannel(out)
+					break
+				}
+				// Last message should have the end marker.
+				wantFin := i == tc.wantCount-1
+				if d.Fin != wantFin {
+					t.Errorf("wanted Fin: %v got Fin: %v", wantFin, d.Fin)
+					clearChannel(out)
+					break
+				}
 			}
-			if len(d.Data) != tc.wantSize {
-				t.Errorf("wanted data size of %v got size of %v", tc.wantSize, len(d.Data))
-				clearChannel(out)
-				break
-			}
-			// Last message should have the end marker.
-			wantFin := i == tc.wantCount-1
-			if d.Fin != wantFin {
-				t.Errorf("wanted Fin: %v got Fin: %v", wantFin, d.Fin)
-				clearChannel(out)
-				break
-			}
-		}
+		})
 	}
 
-	frd := &fpb.FileRequestData{MasterId: 42, Name: "TestFile"}
-	d, err := anypb.New(frd)
-	if err != nil {
-		t.Fatalf("Unable to marshal FileRequestData: %v", err)
-	}
 	if err := cs.ProcessMessage(context.Background(), &fspb.Message{
 		MessageType: "FileRequest",
-		Data:        d,
+		Data: anypbtest.New(t, &fpb.FileRequestData{
+			MasterId: 42,
+			Name:     "TestFile",
+		}),
 	}); err != nil {
 		t.Fatalf("Unable to process FileRequest: %v", err)
 	}
@@ -193,14 +187,13 @@ func TestClientServiceEarlyShutdown(t *testing.T) {
 		t.Fatalf("Unable to start service: %v", err)
 	}
 
-	m := fspb.Message{
+	if err := cs.ProcessMessage(context.Background(), &fspb.Message{
 		MessageType: "TrafficRequest",
-	}
-	m.Data, err = anypb.New(&fpb.TrafficRequestData{RequestId: 1, NumMessages: 5})
-	if err != nil {
-		t.Fatalf("unable to marshal TrafficRequestData: %v", err)
-	}
-	if err := cs.ProcessMessage(context.Background(), &m); err != nil {
+		Data: anypbtest.New(t, &fpb.TrafficRequestData{
+			RequestId:   1,
+			NumMessages: 5,
+		}),
+	}); err != nil {
 		t.Error("unable to process message")
 	}
 
@@ -261,12 +254,11 @@ func TestServerService(t *testing.T) {
 	}()
 
 	// Directly create and start a FRR service.
-	c := &fpb.Config{MasterServer: tl.Addr().String()}
-	a, err := anypb.New(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	se, err := ServerServiceFactory(&srpb.ServiceConfig{Config: a})
+	se, err := ServerServiceFactory(&srpb.ServiceConfig{
+		Config: anypbtest.New(t, &fpb.Config{
+			MasterServer: tl.Addr().String(),
+		}),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,23 +268,17 @@ func TestServerService(t *testing.T) {
 	defer se.Stop()
 
 	// Build a message.
+	id, err := common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
 	rd := &fpb.TrafficResponseData{
 		RequestId:     42,
 		ResponseIndex: 24,
 		Data:          []byte("asdf"),
 		Fin:           true,
 	}
-	d, err := anypb.New(rd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, err := common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Process it.
-	if err := se.ProcessMessage(context.Background(), &fspb.Message{
+	msg := &fspb.Message{
 		Source: &fspb.Address{
 			ClientId:    id.Bytes(),
 			ServiceName: "FRR",
@@ -301,9 +287,12 @@ func TestServerService(t *testing.T) {
 			ServiceName: "FRR",
 		},
 		MessageType: "TrafficResponse",
-		Data:        d,
-	}); err != nil {
-		t.Fatal(err)
+		Data:        anypbtest.New(t, rd),
+	}
+
+	// Process it.
+	if err := se.ProcessMessage(context.Background(), msg); err != nil {
+		t.Fatalf("se.ProcessMessage(%+v) = %v", msg, err)
 	}
 
 	// Check that it was received.

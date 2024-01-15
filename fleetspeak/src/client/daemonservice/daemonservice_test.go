@@ -15,10 +15,10 @@
 package daemonservice
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -64,13 +65,9 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 
-	dscAny, err := anypb.New(dsc)
-	if err != nil {
-		t.Fatalf("anypb.New(*daemonservice.Config): %v", err)
-	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestDaemonService",
-		Config: dscAny,
+		Config: anypbtest.New(t, dsc),
 	})
 	if err != nil {
 		t.Fatalf("Factory(...): %v", err)
@@ -269,13 +266,9 @@ func TestInactivityTimeout(t *testing.T) {
 	dsc.Argv = append(dsc.Argv, testClient()...)
 	dsc.Argv = append(dsc.Argv, "--mode=loopback")
 
-	dscAny, err := anypb.New(dsc)
-	if err != nil {
-		t.Fatalf("anypb.New(*DaemonServiceConfig): %v", err)
-	}
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestDaemonService",
-		Config: dscAny,
+		Config: anypbtest.New(t, dsc),
 	})
 	if err != nil {
 		t.Fatalf("Factory(...): %v", err)
@@ -368,7 +361,7 @@ func exerciseBacklog(t *testing.T, client []string) {
 	msg := &fspb.Message{
 		MessageId:   []byte("\000\000\000"),
 		MessageType: "RequestTypeA",
-		Data:        &anypb.Any{Value: []byte(strings.Repeat("0123456789abcdef", 1024))},
+		Data:        &anypb.Any{Value: bytes.Repeat([]byte{42}, 16*1024)},
 	}
 	var err error
 	for {

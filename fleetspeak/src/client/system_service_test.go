@@ -27,10 +27,9 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
-
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -109,10 +108,7 @@ func TestAckMsg(t *testing.T) {
 		Priority:    fspb.Message_HIGH,
 		Background:  true,
 	}
-	wantMessage.Data, err = anypb.New(&fspb.MessageAckData{MessageIds: [][]byte{id.Bytes()}})
-	if err != nil {
-		t.Errorf("Unable to marshal MessageAckData: %v", err)
-	}
+	wantMessage.Data = anypbtest.New(t, &fspb.MessageAckData{MessageIds: [][]byte{id.Bytes()}})
 	if !proto.Equal(res, &wantMessage) {
 		t.Errorf("got %+v for ack result, want %+v", res.String(), wantMessage.String())
 	}
@@ -138,10 +134,7 @@ func TestErrorMsg(t *testing.T) {
 		Priority:    fspb.Message_HIGH,
 		Background:  true,
 	}
-	wantMessage.Data, err = anypb.New(ed)
-	if err != nil {
-		t.Errorf("Unable to marshal MessageErrData: %v", err)
-	}
+	wantMessage.Data = anypbtest.New(t, ed)
 	if !proto.Equal(res, &wantMessage) {
 		t.Errorf("got %+v for err result, want %+v", res.String(), wantMessage.String())
 	}

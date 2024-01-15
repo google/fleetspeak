@@ -27,7 +27,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -37,6 +36,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	chttps "github.com/google/fleetspeak/fleetspeak/src/client/https"
 	cservice "github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/inttesting/frr"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
@@ -116,6 +116,8 @@ func (c *statsCounter) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillN
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
 // and exercises it.
 func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool) {
+	t.Helper()
+
 	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
 		return db.Now().Add(time.Second)
 	})
@@ -175,11 +177,6 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	auth, signs := makeAuthorizerSigners(t)
 
 	// Create and start a FS server.
-	c := &fpb.Config{MasterServer: tl.Addr().String()}
-	cfg, err := anypb.New(c)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var stats statsCounter
 	FSServer, err := server.MakeServer(
 		&spb.ServerConfig{
@@ -187,7 +184,9 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 				Name:           "FRR",
 				Factory:        "FRR",
 				MaxParallelism: 5,
-				Config:         cfg,
+				Config: anypbtest.New(t, &fpb.Config{
+					MasterServer: tl.Addr().String(),
+				}),
 			}},
 			BroadcastPollTime: &dpb.Duration{Seconds: 1},
 		},
@@ -196,7 +195,8 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 			ServiceFactories: map[string]service.Factory{"FRR": frr.ServerServiceFactory},
 			Communicators:    []comms.Communicator{com},
 			Stats:            &stats,
-			Authorizer:       auth})
+			Authorizer:       auth,
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
