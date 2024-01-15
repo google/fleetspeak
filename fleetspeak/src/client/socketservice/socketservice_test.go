@@ -28,7 +28,6 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
-	"google3/base/go/runfiles"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
@@ -52,10 +51,6 @@ func getTempDir() (string, func(), error) {
 		return "", func() {}, fmt.Errorf("os.Chown(%q) failed: %v", tempDir, err)
 	}
 	return tempDir, func() {}, err
-}
-
-func testClient() string {
-	return runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/socketservice/testclient/testclient")
 }
 
 func isErrKilled(err error) bool {
@@ -140,7 +135,7 @@ func TestLoopback(t *testing.T) {
 	defer cleanUpFn()
 	socketPath := path.Join(tmpDir, "Loopback")
 
-	cmd := exec.Command(testClient(), "--mode=loopback", "--socket_path="+socketPath)
+	cmd := exec.Command(testClient(t), "--mode=loopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
@@ -170,7 +165,7 @@ func TestAckLoopback(t *testing.T) {
 	defer cleanUpFn()
 	socketPath := path.Join(tmpDir, "AckLoopback")
 
-	cmd := exec.Command(testClient(), "--mode=ackLoopback", "--socket_path="+socketPath)
+	cmd := exec.Command(testClient(t), "--mode=ackLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
@@ -195,7 +190,7 @@ func TestStutteringLoopback(t *testing.T) {
 	defer cleanUpFn()
 	socketPath := path.Join(tmpDir, "StutteringLoopback")
 
-	cmd := exec.Command(testClient(), "--mode=stutteringLoopback", "--socket_path="+socketPath)
+	cmd := exec.Command(testClient(t), "--mode=stutteringLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}
@@ -281,7 +276,7 @@ func TestResourceMonitoring(t *testing.T) {
 	defer cleanUpFn()
 	socketPath := path.Join(tmpDir, "Loopback")
 
-	cmd := exec.Command(testClient(), "--mode=loopback", "--socket_path="+socketPath)
+	cmd := exec.Command(testClient(t), "--mode=loopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
 	}

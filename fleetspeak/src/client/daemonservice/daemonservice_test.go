@@ -18,14 +18,11 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/proto"
-
-	"google3/base/go/runfiles"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
@@ -37,22 +34,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durpb "google.golang.org/protobuf/types/known/durationpb"
 )
-
-func testClient() []string {
-	if runtime.GOOS == "windows" {
-		return []string{`testclient\testclient.exe`}
-	}
-
-	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/daemonservice/testclient/testclient")}
-}
-
-func testClientPY() []string {
-	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak_python/fleetspeak/client_connector/testing/testclient")}
-}
-
-func testClientLauncherPY() []string {
-	return []string{runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak_python/fleetspeak/client_connector/testing/testclient_launcher")}
-}
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {
 	dsc = proto.Clone(dsc).(*dspb.Config)
@@ -123,11 +104,11 @@ func exerciseLoopback(t *testing.T, client []string) {
 }
 
 func TestLoopback(t *testing.T) {
-	exerciseLoopback(t, testClient())
+	exerciseLoopback(t, testClient(t))
 }
 
 func TestLoopbackPY(t *testing.T) {
-	exerciseLoopback(t, testClientPY())
+	exerciseLoopback(t, testClientPY(t))
 }
 
 // Tests that Fleetspeak uses self-reported PIDs for monitoring resource-usage of
@@ -136,7 +117,7 @@ func TestSelfReportedPIDs(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientLauncherPY(), "", &sc, &dspb.Config{})
+	s := startTestClient(t, testClientLauncherPY(t), "", &sc, &dspb.Config{})
 
 	var ruMsgs []*mpb.ResourceUsageData
 	var lastRUMsg *mpb.ResourceUsageData
@@ -213,7 +194,7 @@ func TestRespawn(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
 	}
-	s := startTestClient(t, testClient(), "die", &sc, &dspb.Config{})
+	s := startTestClient(t, testClient(t), "die", &sc, &dspb.Config{})
 	defer func() {
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
@@ -265,7 +246,7 @@ func TestInactivityTimeout(t *testing.T) {
 	dsc := &dspb.Config{
 		InactivityTimeout: &durpb.Duration{Seconds: 1},
 	}
-	dsc.Argv = append(dsc.Argv, testClient()...)
+	dsc.Argv = append(dsc.Argv, testClient(t)...)
 	dsc.Argv = append(dsc.Argv, "--mode=loopback")
 
 	s, err := Factory(&fspb.ClientServiceConfig{
@@ -395,7 +376,7 @@ func exerciseBacklog(t *testing.T, client []string) {
 }
 
 func TestBacklog(t *testing.T) {
-	for _, client := range [][]string{testClient(), testClientPY()} {
+	for _, client := range [][]string{testClient(t), testClientPY(t)} {
 		exerciseBacklog(t, client)
 	}
 }
@@ -411,7 +392,7 @@ func TestMemoryLimit(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "memoryhog", &sc, &dspb.Config{
+	s := startTestClient(t, testClientPY(t), "memoryhog", &sc, &dspb.Config{
 		MemoryLimit: 1024 * 1024 * 10, // 10MB
 	})
 	defer func() {
@@ -458,7 +439,7 @@ func TestNoHeartbeats(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "freezed", &sc, &dspb.Config{
+	s := startTestClient(t, testClientPY(t), "freezed", &sc, &dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
 		HeartbeatUnresponsiveKillPeriodSeconds:  1,
@@ -513,7 +494,7 @@ func TestHeartbeat(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(), "heartbeat", &sc, &dspb.Config{
+	s := startTestClient(t, testClientPY(t), "heartbeat", &sc, &dspb.Config{
 		MonitorHeartbeats:                       true,
 		HeartbeatUnresponsiveGracePeriodSeconds: 0,
 		HeartbeatUnresponsiveKillPeriodSeconds:  5,

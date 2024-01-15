@@ -41,6 +41,9 @@ readonly TEST_GO_DIRS=$(echo ${TEST_GO_DIRS} | /usr/bin/sort | /usr/bin/uniq)
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
+# The default Fleetspeak distribution gets built with the "oss" tag.
+readonly TAGS=oss
+
 function test_single_sh {
   local readonly SH=${1}
 
@@ -63,7 +66,7 @@ time (
   RC=0
 
   pretty_echo 'Executing Go tests.'
-  time go test -race --timeout 2.5m ${TEST_GO_DIRS} || RC=1
+  time go test -tags "${TAGS}" -race --timeout 2.5m ${TEST_GO_DIRS} || RC=1
 
   pretty_echo 'Executing Python tests.'
   pytest -v ../fleetspeak_python || RC=2

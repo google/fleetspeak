@@ -17,7 +17,6 @@ package execution
 import (
 	"bytes"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,20 +25,11 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"google.golang.org/protobuf/proto"
-	"google3/base/go/runfiles"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
-
-func testClient() string {
-	if runtime.GOOS == "windows" {
-		return `..\testclient\testclient.exe`
-	}
-
-	return runfiles.Path("google3/third_party/golang/fleetspeak/fleetspeak/src/client/daemonservice/testclient/testclient")
-}
 
 func TestFailures(t *testing.T) {
 	prevMagicTimeout := channel.MagicTimeout
@@ -54,14 +44,14 @@ func TestFailures(t *testing.T) {
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 5),
 	}
-	if _, err := os.Stat(testClient()); err != nil {
-		t.Fatalf("can't stat testclient binary [%v]: %v", testClient(), err)
+	if _, err := os.Stat(testClient(t)); err != nil {
+		t.Fatalf("can't stat testclient binary [%v]: %v", testClient(t), err)
 	}
 
 	// These misbehaviors should fail after MagicTimeout, or sooner.
 	for _, mode := range []string{"freeze", "freezeHard", "garbage", "die"} {
 		dsc := &dspb.Config{
-			Argv: []string{testClient(), "--mode=" + mode},
+			Argv: []string{testClient(t), "--mode=" + mode},
 		}
 		if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 			dsc.Argv = append(dsc.Argv, "--log_dir="+d)
@@ -83,7 +73,7 @@ func TestLoopback(t *testing.T) {
 		OutChan: make(chan *fspb.Message),
 	}
 	dsc := &dspb.Config{
-		Argv: []string{testClient(), "--mode=loopback"},
+		Argv: []string{testClient(t), "--mode=loopback"},
 	}
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
@@ -130,7 +120,7 @@ func TestStd(t *testing.T) {
 		OutChan: make(chan *fspb.Message, 20),
 	}
 	dsc := &dspb.Config{
-		Argv: []string{testClient(), "--mode=stdSpam"},
+		Argv: []string{testClient(t), "--mode=stdSpam"},
 		StdParams: &dspb.Config_StdParams{
 			ServiceName:      "TestService",
 			FlushTimeSeconds: 5,
@@ -196,7 +186,7 @@ func TestStats(t *testing.T) {
 		OutChan: make(chan *fspb.Message, 2000),
 	}
 	dsc := &dspb.Config{
-		Argv:                                  []string{testClient(), "--mode=loopback"},
+		Argv:                                  []string{testClient(t), "--mode=loopback"},
 		ResourceMonitoringSampleSize:          2,
 		ResourceMonitoringSamplePeriodSeconds: 1,
 	}
