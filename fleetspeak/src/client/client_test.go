@@ -161,7 +161,8 @@ func TestRekey(t *testing.T) {
 				Source:    &fspb.Address{ServiceName: "system"},
 				Destination: &fspb.Address{
 					ClientId:    oid.Bytes(),
-					ServiceName: "system"},
+					ServiceName: "system",
+				},
 				MessageType: "RekeyRequest",
 			},
 		}); err != nil {
@@ -207,7 +208,8 @@ func triggerDeath(force bool, t *testing.T) {
 				Source:    &fspb.Address{ServiceName: "system"},
 				Destination: &fspb.Address{
 					ClientId:    oid.Bytes(),
-					ServiceName: "system"},
+					ServiceName: "system",
+				},
 				MessageType: "Die",
 				Data: anypbtest.New(t, &fspb.DieRequest{
 					Force: force,

@@ -53,34 +53,53 @@ const (
 // access to the resulting Client object.
 type systemService struct {
 	client        *Client
-	done          chan struct{}
 	sc            service.Context
 	configChanges <-chan *fspb.ClientInfoData
-	wait          sync.WaitGroup
+	close         func()
 }
 
 func (s *systemService) Start(sc service.Context) error {
+	if s.close != nil {
+		return fmt.Errorf("system service is already started")
+	}
+
 	s.sc = sc
-	s.done = make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	s.close = func() {
+		cancel()
+		wg.Wait()
+	}
+
 	rum, err := monitoring.New(s.sc, monitoring.ResourceUsageMonitorParams{
 		Scope:            "system",
 		Pid:              s.client.pid,
 		ProcessStartTime: s.client.startTime,
 		MaxSamplePeriod:  StatsSamplePeriod,
 		SampleSize:       StatsSampleSize,
-		Done:             s.done,
+		Done:             ctx.Done(),
 	})
 	if err != nil {
 		rum = nil
 		log.Errorf("Failed to start resource-usage monitor: %v", err)
 	}
-	s.wait.Add(4)
+	wg.Add(4)
 	// TODO: call pollRevokedCerts on startup.
-	go s.ackLoop()
-	go s.errLoop()
-	go s.cfgLoop()
 	go func() {
-		defer s.wait.Done()
+		defer wg.Done()
+		s.ackLoop(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		s.errLoop(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		s.cfgLoop(ctx)
+	}()
+	go func() {
+		defer wg.Done()
 		if rum != nil {
 			rum.Run()
 		}
@@ -136,16 +155,17 @@ func (s *systemService) ProcessMessage(_ context.Context, m *fspb.Message) error
 }
 
 func (s *systemService) Stop() error {
-	close(s.done)
-	s.wait.Wait()
+	if s.close != nil {
+		s.close()
+		s.close = nil
+	}
 	return nil
 }
 
-func (s *systemService) ackLoop() {
-	defer s.wait.Done()
+func (s *systemService) ackLoop(ctx context.Context) {
 	for {
 		select {
-		case <-s.done:
+		case <-ctx.Done():
 			return
 		case mid := <-s.client.acks:
 			a := &fspb.MessageAckData{MessageIds: [][]byte{mid.Bytes()}}
@@ -153,7 +173,7 @@ func (s *systemService) ackLoop() {
 		groupLoop:
 			for {
 				select {
-				case <-s.done:
+				case <-ctx.Done():
 					t.Stop()
 					return
 				case mid = <-s.client.acks:
@@ -176,23 +196,22 @@ func (s *systemService) ackLoop() {
 					Background:  true,
 				},
 			}); err != nil {
-				log.Errorf("error acknowledging message: %v", err)
+				log.Errorf("Error acknowledging message: %v", err)
 			}
 			c()
 		}
 	}
 }
 
-func (s *systemService) errLoop() {
-	defer s.wait.Done()
+func (s *systemService) errLoop(ctx context.Context) {
 	for {
 		select {
-		case <-s.done:
+		case <-ctx.Done():
 			return
 		case e := <-s.client.errs:
 			d, err := anypb.New(e)
 			if err != nil {
-				log.Fatalf("unable to marshal MessageErrData: %v", err)
+				log.Fatalf("Unable to marshal MessageErrData: %v", err)
 			}
 			ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
 			if err := s.sc.Send(ctx, service.AckMessage{
@@ -204,27 +223,26 @@ func (s *systemService) errLoop() {
 					Background:  true,
 				},
 			}); err != nil {
-				log.Errorf("error reporting message error: %v", err)
+				log.Errorf("Error reporting message error: %v", err)
 			}
 			c()
 		}
 	}
 }
 
-func (s *systemService) cfgLoop() {
-	defer s.wait.Done()
+func (s *systemService) cfgLoop(ctx context.Context) {
 	certTicker := time.NewTicker(time.Hour)
 	defer certTicker.Stop()
 	for {
 		select {
-		case <-s.done:
+		case <-ctx.Done():
 			return
 		case <-certTicker.C:
 			s.pollRevokedCerts()
 		case chg := <-s.configChanges:
 			d, err := anypb.New(chg)
 			if err != nil {
-				log.Fatalf("unable to marshal ClientInfoData: %v", err)
+				log.Fatalf("Unable to marshal ClientInfoData: %v", err)
 			}
 			ctx, c := context.WithTimeout(context.Background(), 5*time.Minute)
 			if err := s.sc.Send(ctx, service.AckMessage{
@@ -236,7 +254,7 @@ func (s *systemService) cfgLoop() {
 					Background:  true,
 				},
 			}); err != nil {
-				log.Errorf("error reporting configuration change: %v", err)
+				log.Errorf("Error reporting configuration change: %v", err)
 			}
 			c()
 		}

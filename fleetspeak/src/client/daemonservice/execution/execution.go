@@ -250,7 +250,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 				ResourceUsage:     &mpb.AggregatedResourceUsage{},
 				ProcessTerminated: true,
 			}
-			if err := monitoring.SendProtoToServer(rud, "ResourceUsage", ret.sc); err != nil {
+			ctx := context.TODO()
+			if err := monitoring.SendProtoToServer(ctx, rud, "ResourceUsage", ret.sc); err != nil {
 				log.Errorf("Failed to send final resource-usage proto: %v", err)
 			}
 		}
@@ -613,7 +614,8 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				if version := e.serviceVersion.Get(); version != "" {
 					kn.Version = version
 				}
-				if err := monitoring.SendProtoToServer(kn, "KillNotification", e.sc); err != nil {
+				ctx := context.TODO()
+				if err := monitoring.SendProtoToServer(ctx, kn, "KillNotification", e.sc); err != nil {
 					log.Errorf("Failed to send kill notification to server: %v", err)
 				}
 

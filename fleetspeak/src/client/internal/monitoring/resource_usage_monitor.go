@@ -277,16 +277,18 @@ func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageM
 
 // Run is the business method of the resource-usage monitor. It blocks until doneChan is closed.
 func (m *ResourceUsageMonitor) Run() {
-	min := func(a, b time.Duration) time.Duration {
-		if b < a {
-			return b
-		}
-		return a
-	}
+	// We should migrate to context.Context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		<-m.doneChan
+		cancel()
+	}()
 
 	// 1s, 2s, 4s, 8s, 16s, ..., m.maxSamplePeriod, m.maxSamplePeriod, m.maxSamplePeriod, ...
 	backoffPeriod := min(time.Second, m.maxSamplePeriod)
-	a := time.After(backoffPeriod)
+	backoff := time.NewTimer(backoffPeriod)
+	defer backoff.Stop()
 	initialSample := true
 
 	var prevRU *ResourceUsage
@@ -302,11 +304,11 @@ func (m *ResourceUsageMonitor) Run() {
 
 	for {
 		select {
-		case <-m.doneChan:
+		case <-ctx.Done():
 			return
-		case <-a:
+		case <-backoff.C:
 			backoffPeriod = min(backoffPeriod*2, m.maxSamplePeriod)
-			a = time.After(backoffPeriod)
+			backoff.Reset(backoffPeriod)
 
 			currRU, err := m.ruf.ResourceUsageForPID(m.pid)
 			if err != nil {
@@ -315,7 +317,7 @@ func (m *ResourceUsageMonitor) Run() {
 				continue
 			}
 
-			if !m.enforceMemoryLimit(currRU.ResidentMemory) {
+			if !m.enforceMemoryLimit(ctx, currRU.ResidentMemory) {
 				resetSamples()
 				continue
 			}
@@ -352,7 +354,7 @@ func (m *ResourceUsageMonitor) Run() {
 					ResourceUsage:    &aggRU,
 					DebugStatus:      debugStatus,
 				}
-				if err := SendProtoToServer(rud, "ResourceUsage", m.sc); err != nil {
+				if err := SendProtoToServer(ctx, rud, "ResourceUsage", m.sc); err != nil {
 					m.errorf("failed to send resource-usage data to the server: %v", err)
 				}
 				resetSamples()
@@ -363,7 +365,7 @@ func (m *ResourceUsageMonitor) Run() {
 
 // enforceMemoryLimit kills the monitored process if the given memory usage exceeds the configured limit.
 // A boolean is returned, which is true if the memory usage is below the limit.
-func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool {
+func (m *ResourceUsageMonitor) enforceMemoryLimit(ctx context.Context, currResidentMemory int64) bool {
 	if m.memoryLimit <= 0 || currResidentMemory < m.memoryLimit {
 		return true
 	}
@@ -379,7 +381,7 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(currResidentMemory int64) bool
 		KilledWhen:       tspb.Now(),
 		Reason:           mpb.KillNotification_MEMORY_EXCEEDED,
 	}
-	if err := SendProtoToServer(kn, "KillNotification", m.sc); err != nil {
+	if err := SendProtoToServer(ctx, kn, "KillNotification", m.sc); err != nil {
 		log.Errorf("Failed to send kill notification to server: %v", err)
 	}
 
@@ -399,13 +401,13 @@ func (m *ResourceUsageMonitor) errorf(format string, a ...any) {
 }
 
 // SendProtoToServer wraps a proto in a fspb.Message and sends it to the server.
-func SendProtoToServer(pb proto.Message, msgType string, sc service.Context) error {
+func SendProtoToServer(ctx context.Context, pb proto.Message, msgType string, sc service.Context) error {
 	d, err := anypb.New(pb)
 	if err != nil {
 		return err
 	}
-	ctx, c := context.WithTimeout(context.Background(), 30*time.Second)
-	defer c()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	return sc.Send(ctx, service.AckMessage{
 		M: &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "system"},

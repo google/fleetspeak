@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -90,6 +91,17 @@ func setUpTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("Starting test environment: %v", err)
 	}
 	t.Cleanup(func() {
+		// Empty the out channel in parallel,
+		// so that it can be written to during shutdown.
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range out {
+			}
+		}()
+
 		err := srv.Stop()
 		if err != nil {
 			t.Fatalf("Stopping test environment: %v", err)
