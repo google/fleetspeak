@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -58,47 +57,55 @@ func (sc fakeServiceContext) GetFileIfModified(_ context.Context, name string, _
 	if err != nil {
 		log.Fatalf("Failed to marshal revokedCerts: %v", err)
 	}
-	return ioutil.NopCloser(bytes.NewReader(d)), time.Now(), nil
+	return io.NopCloser(bytes.NewReader(d)), time.Now(), nil
 }
 
 type testEnv struct {
-	c   Client
-	ctx fakeServiceContext
-	s   systemService
+	client Client
+	ctx    fakeServiceContext
 }
 
-func (t *testEnv) Close() {
-	t.s.Stop()
-}
+func setUpTestEnv(t *testing.T) *testEnv {
+	t.Helper()
 
-func newTestEnv() (*testEnv, error) {
-	env := testEnv{}
-	env.c = Client{
-		acks:      make(chan common.MessageID, 1),
-		errs:      make(chan *fspb.MessageErrorData, 1),
-		pid:       os.Getpid(),
-		startTime: time.Unix(1234567890, 0),
-	}
-	env.s = systemService{
-		client: &env.c,
-	}
 	out := make(chan *fspb.Message)
-	env.ctx = fakeServiceContext{out: out, revokedCerts: &fspb.RevokedCertificateList{}}
-	err := env.s.Start(&env.ctx)
-	return &env, err
+	env := testEnv{
+		client: Client{
+			acks:      make(chan common.MessageID, 1),
+			errs:      make(chan *fspb.MessageErrorData, 1),
+			pid:       os.Getpid(),
+			startTime: time.Unix(1234567890, 0),
+		},
+		ctx: fakeServiceContext{
+			out:          out,
+			revokedCerts: &fspb.RevokedCertificateList{},
+		},
+	}
+
+	srv := systemService{
+		client: &env.client,
+	}
+	err := srv.Start(&env.ctx)
+	if err != nil {
+		t.Fatalf("Starting test environment: %v", err)
+	}
+	t.Cleanup(func() {
+		err := srv.Stop()
+		if err != nil {
+			t.Fatalf("Stopping test environment: %v", err)
+		}
+		close(out)
+	})
+	return &env
 }
 
 func TestAckMsg(t *testing.T) {
-	env, err := newTestEnv()
-	if err != nil {
-		t.Fatalf("Failed to create testEnv: %v", err)
-	}
-	defer env.Close()
+	env := setUpTestEnv(t)
 	id, err := common.BytesToMessageID([]byte("00000000000000000000000000000001"))
 	if err != nil {
 		t.Fatalf("Unable to create MessageID: %v", err)
 	}
-	env.c.acks <- id
+	env.client.acks <- id
 	res := <-env.ctx.out
 	wantMessage := fspb.Message{
 		Destination: &fspb.Address{
@@ -115,16 +122,12 @@ func TestAckMsg(t *testing.T) {
 }
 
 func TestErrorMsg(t *testing.T) {
-	env, err := newTestEnv()
-	if err != nil {
-		t.Fatalf("Failed to create testEnv: %v", err)
-	}
-	defer env.Close()
+	env := setUpTestEnv(t)
 	ed := &fspb.MessageErrorData{
 		MessageId: []byte("00000000000000000000000000000001"),
 		Error:     "a terrible test error",
 	}
-	env.c.errs <- ed
+	env.client.errs <- ed
 	res := <-env.ctx.out
 	wantMessage := fspb.Message{
 		Destination: &fspb.Address{
@@ -141,6 +144,8 @@ func TestErrorMsg(t *testing.T) {
 }
 
 func TestStatsMsg(t *testing.T) {
+	// Note: this changes global state which should rather be configurable from
+	// the outside.
 	prevPeriod := StatsSamplePeriod
 	prevSize := StatsSampleSize
 	StatsSamplePeriod = 10 * time.Millisecond
@@ -150,14 +155,10 @@ func TestStatsMsg(t *testing.T) {
 		StatsSampleSize = prevSize
 	}()
 
-	env, err := newTestEnv()
-	if err != nil {
-		t.Fatalf("Failed to create testEnv: %v", err)
-	}
-	defer env.Close()
+	env := setUpTestEnv(t)
 	statsTimeout := 200 * time.Millisecond
-	ticker := time.NewTicker(statsTimeout)
-	defer ticker.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), statsTimeout)
+	defer cancel()
 
 	for {
 		select {
@@ -184,7 +185,7 @@ func TestStatsMsg(t *testing.T) {
 				t.Error("max_resident_memory is not set")
 			}
 			return
-		case <-ticker.C:
+		case <-ctx.Done():
 			t.Errorf("No message received after %v", statsTimeout)
 			return
 		}

@@ -109,7 +109,8 @@ func TestMessageDelivery(t *testing.T) {
 				Source:    &fspb.Address{ServiceName: "FakeService"},
 				Destination: &fspb.Address{
 					ClientId:    cl.config.ClientID().Bytes(),
-					ServiceName: "FakeService"},
+					ServiceName: "FakeService",
+				},
 			}}); err != nil {
 		t.Fatalf("Unable to process message: %v", err)
 	}
@@ -528,7 +529,8 @@ func TestServiceValidation(t *testing.T) {
 				Source:    &fspb.Address{ServiceName: "FakeService"},
 				Destination: &fspb.Address{
 					ClientId:    cl.config.ClientID().Bytes(),
-					ServiceName: "FakeService"},
+					ServiceName: "FakeService",
+				},
 			}}); err != nil {
 		t.Fatalf("Unable to process message: %v", err)
 	}
@@ -599,7 +601,8 @@ func TestTextServiceConfig(t *testing.T) {
 				Source:    &fspb.Address{ServiceName: "FakeService"},
 				Destination: &fspb.Address{
 					ClientId:    cl.config.ClientID().Bytes(),
-					ServiceName: "FakeService"},
+					ServiceName: "FakeService",
+				},
 			}}); err != nil {
 		t.Fatalf("Unable to process message: %v", err)
 	}
