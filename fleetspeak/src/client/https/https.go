@@ -30,6 +30,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
@@ -120,11 +121,18 @@ func jitter(seconds int32) time.Duration {
 	return time.Duration((1.0 + 0.5*mrand.Float32()) * float32(seconds) * float32(time.Second))
 }
 
-func getFileIfModified(ctx context.Context, hosts []string, client *http.Client, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
+// getFileIfModified fetches the file with the given name from the file server
+// with the HTTP GET method. The hosts are sequentially dialed until one of them
+// successfully responds. If no proper response was received, the function
+// returns the most recent error.
+func getFileIfModified(ctx context.Context, hosts []string, client *http.Client, service, name string, modSince time.Time) (body io.ReadCloser, modTime time.Time, err error) {
 	var lastErr error
-	for _, h := range hosts {
-		u := url.URL{Scheme: "https", Host: h,
-			Path: "/files/" + url.PathEscape(service) + "/" + url.PathEscape(name)}
+	for _, host := range hosts {
+		u := url.URL{
+			Scheme: "https",
+			Host:   host,
+			Path:   path.Join("/files", url.PathEscape(service), url.PathEscape(name)),
+		}
 
 		req, err := http.NewRequest("GET", u.String(), nil)
 		if err != nil {
@@ -133,7 +141,7 @@ func getFileIfModified(ctx context.Context, hosts []string, client *http.Client,
 		}
 		req = req.WithContext(ctx)
 
-		if (modSince != time.Time{}) {
+		if !modSince.IsZero() {
 			req.Header.Set("If-Modified-Since", modSince.Format(http.TimeFormat))
 		}
 
@@ -148,7 +156,11 @@ func getFileIfModified(ctx context.Context, hosts []string, client *http.Client,
 
 		switch resp.StatusCode {
 		case http.StatusOK:
-			return resp.Body, time.Time{}, nil
+			modTime, err := http.ParseTime(resp.Header.Get("Last-Modified"))
+			if err != nil {
+				return resp.Body, time.Time{}, nil
+			}
+			return resp.Body, modTime, nil
 		case http.StatusNotModified:
 			resp.Body.Close()
 			return nil, time.Time{}, nil
