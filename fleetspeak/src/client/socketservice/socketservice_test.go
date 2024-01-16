@@ -17,10 +17,9 @@ package socketservice
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -38,19 +37,34 @@ import (
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
-func getTempDir() (string, func(), error) {
+func SetUpSocketPath(t *testing.T, nameHint string) string {
+	t.Helper()
+
+	return filepath.Join(SetUpTempDir(t), nameHint)
+}
+
+func SetUpTempDir(t *testing.T) string {
+	t.Helper()
+
 	if runtime.GOOS == "windows" {
-		tempDir, cleanUpFn := comtesting.GetTempDir("socketservice")
-		return tempDir, cleanUpFn, nil
+		tmpDir, cleanUpFn := comtesting.GetTempDir("socketservice")
+		t.Cleanup(cleanUpFn)
+		return tmpDir
 	}
+
 	// We need unix socket paths to be short (see socketservice_unix.go), so we ignore the $TMPDIR env variable,
 	// which could point to arbitrary directories, and use /tmp.
-	tempDir, err := ioutil.TempDir("/tmp", "socketservice_")
-	// Explicitly set the group owner for tempDir in case it was inherited from /tmp.
-	if err := os.Chown(tempDir, os.Getuid(), os.Getgid()); err != nil {
-		return "", func() {}, fmt.Errorf("os.Chown(%q) failed: %v", tempDir, err)
+	tmpDir, err := os.MkdirTemp("/tmp", "socketservice_")
+	if err != nil {
+		t.Fatalf("os.MkdirTemp: %v", err)
 	}
-	return tempDir, func() {}, err
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	// Explicitly set the group owner for tempDir in case it was inherited from /tmp.
+	if err := os.Chown(tmpDir, os.Getuid(), os.Getgid()); err != nil {
+		t.Fatalf("os.Chown(%q): %v", tmpDir, err)
+	}
+	return tmpDir
 }
 
 func isErrKilled(err error) bool {
@@ -128,13 +142,7 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 }
 
 func TestLoopback(t *testing.T) {
-	tmpDir, cleanUpFn, err := getTempDir()
-	if err != nil {
-		t.Fatalf("Failed to create tempdir for test: %v", err)
-	}
-	defer cleanUpFn()
-	socketPath := path.Join(tmpDir, "Loopback")
-
+	socketPath := SetUpSocketPath(t, "Loopback")
 	cmd := exec.Command(testClient(t), "--mode=loopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
@@ -158,13 +166,7 @@ func TestLoopback(t *testing.T) {
 }
 
 func TestAckLoopback(t *testing.T) {
-	tmpDir, cleanUpFn, err := getTempDir()
-	if err != nil {
-		t.Fatalf("Failed to create tempdir for test: %v", err)
-	}
-	defer cleanUpFn()
-	socketPath := path.Join(tmpDir, "AckLoopback")
-
+	socketPath := SetUpSocketPath(t, "AckLoopback")
 	cmd := exec.Command(testClient(t), "--mode=ackLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
@@ -183,13 +185,7 @@ func TestAckLoopback(t *testing.T) {
 }
 
 func TestStutteringLoopback(t *testing.T) {
-	tmpDir, cleanUpFn, err := getTempDir()
-	if err != nil {
-		t.Fatalf("Failed to create tempdir for test: %v", err)
-	}
-	defer cleanUpFn()
-	socketPath := path.Join(tmpDir, "StutteringLoopback")
-
+	socketPath := SetUpSocketPath(t, "StutteringLoopback")
 	cmd := exec.Command(testClient(t), "--mode=stutteringLoopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
@@ -269,13 +265,7 @@ func TestMaxSockLenUnix(t *testing.T) {
 }
 
 func TestResourceMonitoring(t *testing.T) {
-	tmpDir, cleanUpFn, err := getTempDir()
-	if err != nil {
-		t.Fatalf("Failed to create tempdir for test: %v", err)
-	}
-	defer cleanUpFn()
-	socketPath := path.Join(tmpDir, "Loopback")
-
+	socketPath := SetUpSocketPath(t, "Loopback")
 	cmd := exec.Command(testClient(t), "--mode=loopback", "--socket_path="+socketPath)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start() returned error: %v", err)
@@ -338,14 +328,8 @@ func TestResourceMonitoring(t *testing.T) {
 }
 
 func TestStopDoesNotBlock(t *testing.T) {
-	tmpDir, cleanUpFn, err := getTempDir()
-	if err != nil {
-		t.Fatalf("Failed to create tempdir for test: %v", err)
-	}
-	defer cleanUpFn()
-	socketPath := path.Join(tmpDir, "Loopback")
+	socketPath := SetUpSocketPath(t, "Loopback")
 	stopTimeout := 10 * time.Second
-
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "TestSocketService",
 		Config: anypbtest.New(t, &sspb.Config{
