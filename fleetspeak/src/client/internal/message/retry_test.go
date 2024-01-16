@@ -17,6 +17,7 @@ package message
 import (
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,14 +32,21 @@ import (
 
 type statsCollector struct {
 	RetryLoopStatsCollector
-	mu      sync.Mutex
-	retries int
+	retries, pending, pendingSize atomic.Int64
 }
 
 func (sc *statsCollector) BeforeMessageRetry(msg *fspb.Message) {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	sc.retries++
+	sc.retries.Add(1)
+}
+
+func (sc *statsCollector) MessagePending(msg *fspb.Message, size int) {
+	sc.pending.Add(1)
+	sc.pendingSize.Add(int64(size))
+}
+
+func (sc *statsCollector) MessageAcknowledged(msg *fspb.Message, size int) {
+	sc.pending.Add(-1)
+	sc.pendingSize.Add(-int64(size))
 }
 
 func makeMessages(count, size int) []service.AckMessage {
@@ -89,10 +97,9 @@ func TestRetryLoopNormal(t *testing.T) {
 	default:
 	}
 
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	if sc.retries != 0 {
-		t.Errorf("Unexpected number of retries reported, got: %d, want: 0", sc.retries)
+	retries := sc.retries.Load()
+	if retries != 0 {
+		t.Errorf("Unexpected number of retries reported, got: %d, want: 0", retries)
 	}
 }
 
@@ -129,10 +136,9 @@ func TestRetryLoopNACK(t *testing.T) {
 	default:
 	}
 
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	if sc.retries != 10 {
-		t.Errorf("Unexpected number of retries reported, got: %d, want: 10", sc.retries)
+	retries := sc.retries.Load()
+	if retries != 10 {
+		t.Errorf("Unexpected number of retries reported, got: %d, want: 10", retries)
 	}
 }
 
@@ -191,11 +197,52 @@ func TestRetryLoopSizing(t *testing.T) {
 			default:
 			}
 
-			sc.mu.Lock()
-			defer sc.mu.Unlock()
-			if sc.retries != 0 {
-				t.Errorf("Unexpected number of retries reported, got: %d, want: 0", sc.retries)
+			retries := sc.retries.Load()
+			if retries != 0 {
+				t.Errorf("Unexpected number of retries reported, got: %d, want: 0", retries)
 			}
 		})
+	}
+}
+
+func TestRetryLoopReportsPendingMessages(t *testing.T) {
+	sc := &statsCollector{}
+	in := make(chan service.AckMessage)
+	out := make(chan comms.MessageInfo, 100)
+	go RetryLoop(in, out, sc, 20*1024*1024, 100)
+	defer close(in)
+
+	msgs := makeMessages(10, 5)
+	var totalByteSize int64
+	for _, m := range msgs {
+		totalByteSize += int64(proto.Size(m.M))
+		in <- m
+	}
+
+	// Give RetryLoop goroutine a short while to take in msgs
+	time.Sleep(100 * time.Millisecond)
+	pending := sc.pending.Load()
+	if pending != 10 {
+		t.Errorf("Unexpected number of pending messages, got: %d, want: 10", pending)
+	}
+	pendingSize := sc.pendingSize.Load()
+	if pendingSize != totalByteSize {
+		t.Errorf("Unexpected size of pending messages, got: %d, want: %d", pendingSize, totalByteSize)
+	}
+
+	for range msgs {
+		got := <-out
+		got.Ack()
+	}
+
+	// Give RetryLoop goroutine a short while to process acks
+	time.Sleep(100 * time.Millisecond)
+	pending = sc.pending.Load()
+	if pending != 0 {
+		t.Errorf("Unexpected number of pending messages, got: %d, want: 0", pending)
+	}
+	pendingSize = sc.pendingSize.Load()
+	if pendingSize != 0 {
+		t.Errorf("Unexpected size of pending messages, got: %d, want: 0", pendingSize)
 	}
 }

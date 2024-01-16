@@ -44,6 +44,12 @@ func (c NoopCollector) AfterMessageProcessed(msg *fspb.Message, isLocal bool, er
 // BeforeMessageRetry implements Collector by doing nothing.
 func (c NoopCollector) BeforeMessageRetry(msg *fspb.Message) {}
 
+// MessagePending implements Collector by doing nothing.
+func (c NoopCollector) MessagePending(msg *fspb.Message, size int) {}
+
+// MessageAcknowledged implements Collector by doing nothing.
+func (c NoopCollector) MessageAcknowledged(msg *fspb.Message, size int) {}
+
 // AfterRekey implements Collector by doing nothing.
 func (c NoopCollector) AfterRekey(err error) {}
 

@@ -29,12 +29,20 @@ type sizedMessage struct {
 	m    service.AckMessage
 }
 
-// RetryLoopStatsCollector gets notified about messages being retried.
+// RetryLoopStatsCollector gets notified about messages currently kept in memory by the RetryLoop.
 // Implementations of this interface must be thread-safe.
 type RetryLoopStatsCollector interface {
 	// BeforeMessageRetry is called when a message has been nacked and got readded to the outbound
 	// message queue.
 	BeforeMessageRetry(msg *fspb.Message)
+	// MessagePending is called before a new message is being placed into the output channel.
+	// A message is considered pending until it got Acked by the server. In case the message gets
+	// Nacked, the RetryLoop will retry and the message is still considered pending.
+	// size is the serialized message's size in bytes.
+	MessagePending(msg *fspb.Message, size int)
+	// MessageAcknowledged is called after a pending message has been acknowledged.
+	// size is the serialized message's size in bytes.
+	MessageAcknowledged(msg *fspb.Message, size int)
 }
 
 // RetryLoop is a loop which reads from in and writes to out.
@@ -76,6 +84,7 @@ func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats
 		case sm := <-acks:
 			size -= sm.size
 			count--
+			stats.MessageAcknowledged(sm.m.M, sm.size)
 		case sm := <-nacks:
 			out <- makeInfo(sm)
 			stats.BeforeMessageRetry(sm.m.M)
@@ -86,6 +95,7 @@ func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats
 			sm := sizedMessage{proto.Size(m.M), m}
 			size += sm.size
 			count++
+			stats.MessagePending(m.M, sm.size)
 			out <- makeInfo(sm)
 		}
 	}
