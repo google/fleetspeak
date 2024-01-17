@@ -115,9 +115,7 @@ func (c *statsCounter) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillN
 
 // FRRIntegrationTest spins up a small FRR installation, backed by the provided datastore
 // and exercises it.
-func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool) {
-	t.Helper()
-
+func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 	fin := sertesting.SetServerRetryTime(func(_ uint32) time.Time {
 		return db.Now().Add(time.Second)
 	})
@@ -130,34 +128,28 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	}
 
 	// Create a FRR master server and start it listening.
-	masterServer := frr.NewMasterServer(nil)
 	gms := grpc.NewServer()
+	masterServer := frr.NewMasterServer(nil)
 	fgrpc.RegisterMasterServer(gms, masterServer)
-	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	tl, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("net.Listen: %v", err)
 	}
-	tl, err := net.ListenTCP("tcp", ad)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer gms.Stop()
 	go func() {
-		log.Infof("Finished with MasterServer[%v]: %v", tl.Addr(), gms.Serve(tl))
+		err := gms.Serve(tl)
+		log.Infof("Finished with MasterServer[%v]: %v", tl.Addr(), err)
 	}()
+	defer gms.Stop()
 
 	// Create FS server certs and server communicator.
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("comtesting.ServerCert(): %v", err)
 	}
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
-	}
-	listener, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("net.Listen: %v", err)
 	}
 	com, err := https.NewCommunicator(
 		https.Params{
@@ -169,7 +161,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 			StreamingCloseTime: 7 * time.Second,
 		})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("https.NewCommunicator: %v", err)
 	}
 	log.Infof("Communicator listening to: %v", listener.Addr())
 
@@ -178,7 +170,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 
 	// Create and start a FS server.
 	var stats statsCounter
-	FSServer, err := server.MakeServer(
+	fsServer, err := server.MakeServer(
 		&spb.ServerConfig{
 			Services: []*spb.ServiceConfig{{
 				Name:           "FRR",
@@ -205,18 +197,16 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	as := admin.NewServer(ds, nil)
 	gas := grpc.NewServer()
 	sgrpc.RegisterAdminServer(gas, as)
-	aas, err := net.ResolveTCPAddr("tcp", "localhost:0")
+
+	asl, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("net.Listen: %v", err)
 	}
-	asl, err := net.ListenTCP("tcp", aas)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer gas.Stop()
 	go func() {
-		log.Infof("Finished with AdminServer[%v]: %v", asl.Addr(), gas.Serve(asl))
+		err := gas.Serve(asl)
+		log.Infof("Finished with AdminServer[%v]: %v", asl.Addr(), err)
 	}()
+	defer gas.Stop()
 
 	// Connect the FRR master to the resulting FS AdminInterface.
 	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -230,24 +220,28 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	// a hunt.  Because the number of messages coming at once is larger than
 	// 3*MaxParallelism, messages tend to end up backlogged.
 	completed := masterServer.WatchCompleted()
-	if err := masterServer.CreateBroadcastRequest(ctx,
-		&fpb.TrafficRequestData{
-			RequestId:      0,
-			NumMessages:    20,
-			MessageDelayMs: 20,
-			Jitter:         1.0},
-		numClients); err != nil {
+	trd := &fpb.TrafficRequestData{
+		RequestId:      0,
+		NumMessages:    20,
+		MessageDelayMs: 20,
+		Jitter:         1.0,
+	}
+	if err := masterServer.CreateBroadcastRequest(ctx, trd, numClients); err != nil {
 		t.Errorf("unable to create hunt: %v", err)
 	}
 
 	// Prepare a general client config.
 	conf := config.Configuration{
 		TrustedCerts: x509.NewCertPool(),
-		ClientLabels: []*fspb.Label{
-			{ServiceName: "client", Label: "integration_test"},
-		},
-		FixedServices: []*fspb.ClientServiceConfig{{Name: "FRR", Factory: "FRR"}},
-		Servers:       []string{listener.Addr().String()},
+		ClientLabels: []*fspb.Label{{
+			ServiceName: "client",
+			Label:       "integration_test",
+		}},
+		FixedServices: []*fspb.ClientServiceConfig{{
+			Name:    "FRR",
+			Factory: "FRR",
+		}},
+		Servers: []string{listener.Addr().String()},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
@@ -310,7 +304,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, tmpDir string, streaming bool
 	for _, cl := range clients {
 		cl.Stop()
 	}
-	FSServer.Stop()
+	fsServer.Stop()
 
 	// Each client should have polled at least once.
 	if stats.clientPolls < numClients {

@@ -52,7 +52,9 @@ import (
 
 // CloneHandlingTest runs an integration test using ds in which cloned clients
 // are dealt with.
-func CloneHandlingTest(t *testing.T, ds db.Store, tmpConfPath string) {
+func CloneHandlingTest(t *testing.T, ds db.Store) {
+	tmpConfPath := t.TempDir()
+
 	fin := sertesting.SetClientCacheMaxAge(time.Second)
 	defer fin()
 

@@ -16,58 +16,40 @@
 package integration_test
 
 import (
-	"path"
+	"path/filepath"
 	"testing"
 
-	log "github.com/golang/glog"
-	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/inttesting/integrationtest"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 )
 
-func TestFRRIntegration(t *testing.T) {
-	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_frr_integration")
-	defer tmpDirCleanup()
-	// Create an sqlite datastore.
-	p := path.Join(tmpDir, "FRRIntegration.sqlite")
-	ds, err := sqlite.MakeDatastore(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Infof("Created database: %s", p)
-	defer ds.Close()
+func mustMakeDatastore(t *testing.T) *sqlite.Datastore {
+	t.Helper()
 
-	integrationtest.FRRIntegrationTest(t, ds, tmpDir, false)
+	ds, err := sqlite.MakeDatastore(filepath.Join(t.TempDir(), "DataStore.sqlite"))
+	if err != nil {
+		t.Fatalf("sqlite.MakeDatastore: %v", err)
+	}
+	t.Cleanup(func() {
+		err := ds.Close()
+		if err != nil {
+			t.Errorf("Closing SQLite datastore: %v", err)
+		}
+	})
+	return ds
+}
+
+func TestFRRIntegration(t *testing.T) {
+	ds := mustMakeDatastore(t)
+	integrationtest.FRRIntegrationTest(t, ds, false)
 }
 
 func TestCloneHandling(t *testing.T) {
-	tmpConfPath, tmpConfPathCleanup := comtesting.GetTempDir("sqlite_clone_handling")
-	defer tmpConfPathCleanup()
-	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_clone_handling")
-	defer tmpDirCleanup()
-	// Create an sqlite datastore.
-	p := path.Join(tmpDir, "CloneHandling.sqlite")
-	ds, err := sqlite.MakeDatastore(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Infof("Created database: %s", p)
-	defer ds.Close()
-
-	integrationtest.CloneHandlingTest(t, ds, tmpConfPath)
+	ds := mustMakeDatastore(t)
+	integrationtest.CloneHandlingTest(t, ds)
 }
 
 func TestFRRIntegrationStreaming(t *testing.T) {
-	tmpDir, tmpDirCleanup := comtesting.GetTempDir("sqlite_frr_integration")
-	defer tmpDirCleanup()
-	// Create an sqlite datastore.
-	p := path.Join(tmpDir, "FRRIntegration.sqlite")
-	ds, err := sqlite.MakeDatastore(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Infof("Created database: %s", p)
-	defer ds.Close()
-
-	integrationtest.FRRIntegrationTest(t, ds, tmpDir, true)
+	ds := mustMakeDatastore(t)
+	integrationtest.FRRIntegrationTest(t, ds, true)
 }
