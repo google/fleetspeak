@@ -17,6 +17,9 @@
 package stats
 
 import (
+	"net/http"
+	"time"
+
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -67,6 +70,17 @@ type CommsContextCollector interface {
 	ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error)
 }
 
+// HTTPSCollector gets notified about operations and traffic of communicators that use HTTP.
+// Implementations of this interface must be thread-safe.
+type HTTPSCollector interface {
+	// AfterGetFileRequest gets called when a communicator attempts to make a GET request for a file
+	// on behalf of the client (see comms.Communicator documentation for more details about this
+	// functionality).
+	// response might be nil in case the operation failed before a response was received.
+	// Implementations must not mutate the response, that includes reading the response body.
+	AfterGetFileRequest(host, service, name string, modSince time.Time, response *http.Response, err error)
+}
+
 // Collector is a component which is notified when certain events occur. It can be implemented with
 // different metric backends to enable monitoring of a Fleetspeak client.
 // Implementations of this interface must be thread-safe.
@@ -75,6 +89,7 @@ type Collector interface {
 	ConfigManagerCollector
 	ClientCollector
 	CommsContextCollector
+	HTTPSCollector
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -103,3 +118,7 @@ func (c NoopCollector) ContactDataCreated(wcd *fspb.WrappedContactData, err erro
 
 // ContactDataProcessed implements Collector by doing nothing.
 func (c NoopCollector) ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error) {}
+
+// AfterGetFileRequest implements Collector by doing nothing.
+func (c NoopCollector) AfterGetFileRequest(host, service, name string, modSince time.Time, response *http.Response, err error) {
+}

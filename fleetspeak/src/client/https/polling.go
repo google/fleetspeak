@@ -330,5 +330,5 @@ func (c *Communicator) GetFileIfModified(ctx context.Context, service, name stri
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince)
+	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince, c.cctx.Stats())
 }

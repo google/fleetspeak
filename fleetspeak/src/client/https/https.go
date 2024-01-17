@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package https provides an client.Communicator which connects to the
-// Fleetspeak server using https.
+// Package https provides comms.Communicator implementations which connect to the
+// Fleetspeak server using HTTPS.
 package https
 
 import (
@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 )
 
@@ -125,27 +126,10 @@ func jitter(seconds int32) time.Duration {
 // with the HTTP GET method. The hosts are sequentially dialed until one of them
 // successfully responds. If no proper response was received, the function
 // returns the most recent error.
-func getFileIfModified(ctx context.Context, hosts []string, client *http.Client, service, name string, modSince time.Time) (body io.ReadCloser, modTime time.Time, err error) {
+func getFileIfModified(ctx context.Context, hosts []string, client *http.Client, service, name string, modSince time.Time, stats stats.HTTPSCollector) (body io.ReadCloser, modTime time.Time, err error) {
 	var lastErr error
-	for _, host := range hosts {
-		u := url.URL{
-			Scheme: "https",
-			Host:   host,
-			Path:   path.Join("/files", url.PathEscape(service), url.PathEscape(name)),
-		}
-
-		req, err := http.NewRequest("GET", u.String(), nil)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		req = req.WithContext(ctx)
-
-		if !modSince.IsZero() {
-			req.Header.Set("If-Modified-Since", modSince.Format(http.TimeFormat))
-		}
-
-		resp, err := client.Do(req)
+	for _, h := range hosts {
+		body, modSince, err := getFileIfModifiedFromHost(ctx, h, client, service, name, modSince, stats)
 		if err != nil {
 			lastErr = err
 			if ctx.Err() != nil {
@@ -153,23 +137,51 @@ func getFileIfModified(ctx context.Context, hosts []string, client *http.Client,
 			}
 			continue
 		}
-
-		switch resp.StatusCode {
-		case http.StatusOK:
-			modTime, err := http.ParseTime(resp.Header.Get("Last-Modified"))
-			if err != nil {
-				return resp.Body, time.Time{}, nil
-			}
-			return resp.Body, modTime, nil
-		case http.StatusNotModified:
-			resp.Body.Close()
-			return nil, time.Time{}, nil
-		default:
-			resp.Body.Close()
-			lastErr = fmt.Errorf("failed with http response code: %v", resp.StatusCode)
-			continue
-		}
+		return body, modSince, nil
 	}
 
 	return nil, time.Time{}, fmt.Errorf("unable to retrieve file, last attempt failed with: %v", lastErr)
+}
+
+func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Client, service, name string, modSince time.Time, stats stats.HTTPSCollector) (body io.ReadCloser, modTime time.Time, err error) {
+	var resp *http.Response
+	defer func() {
+		stats.AfterGetFileRequest(host, service, name, modSince, resp, err)
+	}()
+
+	u := url.URL{
+		Scheme: "https",
+		Host:   host,
+		Path:   path.Join("/files", url.PathEscape(service), url.PathEscape(name)),
+	}
+
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	req = req.WithContext(ctx)
+
+	if !modSince.IsZero() {
+		req.Header.Set("If-Modified-Since", modSince.Format(http.TimeFormat))
+	}
+
+	resp, err = client.Do(req)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		modtime, err := http.ParseTime(resp.Header.Get("Last-Modified"))
+		if err != nil {
+			return resp.Body, time.Time{}, nil
+		}
+		return resp.Body, modtime, nil
+	case http.StatusNotModified:
+		resp.Body.Close()
+		return nil, time.Time{}, nil
+	default:
+		resp.Body.Close()
+		return nil, time.Time{}, fmt.Errorf("failed with http response code: %v", resp.StatusCode)
+	}
 }

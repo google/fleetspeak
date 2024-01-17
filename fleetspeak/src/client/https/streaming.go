@@ -98,7 +98,7 @@ func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, 
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince)
+	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince, c.cctx.Stats())
 }
 
 func (c *StreamingCommunicator) configure() error {
