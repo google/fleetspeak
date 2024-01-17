@@ -37,6 +37,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -535,15 +536,17 @@ func (e *Execution) statsRoutine() {
 		Version:          version,
 		MaxSamplePeriod:  e.samplePeriod,
 		SampleSize:       e.sampleSize,
-		Done:             e.Done,
 	})
 	if err != nil {
 		log.Errorf("Failed to create resource-usage monitor: %v", err)
 		return
 	}
 
+	ctx, cancel := fscontext.FromDoneChanTODO(e.Done)
+	defer cancel()
+
 	// This blocks until the daemon process terminates.
-	rum.Run()
+	rum.Run(ctx)
 }
 
 // busySleep sleeps for a given number of seconds, not counting the time

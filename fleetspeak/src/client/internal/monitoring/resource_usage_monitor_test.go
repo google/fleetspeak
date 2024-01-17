@@ -15,7 +15,9 @@
 package monitoring
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,7 +68,6 @@ func TestResourceUsageMonitor(t *testing.T) {
 	fakeStart := int64(1234567890)
 	samplePeriod := 100 * time.Millisecond
 	sampleSize := 2
-	doneChan := make(chan struct{})
 	errChan := make(chan error)
 
 	fakeRU0 := ResourceUsage{
@@ -93,14 +94,24 @@ func TestResourceUsageMonitor(t *testing.T) {
 		ProcessStartTime: time.Unix(fakeStart, 0),
 		MaxSamplePeriod:  samplePeriod,
 		SampleSize:       sampleSize,
-		Done:             doneChan,
 		Err:              errChan,
 		ruf:              &ruf,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	go rum.Run()
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wg.Add(1)
+	go func() {
+		wg.Done()
+		rum.Run(ctx)
+	}()
 
 	// Wait up to one minute for each resource-usage report.
 	timeout := 1 * time.Minute

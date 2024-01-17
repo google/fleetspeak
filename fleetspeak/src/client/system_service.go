@@ -78,7 +78,6 @@ func (s *systemService) Start(sc service.Context) error {
 		ProcessStartTime: s.client.startTime,
 		MaxSamplePeriod:  StatsSamplePeriod,
 		SampleSize:       StatsSampleSize,
-		Done:             ctx.Done(),
 	})
 	if err != nil {
 		rum = nil
@@ -101,7 +100,7 @@ func (s *systemService) Start(sc service.Context) error {
 	go func() {
 		defer wg.Done()
 		if rum != nil {
-			rum.Run()
+			rum.Run(ctx)
 		}
 	}()
 	return nil

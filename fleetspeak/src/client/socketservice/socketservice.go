@@ -29,6 +29,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/socketservice/proto/fleetspeak_socketservice"
@@ -151,13 +152,15 @@ L:
 
 						Pid:     int(sd.Pid),
 						Version: sd.Version,
-						Done:    ch.done,
 					})
 					if err != nil {
 						log.Errorf("Error creating ResourceUsageMonitor: %v", err)
 						return
 					}
-					rum.Run()
+					ctx, cancel := fscontext.FromDoneChanTODO(ch.done)
+					defer cancel()
+
+					rum.Run(ctx)
 				}()
 				// Startup messages don't pass through RelentlessChannel, so we don't need to call m.Ack.
 				continue L
@@ -214,6 +217,8 @@ func (s *Service) feedChannel(ch *chanInfo, msg *fspb.Message) (bool, *fspb.Mess
 }
 
 func (s *Service) accept() *chanInfo {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
 	for {
 		con, err := s.l.Accept()
 		if err == nil {
@@ -228,10 +233,11 @@ func (s *Service) accept() *chanInfo {
 		}
 		log.Errorf("Accept returned error: %v", err)
 
+		timer.Reset(time.Second)
 		select {
 		case <-s.stop:
 			return nil
-		case <-time.After(time.Second):
+		case <-timer.C:
 		}
 	}
 }
