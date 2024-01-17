@@ -126,10 +126,11 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 	defer s.routines.Done()
 	defer e.Wait()
 
-	var t <-chan time.Time
+	t := time.NewTimer(60 * time.Second)
+	defer t.Stop()
 	for {
 		if s.inactivityTimeout > 0 {
-			t = time.After(time.Until(e.LastActive().Add(s.inactivityTimeout)))
+			t.Reset(time.Until(e.LastActive().Add(s.inactivityTimeout)))
 		}
 		select {
 		case <-e.Done:
@@ -137,7 +138,7 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 			return
 		case <-s.stop:
 			return
-		case <-t:
+		case <-t.C:
 			if time.Now().After(e.LastActive().Add(s.inactivityTimeout)) {
 				e.Shutdown()
 				return

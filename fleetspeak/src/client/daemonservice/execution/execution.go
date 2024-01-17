@@ -58,10 +58,6 @@ var (
 
 	stdForward = flag.Bool("std_forward", false,
 		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
-
-	// How long to wait for the daemon service to send startup data before starting to
-	// monitor resource-usage.
-	startupDataTimeout = 10 * time.Second
 )
 
 type atomicString struct {
@@ -500,27 +496,51 @@ func (e *Execution) readMsg() *fspb.Message {
 	}
 }
 
+// waitForStartupData waits for startup data from e.startupData
+// and returns early on context cancelation
+func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version string) {
+	pid = e.cmd.Process.Pid
+
+	// How long to wait for the daemon service to send startup data before
+	// starting to monitor resource-usage.
+	const startupDataTimeout = 10 * time.Second
+
+	ctx, cancel := context.WithTimeout(ctx, startupDataTimeout)
+	defer cancel()
+
+	select {
+	case sd, ok := <-e.startupData:
+		if !ok {
+			// Channel closed.
+			log.Warningf("%s startup data not received", e.daemonServiceName)
+			return 0, ""
+		}
+		if int(sd.Pid) != pid {
+			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
+			pid = int(sd.Pid)
+		}
+		version = sd.Version
+		return pid, version
+	case <-ctx.Done():
+		log.Warningf("%s startup data not received due to %v (cause: %v)", e.daemonServiceName, ctx.Err(), context.Cause(ctx))
+		return 0, ""
+	}
+}
+
 // statsRoutine monitors the daemon process's resource usage, sending reports to the server
 // at regular intervals.
 func (e *Execution) statsRoutine() {
 	defer e.inProcess.Done()
-	pid := e.cmd.Process.Pid
-	var version string
+
+	ctx, cancel := fscontext.FromDoneChanTODO(e.Done)
+	defer cancel()
+
+	pid, version := e.waitForStartupData(ctx)
+
 	select {
-	case sd, ok := <-e.startupData:
-		if ok {
-			if int(sd.Pid) != pid {
-				log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
-				pid = int(sd.Pid)
-			}
-			version = sd.Version
-		} else {
-			log.Warningf("%s startup data not received", e.daemonServiceName)
-		}
-	case <-time.After(startupDataTimeout):
-		log.Warningf("%s startup data not received after %v", e.daemonServiceName, startupDataTimeout)
-	case <-e.Done:
+	case <-ctx.Done():
 		return
+	default:
 	}
 
 	if e.monitorHeartbeats {
@@ -542,9 +562,6 @@ func (e *Execution) statsRoutine() {
 		return
 	}
 
-	ctx, cancel := fscontext.FromDoneChanTODO(e.Done)
-	defer cancel()
-
 	// This blocks until the daemon process terminates.
 	rum.Run(ctx)
 }
@@ -553,11 +570,14 @@ func (e *Execution) statsRoutine() {
 // when the Fleetspeak process is suspended. Returns true if execution
 // should continue (i.e if the daemon process is still alive).
 func (e *Execution) busySleep(sleepSecs int) bool {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for i := 0; i < sleepSecs; i++ {
 		select {
 		// With very high probability, if the system gets suspended, it will occur
 		// while waiting for this channel.
-		case <-time.After(time.Second):
+		case <-ticker.C:
 		case <-e.dead:
 			return false
 		}
@@ -565,7 +585,7 @@ func (e *Execution) busySleep(sleepSecs int) bool {
 	return true
 }
 
-// heartbeatMonitorRoutine monitors the daemon process's hearbeats and kills
+// heartbeatMonitorRoutine monitors the daemon process's heartbeats and kills
 // unresponsive processes.
 func (e *Execution) heartbeatMonitorRoutine(pid int) {
 	defer e.inProcess.Done()
