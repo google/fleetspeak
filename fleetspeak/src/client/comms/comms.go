@@ -27,6 +27,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -127,4 +128,7 @@ type Context interface {
 
 	// CommunicatorConfig returns the client's CommunicatorConfig.
 	CommunicatorConfig() *clpb.CommunicatorConfig
+
+	// StatsCollector returns the stats.Collector used by the Fleetspeak client.
+	Stats() stats.Collector
 }

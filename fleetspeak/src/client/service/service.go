@@ -21,6 +21,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -78,6 +79,9 @@ type Context interface {
 	// GetFileIfModified attempts to retrieve a file from the server, if it been modified since
 	// modSince. Return values follow the semantics of Communicator.GetFileIfModified.
 	GetFileIfModified(ctx context.Context, name string, modSince time.Time) (data io.ReadCloser, mod time.Time, err error)
+
+	// StatsCollector returns the stats.Collector used by the Fleetspeak client.
+	Stats() stats.Collector
 }
 
 // A Factory creates a Service according to a provided configuration.

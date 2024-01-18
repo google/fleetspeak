@@ -31,14 +31,16 @@ import (
 )
 
 type testStatsCollector struct {
-	stats.CommsContextCollector
+	stats.NoopCollector
 	created, processed atomic.Int32
 }
 
+// ContactDataCreated implements stats.CommsContextCollector
 func (c *testStatsCollector) ContactDataCreated(wcd *fspb.WrappedContactData, err error) {
 	c.created.Add(1)
 }
 
+// ContactDataCreated implements stats.CommsContextCollector
 func (c *testStatsCollector) ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error) {
 	c.processed.Add(1)
 }
@@ -47,20 +49,12 @@ type testCommunicator struct {
 	comms.Communicator
 	t *testing.T
 
-	// stats gets passed to the commsContext in Setup().
-	stats stats.CommsContextCollector
-
 	cctx   comms.Context
 	cancel context.CancelFunc
 }
 
 func (c *testCommunicator) Setup(cctx comms.Context) error {
-	if a, ok := cctx.(commsContext); ok {
-		a.stats = c.stats
-		c.cctx = a
-	} else {
-		return errors.New("cctx must be a commsContext")
-	}
+	c.cctx = cctx
 	return nil
 }
 
@@ -137,10 +131,8 @@ func TestCommsContextReportsStats(t *testing.T) {
 			ServiceFactories: map[string]service.Factory{
 				"NOOP": service.NOOPFactory,
 			},
-			Communicator: &testCommunicator{
-				t:     t,
-				stats: sc,
-			},
+			Communicator: &testCommunicator{t: t},
+			Stats:        sc,
 		})
 	if err != nil {
 		t.Fatalf("Unable to create client: %v", err)

@@ -33,22 +33,25 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+// commsContext is the default implementation for comms.Context.
 type commsContext struct {
-	c     *Client
-	stats stats.CommsContextCollector
+	c *Client
 }
 
+// Outbox implements comms.Context.
 func (c commsContext) Outbox() <-chan comms.MessageInfo {
 	return c.c.outbox
 }
 
+// ProcessingBeacon implements comms.Context.
 func (c commsContext) ProcessingBeacon() <-chan struct{} {
 	return c.c.processingBeacon
 }
 
+// MakeContactData implements comms.Context.
 func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[string]uint64) (wcd *fspb.WrappedContactData, processedMessages map[string]uint64, err error) {
 	defer func() {
-		c.stats.ContactDataCreated(wcd, err)
+		c.c.stats.ContactDataCreated(wcd, err)
 	}()
 
 	am, pm := c.c.sc.Counts()
@@ -95,9 +98,10 @@ func (c commsContext) MakeContactData(toSend []*fspb.Message, baseCount map[stri
 	}, pm, nil
 }
 
+// ProcessContactData implements comms.Context.
 func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) (err error) {
 	defer func() {
-		c.stats.ContactDataProcessed(cd, streaming, err)
+		c.c.stats.ContactDataProcessed(cd, streaming, err)
 	}()
 
 	if !streaming {
@@ -111,17 +115,20 @@ func (c commsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactDa
 	return nil
 }
 
+// ChainRevoked implements comms.Context.
 func (c commsContext) ChainRevoked(chain []*x509.Certificate) bool {
 	return c.c.config.ChainRevoked(chain)
 }
 
+// CurrentID implements comms.Context.
 func (c commsContext) CurrentID() common.ClientID {
 	return c.c.config.ClientID()
 }
 
+// CurrentIdentity implements comms.Context.
 func (c commsContext) CurrentIdentity() (comms.ClientIdentity, error) {
 	p := c.c.config.CurrentState()
-	if p.ClientKey == nil {
+	if len(p.ClientKey) == 0 {
 		return comms.ClientIdentity{}, fmt.Errorf("ClientKey not set")
 	}
 
@@ -141,6 +148,7 @@ func (c commsContext) CurrentIdentity() (comms.ClientIdentity, error) {
 	}, nil
 }
 
+// CommunicatorConfig implements comms.Context.
 func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 	cfg := c.c.config.Configuration()
 
@@ -152,6 +160,12 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 	}, nil
 }
 
+// CommunicatorConfig implements comms.Context.
 func (c commsContext) CommunicatorConfig() *clpb.CommunicatorConfig {
 	return c.c.config.CommunicatorConfig()
+}
+
+// Stats implements comms.Context.
+func (c commsContext) Stats() stats.Collector {
+	return c.c.stats
 }

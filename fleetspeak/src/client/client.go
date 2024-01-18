@@ -83,7 +83,7 @@ type Client struct {
 	config  *intconfig.Manager
 
 	processingBeacon chan struct{}
-	stats            stats.ClientCollector
+	stats            stats.Collector
 }
 
 // New creates a new Client object based on the provided components.
@@ -192,10 +192,7 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	}
 
 	if ret.com != nil {
-		cctx := commsContext{
-			c:     ret,
-			stats: cmps.Stats,
-		}
+		cctx := commsContext{c: ret}
 		if err := ret.com.Setup(cctx); err != nil {
 			ssd.stop()
 			return nil, fmt.Errorf("unable to configure communicator: %v", err)

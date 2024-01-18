@@ -25,6 +25,7 @@ import (
 
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -264,6 +265,11 @@ func (d *serviceData) GetFileIfModified(ctx context.Context, name string, modSin
 		return nil, time.Time{}, errors.New("file not found")
 	}
 	return d.config.client.com.GetFileIfModified(ctx, d.name, name, modSince)
+}
+
+// Stats implements service.Context.
+func (d *serviceData) Stats() stats.Collector {
+	return d.config.client.stats
 }
 
 func (d *serviceData) processingLoop() {
