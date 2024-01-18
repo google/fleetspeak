@@ -67,12 +67,12 @@ def Freezed():
 
 
 def Heartbeat():
-  """Sends a heartbeat every second, indefinitely."""
+  """Sends a heartbeat every 100ms, indefinitely."""
   logging.info("starting heartbeat")
   con = connector.FleetspeakConnection(version="0.5")
   logging.info("connection created")
   while True:
-    time.sleep(1)
+    time.sleep(0.1)
     con.Heartbeat()
 
 
@@ -91,7 +91,7 @@ def main(argv=None):
     Freezed()
     return
 
-  if FLAGS.mode == "heartbeat":
+  if FLAGS.mode == "100ms-heartbeat":
     Heartbeat()
     return
 

@@ -38,7 +38,7 @@ import (
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {
 	dsc = proto.Clone(dsc).(*dspb.Config)
 	dsc.ResourceMonitoringSampleSize = 2
-	dsc.ResourceMonitoringSamplePeriodSeconds = 1
+	dsc.ResourceMonitoringSamplePeriod = durpb.New(30 * time.Millisecond)
 	dsc.Argv = append(dsc.Argv, client...)
 	if mode != "" {
 		dsc.Argv = append(dsc.Argv, "--mode="+mode)
@@ -69,6 +69,10 @@ func exerciseLoopback(t *testing.T, client []string) {
 	}
 	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
 	defer func() {
+		go func() {
+			for range sc.OutChan {
+			}
+		}()
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
 		}
@@ -184,12 +188,23 @@ func TestSelfReportedPIDs(t *testing.T) {
 	}
 }
 
+// mustPatchGlobalRespawnDelay patches the package-level RespawnDelay variable.
+//
+// Tests which use this should not run in parallel, because the global state
+// change could interfere with concurrent test executions.  We should try to
+// pass the respawn delay through a regular API boundary instead.
+func mustPatchGlobalRespawnDelay(t *testing.T, d time.Duration) {
+	t.Helper()
+	orig := RespawnDelay
+	RespawnDelay = d // mutating a global variable
+	t.Cleanup(func() {
+		RespawnDelay = orig
+	})
+}
+
 func TestRespawn(t *testing.T) {
-	var ord time.Duration
-	RespawnDelay, ord = time.Second, RespawnDelay
-	defer func() {
-		RespawnDelay = ord
-	}()
+	// May not run in parallel due to global variable mutation.
+	mustPatchGlobalRespawnDelay(t, time.Second)
 
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
@@ -237,14 +252,11 @@ L:
 }
 
 func TestInactivityTimeout(t *testing.T) {
-	var ord time.Duration
-	RespawnDelay, ord = time.Second, RespawnDelay
-	defer func() {
-		RespawnDelay = ord
-	}()
+	// May not run in parallel due to global variable mutation.
+	mustPatchGlobalRespawnDelay(t, time.Second)
 
 	dsc := &dspb.Config{
-		InactivityTimeout: &durpb.Duration{Seconds: 1},
+		InactivityTimeout: durpb.New(time.Second),
 	}
 	dsc.Argv = append(dsc.Argv, testClient(t)...)
 	dsc.Argv = append(dsc.Argv, "--mode=loopback")
@@ -332,12 +344,16 @@ func exerciseBacklog(t *testing.T, client []string) {
 	}
 	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
 	defer func() {
+		go func() {
+			for range sc.OutChan {
+			}
+		}()
 		if err := s.Stop(); err != nil {
 			t.Errorf("Unable to stop service: %v", err)
 		}
 	}()
 
-	// We send 16kb messages through loopback, without draining our end.
+	// We send large messages through loopback, without draining our end.
 	// Eventually, the backlog should cause us to block until ProcessMessage times
 	// out.
 	msgCnt := 0
@@ -348,18 +364,19 @@ func exerciseBacklog(t *testing.T, client []string) {
 	}
 	var err error
 	for {
-		ctx, c := context.WithTimeout(context.Background(), time.Second)
+		timeout := 100 * time.Millisecond
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		start := time.Now()
 		err = s.ProcessMessage(ctx, msg) // err in outer block, checked at loop end
 		if err == nil {
 			msgCnt++
 		}
-		c()
+		cancel()
 		rt := time.Since(start)
 		// verify that ProcessMessage respects ctx.
-		if rt > 2*time.Second {
-			t.Errorf("ProcessMessage with 1 second timeout took %v", rt)
+		if rt > 2*timeout {
+			t.Errorf("ProcessMessage with %v timeout took %v", timeout, rt)
 			break
 		}
 		if err != nil {
@@ -376,18 +393,16 @@ func exerciseBacklog(t *testing.T, client []string) {
 }
 
 func TestBacklog(t *testing.T) {
-	for _, client := range [][]string{testClient(t), testClientPY(t)} {
-		exerciseBacklog(t, client)
-	}
+	exerciseBacklog(t, testClient(t))
+}
+
+func TestBacklogPY(t *testing.T) {
+	exerciseBacklog(t, testClientPY(t))
 }
 
 // Tests that Fleetspeak kills daemonservices that exceed their memory limits.
 func TestMemoryLimit(t *testing.T) {
-	var ord time.Duration
-	RespawnDelay, ord = time.Second, RespawnDelay
-	defer func() {
-		RespawnDelay = ord
-	}()
+	mustPatchGlobalRespawnDelay(t, time.Second)
 
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
@@ -430,24 +445,20 @@ func TestMemoryLimit(t *testing.T) {
 // Tests that Fleetspeak restarts daemonservices that don't heartbeat, if
 // configured to use heartbeats.
 func TestNoHeartbeats(t *testing.T) {
-	var ord time.Duration
-	RespawnDelay, ord = time.Second, RespawnDelay
-	defer func() {
-		RespawnDelay = ord
-	}()
+	mustPatchGlobalRespawnDelay(t, time.Second)
 
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientPY(t), "freezed", &sc, &dspb.Config{
-		MonitorHeartbeats:                       true,
-		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds:  1,
+		MonitorHeartbeats:                true,
+		HeartbeatUnresponsiveGracePeriod: durpb.New(0),
+		HeartbeatUnresponsiveKillPeriod:  durpb.New(100 * time.Millisecond),
 	})
 	defer func() {
 		// Drain the channel
 		go func() {
-			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {
+			for range sc.OutChan {
 			}
 		}()
 
@@ -485,24 +496,20 @@ func TestNoHeartbeats(t *testing.T) {
 // Tests that Fleetspeak doesn't kill daemonservices that heartbeat, when
 // configured to use heartbeats.
 func TestHeartbeat(t *testing.T) {
-	var ord time.Duration
-	RespawnDelay, ord = time.Second, RespawnDelay
-	defer func() {
-		RespawnDelay = ord
-	}()
+	mustPatchGlobalRespawnDelay(t, 20*time.Millisecond)
 
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
-	s := startTestClient(t, testClientPY(t), "heartbeat", &sc, &dspb.Config{
-		MonitorHeartbeats:                       true,
-		HeartbeatUnresponsiveGracePeriodSeconds: 0,
-		HeartbeatUnresponsiveKillPeriodSeconds:  5,
+	s := startTestClient(t, testClientPY(t), "100ms-heartbeat", &sc, &dspb.Config{
+		MonitorHeartbeats:                true,
+		HeartbeatUnresponsiveGracePeriod: durpb.New(0 * time.Second),
+		HeartbeatUnresponsiveKillPeriod:  durpb.New(310 * time.Millisecond),
 	})
 	defer func() {
 		// Drain the channel.
 		go func() {
-			for _, ok := <-sc.OutChan; ok; _, ok = <-sc.OutChan {
+			for range sc.OutChan {
 			}
 		}()
 
@@ -523,20 +530,38 @@ func TestHeartbeat(t *testing.T) {
 		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
 	}
 
-	// Ensure the process is not restarted in 10 seconds - the PID should not change.
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		m = <-sc.OutChan
-		if m.MessageType != "ResourceUsage" {
-			continue
-		}
+	// Ensure the process is not restarted within the next time - the PID should not change.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-		if err := m.Data.UnmarshalTo(rud1); err != nil {
-			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
-		}
+	n := 0
+waitLoop:
+	for {
+		select {
+		case m = <-sc.OutChan:
+			if m.MessageType != "ResourceUsage" {
+				continue
+			}
 
-		if rud0.Pid != rud1.Pid {
-			t.Error("The service has been restarted.")
+			n++
+
+			if err := m.Data.UnmarshalTo(rud1); err != nil {
+				t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+			}
+
+			if rud0.Pid != rud1.Pid {
+				t.Error("The service has been restarted.")
+			}
+		case <-ctx.Done():
+			// The desired case - the service does not restart in the first 10
+			// seconds, so we exit the test without error.
+			break waitLoop
 		}
+	}
+
+	if 0 < n {
+		t.Logf("Observed %v heartbeats: OK", n)
+	} else {
+		t.Errorf("Expected more than one subsequent heartbeat, got %v", n)
 	}
 }

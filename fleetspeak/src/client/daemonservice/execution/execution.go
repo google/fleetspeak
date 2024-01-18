@@ -138,12 +138,12 @@ type Execution struct {
 	inProcess   sync.WaitGroup         // count of active goroutines
 	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
 
-	heartbeat                    atomicTime   // Time when the last message was received from the daemon process.
-	monitorHeartbeats            bool         // Whether to monitor the daemon process's hearbeats, killing it if it doesn't heartbeat often enough.
-	initialHeartbeatDeadlineSecs int          // How long to wait for the initial heartbeat.
-	heartbeatDeadlineSecs        int          // How long to wait for subsequent heartbeats.
-	sending                      atomicBool   // Indicates whether a message-send operation is in progress.
-	serviceVersion               atomicString // Version reported by the daemon process.
+	heartbeat               atomicTime    // Time when the last message was received from the daemon process.
+	monitorHeartbeats       bool          // Whether to monitor the daemon process's heartbeats, killing it if it doesn't heartbeat often enough.
+	initialHeartbeatTimeout time.Duration // How long to wait for the initial heartbeat.
+	heartbeatTimeout        time.Duration // How long to wait for subsequent heartbeats.
+	sending                 atomicBool    // Indicates whether a message-send operation is in progress.
+	serviceVersion          atomicString  // Version reported by the daemon process.
 }
 
 // New creates and starts an execution of the command described in cfg. Messages
@@ -156,7 +156,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		daemonServiceName: daemonServiceName,
 		memoryLimit:       cfg.MemoryLimit,
 		sampleSize:        int(cfg.ResourceMonitoringSampleSize),
-		samplePeriod:      time.Duration(cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second,
+		samplePeriod:      cfg.ResourceMonitoringSamplePeriod.AsDuration(),
 
 		Done: make(chan struct{}),
 
@@ -170,9 +170,19 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		dead:        make(chan struct{}),
 		startupData: make(chan *fcpb.StartupData, 1),
 
-		monitorHeartbeats:            cfg.MonitorHeartbeats,
-		initialHeartbeatDeadlineSecs: int(cfg.HeartbeatUnresponsiveGracePeriodSeconds),
-		heartbeatDeadlineSecs:        int(cfg.HeartbeatUnresponsiveKillPeriodSeconds),
+		monitorHeartbeats:       cfg.MonitorHeartbeats,
+		initialHeartbeatTimeout: cfg.HeartbeatUnresponsiveGracePeriod.AsDuration(),
+		heartbeatTimeout:        cfg.HeartbeatUnresponsiveKillPeriod.AsDuration(),
+	}
+
+	if ret.initialHeartbeatTimeout <= 0 {
+		ret.initialHeartbeatTimeout = time.Duration(cfg.HeartbeatUnresponsiveGracePeriodSeconds) * time.Second
+	}
+	if ret.heartbeatTimeout <= 0 {
+		ret.heartbeatTimeout = time.Duration(cfg.HeartbeatUnresponsiveKillPeriodSeconds) * time.Second
+	}
+	if ret.samplePeriod <= 0 {
+		ret.samplePeriod = time.Duration(cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second
 	}
 
 	var err error
@@ -566,18 +576,19 @@ func (e *Execution) statsRoutine() {
 	rum.Run(ctx)
 }
 
-// busySleep sleeps for a given number of seconds, not counting the time
-// when the Fleetspeak process is suspended. Returns true if execution
-// should continue (i.e if the daemon process is still alive).
-func (e *Execution) busySleep(sleepSecs int) bool {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+// busySleep sleeps *roughly* for the given duration, not counting the time when
+// the Fleetspeak process is suspended. Returns true if execution should
+// continue (i.e if the daemon process is still alive).
+func (e *Execution) busySleep(d time.Duration) bool {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
 
-	for i := 0; i < sleepSecs; i++ {
+	for d > 0 {
 		select {
-		// With very high probability, if the system gets suspended, it will occur
-		// while waiting for this channel.
-		case <-ticker.C:
+		case <-timer.C:
+			step := min(d, time.Second)
+			timer.Reset(step)
+			d = d - step
 		case <-e.dead:
 			return false
 		}
@@ -594,29 +605,29 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
 	e.heartbeat.Set(time.Now())
-	if !e.busySleep(e.initialHeartbeatDeadlineSecs) {
+	if !e.busySleep(e.initialHeartbeatTimeout) {
 		return
 	}
 
 	for {
 		if e.sending.Get() { // Blocked trying to buffer a message for sending to the FS server.
-			if e.busySleep(e.heartbeatDeadlineSecs) {
+			if e.busySleep(e.heartbeatTimeout) {
 				continue
 			} else {
 				return
 			}
 		}
-		secsSinceLastHB := int(time.Now().Sub(e.heartbeat.Get()).Seconds())
-		if secsSinceLastHB > e.heartbeatDeadlineSecs {
+		timeSinceLastHB := time.Since(e.heartbeat.Get())
+		if timeSinceLastHB > e.heartbeatTimeout {
 			// There is a very unlikely race condition if the machine gets suspended
 			// for longer than unresponsive_kill_period seconds so we give the client
 			// some time to catch up.
-			if !e.busySleep(2) {
+			if !e.busySleep(2 * time.Second) {
 				return
 			}
 
-			secsSinceLastHB = int(time.Now().Sub(e.heartbeat.Get()).Seconds())
-			if secsSinceLastHB > e.heartbeatDeadlineSecs && !e.sending.Get() {
+			timeSinceLastHB = time.Since(e.heartbeat.Get())
+			if timeSinceLastHB > e.heartbeatTimeout && !e.sending.Get() {
 				// We have not received a heartbeat in a while, kill the child.
 				log.Warningf("No heartbeat received from %s (pid %d), killing.", e.daemonServiceName, pid)
 
@@ -650,7 +661,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			}
 		}
 		// Sleep until when the next heartbeat is due.
-		if !e.busySleep(e.heartbeatDeadlineSecs - secsSinceLastHB) {
+		if !e.busySleep(e.heartbeatTimeout - timeSinceLastHB) {
 			return
 		}
 	}

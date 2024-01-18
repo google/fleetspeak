@@ -29,7 +29,8 @@ message Config {
 
   // How long to wait between resource monitoring samples. If unset, defaults to
   // 30.
-  int32 resource_monitoring_sample_period_seconds = 6;
+  int32 resource_monitoring_sample_period_seconds = 6 [deprecated = true];
+  google.protobuf.Duration resource_monitoring_sample_period = 12;
 
   // If set, Fleetspeak will kill and restart the child if it exceeds this
   // memory limit, in bytes.
@@ -41,10 +42,12 @@ message Config {
   bool monitor_heartbeats = 8;
 
   // How long to wait for initial heartbeat.
-  int32 heartbeat_unresponsive_grace_period_seconds = 9;
+  int32 heartbeat_unresponsive_grace_period_seconds = 9 [deprecated = true];
+  google.protobuf.Duration heartbeat_unresponsive_grace_period = 13;
 
   // How long to wait for subsequent heartbeats.
-  int32 heartbeat_unresponsive_kill_period_seconds = 10;
+  int32 heartbeat_unresponsive_kill_period_seconds = 10 [deprecated = true];
+  google.protobuf.Duration heartbeat_unresponsive_kill_period = 14;
 
   // If set, we forward stderr and stdout data to the server as messages with:
   //
