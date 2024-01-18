@@ -25,13 +25,14 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 type statsCollector struct {
-	RetryLoopStatsCollector
+	stats.RetryLoopCollector
 	retries, pending, pendingSize atomic.Int64
 }
 

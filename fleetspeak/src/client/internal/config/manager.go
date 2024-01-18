@@ -28,6 +28,7 @@ import (
 
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"google.golang.org/protobuf/proto"
 
@@ -41,7 +42,7 @@ import (
 type Manager struct {
 	cfg   *config.Configuration // does not change
 	cc    *clpb.CommunicatorConfig
-	stats ManagerStatsCollector
+	stats stats.ConfigManagerCollector
 
 	lock            sync.RWMutex // protects the state variables below
 	state           *clpb.ClientState
@@ -56,16 +57,6 @@ type Manager struct {
 	done          chan bool
 }
 
-// ManagerStatsCollector gets notified about config manager operations.
-// Implementations of this interface must be thread-safe.
-type ManagerStatsCollector interface {
-	// AfterConfigSync is called after each config sync attempt by the config manager.
-	// err is the result of the operation.
-	AfterConfigSync(err error)
-	// AfterRekey is called after each rekey attempt by the config manager.
-	AfterRekey(err error)
-}
-
 // StartManager attempts to create a Manager from the provided client
 // configuration.
 //
@@ -73,7 +64,7 @@ type ManagerStatsCollector interface {
 // report to the server.
 // TODO(b/297019580): Consider defining and consuming a more specific `ConfigManagerCollector`
 // interface here, containing only the methods that Manager actually cares about.
-func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientInfoData, c ManagerStatsCollector) (*Manager, error) {
+func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientInfoData, c stats.ConfigManagerCollector) (*Manager, error) {
 	if cfg == nil {
 		return nil, errors.New("configuration must be provided")
 	}

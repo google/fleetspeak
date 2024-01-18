@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
@@ -28,7 +29,7 @@ import (
 
 // statsCollector implements stats.ConfigManagerStatsCollector
 type statsCollector struct {
-	ManagerStatsCollector
+	stats.ConfigManagerCollector
 	mu     sync.Mutex
 	rekeys int
 }

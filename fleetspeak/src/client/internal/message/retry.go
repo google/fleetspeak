@@ -17,32 +17,16 @@
 package message
 
 import (
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 )
 
 type sizedMessage struct {
 	size int
 	m    service.AckMessage
-}
-
-// RetryLoopStatsCollector gets notified about messages currently kept in memory by the RetryLoop.
-// Implementations of this interface must be thread-safe.
-type RetryLoopStatsCollector interface {
-	// BeforeMessageRetry is called when a message has been nacked and got readded to the outbound
-	// message queue.
-	BeforeMessageRetry(msg *fspb.Message)
-	// MessagePending is called before a new message is being placed into the output channel.
-	// A message is considered pending until it got Acked by the server. In case the message gets
-	// Nacked, the RetryLoop will retry and the message is still considered pending.
-	// size is the serialized message's size in bytes.
-	MessagePending(msg *fspb.Message, size int)
-	// MessageAcknowledged is called after a pending message has been acknowledged.
-	// size is the serialized message's size in bytes.
-	MessageAcknowledged(msg *fspb.Message, size int)
 }
 
 // RetryLoop is a loop which reads from in and writes to out.
@@ -52,7 +36,7 @@ type RetryLoopStatsCollector interface {
 // when at least maxSize bytes of messages, or maxCount messages are pending.
 //
 // To shutdown gracefully, close out and Ack any pending messages.
-func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats RetryLoopStatsCollector, maxSize, maxCount int) {
+func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats stats.RetryLoopCollector, maxSize, maxCount int) {
 	// Used to send acks/nacks back to this loop. Buffered to prevent ack,nack
 	// callbacks from ever blocking.
 	acks := make(chan sizedMessage, maxCount)
