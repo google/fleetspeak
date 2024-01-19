@@ -47,7 +47,7 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 // CloneHandlingTest runs an integration test using ds in which cloned clients
@@ -84,7 +84,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store) {
 				Name:    "NOOP Service",
 				Factory: "NOOP",
 			}},
-			BroadcastPollTime: &dpb.Duration{Seconds: 1},
+			BroadcastPollTime: durationpb.New(time.Second),
 		},
 		server.Components{
 			Datastore:        ds,

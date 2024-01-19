@@ -55,7 +55,7 @@ import (
 	fpb "github.com/google/fleetspeak/fleetspeak/src/inttesting/frr/proto/fleetspeak_frr"
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 const numClients = 5
@@ -180,7 +180,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 					MasterServer: tl.Addr().String(),
 				}),
 			}},
-			BroadcastPollTime: &dpb.Duration{Seconds: 1},
+			BroadcastPollTime: durationpb.New(time.Second),
 		},
 		server.Components{
 			Datastore:        ds,

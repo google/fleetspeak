@@ -39,7 +39,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 // Components gathers the external components required to instantiate a Fleetspeak Server.
@@ -144,7 +144,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		}
 	}
 	if c.BroadcastPollTime == nil {
-		c.BroadcastPollTime = &dpb.Duration{Seconds: 60}
+		c.BroadcastPollTime = durationpb.New(60 * time.Second)
 	}
 	bm, err := broadcasts.MakeManager(
 		context.Background(),

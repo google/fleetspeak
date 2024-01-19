@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/prototext"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 )
 
 type serverInfo struct {
@@ -281,7 +281,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 		return fmt.Errorf("Failed to marshal grpcConfig: %v", err)
 	}
 	serverServiceConf.Config = serviceConfig
-	serverConf := &spb.ServerConfig{Services: []*spb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: &dpb.Duration{Seconds: 1}}
+	serverConf := &spb.ServerConfig{Services: []*spb.ServiceConfig{&serverServiceConf}, BroadcastPollTime: durationpb.New(time.Second)}
 
 	b, err = prototext.Marshal(serverConf)
 	if err != nil {
