@@ -18,8 +18,8 @@ use, both as part of GRR and for other uses.
 
 ## Getting Started
 
-On linux, assuming a recent version of the go development environment (tested
-with 1.9, probably requires at least 1.8) and virtualenv, the following sequence
+On linux, assuming a recent version of the go development environment (see the
+`go.mod` file for the exact requirement) and virtualenv, the following sequence
 of commands will build and test this pre-release:
 
 ```bash
