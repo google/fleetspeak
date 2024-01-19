@@ -43,7 +43,7 @@ jobs:
         # TODO(mbushkov): make golint and go vet checks actionable.
         run: |
           golint ./... | grep -v 'should have comment or be unexported' || true
-          go vet ./... || true
+          go vet -tags oss ./... || true
       - name: Check generated protos
         run: |
           fleetspeak/generate_go_py_protos.sh
