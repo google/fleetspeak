@@ -126,12 +126,18 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 	defer s.routines.Done()
 	defer e.Wait()
 
-	t := time.NewTimer(60 * time.Second)
-	defer t.Stop()
+	timeout := func() time.Duration {
+		return time.Until(e.LastActive().Add(s.inactivityTimeout))
+	}
+
+	// Remark: A receive on a nil t.C channel blocks forever.
+	var t = &time.Timer{}
+	if s.inactivityTimeout > 0 {
+		t = time.NewTimer(timeout())
+		defer t.Stop()
+	}
+
 	for {
-		if s.inactivityTimeout > 0 {
-			t.Reset(time.Until(e.LastActive().Add(s.inactivityTimeout)))
-		}
 		select {
 		case <-e.Done:
 			log.Warningf("Execution of [%s] ended spontaneously.", s.name)
@@ -139,10 +145,11 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 		case <-s.stop:
 			return
 		case <-t.C:
-			if time.Now().After(e.LastActive().Add(s.inactivityTimeout)) {
+			if timeout() <= 0 {
 				e.Shutdown()
 				return
 			}
+			t.Reset(timeout())
 		}
 	}
 }
