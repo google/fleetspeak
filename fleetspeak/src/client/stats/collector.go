@@ -67,6 +67,19 @@ type CommsContextCollector interface {
 	ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error)
 }
 
+// CommunicatorCollector gets notified about operations and traffic of communicators.
+// Implementations of this interface must be thread-safe.
+type CommunicatorCollector interface {
+	// OutboundContactData gets called after an attempt to send a ContactData to the host.
+	// bytesSent is the amount of bytes that were sent during the operation. err is an error
+	// that occurred during the operation, if any.
+	OutboundContactData(host string, bytesSent int, err error)
+	// InboundContactData gets called after an attempt to receive a ContactData from the host.
+	// bytesReceived is the amount of bytes that were received during the operation. err is an error
+	// that occurred during the operation, if any.
+	InboundContactData(host string, bytesReceived int, err error)
+}
+
 // Collector is a component which is notified when certain events occur. It can be implemented with
 // different metric backends to enable monitoring of a Fleetspeak client.
 // Implementations of this interface must be thread-safe.
@@ -75,6 +88,7 @@ type Collector interface {
 	ConfigManagerCollector
 	ClientCollector
 	CommsContextCollector
+	CommunicatorCollector
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -103,3 +117,9 @@ func (c NoopCollector) ContactDataCreated(wcd *fspb.WrappedContactData, err erro
 
 // ContactDataProcessed implements Collector by doing nothing.
 func (c NoopCollector) ContactDataProcessed(cd *fspb.ContactData, streaming bool, err error) {}
+
+// OutboundContactData implements Collector by doing nothing.
+func (c NoopCollector) OutboundContactData(host string, bytesSent int, err error) {}
+
+// InboundContactData implements Collector by doing nothing.
+func (c NoopCollector) InboundContactData(host string, bytesReceived int, err error) {}

@@ -42,6 +42,8 @@ import (
 
 const magic = uint32(0xf1ee1001)
 
+// StreamingCommunicator is a comms.Communicator that communicates with the fleetspeak server
+// via HTTPS and long lived connections.
 type StreamingCommunicator struct {
 	ctx         context.Context
 	cctx        comms.Context
@@ -65,6 +67,7 @@ type StreamingCommunicator struct {
 	certBytes []byte
 }
 
+// Setup implements comms.Communicator.
 func (c *StreamingCommunicator) Setup(cl comms.Context) error {
 	c.cctx = cl
 	c.ctx, c.fin = context.WithCancel(context.Background())
@@ -81,6 +84,7 @@ func (c *StreamingCommunicator) Setup(cl comms.Context) error {
 	return c.configure()
 }
 
+// Start implements comms.Communicator.
 func (c *StreamingCommunicator) Start() error {
 	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-streaming-traces-", time.Hour, true)
 	c.working.Add(1)
@@ -88,6 +92,7 @@ func (c *StreamingCommunicator) Start() error {
 	return nil
 }
 
+// Stop implements comms.Communicator.
 func (c *StreamingCommunicator) Stop() {
 	c.fin()
 	c.working.Wait()
@@ -191,7 +196,11 @@ func (c *StreamingCommunicator) connectLoop() {
 	}
 }
 
-func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
+func (c *connection) readContact(body *bufio.Reader) (cd *fspb.ContactData, err error) {
+	var recvSize int
+	defer func() {
+		c.cctx.Stats().InboundContactData(c.host, recvSize, err)
+	}()
 	log.V(2).Info("->Reading contact size.")
 	size, err := binary.ReadUvarint(body)
 	if err != nil {
@@ -203,11 +212,12 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cd fspb.ContactData
-	if err := proto.Unmarshal(buf, &cd); err != nil {
+	recvSize = int(size)
+	cd = &fspb.ContactData{}
+	if err := proto.Unmarshal(buf, cd); err != nil {
 		return nil, err
 	}
-	return &cd, nil
+	return cd, nil
 }
 
 // connect performs an initial exchange and returns an active streaming
@@ -218,6 +228,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		pending:     make(map[int][]comms.MessageInfo),
 		serverDone:  make(chan struct{}),
 		writingDone: make(chan struct{}),
+		host:        host,
 	}
 	ret.ctx, ret.stop = context.WithTimeout(c.ctx, maxLife)
 
@@ -305,6 +316,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 
 	if err != nil {
+		c.cctx.Stats().OutboundContactData(host, 0, err)
 		log.V(1).Infof("Streaming connection attempt failed: %v", err)
 		ret.stop()
 		return nil, err
@@ -323,10 +335,13 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 
 	if resp.StatusCode != 200 {
-		return fail(fmt.Errorf("POST to %v failed with status: %v", host, resp.StatusCode))
+		err = fmt.Errorf("POST to %v failed with status: %v", host, resp.StatusCode)
+		c.cctx.Stats().OutboundContactData(host, len(buf), err)
+		return fail(err)
 	}
+	c.cctx.Stats().OutboundContactData(host, len(buf), nil)
 	body := bufio.NewReader(resp.Body)
-	cd, err := readContact(body)
+	cd, err := ret.readContact(body)
 	if err != nil {
 		return fail(err)
 	}
@@ -370,6 +385,9 @@ type connection struct {
 	// sent to the server. Used to update the number of messages the server
 	// can send us.
 	processed map[string]uint64
+
+	// The host that this connection is established with
+	host string
 }
 
 // groupMessages gets a group of messages to send. Note that we are committed to calling
@@ -482,12 +500,14 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 		start := time.Now()
 		sizeWritten, err := bw.Write(sizeBuf)
 		if err != nil {
+			c.cctx.Stats().OutboundContactData(c.host, 0, err)
 			if c.ctx.Err() == nil {
 				log.Errorf("Error writing streaming contact data: %v", err)
 			}
 			return
 		}
 		bufWritten, err := bw.Write(buf)
+		c.cctx.Stats().OutboundContactData(c.host, bufWritten, err)
 		if err != nil {
 			if c.ctx.Err() == nil {
 				log.Errorf("Error writing streaming contact data: %v", err)
@@ -515,7 +535,7 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 	cnt := 1
 	writingDone := false
 	for {
-		cd, err := readContact(body)
+		cd, err := c.readContact(body)
 		if err != nil {
 			if c.ctx.Err() == nil && err != io.EOF {
 				log.Errorf("Error reading streaming ContactData: %v", err)

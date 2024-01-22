@@ -54,6 +54,7 @@ type Communicator struct {
 	wd *watchdog.Watchdog
 }
 
+// Setup implements comms.Communicator.
 func (c *Communicator) Setup(cl comms.Context) error {
 	c.cctx = cl
 	return c.configure()
@@ -103,6 +104,7 @@ func (c *Communicator) configure() error {
 	return nil
 }
 
+// Start implements comms.Communicator.
 func (c *Communicator) Start() error {
 	c.wd = watchdog.MakeWatchdog(watchdog.DefaultDir, "fleetspeak-polling-traces-", time.Hour, true)
 	c.working.Add(1)
@@ -110,6 +112,7 @@ func (c *Communicator) Start() error {
 	return nil
 }
 
+// Stop implements comms.Communicator.
 func (c *Communicator) Stop() {
 	c.done()
 	c.working.Wait()
@@ -154,7 +157,7 @@ func (c *Communicator) processingLoop() {
 			toSend = nil
 			toSendSize = 0
 
-			if (lastPoll != time.Time{}) && (time.Since(lastPoll) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second) {
+			if (!lastPoll.IsZero()) && (time.Since(lastPoll) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second) {
 				// Die in the hopes that our replacement will be better configured, or otherwise have better luck.
 				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastPoll))
 			}
@@ -282,48 +285,64 @@ func (c *Communicator) poll(toSend []comms.MessageInfo) (bool, error) {
 		return false, fmt.Errorf("unable to marshal outgoing messages: %v", err)
 	}
 
-	for i, h := range c.hosts {
-		u := url.URL{Scheme: "https", Host: h, Path: "/message"}
-
-		resp, err := c.hc.Post(u.String(), "", bytes.NewReader(data))
+	for i, host := range c.hosts {
+		cd, err := c.pollHost(host, data)
 		if err != nil {
-			log.Warningf("POST to %v failed with error: %v", u, err)
+			log.Warningf("Error polling %q for ContactData: %v", host, err)
 			continue
 		}
-
-		if resp.StatusCode != 200 {
-			log.Warningf("POST to %v failed with status: %v", u, resp.StatusCode)
-			continue
-		}
-
-		var b bytes.Buffer
-		if _, err := b.ReadFrom(resp.Body); err != nil {
-			resp.Body.Close()
-			log.Warning("Unable to read response body.")
-			continue
-		}
-		resp.Body.Close()
-
-		var r fspb.ContactData
-		if err := proto.Unmarshal(b.Bytes(), &r); err != nil {
-			log.Warningf("Unable to parse ContactData from server: %v", err)
-			continue
-		}
-
-		if err := c.cctx.ProcessContactData(context.TODO(), &r, false); err != nil {
-			log.Warningf("Error processing ContactData from server: %v", err)
-			continue
-		}
-
 		if i != 0 {
 			c.hostLock.Lock()
 			// Swap, so we check this host first next time.
 			c.hosts[0], c.hosts[i] = c.hosts[i], c.hosts[0]
 			c.hostLock.Unlock()
 		}
-		return sent || (len(r.Messages) != 0), nil
+		if err := c.cctx.ProcessContactData(context.TODO(), cd, false); err != nil {
+			log.Warningf("Error processing ContactData from %q: %v", host, err)
+			return false, err
+		}
+		return sent || (len(cd.Messages) != 0), nil
 	}
 	return false, errors.New("unable to contact any server")
+}
+
+func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, error) {
+	var sendErr, recvErr error
+	var sendSize, recvSize int
+	defer func() {
+		c.cctx.Stats().OutboundContactData(host, sendSize, sendErr)
+		c.cctx.Stats().InboundContactData(host, recvSize, recvErr)
+	}()
+
+	u := url.URL{Scheme: "https", Host: host, Path: "/message"}
+
+	var resp *http.Response
+	resp, sendErr = c.hc.Post(u.String(), "", bytes.NewReader(data))
+	if sendErr != nil {
+		return nil, sendErr
+	}
+	defer resp.Body.Close()
+	sendSize = len(data)
+
+	if resp.StatusCode != 200 {
+		sendErr = fmt.Errorf("response status code: %v", resp.StatusCode)
+		return nil, sendErr
+	}
+
+	var buf []byte
+	buf, recvErr = io.ReadAll(resp.Body)
+	if recvErr != nil {
+		return nil, recvErr
+	}
+	recvSize = len(buf)
+
+	cd := &fspb.ContactData{}
+	recvErr = proto.Unmarshal(buf, cd)
+	if recvErr != nil {
+		return nil, recvErr
+	}
+
+	return cd, nil
 }
 
 func (c *Communicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
