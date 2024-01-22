@@ -233,11 +233,11 @@ func (s *Service) accept() *chanInfo {
 		}
 		log.Errorf("Accept returned error: %v", err)
 
-		timer.Reset(time.Second)
 		select {
 		case <-s.stop:
 			return nil
 		case <-timer.C:
+			timer.Reset(time.Second)
 		}
 	}
 }
