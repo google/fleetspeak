@@ -208,6 +208,9 @@ type ResourceUsageMonitorParams struct {
 	// a single resource-usage report sent to Fleetspeak servers.
 	SampleSize int
 
+	// The resource monitor will shut down when this channel is closed.
+	Done <-chan struct{}
+
 	// If set, the resource monitor will report errors on this channel. If unset,
 	// errors will be logged.
 	Err chan<- error
@@ -216,8 +219,8 @@ type ResourceUsageMonitorParams struct {
 	ruf resourceUsageFetcherI
 }
 
-// New returns a new ResourceUsageMonitor.
-// Once created, it must be started with Run().
+// New returns a new ResourceUsageMonitor, once created it must be started with
+// Run() and stopped by closing params.Done.
 func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageMonitor, error) {
 	var startTimeProto *tspb.Timestamp
 
@@ -264,18 +267,23 @@ func New(sc service.Context, params ResourceUsageMonitorParams) (*ResourceUsageM
 		initialSampleSize: initialSampleSize,
 		sampleSize:        params.SampleSize,
 
-		ruf:     params.ruf,
-		errChan: params.Err,
+		ruf:      params.ruf,
+		doneChan: params.Done,
+		errChan:  params.Err,
 	}
 
 	return &m, nil
 }
 
-// Run is the business method of the resource-usage monitor.
-// It blocks until ctx is canceled.
-func (m *ResourceUsageMonitor) Run(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
+// Run is the business method of the resource-usage monitor. It blocks until doneChan is closed.
+func (m *ResourceUsageMonitor) Run() {
+	// We should migrate to context.Context
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go func() {
+		<-m.doneChan
+		cancel()
+	}()
 
 	// 1s, 2s, 4s, 8s, 16s, ..., m.maxSamplePeriod, m.maxSamplePeriod, m.maxSamplePeriod, ...
 	backoffPeriod := min(time.Second, m.maxSamplePeriod)
