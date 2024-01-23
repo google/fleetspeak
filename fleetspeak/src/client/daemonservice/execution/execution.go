@@ -37,10 +37,10 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
-	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 
 	fcpb "github.com/google/fleetspeak/fleetspeak/src/client/channel/proto/fleetspeak_channel"
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
@@ -225,19 +225,31 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 
 	if cfg.StdParams != nil {
 		ret.inProcess.Add(1)
-		go ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+		go func() {
+			defer ret.inProcess.Done()
+			ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+		}()
 	}
-	ret.inProcess.Add(2)
-	go ret.inRoutine()
+	ret.inProcess.Add(1)
+	go func() {
+		defer ret.inProcess.Done()
+		ret.inRoutine()
+	}()
 	if !cfg.DisableResourceMonitoring {
 		ret.inProcess.Add(1)
-		go ret.statsRoutine()
-	}
-	go func() {
-		defer func() {
-			ret.Shutdown()
-			ret.inProcess.Done()
+		go func() {
+			defer ret.inProcess.Done()
+
+			ctx, cancel := fscontext.FromDoneChanTODO(ret.Done)
+			defer cancel()
+
+			ret.statsRoutine(ctx)
 		}()
+	}
+	ret.inProcess.Add(1)
+	go func() {
+		defer ret.inProcess.Done()
+		defer ret.Shutdown()
 		ret.waitResult = ret.cmd.Wait()
 		close(ret.dead)
 		if ret.waitResult != nil {
@@ -366,7 +378,6 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 }
 
 func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
-	defer e.inProcess.Done()
 	t := time.NewTicker(flushTime)
 	defer t.Stop()
 	for {
@@ -399,7 +410,6 @@ func (e *Execution) waitForDeath(d time.Duration) bool {
 
 // Shutdown shuts down this execution.
 func (e *Execution) Shutdown() {
-
 	e.shutdown.Do(func() {
 		// First we attempt a gentle shutdown. Closing e.Done tells our
 		// user not to give us any more data, in response they should
@@ -441,10 +451,7 @@ func (e *Execution) Shutdown() {
 // inRoutine reads messages from the dependent process and passes them to
 // fleetspeak.
 func (e *Execution) inRoutine() {
-	defer func() {
-		e.Shutdown()
-		e.inProcess.Done()
-	}()
+	defer e.Shutdown()
 
 	var startupDone bool
 
@@ -539,12 +546,7 @@ func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version st
 
 // statsRoutine monitors the daemon process's resource usage, sending reports to the server
 // at regular intervals.
-func (e *Execution) statsRoutine() {
-	defer e.inProcess.Done()
-
-	ctx, cancel := fscontext.FromDoneChanTODO(e.Done)
-	defer cancel()
-
+func (e *Execution) statsRoutine(ctx context.Context) {
 	pid, version := e.waitForStartupData(ctx)
 
 	select {
@@ -555,7 +557,10 @@ func (e *Execution) statsRoutine() {
 
 	if e.monitorHeartbeats {
 		e.inProcess.Add(1)
-		go e.heartbeatMonitorRoutine(pid)
+		go func() {
+			defer e.inProcess.Done()
+			e.heartbeatMonitorRoutine(pid)
+		}()
 	}
 
 	rum, err := monitoring.New(e.sc, monitoring.ResourceUsageMonitorParams{
@@ -572,13 +577,15 @@ func (e *Execution) statsRoutine() {
 		return
 	}
 
-	// This blocks until the daemon process terminates.
+	// This blocks until ctx is canceled.
 	rum.Run(ctx)
 }
 
 // busySleep sleeps *roughly* for the given duration, not counting the time when
-// the Fleetspeak process is suspended. Returns true if execution should
-// continue (i.e if the daemon process is still alive).
+// the Fleetspeak process is suspended.
+//
+// Returns true if execution should continue (i.e if the daemon process is still
+// alive).  Returns false is the process is dead (the e.dead channel is closed).
 func (e *Execution) busySleep(d time.Duration) bool {
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
@@ -598,9 +605,10 @@ func (e *Execution) busySleep(d time.Duration) bool {
 
 // heartbeatMonitorRoutine monitors the daemon process's heartbeats and kills
 // unresponsive processes.
+//
+// It runs until the daemon process has exited (in which case the executor
+// closes e.dead).
 func (e *Execution) heartbeatMonitorRoutine(pid int) {
-	defer e.inProcess.Done()
-
 	// Give the child process some time to start up. During boot it sometimes
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
