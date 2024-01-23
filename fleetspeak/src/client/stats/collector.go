@@ -78,6 +78,12 @@ type CommunicatorCollector interface {
 	// bytesReceived is the amount of bytes that were received during the operation. err is an error
 	// that occurred during the operation, if any.
 	InboundContactData(host string, bytesReceived int, err error)
+	// AfterGetFileRequest gets called when a communicator attempts to make a request for a file on
+	// behalf of the client (see comms.Communicator documentation for more details about this
+	// functionality).
+	// didFetch indicates whether or not the requested file has been fetched from the server,
+	// depending on whether it has been modified since we last fetched it.
+	AfterGetFileRequest(host, service, name string, didFetch bool, err error)
 }
 
 // Collector is a component which is notified when certain events occur. It can be implemented with
@@ -123,3 +129,6 @@ func (c NoopCollector) OutboundContactData(host string, bytesSent int, err error
 
 // InboundContactData implements Collector by doing nothing.
 func (c NoopCollector) InboundContactData(host string, bytesReceived int, err error) {}
+
+// AfterGetFileRequest implements Collector by doing nothing.
+func (c NoopCollector) AfterGetFileRequest(host, service, name string, didFetch bool, err error) {}
