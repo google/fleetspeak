@@ -18,6 +18,7 @@ package daemonservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -215,6 +216,11 @@ func (s *Service) executionManagerLoop() {
 
 		var stopping bool
 		stopping, msg = s.feedExecution(msg, ex)
+		var err error
+		if !stopping {
+			err = errors.New("subprocess finished due to unknown cause")
+		}
+		s.sc.Stats().DaemonServiceSubprocessFinished(s.name, err)
 		if stopping {
 			return
 		}

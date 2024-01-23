@@ -86,6 +86,15 @@ type CommunicatorCollector interface {
 	AfterGetFileRequest(host, service, name string, didFetch bool, err error)
 }
 
+// DaemonServiceCollector gets notified about operations of daemonservice.Services.
+// Implementations of this interface must be thread-safe.
+type DaemonServiceCollector interface {
+	// DaemonServiceSubprocessFinished gets called when a service's subprocess terminates.
+	// If the subprocess finished for a reason other than the service shutting down, the cause should
+	// be passed as err.
+	DaemonServiceSubprocessFinished(service string, err error)
+}
+
 // Collector is a component which is notified when certain events occur. It can be implemented with
 // different metric backends to enable monitoring of a Fleetspeak client.
 // Implementations of this interface must be thread-safe.
@@ -95,6 +104,7 @@ type Collector interface {
 	ClientCollector
 	CommsContextCollector
 	CommunicatorCollector
+	DaemonServiceCollector
 }
 
 // NoopCollector implements Collector by doing nothing.
@@ -132,3 +142,6 @@ func (c NoopCollector) InboundContactData(host string, bytesReceived int, err er
 
 // AfterGetFileRequest implements Collector by doing nothing.
 func (c NoopCollector) AfterGetFileRequest(host, service, name string, didFetch bool, err error) {}
+
+// DaemonServiceSubprocessFinished implements Collector by doing nothing.
+func (c NoopCollector) DaemonServiceSubprocessFinished(service string, err error) {}

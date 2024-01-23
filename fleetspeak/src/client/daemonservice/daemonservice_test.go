@@ -19,6 +19,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -34,6 +36,16 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durpb "google.golang.org/protobuf/types/known/durationpb"
 )
+
+type testStatsCollector struct {
+	stats.NoopCollector
+	subprocessesFinished atomic.Int64
+}
+
+// DaemonServiceSubprocessFinished implements stats.DaemonServiceCollector.
+func (sc *testStatsCollector) DaemonServiceSubprocessFinished(service string, err error) {
+	sc.subprocessesFinished.Add(1)
+}
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {
 	dsc = proto.Clone(dsc).(*dspb.Config)
@@ -446,9 +458,11 @@ func TestMemoryLimit(t *testing.T) {
 // configured to use heartbeats.
 func TestNoHeartbeats(t *testing.T) {
 	mustPatchGlobalRespawnDelay(t, time.Second)
+	stats := &testStatsCollector{}
 
 	sc := clitesting.MockServiceContext{
-		OutChan: make(chan *fspb.Message),
+		OutChan:        make(chan *fspb.Message),
+		StatsCollector: stats,
 	}
 	s := startTestClient(t, testClientPY(t), "freezed", &sc, &dspb.Config{
 		MonitorHeartbeats:                true,
@@ -491,6 +505,11 @@ func TestNoHeartbeats(t *testing.T) {
 			t.Fatalf("Unable to unmarshal KillNotification: %v", err)
 		}
 	}
+
+	terminations := stats.subprocessesFinished.Load()
+	if want := int64(1); terminations != want {
+		t.Errorf("Got %d terminations, want %d", terminations, want)
+	}
 }
 
 // Tests that Fleetspeak doesn't kill daemonservices that heartbeat, when
@@ -498,8 +517,11 @@ func TestNoHeartbeats(t *testing.T) {
 func TestHeartbeat(t *testing.T) {
 	mustPatchGlobalRespawnDelay(t, 20*time.Millisecond)
 
+	stats := &testStatsCollector{}
+
 	sc := clitesting.MockServiceContext{
-		OutChan: make(chan *fspb.Message),
+		OutChan:        make(chan *fspb.Message),
+		StatsCollector: stats,
 	}
 	s := startTestClient(t, testClientPY(t), "100ms-heartbeat", &sc, &dspb.Config{
 		MonitorHeartbeats:                true,
@@ -563,5 +585,10 @@ waitLoop:
 		t.Logf("Observed %v heartbeats: OK", n)
 	} else {
 		t.Errorf("Expected more than one subsequent heartbeat, got %v", n)
+	}
+
+	terminations := stats.subprocessesFinished.Load()
+	if want := int64(0); terminations != want {
+		t.Errorf("Got %d terminations, want %d", terminations, want)
 	}
 }

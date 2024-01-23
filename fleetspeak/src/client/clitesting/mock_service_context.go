@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -37,7 +38,8 @@ const (
 type MockServiceContext struct {
 	service.Context
 
-	OutChan chan *fspb.Message
+	OutChan        chan *fspb.Message
+	StatsCollector stats.Collector
 }
 
 // Send implements service.Context by copying the message to sc.OutChan.
@@ -53,4 +55,13 @@ func (sc *MockServiceContext) Send(ctx context.Context, m service.AckMessage) er
 		}
 		return nil
 	}
+}
+
+// Stats implements service.Context by returning the assigned stats.Collector or a NoopCollector
+// if none was set.
+func (sc *MockServiceContext) Stats() stats.Collector {
+	if sc.StatsCollector == nil {
+		return stats.NoopCollector{}
+	}
+	return sc.StatsCollector
 }
