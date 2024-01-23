@@ -18,6 +18,7 @@
 package frr
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -94,13 +95,14 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 		rd.MessageSize = 1024
 	}
 	s.w.Add(1)
+	dataBuf := bytes.Repeat([]byte{42}, int(float32(rd.MessageSize)*(1.0+rd.Jitter))+1)
 	go func() {
 		defer s.w.Done()
 
 		cnt := jitter(rd.NumMessages, rd.Jitter)
 		log.V(1).Infof("%v: creating %v responses for request %v", s.sc.GetLocalInfo().ClientID, cnt, rd.RequestId)
 		for i := int64(0); i < cnt; i++ {
-			delay := time.Duration(time.Millisecond * time.Duration(jitter(rd.MessageDelayMs, rd.Jitter)))
+			delay := time.Millisecond * time.Duration(jitter(rd.MessageDelayMs, rd.Jitter))
 			t := time.NewTimer(delay)
 			select {
 			case <-s.done:
@@ -108,14 +110,11 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 			case <-t.C:
 			}
 
-			b := make([]byte, jitter(rd.MessageSize, rd.Jitter))
-			rand.Read(b)
-
 			res := &fpb.TrafficResponseData{
 				MasterId:      rd.MasterId,
 				RequestId:     rd.RequestId,
 				ResponseIndex: i,
-				Data:          b,
+				Data:          dataBuf[:jitter(rd.MessageSize, rd.Jitter)],
 				Fin:           i == cnt-1,
 			}
 			d, err := anypb.New(res)
