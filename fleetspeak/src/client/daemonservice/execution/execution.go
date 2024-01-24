@@ -573,7 +573,11 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 		e.inProcess.Add(1)
 		go func() {
 			defer e.inProcess.Done()
-			e.heartbeatMonitorRoutine(pid)
+
+			// The heartbeat monitor watchdog runs until the process has died.
+			ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
+			defer cancel()
+			e.heartbeatMonitorRoutine(ctx, pid)
 		}()
 	}
 
@@ -616,12 +620,8 @@ func busySleep(ctx context.Context, d time.Duration) {
 // heartbeatMonitorRoutine monitors the daemon process's heartbeats and kills
 // unresponsive processes.
 //
-// It runs until the daemon process has exited (in which case the executor
-// closes e.dead).
-func (e *Execution) heartbeatMonitorRoutine(pid int) {
-	ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
-	defer cancel()
-
+// It runs until ctx is canceled.
+func (e *Execution) heartbeatMonitorRoutine(ctx context.Context, pid int) {
 	// Give the child process some time to start up. During boot it sometimes
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
