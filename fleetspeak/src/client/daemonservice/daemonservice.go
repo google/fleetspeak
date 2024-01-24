@@ -88,7 +88,10 @@ func (s *Service) Start(sc service.Context) error {
 	s.sc = sc
 
 	s.routines.Add(1)
-	go s.executionManagerLoop()
+	go func() {
+		defer s.routines.Done()
+		s.executionManagerLoop()
+	}()
 
 	return nil
 }
@@ -124,7 +127,6 @@ func (s *Service) newExec(lastStart time.Time) *execution.Execution {
 }
 
 func (s *Service) monitorExecution(e *execution.Execution) {
-	defer s.routines.Done()
 	defer e.Wait()
 
 	timeout := func() time.Duration {
@@ -189,7 +191,6 @@ func (s *Service) feedExecution(msg *fspb.Message, e *execution.Execution) (bool
 }
 
 func (s *Service) executionManagerLoop() {
-	defer s.routines.Done()
 	var lastStart time.Time
 	var msg *fspb.Message
 	for {
@@ -212,7 +213,10 @@ func (s *Service) executionManagerLoop() {
 		}
 
 		s.routines.Add(1)
-		go s.monitorExecution(ex)
+		go func() {
+			defer s.routines.Done()
+			s.monitorExecution(ex)
+		}()
 
 		var stopping bool
 		stopping, msg = s.feedExecution(msg, ex)
