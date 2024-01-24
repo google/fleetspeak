@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package process encapsulates OS-independent process management helpers.
 package process
 
 import (
 	"os"
 )
 
-// KillProcessByPid causes the Process to exit immediately. It does not
-// wait until the Process has actually exited. This only kills the Process
+// KillByPid causes the Process to exit immediately. It does not wait
+// until the Process has actually exited. This only kills the Process
 // itself, not any other processes it may have started. If the process
-// can't be found at the moment of the call, KillProcessByPid returns nil.
-func KillProcessByPid(pid int) error {
+// can't be found at the moment of the call, KillByPid returns nil.
+func KillByPid(pid int) error {
 	p, err := os.FindProcess(pid)
 	if err != nil {
 		return nil

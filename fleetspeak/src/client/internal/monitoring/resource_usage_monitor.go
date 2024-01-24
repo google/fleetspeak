@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
-	intprocess "github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
+	"github.com/google/fleetspeak/fleetspeak/src/client/internal/process"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -377,7 +377,7 @@ func (m *ResourceUsageMonitor) enforceMemoryLimit(ctx context.Context, currResid
 		log.Errorf("Failed to send kill notification to server: %v", err)
 	}
 
-	if err := intprocess.KillProcessByPid(m.pid); err != nil {
+	if err := process.KillByPid(m.pid); err != nil {
 		log.Errorf("Error while killing a process that exceeded its memory limit (%d bytes) - %s pid %d: %v", m.memoryLimit, m.scope, m.pid, err)
 	}
 	return false
