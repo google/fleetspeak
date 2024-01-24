@@ -397,14 +397,14 @@ func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
 	}
 }
 
-func (e *Execution) waitForDeath(d time.Duration) bool {
+func sleepCtx(ctx context.Context, d time.Duration) {
 	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
-	case <-e.dead:
-		return true
+	case <-ctx.Done():
+		return
 	case <-t.C:
-		return false
+		return
 	}
 }
 
@@ -418,11 +418,17 @@ func (e *Execution) Shutdown() {
 		// which then causes it to clean up nicely.
 		close(e.Done)
 
-		if e.waitForDeath(time.Second) {
+		// Context bound to the process lifetime
+		ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
+		defer cancel()
+
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		// This pattern is technically racy - the process could end and the process
-		// id could be recycled since the end of waitForDeath and before we SoftKill
+		// id could be recycled since the end of sleepCtx and before we SoftKill
 		// or Kill using the process id.
 		//
 		// A formally correct way to implement this is to spawn a wrapper process
@@ -432,15 +438,19 @@ func (e *Execution) Shutdown() {
 		if err := e.cmd.SoftKill(); err != nil {
 			log.Errorf("SoftKill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
-		if e.waitForDeath(time.Second) {
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		if err := e.cmd.Kill(); err != nil {
 			log.Errorf("Kill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
-		if e.waitForDeath(time.Second) {
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		// It is hard to imagine how we might end up here - maybe the process is
 		// somehow stuck in a system call or there is some other OS level weirdness.
 		// One possibility is that cmd is a zombie process now.
