@@ -109,11 +109,11 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 
 	f := c.factories[cfg.Factory]
 	if f == nil {
-		return fmt.Errorf("factory not found [%v]", cfg.Factory)
+		return fmt.Errorf("factory not found: %q", cfg.Factory)
 	}
 	s, err := f(cfg)
 	if err != nil {
-		return fmt.Errorf("unable to create service: %v", err)
+		return fmt.Errorf("unable to create service with factory %q: %v", cfg.Factory, err)
 	}
 
 	d := serviceData{
@@ -127,8 +127,13 @@ func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig
 		return fmt.Errorf("unable to start service: %v", err)
 	}
 
+	ctx := context.TODO()
 	d.working.Add(1)
-	go d.processingLoop()
+	go func() {
+		defer d.working.Done()
+		ctx = context.WithoutCancel(ctx)
+		d.processingLoop(ctx)
+	}()
 
 	c.lock.Lock()
 	old := c.services[cfg.Name]
@@ -272,7 +277,9 @@ func (d *serviceData) Stats() stats.Collector {
 	return d.config.client.stats
 }
 
-func (d *serviceData) processingLoop() {
+// processingLoop reads Fleetspeak message from d.inbox
+// and terminates once this channel is closed.
+func (d *serviceData) processingLoop(ctx context.Context) {
 	for {
 		m, ok := <-d.inbox
 
@@ -289,7 +296,6 @@ func (d *serviceData) processingLoop() {
 		}
 
 		if !ok {
-			d.working.Done()
 			return
 		}
 		id, err := common.BytesToMessageID(m.MessageId)
@@ -297,7 +303,7 @@ func (d *serviceData) processingLoop() {
 			log.Errorf("ignoring message with bad message id: [%v]", m.MessageId)
 			continue
 		}
-		err = d.service.ProcessMessage(context.TODO(), m)
+		err = d.service.ProcessMessage(ctx, m)
 		if m.MessageType == "Die" && m.Destination != nil && m.Destination.ServiceName == "system" {
 			// Die messages are special and pre-acked on the server side.
 			// Don't send another ack or error report.
