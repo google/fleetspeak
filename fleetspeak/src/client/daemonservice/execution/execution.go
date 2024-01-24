@@ -132,10 +132,10 @@ type Execution struct {
 	shutdown   sync.Once
 	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
 
-	dead       chan struct{} // closed when the underlying process has died.
+	dead chan struct{} // closed when the underlying process has died.
 
-	inProcess   sync.WaitGroup         // count of active goroutines
-	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
+	waitForGoroutines func()
+	startupData       chan *fcpb.StartupData // Startup data sent by the daemon process.
 
 	heartbeat               atomicTime    // Time when the last message was received from the daemon process.
 	monitorHeartbeats       bool          // Whether to monitor the daemon process's heartbeats, killing it if it doesn't heartbeat often enough.
@@ -150,6 +150,8 @@ type Execution struct {
 // ResourceUsage messages.
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
 	cfg = proto.Clone(cfg).(*dspb.Config)
+
+	var wg sync.WaitGroup
 
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
@@ -166,8 +168,9 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		outData: &dspb.StdOutputData{},
 		lastOut: time.Now(),
 
-		dead:        make(chan struct{}),
-		startupData: make(chan *fcpb.StartupData, 1),
+		dead:              make(chan struct{}),
+		startupData:       make(chan *fcpb.StartupData, 1),
+		waitForGoroutines: wg.Wait,
 
 		monitorHeartbeats:       cfg.MonitorHeartbeats,
 		initialHeartbeatTimeout: cfg.HeartbeatUnresponsiveGracePeriod.AsDuration(),
@@ -223,24 +226,24 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 
 	if cfg.StdParams != nil {
-		ret.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer ret.inProcess.Done()
+			defer wg.Done()
 			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
 			defer cancel()
 			period := time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds)
 			ret.stdFlushRoutine(ctx, period)
 		}()
 	}
-	ret.inProcess.Add(1)
+	wg.Add(1)
 	go func() {
-		defer ret.inProcess.Done()
+		defer wg.Done()
 		ret.inRoutine()
 	}()
 	if !cfg.DisableResourceMonitoring {
-		ret.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer ret.inProcess.Done()
+			defer wg.Done()
 
 			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
 			defer cancel()
@@ -248,9 +251,9 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 			ret.statsRoutine(ctx)
 		}()
 	}
-	ret.inProcess.Add(1)
+	wg.Add(1)
 	go func() {
-		defer ret.inProcess.Done()
+		defer wg.Done()
 		defer ret.Shutdown()
 		waitResult := ret.cmd.Wait()
 		close(ret.dead)
@@ -289,7 +292,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 func (e *Execution) Wait() {
 	<-e.Done
 	e.channel.Wait()
-	e.inProcess.Wait()
+	e.waitForGoroutines()
 }
 
 // LastActive returns the last time that a message was sent or received, to the
