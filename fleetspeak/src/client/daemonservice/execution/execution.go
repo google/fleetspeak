@@ -227,7 +227,10 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		ret.inProcess.Add(1)
 		go func() {
 			defer ret.inProcess.Done()
-			ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
+			defer cancel()
+			period := time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds)
+			ret.stdFlushRoutine(ctx, period)
 		}()
 	}
 	ret.inProcess.Add(1)
@@ -377,18 +380,20 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
-	t := time.NewTicker(flushTime)
+// stdFlushRoutine calls e.flushOut() periodically with e.outLock held.
+// When ctx is canceled, it does it one last time and returns.
+func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) {
+	t := time.NewTicker(period)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			e.outLock.Lock()
-			if e.lastOut.Add(flushTime).Before(time.Now()) {
+			if e.lastOut.Add(period).Before(time.Now()) {
 				e.flushOut()
 			}
 			e.outLock.Unlock()
-		case <-e.dead:
+		case <-ctx.Done():
 			e.outLock.Lock()
 			e.flushOut()
 			e.outLock.Unlock()
