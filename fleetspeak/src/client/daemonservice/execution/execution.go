@@ -569,10 +569,12 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 	default:
 	}
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	if e.monitorHeartbeats {
-		e.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer e.inProcess.Done()
+			defer wg.Done()
 			e.heartbeatMonitorRoutine(ctx, pid)
 		}()
 	}
