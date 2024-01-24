@@ -583,7 +583,7 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 
 // busySleep sleeps *roughly* for the given duration, not counting the time when
 // the Fleetspeak process is suspended.  It returns early when ctx is canceled.
-func (e *Execution) busySleep(ctx context.Context, d time.Duration) {
+func busySleep(ctx context.Context, d time.Duration) {
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 
@@ -612,14 +612,14 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
 	e.heartbeat.Set(time.Now())
-	e.busySleep(ctx, e.initialHeartbeatTimeout)
+	busySleep(ctx, e.initialHeartbeatTimeout)
 	if ctx.Err() != nil {
 		return
 	}
 
 	for {
 		if e.sending.Get() { // Blocked trying to buffer a message for sending to the FS server.
-			e.busySleep(ctx, e.heartbeatTimeout)
+			busySleep(ctx, e.heartbeatTimeout)
 			if ctx.Err() != nil {
 				return
 			}
@@ -630,7 +630,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			// There is a very unlikely race condition if the machine gets suspended
 			// for longer than unresponsive_kill_period seconds so we give the client
 			// some time to catch up.
-			e.busySleep(ctx, 2*time.Second)
+			busySleep(ctx, 2*time.Second)
 			if ctx.Err() != nil {
 				return
 			}
@@ -669,7 +669,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			}
 		}
 		// Sleep until when the next heartbeat is due.
-		e.busySleep(ctx, e.heartbeatTimeout-timeSinceLastHB)
+		busySleep(ctx, e.heartbeatTimeout-timeSinceLastHB)
 		if ctx.Err() != nil {
 			return
 		}
