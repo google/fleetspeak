@@ -582,11 +582,8 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 }
 
 // busySleep sleeps *roughly* for the given duration, not counting the time when
-// the Fleetspeak process is suspended.
-//
-// Returns true if execution should continue (i.e if the daemon process is still
-// alive).  Returns false is the process is dead (the e.dead channel is closed).
-func (e *Execution) busySleep(d time.Duration) bool {
+// the Fleetspeak process is suspended.  It returns early when ctx is canceled.
+func (e *Execution) busySleep(ctx context.Context, d time.Duration) {
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 
@@ -596,11 +593,10 @@ func (e *Execution) busySleep(d time.Duration) bool {
 			step := min(d, time.Second)
 			timer.Reset(step)
 			d = d - step
-		case <-e.dead:
-			return false
+		case <-ctx.Done():
+			return
 		}
 	}
-	return true
 }
 
 // heartbeatMonitorRoutine monitors the daemon process's heartbeats and kills
@@ -609,28 +605,33 @@ func (e *Execution) busySleep(d time.Duration) bool {
 // It runs until the daemon process has exited (in which case the executor
 // closes e.dead).
 func (e *Execution) heartbeatMonitorRoutine(pid int) {
+	ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
+	defer cancel()
+
 	// Give the child process some time to start up. During boot it sometimes
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
 	e.heartbeat.Set(time.Now())
-	if !e.busySleep(e.initialHeartbeatTimeout) {
+	e.busySleep(ctx, e.initialHeartbeatTimeout)
+	if ctx.Err() != nil {
 		return
 	}
 
 	for {
 		if e.sending.Get() { // Blocked trying to buffer a message for sending to the FS server.
-			if e.busySleep(e.heartbeatTimeout) {
-				continue
-			} else {
+			e.busySleep(ctx, e.heartbeatTimeout)
+			if ctx.Err() != nil {
 				return
 			}
+			continue
 		}
 		timeSinceLastHB := time.Since(e.heartbeat.Get())
 		if timeSinceLastHB > e.heartbeatTimeout {
 			// There is a very unlikely race condition if the machine gets suspended
 			// for longer than unresponsive_kill_period seconds so we give the client
 			// some time to catch up.
-			if !e.busySleep(2 * time.Second) {
+			e.busySleep(ctx, 2*time.Second)
+			if ctx.Err() != nil {
 				return
 			}
 
@@ -656,7 +657,6 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 				if version := e.serviceVersion.Get(); version != "" {
 					kn.Version = version
 				}
-				ctx := context.TODO()
 				if err := monitoring.SendProtoToServer(ctx, kn, "KillNotification", e.sc); err != nil {
 					log.Errorf("Failed to send kill notification to server: %v", err)
 				}
@@ -669,7 +669,8 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			}
 		}
 		// Sleep until when the next heartbeat is due.
-		if !e.busySleep(e.heartbeatTimeout - timeSinceLastHB) {
+		e.busySleep(ctx, e.heartbeatTimeout-timeSinceLastHB)
+		if ctx.Err() != nil {
 			return
 		}
 	}
