@@ -257,6 +257,11 @@ func (s *Service) channelManagerLoop() {
 
 		var fin bool
 		fin, msg = s.feedChannel(info, msg)
+		var err error
+		if !fin {
+			err = errors.New("socket closed by unknown cause")
+		}
+		s.sc.Stats().SocketServiceSocketClosed(s.name, err)
 		if fin {
 			return
 		}

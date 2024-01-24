@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 
@@ -36,6 +38,15 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
+
+type testStatsCollector struct {
+	stats.NoopCollector
+	socketsClosed atomic.Int64
+}
+
+func (sc *testStatsCollector) SocketServiceSocketClosed(_ string, _ error) {
+	sc.socketsClosed.Add(1)
+}
 
 func SetUpSocketPath(t *testing.T, nameHint string) string {
 	t.Helper()
@@ -89,8 +100,10 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 		t.Fatalf("Factory(...): %v", err)
 	}
 
+	stats := &testStatsCollector{}
 	sc := clitesting.MockServiceContext{
-		OutChan: make(chan *fspb.Message, 5),
+		OutChan:        make(chan *fspb.Message, 5),
+		StatsCollector: stats,
 	}
 	if err := s.Start(&sc); err != nil {
 		t.Fatalf("socketservice.Start(...): %v", err)
@@ -137,6 +150,11 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 		if !proto.Equal(got, want) {
 			t.Errorf("Unexpected message from loopback: got [%v], want [%v]", got, want)
 		}
+	}
+
+	socketsClosed := stats.socketsClosed.Load()
+	if want := int64(0); socketsClosed != want {
+		t.Errorf("Got %d sockets closed, want %d", socketsClosed, want)
 	}
 	log.Infof("looped %d messages", len(msgs))
 }
@@ -217,8 +235,10 @@ func TestStutteringLoopback(t *testing.T) {
 		starts <- struct{}{}
 	}
 
+	stats := &testStatsCollector{}
 	sc := clitesting.MockServiceContext{
-		OutChan: make(chan *fspb.Message),
+		OutChan:        make(chan *fspb.Message),
+		StatsCollector: stats,
 	}
 	if err := s.Start(&sc); err != nil {
 		t.Fatalf("socketservice.Start(...): %v", err)
@@ -244,6 +264,10 @@ func TestStutteringLoopback(t *testing.T) {
 	}
 	if err := s.Stop(); err != nil {
 		t.Errorf("Error stopping service: %v", err)
+	}
+	socketsClosed := stats.socketsClosed.Load()
+	if want := int64(5); socketsClosed != want {
+		t.Errorf("Got %d sockets closed, want %d", socketsClosed, want)
 	}
 }
 
