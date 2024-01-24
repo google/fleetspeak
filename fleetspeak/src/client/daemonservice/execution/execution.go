@@ -242,7 +242,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		go func() {
 			defer ret.inProcess.Done()
 
-			ctx, cancel := fscontext.FromDoneChanTODO(ret.Done)
+			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
 			defer cancel()
 
 			ret.statsRoutine(ctx)
@@ -573,10 +573,6 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 		e.inProcess.Add(1)
 		go func() {
 			defer e.inProcess.Done()
-
-			// The heartbeat monitor watchdog runs until the process has died.
-			ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
-			defer cancel()
 			e.heartbeatMonitorRoutine(ctx, pid)
 		}()
 	}
