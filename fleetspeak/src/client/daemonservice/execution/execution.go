@@ -133,7 +133,6 @@ type Execution struct {
 	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
 
 	dead       chan struct{} // closed when the underlying process has died.
-	waitResult error         // result of Wait call - should only be read after dead is closed
 
 	inProcess   sync.WaitGroup         // count of active goroutines
 	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
@@ -253,10 +252,10 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	go func() {
 		defer ret.inProcess.Done()
 		defer ret.Shutdown()
-		ret.waitResult = ret.cmd.Wait()
+		waitResult := ret.cmd.Wait()
 		close(ret.dead)
-		if ret.waitResult != nil {
-			log.Warningf("subprocess ended with error: %v", ret.waitResult)
+		if waitResult != nil {
+			log.Warningf("subprocess ended with error: %v", waitResult)
 		}
 		startTime := tspb.New(ret.StartTime)
 		if err := startTime.CheckValid(); err != nil {
