@@ -132,11 +132,10 @@ type Execution struct {
 	shutdown   sync.Once
 	lastActive int64 // Time of the last message input or output in seconds since epoch (UTC), atomic access only.
 
-	dead       chan struct{} // closed when the underlying process has died.
-	waitResult error         // result of Wait call - should only be read after dead is closed
+	dead chan struct{} // closed when the underlying process has died.
 
-	inProcess   sync.WaitGroup         // count of active goroutines
-	startupData chan *fcpb.StartupData // Startup data sent by the daemon process.
+	waitForGoroutines func()
+	startupData       chan *fcpb.StartupData // Startup data sent by the daemon process.
 
 	heartbeat               atomicTime    // Time when the last message was received from the daemon process.
 	monitorHeartbeats       bool          // Whether to monitor the daemon process's heartbeats, killing it if it doesn't heartbeat often enough.
@@ -151,6 +150,8 @@ type Execution struct {
 // ResourceUsage messages.
 func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
 	cfg = proto.Clone(cfg).(*dspb.Config)
+
+	var wg sync.WaitGroup
 
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
@@ -167,8 +168,9 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		outData: &dspb.StdOutputData{},
 		lastOut: time.Now(),
 
-		dead:        make(chan struct{}),
-		startupData: make(chan *fcpb.StartupData, 1),
+		dead:              make(chan struct{}),
+		startupData:       make(chan *fcpb.StartupData, 1),
+		waitForGoroutines: wg.Wait,
 
 		monitorHeartbeats:       cfg.MonitorHeartbeats,
 		initialHeartbeatTimeout: cfg.HeartbeatUnresponsiveGracePeriod.AsDuration(),
@@ -224,36 +226,39 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 
 	if cfg.StdParams != nil {
-		ret.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer ret.inProcess.Done()
-			ret.stdFlushRoutine(time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds))
+			defer wg.Done()
+			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
+			defer cancel()
+			period := time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds)
+			ret.stdFlushRoutine(ctx, period)
 		}()
 	}
-	ret.inProcess.Add(1)
+	wg.Add(1)
 	go func() {
-		defer ret.inProcess.Done()
+		defer wg.Done()
 		ret.inRoutine()
 	}()
 	if !cfg.DisableResourceMonitoring {
-		ret.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer ret.inProcess.Done()
+			defer wg.Done()
 
-			ctx, cancel := fscontext.FromDoneChanTODO(ret.Done)
+			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
 			defer cancel()
 
 			ret.statsRoutine(ctx)
 		}()
 	}
-	ret.inProcess.Add(1)
+	wg.Add(1)
 	go func() {
-		defer ret.inProcess.Done()
+		defer wg.Done()
 		defer ret.Shutdown()
-		ret.waitResult = ret.cmd.Wait()
+		waitResult := ret.cmd.Wait()
 		close(ret.dead)
-		if ret.waitResult != nil {
-			log.Warningf("subprocess ended with error: %v", ret.waitResult)
+		if waitResult != nil {
+			log.Warningf("subprocess ended with error: %v", waitResult)
 		}
 		startTime := tspb.New(ret.StartTime)
 		if err := startTime.CheckValid(); err != nil {
@@ -287,7 +292,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 func (e *Execution) Wait() {
 	<-e.Done
 	e.channel.Wait()
-	e.inProcess.Wait()
+	e.waitForGoroutines()
 }
 
 // LastActive returns the last time that a message was sent or received, to the
@@ -377,18 +382,20 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
-	t := time.NewTicker(flushTime)
+// stdFlushRoutine calls e.flushOut() periodically with e.outLock held.
+// When ctx is canceled, it does it one last time and returns.
+func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) {
+	t := time.NewTicker(period)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			e.outLock.Lock()
-			if e.lastOut.Add(flushTime).Before(time.Now()) {
+			if e.lastOut.Add(period).Before(time.Now()) {
 				e.flushOut()
 			}
 			e.outLock.Unlock()
-		case <-e.dead:
+		case <-ctx.Done():
 			e.outLock.Lock()
 			e.flushOut()
 			e.outLock.Unlock()
@@ -397,14 +404,14 @@ func (e *Execution) stdFlushRoutine(flushTime time.Duration) {
 	}
 }
 
-func (e *Execution) waitForDeath(d time.Duration) bool {
+func sleepCtx(ctx context.Context, d time.Duration) {
 	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
-	case <-e.dead:
-		return true
+	case <-ctx.Done():
+		return
 	case <-t.C:
-		return false
+		return
 	}
 }
 
@@ -418,11 +425,17 @@ func (e *Execution) Shutdown() {
 		// which then causes it to clean up nicely.
 		close(e.Done)
 
-		if e.waitForDeath(time.Second) {
+		// Context bound to the process lifetime
+		ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
+		defer cancel()
+
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		// This pattern is technically racy - the process could end and the process
-		// id could be recycled since the end of waitForDeath and before we SoftKill
+		// id could be recycled since the end of sleepCtx and before we SoftKill
 		// or Kill using the process id.
 		//
 		// A formally correct way to implement this is to spawn a wrapper process
@@ -432,15 +445,19 @@ func (e *Execution) Shutdown() {
 		if err := e.cmd.SoftKill(); err != nil {
 			log.Errorf("SoftKill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
-		if e.waitForDeath(time.Second) {
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		if err := e.cmd.Kill(); err != nil {
 			log.Errorf("Kill [%d] returned error: %v", e.cmd.Process.Pid, err)
 		}
-		if e.waitForDeath(time.Second) {
+		sleepCtx(ctx, time.Second)
+		if ctx.Err() != nil {
 			return
 		}
+
 		// It is hard to imagine how we might end up here - maybe the process is
 		// somehow stuck in a system call or there is some other OS level weirdness.
 		// One possibility is that cmd is a zombie process now.
@@ -555,11 +572,13 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 	default:
 	}
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	if e.monitorHeartbeats {
-		e.inProcess.Add(1)
+		wg.Add(1)
 		go func() {
-			defer e.inProcess.Done()
-			e.heartbeatMonitorRoutine(pid)
+			defer wg.Done()
+			e.heartbeatMonitorRoutine(ctx, pid)
 		}()
 	}
 
@@ -583,7 +602,7 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 
 // busySleep sleeps *roughly* for the given duration, not counting the time when
 // the Fleetspeak process is suspended.  It returns early when ctx is canceled.
-func (e *Execution) busySleep(ctx context.Context, d time.Duration) {
+func busySleep(ctx context.Context, d time.Duration) {
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 
@@ -602,24 +621,20 @@ func (e *Execution) busySleep(ctx context.Context, d time.Duration) {
 // heartbeatMonitorRoutine monitors the daemon process's heartbeats and kills
 // unresponsive processes.
 //
-// It runs until the daemon process has exited (in which case the executor
-// closes e.dead).
-func (e *Execution) heartbeatMonitorRoutine(pid int) {
-	ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
-	defer cancel()
-
+// It runs until ctx is canceled.
+func (e *Execution) heartbeatMonitorRoutine(ctx context.Context, pid int) {
 	// Give the child process some time to start up. During boot it sometimes
 	// takes significantly more time than the unresponsive_kill_period to start
 	// the child so we disable checking for heartbeats for a while.
 	e.heartbeat.Set(time.Now())
-	e.busySleep(ctx, e.initialHeartbeatTimeout)
+	busySleep(ctx, e.initialHeartbeatTimeout)
 	if ctx.Err() != nil {
 		return
 	}
 
 	for {
 		if e.sending.Get() { // Blocked trying to buffer a message for sending to the FS server.
-			e.busySleep(ctx, e.heartbeatTimeout)
+			busySleep(ctx, e.heartbeatTimeout)
 			if ctx.Err() != nil {
 				return
 			}
@@ -630,7 +645,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			// There is a very unlikely race condition if the machine gets suspended
 			// for longer than unresponsive_kill_period seconds so we give the client
 			// some time to catch up.
-			e.busySleep(ctx, 2*time.Second)
+			busySleep(ctx, 2*time.Second)
 			if ctx.Err() != nil {
 				return
 			}
@@ -669,7 +684,7 @@ func (e *Execution) heartbeatMonitorRoutine(pid int) {
 			}
 		}
 		// Sleep until when the next heartbeat is due.
-		e.busySleep(ctx, e.heartbeatTimeout-timeSinceLastHB)
+		busySleep(ctx, e.heartbeatTimeout-timeSinceLastHB)
 		if ctx.Err() != nil {
 			return
 		}

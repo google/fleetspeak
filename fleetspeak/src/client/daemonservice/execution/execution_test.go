@@ -34,8 +34,8 @@ import (
 func TestFailures(t *testing.T) {
 	prevMagicTimeout := channel.MagicTimeout
 	prevMessageTimeout := channel.MessageTimeout
-	channel.MagicTimeout = 5 * time.Second
-	channel.MessageTimeout = 5 * time.Second
+	channel.MagicTimeout = 50 * time.Millisecond
+	channel.MessageTimeout = 50 * time.Millisecond
 	defer func() {
 		channel.MagicTimeout = prevMagicTimeout
 		channel.MessageTimeout = prevMessageTimeout
