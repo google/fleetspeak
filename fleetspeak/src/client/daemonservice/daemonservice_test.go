@@ -317,11 +317,12 @@ func TestInactivityTimeout(t *testing.T) {
 
 	seen := make(map[int64]bool)
 	late := time.After(10 * time.Second)
+waitForThree:
 	for len(seen) < 3 {
 		select {
 		case <-late:
 			t.Errorf("Expected at least 3 pids in 10 seconds, only saw: %d", len(seen))
-			break
+			break waitForThree
 		case m := <-sc.OutChan:
 			if m.MessageType == "DummyMessageResponse" {
 				continue
