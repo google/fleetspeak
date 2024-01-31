@@ -19,32 +19,44 @@ package fscontext
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
-// FromDoneChanTODO returns a context and cancel function.
+// ErrStopRequested is the cancelation cause to be used when callers
+// intentionally cancel a context from the outside.
+var ErrStopRequested = fmt.Errorf("%w: stop requested", context.Canceled)
+
+// WithDoneChan returns a new context and cancel function.
 //
-// The context is automatically canceled as soon as done is closed.
+// The context is automatically canceled with the given cause as soon as done is
+// closed.
 //
 // This is not meant as a long-term solution, but as a migration path for code
-// which has a "done" channel but which needs to provide a context.  Hence the
-// name.
+// which has a "done" channel but which needs to provide a context.
+//
+// Callers must always call cancel after the context is done.
 //
 // Example usage:
 //
-//	ctx, cancel := fscontext.FromDoneChanTODO(foo.done)
-//	defer cancel()
-func FromDoneChanTODO(done <-chan struct{}) (ctx context.Context, cancel func()) {
-	ctx, myCancel := context.WithCancel(context.TODO())
+//	 errDoneClosed := fmt.Errorf("my magic done channel was closed: %w", fscontext.ErrStopRequested)
+//		ctx, cancel := fscontext.WithDoneChan(ctx, errDoneClosed, xyz.done)
+//		defer cancel(nil)
+func WithDoneChan(ctx context.Context, cause error, done <-chan struct{}) (newCtx context.Context, cancel context.CancelCauseFunc) {
+	myCtx, myCancel := context.WithCancelCause(ctx)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		<-done
-		myCancel()
+		select {
+		case <-ctx.Done():
+			// no need to cancel - it is already canceled
+		case <-done:
+			myCancel(cause)
+		}
 	}()
-	return ctx, func() {
+	return myCtx, func(cause error) {
 		wg.Wait()
-		myCancel()
+		myCancel(cause)
 	}
 }

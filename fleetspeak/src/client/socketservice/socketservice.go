@@ -157,8 +157,9 @@ L:
 						log.Errorf("Error creating ResourceUsageMonitor: %v", err)
 						return
 					}
-					ctx, cancel := fscontext.FromDoneChanTODO(ch.done)
-					defer cancel()
+					errDone := fmt.Errorf("ch.done closed: %w", fscontext.ErrStopRequested)
+					ctx, cancel := fscontext.WithDoneChan(context.TODO(), errDone, ch.done)
+					defer cancel(nil)
 
 					rum.Run(ctx)
 				}()

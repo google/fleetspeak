@@ -16,22 +16,23 @@ package fscontext_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 )
 
-func TestFromDoneChanTODO(t *testing.T) {
+func TestWithDoneChan(t *testing.T) {
 	done := make(chan struct{})
 
-	ctx, cancel := fscontext.FromDoneChanTODO(done)
-	defer cancel()
+	errDoneClosed := errors.New("done channel closed")
+	ctx, cancel := fscontext.WithDoneChan(context.TODO(), errDoneClosed, done)
+	defer cancel(nil)
 
 	if err := ctx.Err(); err != nil {
 		t.Errorf("done channel still open: ctx.Err() = %v, want nil", err)
 	}
-
 	close(done)
 
 	select {
@@ -40,6 +41,9 @@ func TestFromDoneChanTODO(t *testing.T) {
 	case <-ctx.Done():
 		if err := ctx.Err(); err != context.Canceled {
 			t.Errorf("done channel closed: ctx.Err() = %v, want canceled", err)
+		}
+		if !errors.Is(context.Cause(ctx), errDoneClosed) {
+			t.Errorf("done channel closed: context.Cause(ctx) = %v, want errors.Is(…, %v)", context.Cause(ctx), errDoneClosed)
 		}
 	}
 }
