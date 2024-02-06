@@ -16,30 +16,111 @@ package fscontext_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 )
 
-func TestFromDoneChanTODO(t *testing.T) {
-	done := make(chan struct{})
+var (
+	errMagic = errors.New("magic")
+	errDone  = errors.New("done")
+)
 
-	ctx, cancel := fscontext.FromDoneChanTODO(done)
-	defer cancel()
+var shortDuration = 100 * time.Millisecond
 
-	if err := ctx.Err(); err != nil {
-		t.Errorf("done channel still open: ctx.Err() = %v, want nil", err)
-	}
+func TestWithDoneChanNotCanceled(t *testing.T) {
+	// Given
+	doneCh := make(chan struct{})
+	defer close(doneCh)
 
-	close(done)
+	ctx, cancel := fscontext.WithDoneChan(context.TODO(), errDone, doneCh)
+	defer cancel(nil)
 
+	// When nothing happens...
+
+	// Then
 	select {
-	case <-time.After(time.Second):
+	case <-ctx.Done():
+		t.Errorf("Expected ctx not canceled, got: %v", context.Cause(ctx))
+	case <-time.After(shortDuration):
+		t.Log("not canceled after", shortDuration, "- looks good")
+	}
+}
+
+func TestWithDoneChanCanceledThroughChannel(t *testing.T) {
+	// Given
+	doneCh := make(chan struct{})
+
+	ctx, cancel := fscontext.WithDoneChan(context.TODO(), errDone, doneCh)
+	defer cancel(nil)
+
+	// When
+	close(doneCh)
+
+	// Then
+	select {
+	case <-time.After(shortDuration):
 		t.Errorf("timeout waiting for context cancelation")
 	case <-ctx.Done():
 		if err := ctx.Err(); err != context.Canceled {
 			t.Errorf("done channel closed: ctx.Err() = %v, want canceled", err)
+		}
+		if !errors.Is(context.Cause(ctx), errDone) {
+			t.Errorf("done channel closed: context.Cause(ctx) = %v, want errors.Is(…, %v)", context.Cause(ctx), errDone)
+		}
+	}
+}
+
+func TestWithDoneChanCanceledThroughOuterContext(t *testing.T) {
+	// Given
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	ctx, cancel1 := context.WithCancelCause(context.TODO())
+	defer cancel1(nil)
+	ctx, cancel2 := fscontext.WithDoneChan(ctx, errDone, doneCh)
+	defer cancel2(nil)
+
+	// When
+	cancel1(errMagic)
+
+	// Then
+	select {
+	case <-time.After(shortDuration):
+		t.Errorf("timeout waiting for context cancelation")
+	case <-ctx.Done():
+		if err := ctx.Err(); err != context.Canceled {
+			t.Errorf("done channel closed: ctx.Err() = %v, want canceled", err)
+		}
+		if !errors.Is(context.Cause(ctx), errMagic) {
+			t.Errorf("done channel closed: context.Cause(ctx) = %v, want errors.Is(…, %v)", context.Cause(ctx), errMagic)
+		}
+	}
+}
+
+func TestWithDoneChanCanceledThroughOwnContext(t *testing.T) {
+	// Given
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	ctx, cancel := fscontext.WithDoneChan(context.TODO(), errDone, doneCh)
+	defer cancel(nil)
+
+	// When
+	cancel(errMagic)
+
+	// Then
+	select {
+	case <-time.After(shortDuration):
+		t.Errorf("timeout waiting for context cancelation")
+	case <-ctx.Done():
+		if err := ctx.Err(); err != context.Canceled {
+			t.Errorf("done channel closed: ctx.Err() = %v, want canceled", err)
+		}
+		if !errors.Is(context.Cause(ctx), errMagic) {
+			t.Errorf("done channel closed: context.Cause(ctx) = %v, want errors.Is(…, %v)", context.Cause(ctx), errMagic)
 		}
 	}
 }

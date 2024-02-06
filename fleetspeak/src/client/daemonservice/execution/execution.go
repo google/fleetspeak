@@ -145,6 +145,8 @@ type Execution struct {
 	serviceVersion          atomicString  // Version reported by the daemon process.
 }
 
+var errProcessTerminated = errors.New("process terminated")
+
 // New creates and starts an execution of the command described in cfg. Messages
 // received from the resulting process are passed to sc, as are StdOutput and
 // ResourceUsage messages.
@@ -229,8 +231,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
-			defer cancel()
+			ctx, cancel := fscontext.WithDoneChan(context.TODO(), ErrShuttingDown, ret.dead)
+			defer cancel(nil)
 			period := time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds)
 			ret.stdFlushRoutine(ctx, period)
 		}()
@@ -245,8 +247,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		go func() {
 			defer wg.Done()
 
-			ctx, cancel := fscontext.FromDoneChanTODO(ret.dead)
-			defer cancel()
+			ctx, cancel := fscontext.WithDoneChan(context.TODO(), errProcessTerminated, ret.dead)
+			defer cancel(nil)
 
 			ret.statsRoutine(ctx)
 		}()
@@ -426,8 +428,8 @@ func (e *Execution) Shutdown() {
 		close(e.Done)
 
 		// Context bound to the process lifetime
-		ctx, cancel := fscontext.FromDoneChanTODO(e.dead)
-		defer cancel()
+		ctx, cancel := fscontext.WithDoneChan(context.TODO(), errProcessTerminated, e.dead)
+		defer cancel(nil)
 
 		sleepCtx(ctx, time.Second)
 		if ctx.Err() != nil {
