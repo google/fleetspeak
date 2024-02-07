@@ -28,6 +28,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
@@ -59,6 +60,10 @@ var (
 	stdForward = flag.Bool("std_forward", false,
 		"If set attaches the dependent service to the client's stdin, stdout, stderr. Meant for testing individual daemonservice integrations.")
 )
+
+// How long to wait for the daemon service to send startup data before
+// starting to monitor resource-usage anyway.
+var startupDataTimeout = 10 * time.Second
 
 type atomicString struct {
 	v atomic.Value
@@ -115,10 +120,10 @@ type Execution struct {
 	samplePeriod      time.Duration
 	sampleSize        int
 
-	Done chan struct{}        // Closed when this execution is dead or dying - essentially when Shutdown has been called.
-	Out  chan<- *fspb.Message // Messages to send to the process go here. User should close when finished.
+	shuttingDown chan struct{} // Closed when Shutdown has been called.
 
 	sc        service.Context
+	mu        sync.Mutex // protect e.channel
 	channel   *channel.Channel
 	cmd       *command.Command
 	StartTime time.Time
@@ -134,7 +139,7 @@ type Execution struct {
 
 	dead chan struct{} // closed when the underlying process has died.
 
-	waitForGoroutines func()
+	waitForGoroutines func() error
 	startupData       chan *fcpb.StartupData // Startup data sent by the daemon process.
 
 	heartbeat               atomicTime    // Time when the last message was received from the daemon process.
@@ -150,10 +155,10 @@ var errProcessTerminated = errors.New("process terminated")
 // New creates and starts an execution of the command described in cfg. Messages
 // received from the resulting process are passed to sc, as are StdOutput and
 // ResourceUsage messages.
-func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
+//
+// The context needs to be valid for the lifetime of the whole process execution!
+func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execution, error) {
 	cfg = proto.Clone(cfg).(*dspb.Config)
-
-	var wg sync.WaitGroup
 
 	ret := Execution{
 		daemonServiceName: daemonServiceName,
@@ -161,7 +166,7 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		sampleSize:        int(cfg.ResourceMonitoringSampleSize),
 		samplePeriod:      cfg.ResourceMonitoringSamplePeriod.AsDuration(),
 
-		Done: make(chan struct{}),
+		shuttingDown: make(chan struct{}),
 
 		sc:        sc,
 		cmd:       &command.Command{Cmd: *exec.Command(cfg.Argv[0], cfg.Argv[1:]...)},
@@ -170,9 +175,8 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 		outData: &dspb.StdOutputData{},
 		lastOut: time.Now(),
 
-		dead:              make(chan struct{}),
-		startupData:       make(chan *fcpb.StartupData, 1),
-		waitForGoroutines: wg.Wait,
+		dead:        make(chan struct{}),
+		startupData: make(chan *fcpb.StartupData, 1),
 
 		monitorHeartbeats:       cfg.MonitorHeartbeats,
 		initialHeartbeatTimeout: cfg.HeartbeatUnresponsiveGracePeriod.AsDuration(),
@@ -194,7 +198,6 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup a comms channel: %v", err)
 	}
-	ret.Out = ret.channel.Out
 
 	if cfg.StdParams != nil && cfg.StdParams.ServiceName == "" {
 		log.Errorf("std_params is set, but service_name is empty. Ignoring std_params: %v", cfg.StdParams)
@@ -223,78 +226,93 @@ func New(daemonServiceName string, cfg *dspb.Config, sc service.Context) (*Execu
 	}
 
 	if err := ret.cmd.Start(); err != nil {
-		close(ret.Done)
+		// Close all contained channels before discarding the ret object.
+		close(ret.shuttingDown)
+		close(ret.dead)
+		close(ret.startupData)
 		return nil, err
 	}
 
+	ctx, cancel := fscontext.WithDoneChan(ctx, ErrShuttingDown, ret.shuttingDown)
+	eg, ctx := errgroup.WithContext(ctx)
+	ret.waitForGoroutines = func() error {
+		cancel(nil)
+
+		err := eg.Wait()
+
+		// These are expected errors during a normal shutdown.
+		if errors.Is(err, errInputChannelClosed) || errors.Is(err, ErrShuttingDown) {
+			log.Warningf("during wait: ignoring shutdown error: %v", err)
+			return nil
+		}
+		return err
+	}
+
 	if cfg.StdParams != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			ctx, cancel := fscontext.WithDoneChan(context.TODO(), ErrShuttingDown, ret.dead)
 			defer cancel(nil)
 			period := time.Second * time.Duration(cfg.StdParams.FlushTimeSeconds)
-			ret.stdFlushRoutine(ctx, period)
-		}()
+			return ret.stdFlushRoutine(ctx, period)
+		})
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ret.inRoutine()
-	}()
-	if !cfg.DisableResourceMonitoring {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			ctx, cancel := fscontext.WithDoneChan(context.TODO(), errProcessTerminated, ret.dead)
-			defer cancel(nil)
-
-			ret.statsRoutine(ctx)
-		}()
-	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	eg.Go(func() (err error) {
 		defer ret.Shutdown()
+		defer func() { cancel(err) }()
+		return ret.inRoutine(ctx)
+	})
+	if !cfg.DisableResourceMonitoring {
+		eg.Go(func() (err error) {
+			defer func() { cancel(err) }()
+			return ret.statsRoutine(ctx)
+		})
+	}
+	eg.Go(func() (err error) {
+		defer ret.Shutdown()
+		defer func() { cancel(err) }()
+		defer func() {
+			startTime := tspb.New(ret.StartTime)
+			if err := startTime.CheckValid(); err != nil {
+				log.Errorf("Failed to convert process start time: %v", err)
+			}
+			if !cfg.DisableResourceMonitoring {
+				rud := &mpb.ResourceUsageData{
+					Scope:             ret.daemonServiceName,
+					Pid:               int64(ret.cmd.Process.Pid),
+					ProcessStartTime:  startTime,
+					DataTimestamp:     tspb.Now(),
+					ResourceUsage:     &mpb.AggregatedResourceUsage{},
+					ProcessTerminated: true,
+				}
+				// The outer context might already be canceled.
+				ctx := context.WithoutCancel(ctx)
+				if err := monitoring.SendProtoToServer(ctx, rud, "ResourceUsage", ret.sc); err != nil {
+					log.Errorf("Failed to send final resource-usage proto: %v", err)
+				}
+			}
+		}()
 		waitResult := ret.cmd.Wait()
 		close(ret.dead)
 		if waitResult != nil {
 			log.Warningf("subprocess ended with error: %v", waitResult)
 		}
-		startTime := tspb.New(ret.StartTime)
-		if err := startTime.CheckValid(); err != nil {
-			log.Errorf("Failed to convert process start time: %v", err)
-			return
-		}
-		if !cfg.DisableResourceMonitoring {
-			rud := &mpb.ResourceUsageData{
-				Scope:             ret.daemonServiceName,
-				Pid:               int64(ret.cmd.Process.Pid),
-				ProcessStartTime:  startTime,
-				DataTimestamp:     tspb.Now(),
-				ResourceUsage:     &mpb.AggregatedResourceUsage{},
-				ProcessTerminated: true,
-			}
-			ctx := context.TODO()
-			if err := monitoring.SendProtoToServer(ctx, rud, "ResourceUsage", ret.sc); err != nil {
-				log.Errorf("Failed to send final resource-usage proto: %v", err)
-			}
-		}
-	}()
+		return waitResult
+	})
 	return &ret, nil
 }
 
 // Wait waits for all aspects of this execution to finish. This should happen
-// soon after shutdown is called.
-//
-// Note that while it is a bug for this to take more than some seconds, the
-// method isn't needed in normal operation - it exists primarily for tests to
-// ensure that resources are not leaked.
-func (e *Execution) Wait() {
-	<-e.Done
+// soon after shutdown is called.  Wait must be called to free up resources and
+// to reap the child process.
+func (e *Execution) Wait() error {
+	<-e.shuttingDown
+	// Flush out channel, as a reader should do.
+	for range e.channel.In {
+	}
 	e.channel.Wait()
-	e.waitForGoroutines()
+	for range e.channel.Err {
+	}
+	return e.waitForGoroutines()
 }
 
 // LastActive returns the last time that a message was sent or received, to the
@@ -385,8 +403,9 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 }
 
 // stdFlushRoutine calls e.flushOut() periodically with e.outLock held.
-// When ctx is canceled, it does it one last time and returns.
-func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) {
+// When ctx is canceled, it does it one last time and returns the context's
+// cancelation cause.
+func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) error {
 	t := time.NewTicker(period)
 	defer t.Stop()
 	for {
@@ -401,7 +420,7 @@ func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) {
 			e.outLock.Lock()
 			e.flushOut()
 			e.outLock.Unlock()
-			return
+			return context.Cause(ctx)
 		}
 	}
 }
@@ -420,12 +439,15 @@ func sleepCtx(ctx context.Context, d time.Duration) {
 // Shutdown shuts down this execution.
 func (e *Execution) Shutdown() {
 	e.shutdown.Do(func() {
-		// First we attempt a gentle shutdown. Closing e.Done tells our
-		// user not to give us any more data, in response they should
-		// close e.Out a.k.a e.channel.Out. Closing e.channel.Out will
-		// cause channel to close the pipe to the dependent process,
-		// which then causes it to clean up nicely.
-		close(e.Done)
+		// First we attempt a gentle shutdown. Closing e.shuttingDown tells our user
+		// not to give us any more data through SendMsg().
+		close(e.shuttingDown)
+
+		// Closing e.channel.Out will cause channel to close the pipe to the
+		// dependent process, which then causes it to clean up nicely.
+		e.mu.Lock()
+		close(e.channel.Out)
+		e.mu.Unlock()
 
 		// Context bound to the process lifetime
 		ctx, cancel := fscontext.WithDoneChan(context.TODO(), errProcessTerminated, e.dead)
@@ -468,16 +490,18 @@ func (e *Execution) Shutdown() {
 }
 
 // inRoutine reads messages from the dependent process and passes them to
-// fleetspeak.
-func (e *Execution) inRoutine() {
-	defer e.Shutdown()
-
+// fleetspeak.  It returns with an appropriate error when the input channel is
+// closed or has an error.
+func (e *Execution) inRoutine(ctx context.Context) error {
 	var startupDone bool
 
 	for {
-		m := e.readMsg()
-		if m == nil {
-			return
+		m, err := e.readMsg(ctx)
+		if err != nil {
+			if errors.Is(err, errInputChannelClosed) && ctx.Err() != nil {
+				return nil // This is expected during shutdown
+			}
+			return err
 		}
 		e.setLastActive(time.Now())
 		e.heartbeat.Set(time.Now())
@@ -518,28 +542,55 @@ func (e *Execution) inRoutine() {
 	}
 }
 
-// readMsg blocks until a message is available from the channel.
-func (e *Execution) readMsg() *fspb.Message {
+// SendMsg sends m to the execution.
+//
+// It returns nil on success, ErrShuttingDown if the output channel was already
+// closed, and context.Cause(ctx) if ctx was canceled.
+func (e *Execution) SendMsg(ctx context.Context, m *fspb.Message) error {
 	select {
-	case m, ok := <-e.channel.In:
-		if !ok {
-			return nil
-		}
-		return m
-	case err := <-e.channel.Err:
-		log.Errorf("channel produced error: %v", err)
+	case <-e.shuttingDown:
+		// already shutting down, the e.channel.Out channel might already be closed
+		return ErrShuttingDown
+	default:
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	case e.channel.Out <- m:
 		return nil
 	}
 }
 
-// waitForStartupData waits for startup data from e.startupData
-// and returns early on context cancelation
-func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version string) {
-	pid = e.cmd.Process.Pid
+var errInputChannelClosed = errors.New("input channel closed")
 
-	// How long to wait for the daemon service to send startup data before
-	// starting to monitor resource-usage.
-	const startupDataTimeout = 10 * time.Second
+// readMsg blocks until a message is available from the channel.
+// It returns an error if the channel reports an error,
+// or errInputChannelClosed if the input channel is closed.
+func (e *Execution) readMsg(ctx context.Context) (*fspb.Message, error) {
+	select {
+	case <-ctx.Done():
+		return nil, context.Cause(ctx)
+	case m, ok := <-e.channel.In:
+		if !ok {
+			return nil, errInputChannelClosed
+		}
+		return m, nil
+	case err := <-e.channel.Err:
+		return nil, fmt.Errorf("channel produced error: %v", err)
+	}
+}
+
+// waitForStartupData waits for startup data from e.startupData
+// and returns early on context cancelation.
+//
+// On error or timeout, it will still return a valid PID.
+// The caller may choose to continue anyway.
+func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version string, err error) {
+	pid = e.cmd.Process.Pid
 
 	ctx, cancel := context.WithTimeout(ctx, startupDataTimeout)
 	defer cancel()
@@ -547,31 +598,32 @@ func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version st
 	select {
 	case sd, ok := <-e.startupData:
 		if !ok {
-			// Channel closed.
-			log.Warningf("%s startup data not received", e.daemonServiceName)
-			return 0, ""
+			return pid, "", fmt.Errorf("channel closed")
 		}
 		if int(sd.Pid) != pid {
-			log.Infof("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
+			log.Warningf("%s's self-reported PID (%d) is different from that of the process launched by Fleetspeak (%d)", e.daemonServiceName, sd.Pid, pid)
 			pid = int(sd.Pid)
 		}
 		version = sd.Version
-		return pid, version
+		return pid, version, nil
 	case <-ctx.Done():
-		log.Warningf("%s startup data not received due to %v (cause: %v)", e.daemonServiceName, ctx.Err(), context.Cause(ctx))
-		return 0, ""
+		return pid, "", context.Cause(ctx)
 	}
 }
 
-// statsRoutine monitors the daemon process's resource usage, sending reports to the server
-// at regular intervals.
-func (e *Execution) statsRoutine(ctx context.Context) {
-	pid, version := e.waitForStartupData(ctx)
-
-	select {
-	case <-ctx.Done():
-		return
-	default:
+// statsRoutine monitors the daemon process's resource usage,
+// sending reports to the server at regular intervals.
+//
+// It runs until there is an error, or until ctx is canceled,
+// in which case it returns the cancelation cause.
+func (e *Execution) statsRoutine(ctx context.Context) error {
+	pid, version, err := e.waitForStartupData(ctx)
+	if err != nil {
+		// If this was due to an external cancelation, return.
+		if ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
+		log.Warningf("did not receive startup data for %v, continuing anyway: %v", e.daemonServiceName, err)
 	}
 
 	var wg sync.WaitGroup
@@ -594,12 +646,12 @@ func (e *Execution) statsRoutine(ctx context.Context) {
 		SampleSize:       e.sampleSize,
 	})
 	if err != nil {
-		log.Errorf("Failed to create resource-usage monitor: %v", err)
-		return
+		return fmt.Errorf("failed to create resource-usage monitor: %w", err)
 	}
 
 	// This blocks until ctx is canceled.
 	rum.Run(ctx)
+	return context.Cause(ctx)
 }
 
 // busySleep sleeps *roughly* for the given duration, not counting the time when

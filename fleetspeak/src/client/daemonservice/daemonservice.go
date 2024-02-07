@@ -20,12 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/execution"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
+	"golang.org/x/sync/errgroup"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -64,7 +65,6 @@ func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 		cfg:               dsConf,
 		inactivityTimeout: timeout,
 
-		stop: make(chan struct{}),
 		msgs: make(chan *fspb.Message),
 	}
 	return &ret, nil
@@ -77,80 +77,87 @@ type Service struct {
 	sc                service.Context
 	inactivityTimeout time.Duration
 
-	stop chan struct{}      // closed to indicate that Stop() has been called
+	stop func() error
 	msgs chan *fspb.Message // passes messages to executionManager goroutine.
-
-	routines sync.WaitGroup // currently active goroutines and executions.
 }
 
 // Start starts the service, starting the subprocess unless LazyStart.
 func (s *Service) Start(sc service.Context) error {
+	if s.sc != nil {
+		return errors.New("service already started")
+	}
 	s.sc = sc
 
-	s.routines.Add(1)
-	go func() {
-		defer s.routines.Done()
-		s.executionManagerLoop()
-	}()
+	ctx, cancel := context.WithCancelCause(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return s.executionManagerLoop(ctx)
+	})
 
+	s.stop = func() error {
+		cancel(fscontext.ErrStopRequested)
+		return eg.Wait()
+	}
 	return nil
 }
 
 // Stop implements service.Service to stop the service. This kills the current subprocess.
+// Returns the cause which caused the process to exit, or nil in case of an intentional shutdown.
 func (s *Service) Stop() error {
-	close(s.stop)
-	s.routines.Wait()
-	return nil
+	err := s.stop()
+	if errors.Is(err, fscontext.ErrStopRequested) {
+		return nil
+	}
+	return err
 }
 
-// newExec creates a new execution. It retries on failure, giving up only
-// if stop is closed, in which case it returns nil.
-func (s *Service) newExec(lastStart time.Time) *execution.Execution {
+// newExec creates a new execution. It retries on failure, giving up only if ctx
+// is canceled, in which case it returns the context's cancelation cause.
+func (s *Service) newExec(ctx context.Context, lastStart time.Time) (*execution.Execution, error) {
 	for {
 		delta := time.Until(lastStart.Add(RespawnDelay))
 		if delta > 0 {
 			t := time.NewTimer(delta)
 			select {
-			case <-s.stop:
+			case <-ctx.Done():
 				t.Stop()
-				return nil
+				return nil, context.Cause(ctx)
 			case <-t.C:
 			}
 		}
-		exec, err := execution.New(s.name, s.cfg, s.sc)
-		if err == nil {
-			return exec
+		exec, err := execution.New(ctx, s.name, s.cfg, s.sc)
+		if err != nil {
+			lastStart = time.Now()
+			log.Errorf("Execution of service [%s] failed, retrying: %v", s.name, err)
+			continue
 		}
-		lastStart = time.Now()
-		log.Errorf("Execution of service [%s] failed, retrying: %v", s.name, err)
+		return exec, nil
 	}
 }
 
-func (s *Service) monitorExecution(e *execution.Execution) {
-	defer e.Wait()
-
+// monitorExecution monitors the process execution.  It returns nil when the
+// context is canceled, or it returns an error when the process was inactive
+// after inactivityTimeout.  Process activity is determined through
+// e.LastActive().
+func monitorExecution(ctx context.Context, e *execution.Execution, inactivityTimeout time.Duration) error {
 	timeout := func() time.Duration {
-		return time.Until(e.LastActive().Add(s.inactivityTimeout))
+		return time.Until(e.LastActive().Add(inactivityTimeout))
 	}
 
 	// Remark: A receive on a nil t.C channel blocks forever.
 	var t = &time.Timer{}
-	if s.inactivityTimeout > 0 {
+	if inactivityTimeout > 0 {
 		t = time.NewTimer(timeout())
 		defer t.Stop()
 	}
 
 	for {
 		select {
-		case <-e.Done:
-			log.Warningf("Execution of [%s] ended spontaneously.", s.name)
-			return
-		case <-s.stop:
-			return
+		case <-ctx.Done():
+			return nil
 		case <-t.C:
 			if timeout() <= 0 {
-				e.Shutdown()
-				return
+				return fmt.Errorf("process inactive after %v", inactivityTimeout)
 			}
 			t.Reset(timeout())
 		}
@@ -158,75 +165,98 @@ func (s *Service) monitorExecution(e *execution.Execution) {
 }
 
 // feedExecution feeds messages to the given execution, starting with msg if msg
-// is non-nil, and then reading from s.msgs. It returns whether the service is
-// shutting down, and, if it is not shutting down, may return a message for the
-// next execution to process.
-func (s *Service) feedExecution(msg *fspb.Message, e *execution.Execution) (bool, *fspb.Message) {
-	defer func() { go e.Shutdown() }()
-	defer close(e.Out)
+// is non-nil, and then reading from s.msgs.  It exits when the context is
+// canceled and returns the message for the next execution to process, along
+// with the context's cancelation cause.
+func (s *Service) feedExecution(ctx context.Context, msg *fspb.Message, e *execution.Execution) (*fspb.Message, error) {
 	for {
 		if msg == nil {
 			select {
-			case <-e.Done:
-				return false, nil
-			case <-s.stop:
-				return true, nil
+			case <-ctx.Done():
+				return nil, context.Cause(ctx)
 			case m, ok := <-s.msgs:
 				if !ok {
-					return true, nil
+					return nil, errors.New("feedExecution: input channel closed")
 				}
 				msg = m
 			}
 		}
 
-		select {
-		case <-e.Done:
-			return false, msg
-		case <-s.stop:
-			return true, nil
-		case e.Out <- msg:
-			msg = nil
+		err := e.SendMsg(ctx, msg)
+		if err != nil {
+			return msg, err
 		}
+		msg = nil
 	}
 }
 
-func (s *Service) executionManagerLoop() {
+// executionManagerLoop supervises the process and reads the arriving Fleetspeak
+// messages.  It returns on error, of if the outside context was canceled.
+func (s *Service) executionManagerLoop(ctx context.Context) error {
 	var lastStart time.Time
 	var msg *fspb.Message
 	for {
+		select {
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		default:
+		}
+
 		if s.cfg.LazyStart {
 			select {
-			case <-s.stop:
-				return
+			case <-ctx.Done():
+				return context.Cause(ctx)
 			case m, ok := <-s.msgs:
 				if !ok {
-					return
+					return nil // channel closed
 				}
 				msg = m
 			}
 		}
 
-		ex := s.newExec(lastStart)
+		// We use a separate errgroup for wait(2), because it is not a cancelable
+		// operation.  At the same time, if wait returns, we should immediately
+		// cancel all other goroutines as well.
+		ctx, cancel := context.WithCancelCause(ctx)
+		defer cancel(nil)
+		waitEg, ctx := errgroup.WithContext(ctx)
+		eg, ctx := errgroup.WithContext(ctx)
+
+		ex, err := s.newExec(ctx, lastStart)
+		if err != nil {
+			return err
+		}
 		lastStart = time.Now()
-		if ex == nil {
-			return
+		waitEg.Go(func() error {
+			err := ex.Wait()
+			if err != nil {
+				cancel(fmt.Errorf("subprocess exited: %w", err))
+			} else {
+				cancel(fmt.Errorf("subprocess exited unexpectedly"))
+			}
+			return err
+		})
+
+		eg.Go(func() error {
+			return monitorExecution(ctx, ex, s.inactivityTimeout)
+		})
+
+		eg.Go(func() error {
+			fMsg, fErr := s.feedExecution(ctx, msg, ex)
+			msg = fMsg // access synchronized through waitgroup
+			return fErr
+		})
+
+		err = eg.Wait()
+		ex.Shutdown()
+		wErr := waitEg.Wait()
+		if err == nil {
+			err = wErr
 		}
 
-		s.routines.Add(1)
-		go func() {
-			defer s.routines.Done()
-			s.monitorExecution(ex)
-		}()
-
-		var stopping bool
-		stopping, msg = s.feedExecution(msg, ex)
-		var err error
-		if !stopping {
-			err = errors.New("subprocess finished due to unknown cause")
-		}
 		s.sc.Stats().DaemonServiceSubprocessFinished(s.name, err)
-		if stopping {
-			return
+		if err != nil && !errors.Is(err, fscontext.ErrStopRequested) {
+			log.Warningf("Execution of %q ended spontaneously: %v", s.name, err)
 		}
 	}
 }

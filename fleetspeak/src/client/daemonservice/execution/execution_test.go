@@ -16,14 +16,15 @@ package execution
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/channel"
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
+	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"google.golang.org/protobuf/proto"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -31,15 +32,17 @@ import (
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
 )
 
+func patchDuration(t *testing.T, d *time.Duration, value time.Duration) {
+	t.Helper()
+	prev := *d
+	*d = value
+	t.Cleanup(func() { *d = prev })
+}
+
 func TestFailures(t *testing.T) {
-	prevMagicTimeout := channel.MagicTimeout
-	prevMessageTimeout := channel.MessageTimeout
-	channel.MagicTimeout = 50 * time.Millisecond
-	channel.MessageTimeout = 50 * time.Millisecond
-	defer func() {
-		channel.MagicTimeout = prevMagicTimeout
-		channel.MessageTimeout = prevMessageTimeout
-	}()
+	patchDuration(t, &channel.MagicTimeout, 50*time.Millisecond)
+	patchDuration(t, &channel.MessageTimeout, 50*time.Millisecond)
+	patchDuration(t, &startupDataTimeout, time.Second)
 
 	sc := clitesting.MockServiceContext{
 		OutChan: make(chan *fspb.Message, 5),
@@ -50,21 +53,33 @@ func TestFailures(t *testing.T) {
 
 	// These misbehaviors should fail after MagicTimeout, or sooner.
 	for _, mode := range []string{"freeze", "freezeHard", "garbage", "die"} {
-		dsc := &dspb.Config{
-			Argv: []string{testClient(t), "--mode=" + mode},
-		}
-		if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-			dsc.Argv = append(dsc.Argv, "--log_dir="+d)
-		}
-		ex, err := New("TestService", dsc, &sc)
-		if err != nil {
-			t.Fatalf("execution.New returned error: %v", err)
-		}
-		log.Infof("started %s on %p", mode, ex)
-		// This should close to indicate we gave up waiting and the execution is over.
-		<-ex.Done
-		close(ex.Out)
-		ex.Wait()
+		t.Run(mode, func(t *testing.T) {
+			dsc := &dspb.Config{
+				Argv: []string{testClient(t), "--mode=" + mode},
+			}
+			if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
+				dsc.Argv = append(dsc.Argv, "--log_dir="+d)
+			}
+
+			ex, err := New(context.Background(), "TestService", dsc, &sc)
+			if err != nil {
+				t.Fatalf("execution.New returned error: %v", err)
+			}
+			defer ex.Shutdown()
+
+			waitRes := make(chan error)
+			go func() {
+				waitRes <- ex.Wait()
+			}()
+			select {
+			case err := <-waitRes:
+				if err == nil {
+					t.Errorf("expected error from process, got nil")
+				}
+			case <-time.After(10 * time.Second):
+				t.Errorf("process should have been canceled, but kept running")
+			}
+		})
 	}
 }
 
@@ -78,15 +93,7 @@ func TestLoopback(t *testing.T) {
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
-	ex, err := New("TestService", dsc, &sc)
-	if err != nil {
-		t.Fatalf("execution.New returned error: %v", err)
-	}
-	defer func() {
-		close(ex.Out)
-		ex.Shutdown()
-		ex.Wait()
-	}()
+	ex := mustNew(t, "TestService", dsc, &sc)
 	msgs := []*fspb.Message{
 		{
 			MessageId:   []byte("\000\000\000"),
@@ -99,9 +106,9 @@ func TestLoopback(t *testing.T) {
 	}
 	go func() {
 		for _, m := range msgs {
-			ex.Out <- m
+			err := ex.SendMsg(context.Background(), m)
 			if err != nil {
-				t.Errorf("Error processing message: %v", err)
+				t.Errorf("ex.SendMsg: %v", err)
 			}
 		}
 	}()
@@ -129,15 +136,8 @@ func TestStd(t *testing.T) {
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
-	ex, err := New("TestService", dsc, &sc)
-	if err != nil {
-		t.Fatalf("execution.New returned error: %v", err)
-	}
-	defer func() {
-		close(ex.Out)
-		ex.Shutdown()
-		ex.Wait()
-	}()
+	ex := mustNew(t, "TestService", dsc, &sc)
+	_ = ex // only indirectly used through input and output
 
 	wantIn := []byte(strings.Repeat("The quick brown fox jumped over the lazy dogs.\n", 128*1024))
 	wantErr := []byte(strings.Repeat("The brown quick fox jumped over some lazy dogs.\n", 128*1024))
@@ -193,10 +193,7 @@ func TestStats(t *testing.T) {
 	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
 		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
-	ex, err := New("TestService", dsc, &sc)
-	if err != nil {
-		t.Fatalf("execution.New returned error: %v", err)
-	}
+	ex := mustNew(t, "TestService", dsc, &sc)
 
 	// Run TestService for 4.2 seconds. We expect a resource-usage
 	// report to be sent every 2000 milliseconds (samplePeriod * sampleSize).
@@ -204,14 +201,15 @@ func TestStats(t *testing.T) {
 	go func() {
 		for i := 0; i < 42; i++ {
 			time.Sleep(100 * time.Millisecond)
-			m := fspb.Message{
+			m := &fspb.Message{
 				MessageId:   []byte{byte(i)},
 				MessageType: "DummyMessage",
 			}
-			ex.Out <- &m
+			err := ex.SendMsg(context.TODO(), m)
+			if err != nil {
+				t.Errorf("ex.SendMsg: %v", err)
+			}
 		}
-		close(ex.Out)
-		ex.Shutdown()
 		close(done)
 	}()
 
@@ -221,7 +219,6 @@ func TestStats(t *testing.T) {
 	for !finalRUReceived {
 		select {
 		case <-done:
-			ex.Wait()
 			return
 		case m := <-sc.OutChan:
 			if m.MessageType == "DummyMessageResponse" {
@@ -261,4 +258,20 @@ func TestStats(t *testing.T) {
 	if ruCnt != 3 {
 		t.Errorf("Unexpected number of resource-usage reports received. Got %d. Want 3.", ruCnt)
 	}
+}
+
+func mustNew(t *testing.T, name string, cfg *dspb.Config, sc service.Context) *Execution {
+	t.Helper()
+	ex, err := New(context.Background(), name, cfg, sc)
+	if err != nil {
+		t.Fatalf("execution.New returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		ex.Shutdown()
+		err := ex.Wait()
+		if err != nil {
+			t.Errorf("unexpected execution error: %v", err)
+		}
+	})
+	return ex
 }

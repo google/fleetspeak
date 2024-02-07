@@ -48,6 +48,7 @@ func (sc *testStatsCollector) DaemonServiceSubprocessFinished(service string, er
 }
 
 func startTestClient(t *testing.T, client []string, mode string, sc service.Context, dsc *dspb.Config) *Service {
+	t.Helper()
 	dsc = proto.Clone(dsc).(*dspb.Config)
 	dsc.ResourceMonitoringSampleSize = 2
 	dsc.ResourceMonitoringSamplePeriod = durpb.New(30 * time.Millisecond)
@@ -413,7 +414,21 @@ func TestBacklogPY(t *testing.T) {
 	exerciseBacklog(t, testClientPY(t))
 }
 
-// Tests that Fleetspeak kills daemonservices that exceed their memory limits.
+func nextResourceUsage(t *testing.T, ch <-chan *fspb.Message) (rud *mpb.ResourceUsageData) {
+	t.Helper()
+	var m *fspb.Message
+	for m == nil || m.MessageType != "ResourceUsage" {
+		m = <-ch
+	}
+
+	rud = &mpb.ResourceUsageData{}
+	if err := m.Data.UnmarshalTo(rud); err != nil {
+		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
+	}
+	return rud
+}
+
+// Tests that Fleetspeak restarts daemonservices that exceed their memory limits.
 func TestMemoryLimit(t *testing.T) {
 	mustPatchGlobalRespawnDelay(t, time.Second)
 
@@ -429,29 +444,12 @@ func TestMemoryLimit(t *testing.T) {
 		}
 	}()
 
-	// Get messages until a ResourceUsage message appears.
-	m := <-sc.OutChan
-	for m.MessageType != "ResourceUsage" {
-		m = <-sc.OutChan
-	}
-
-	rud0 := &mpb.ResourceUsageData{}
-	if err := m.Data.UnmarshalTo(rud0); err != nil {
-		t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
-	}
-
-	rud1 := proto.Clone(rud0).(*mpb.ResourceUsageData)
+	rud := nextResourceUsage(t, sc.OutChan)
+	oldPid, curPid := rud.Pid, rud.Pid
 	// Wait for the process to be restarted.
-	for rud0.Pid == rud1.Pid {
-		// Get messages until a ResourceUsage message appears.
-		m = <-sc.OutChan
-		for m.MessageType != "ResourceUsage" {
-			m = <-sc.OutChan
-		}
-
-		if err := m.Data.UnmarshalTo(rud1); err != nil {
-			t.Fatalf("Unable to unmarshal ResourceUsageData: %v", err)
-		}
+	for oldPid == curPid {
+		rud = nextResourceUsage(t, sc.OutChan)
+		curPid = rud.Pid
 	}
 }
 
