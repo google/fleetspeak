@@ -233,6 +233,7 @@ func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc ser
 		return nil, err
 	}
 
+	errProcessExited := errors.New("process exited")
 	ctx, cancel := fscontext.WithDoneChan(ctx, ErrShuttingDown, ret.shuttingDown)
 	eg, ctx := errgroup.WithContext(ctx)
 	ret.waitForGoroutines = func() error {
@@ -241,7 +242,7 @@ func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc ser
 		err := eg.Wait()
 
 		// These are expected errors during a normal shutdown.
-		if errors.Is(err, errInputChannelClosed) || errors.Is(err, ErrShuttingDown) {
+		if errors.Is(err, errInputChannelClosed) || errors.Is(err, ErrShuttingDown) || errors.Is(err, errProcessExited) {
 			log.Warningf("during wait: ignoring shutdown error: %v", err)
 			return nil
 		}
@@ -269,7 +270,7 @@ func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc ser
 	}
 	eg.Go(func() (err error) {
 		defer ret.Shutdown()
-		defer func() { cancel(err) }()
+		defer func() { cancel(errProcessExited) }()
 		defer func() {
 			startTime := tspb.New(ret.StartTime)
 			if err := startTime.CheckValid(); err != nil {
