@@ -37,7 +37,7 @@ cd "${SCRIPT_DIR}"
 readonly GOS=$(/usr/bin/find . -name '*.go')
 # ${GOS} should not be double-quoted; disable lint check
 # shellcheck disable=SC2086
-readonly MAIN_FILES=$(grep -rl 'func main' ${GOS} | grep -v '^./src/server/plugins/.*/')
+readonly MAIN_FILES=$(grep -l 'func main' ${GOS})
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
@@ -66,16 +66,6 @@ function build_single_main_file {
   time (
     /bin/echo >&2 "Building ${F} => ${COMPILED} "
     go build -tags "${TAGS}" -o "${COMPILED}" "${F}"
-  )
-}
-
-function build_single_plugin_file {
-  local readonly F=${1}
-  local readonly COMPILED="${F%.go}.so"
-
-  time (
-    /bin/echo >&2 "Building ${F} => ${COMPILED} "
-    go build -tags "${TAGS}" -buildmode=plugin -o "${COMPILED}" "${F}"
   )
 }
 
