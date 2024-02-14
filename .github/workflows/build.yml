@@ -2,7 +2,7 @@ name: Build installers
 on: [push, pull_request]
 jobs:
   build-test-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       MYSQL_TEST_USER: root
@@ -247,7 +247,7 @@ jobs:
 
   upload-installers:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       GCS_BUCKET: autobuilds-fleetspeak
     needs:
@@ -290,7 +290,7 @@ jobs:
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
