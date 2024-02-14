@@ -40,7 +40,9 @@ import (
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
-func calcClientCertChecksum(derBytes []byte) string {
+func calcClientCertChecksum(t *testing.T, derBytes []byte) string {
+	t.Helper()
+
 	// Calculate the SHA-256 digest of the DER certificate
 	sha256Digest := sha256.Sum256(derBytes)
 
@@ -49,8 +51,7 @@ func calcClientCertChecksum(derBytes []byte) string {
 
 	sha256Binary, err := hex.DecodeString(sha256HexStr)
 	if err != nil {
-		fmt.Sprintf("error decoding hexdump: %v\n", err)
-		return ""
+		t.Fatalf("Error decoding hexdump %q: %v\n", sha256HexStr, err)
 	}
 
 	// Convert the hexadecimal string to a base64 encoded string
@@ -62,6 +63,8 @@ func calcClientCertChecksum(derBytes []byte) string {
 }
 
 func makeTestClient(t *testing.T, clearText bool) (common.ClientID, *http.Client, []byte, string) {
+	t.Helper()
+
 	serverCert, _, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +100,7 @@ func makeTestClient(t *testing.T, clearText bool) (common.ClientID, *http.Client
 		t.Fatal(err)
 	}
 	bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: b})
-	clientCertChecksum := calcClientCertChecksum(b)
+	clientCertChecksum := calcClientCertChecksum(t, b)
 
 	clientCert, err := tls.X509KeyPair(bc, bk)
 	if err != nil {
