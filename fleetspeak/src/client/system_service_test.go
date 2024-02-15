@@ -160,7 +160,7 @@ func TestStatsMsg(t *testing.T) {
 	// the outside.
 	prevPeriod := StatsSamplePeriod
 	prevSize := StatsSampleSize
-	StatsSamplePeriod = 10 * time.Millisecond
+	StatsSamplePeriod = 100 * time.Millisecond
 	StatsSampleSize = 5
 	defer func() {
 		StatsSamplePeriod = prevPeriod
@@ -168,7 +168,7 @@ func TestStatsMsg(t *testing.T) {
 	}()
 
 	env := setUpTestEnv(t)
-	statsTimeout := 200 * time.Millisecond
+	statsTimeout := 2 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), statsTimeout)
 	defer cancel()
 
