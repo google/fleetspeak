@@ -26,6 +26,8 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/fleetspeak/fleetspeak/src/common/should"
+
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -127,6 +129,7 @@ func (c *Channel) read(n int, d time.Duration) ([]byte, error) {
 		bs = b[:n]
 	}
 	t := time.AfterFunc(d, func() {
+		should.Never("channel timeout on read")
 		c.e <- fmt.Errorf("read of length %d timed out", n)
 		// Aborting an os level read is tricky, and not well supported by
 		// go. So we just send the error now and trust the user of
