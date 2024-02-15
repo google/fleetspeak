@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -45,10 +46,9 @@ func main() {
 	log.Infof("Fleetspeak server started.")
 
 	// Wait for a sign that we should stop.
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
-	signal.Reset(os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
 }
 
 func loadComponents() server.Components {
