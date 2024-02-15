@@ -295,7 +295,7 @@ func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc ser
 		waitResult := ret.cmd.Wait()
 		close(ret.dead)
 		if waitResult != nil {
-			log.Warningf("subprocess ended with error: %v", waitResult)
+			cancel(fmt.Errorf("subprocess exited with error: %v", waitResult))
 		}
 		return waitResult
 	})
