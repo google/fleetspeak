@@ -1,4 +1,4 @@
-//go:build oss
+//go:build !google_internal
 
 package execution
 

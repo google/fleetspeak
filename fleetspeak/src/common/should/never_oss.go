@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build oss
+//go:build !google_internal
 
 // Package should lets callers indicate impossible conditions from the code.
 //
