@@ -41,9 +41,6 @@ readonly MAIN_FILES=$(grep -l 'func main' ${GOS})
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
-# The default Fleetspeak distribution gets built with the "oss" tag.
-readonly TAGS=oss
-
 if ! python -c 'import fleetspeak'; then
   /bin/echo >&2 '
 Warning: Python fleetspeak module is not importable.
@@ -65,7 +62,7 @@ function build_single_main_file {
 
   time (
     /bin/echo >&2 "Building ${F} => ${COMPILED} "
-    go build -tags "${TAGS}" -o "${COMPILED}" "${F}"
+    go build -o "${COMPILED}" "${F}"
   )
 }
 
