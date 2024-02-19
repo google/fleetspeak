@@ -11,10 +11,7 @@ mechanism.
 
 ## Status
 
-We have this code working internally as part of our GRR installation. Over the
-next weeks to months we will be organizing our open source development process,
-building out installation processes and otherwise preparing for broader external
-use, both as part of GRR and for other uses.
+We have this code working internally as part of our GRR installation.
 
 ## Getting Started
 
