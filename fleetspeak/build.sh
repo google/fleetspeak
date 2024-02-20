@@ -34,7 +34,10 @@ fi
 # Go to this script's directory.
 cd "${SCRIPT_DIR}"
 
-readonly MAIN_FILES=$(grep -rl --include '*.go' 'func main')
+readonly GOS=$(/usr/bin/find . -name '*.go')
+# ${GOS} should not be double-quoted; disable lint check
+# shellcheck disable=SC2086
+readonly MAIN_FILES=$(grep -l 'func main' ${GOS})
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
