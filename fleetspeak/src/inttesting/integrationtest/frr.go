@@ -262,7 +262,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 		}
 	}
 	// Create numClient clients.
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		cl, err := client.New(
 			conf,
 			client.Components{
@@ -278,7 +278,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 	log.Infof("%v clients started", numClients)
 
 	// We expect each client to create one response for the hunt.
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		<-completed
 		log.Infof("%v clients finished", i+1)
 	}
@@ -294,7 +294,7 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 		log.Fatalf("Unable to create file download hunt: %v", err)
 	}
 	// We expect each client to create one response for the hunt.
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		<-completed
 		log.Infof("%v clients finished download", i+1)
 	}

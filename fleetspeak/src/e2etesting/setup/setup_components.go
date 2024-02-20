@@ -131,7 +131,7 @@ func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients in
 	defer conn.Close()
 	admin := sgrpc.NewAdminClient(conn)
 	ids := make([]string, 0)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if i > 0 {
 			time.Sleep(time.Second)
 		}
@@ -341,13 +341,13 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 	}
 
 	// Build server configs
-	for i := 0; i < len(serverHosts); i++ {
+	for i, serverHost := range serverHosts {
 		serverConfigPath := path.Join(configDir, fmt.Sprintf("server%v.config", i))
 		serverServicesConfigPath := path.Join(configDir, fmt.Sprintf("server%v.services.config", i))
 		err := modifyFleetspeakServerConfig(
 			configDir,
 			fleetspeakServerConfigs{
-				host:               serverHosts[i],
+				host:               serverHost,
 				frontendPort:       frontendPort,
 				adminPort:          adminPort,
 				useHealthCheck:     true,
@@ -381,7 +381,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 
 	// Start servers and their services
 	var serverHosts string
-	for i := 0; i < numServers; i++ {
+	for i := range numServers {
 		adminPort := firstAdminPort + i*4
 		httpsListenPort := adminPort - 1
 		serverHosts += fmt.Sprintf("localhost:%v\n", httpsListenPort)
@@ -430,7 +430,7 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 
 	// Start clients
 	serversStartTime := time.Now()
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		linuxConfigPath := path.Join(configDir, fmt.Sprintf("linux_client%v.config", i))
 		stateFilePath := path.Join(configDir, fmt.Sprintf("client%v.state", i))
 		err := modifyFleetspeakClientConfig(configDir, frontendAddress, linuxConfigPath, stateFilePath, configDir)

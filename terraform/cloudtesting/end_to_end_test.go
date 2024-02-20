@@ -51,7 +51,7 @@ func TestCloudEndToEnd(t *testing.T) {
 	startTime := time.Now()
 	var clientIDs []string
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		// All clients that connected more than 30 minutes ago are considered inactive (not newly connected)
 		clientIDs, err = setup.WaitForNewClientIDs(fmt.Sprintf("%v:6061", serverHosts[0]), startTime.Add(-time.Minute*30), *numClients)
 		if err == nil {

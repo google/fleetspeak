@@ -227,7 +227,7 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 
 	// Create a backlog for 2 different services.
 	var toStore []*fspb.Message
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		mid1 := common.MakeMessageID(
 			&fspb.Address{
 				ClientId:    clientID.Bytes(),
@@ -292,7 +292,7 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 
 	// Get all messages remaining for processing, with limit.
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		_, err := ms.ClientMessagesForProcessing(ctx, clientID, 10, nil)
 		if err != nil {
 			t.Fatalf("ClientMessagesForProcessing(10, nil) returned unexpected error: %v", err)

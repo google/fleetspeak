@@ -247,7 +247,7 @@ func TestStutteringLoopback(t *testing.T) {
 
 	// Stuttering loopback will close the connection and reconnect after
 	// every message.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		// Wait for our end of the connection to start/restart.
 		<-starts
 		err := s.ProcessMessage(ctx, &fspb.Message{

@@ -347,13 +347,12 @@ func TestStreamingCommunicator(t *testing.T) {
 	}
 
 	// 10 small messages - should be grouped together into 1 contact data
-	for i := 0; i < 10; i++ {
-		j := i
+	for i := range 10 {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{
 				M: &fspb.Message{
 					Destination: &fspb.Address{ServiceName: "DummyService"}},
-				Ack: func() { acks <- j },
+				Ack: func() { acks <- i },
 			},
 		); err != nil {
 			t.Fatalf("unable to hand message to client: %v", err)
@@ -365,7 +364,7 @@ func TestStreamingCommunicator(t *testing.T) {
 	if len(rcb.Messages) != 10 {
 		t.Errorf("Expected a ContactData with 10 records, got %d", len(rcb.Messages))
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		j := <-acks
 		if j != i {
 			t.Errorf("Expected ack for %d, got ack for %d", i, j)
@@ -375,7 +374,7 @@ func TestStreamingCommunicator(t *testing.T) {
 	scb := fspb.ContactData{
 		SequencingNonce: 44,
 	}
-	for i := 0; i < 35; i++ {
+	for range 35 {
 		scb.Messages = append(scb.Messages, &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "NOOPService"}, MessageType: "TestMessage"})
 	}
@@ -464,7 +463,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 
 	// 6 medium (300KB) messages. The client should be flushing when it has more than 10 sec (~1MB) worth of data, so
 	// we expect 4 to arrive together, then 2 more.
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{
 				M: &fspb.Message{
@@ -569,7 +568,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 
 	// 10 large (1MB) messages. The client should be flushing when it has more than 7.5MB of data, so
 	// we expect 8 to arrive together, then 2 more.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err := cl.ProcessMessage(context.Background(),
 			service.AckMessage{
 				M: &fspb.Message{

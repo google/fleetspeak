@@ -22,7 +22,7 @@ var (
 func waitForClientResponses(client fgrpc.MasterClient, clientIDs []string, requestID int64) error {
 	respondedClients := make(map[string]bool)
 
-	for i := 0; i < 150; i++ {
+	for range 150 {
 		for _, clientID := range clientIDs {
 			if _, ok := respondedClients[clientID]; ok {
 				continue

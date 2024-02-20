@@ -51,7 +51,7 @@ func TestLocalEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
 	}
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		wd = filepath.Dir(wd)
 	}
 	err = os.Chdir(wd)
