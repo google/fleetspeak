@@ -31,8 +31,8 @@ if [[ -z "${SCRIPT_DIR}" ]]; then
     exit 1
   fi
 fi
-# Go to this script's directory.
-cd "${SCRIPT_DIR}"
+# Go one above this script's directory.
+cd "${SCRIPT_DIR}"/..
 
 readonly GOS=$(/usr/bin/find . -name '*.go')
 # ${GOS} should not be double-quoted; disable lint check

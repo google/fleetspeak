@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"testing"
 	"time"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -39,11 +40,11 @@ type ComponentsInfo struct {
 	balancerCmd     *exec.Cmd
 	servers         []serverInfo
 	clientCmds      []*exec.Cmd
-	ClientIDs       []string
+	clientIDs       []string
 }
 
-// KillAll kills all running processes
-func (cc *ComponentsInfo) KillAll() {
+// killAll kills all running processes
+func (cc *ComponentsInfo) killAll() {
 	for _, cl := range cc.clientCmds {
 		if cl != nil {
 			cl.Process.Kill()
@@ -194,7 +195,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	}
 
 	// Build fleetspeak configurations
-	_, err = exec.Command("fleetspeak/src/config/fleetspeak_config", "-config", builtConfiguratorConfigPath).Output()
+	_, err = exec.Command("cmd/fleetspeak_config/fleetspeak_config", "-config", builtConfiguratorConfigPath).Output()
 	if err != nil {
 		return fmt.Errorf("Failed to build Fleetspeak configurations: %v", err)
 	}
@@ -446,26 +447,30 @@ func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress str
 	if err != nil {
 		return fmt.Errorf("Error in waiting for clients: %v", err)
 	}
-	cc.ClientIDs = newIDs
+	cc.clientIDs = newIDs
 	return nil
 }
 
-// ConfigureAndStart configures and starts fleetspeak servers, clients, their services and FRR master server
-func (cc *ComponentsInfo) ConfigureAndStart(mysqlCredentials MysqlCredentials, frontendAddress, msAddress string, numServers, numClients int) error {
-	configDir, err := ioutil.TempDir(os.TempDir(), "*_fleetspeak")
+// ConfigureAndStart configures and starts fleetspeak servers, clients, their services and FRR master server.
+// These processes are automatically shut down when the test is done.
+func ConfigureAndStart(t *testing.T, mysqlCredentials MysqlCredentials, frontendAddress, msAddress string, numServers, numClients int) (clientIDs []string) {
+	t.Helper()
+	configDir := t.TempDir()
+
+	err := buildBaseConfiguration(configDir, mysqlCredentials, frontendAddress)
 	if err != nil {
-		return fmt.Errorf("Failed to create temporary dir: %v", err)
+		t.Fatalf("Failed to build base Fleetspeak configuration: %v", err)
 	}
 
-	err = buildBaseConfiguration(configDir, mysqlCredentials, frontendAddress)
-	if err != nil {
-		return fmt.Errorf("Failed to build base Fleetspeak configuration: %v", err)
-	}
-
+	cc := ComponentsInfo{}
 	err = cc.start(configDir, frontendAddress, msAddress, numServers, numClients)
 	if err != nil {
-		cc.KillAll()
-		return err
+		cc.killAll()
+		t.Fatalf("Failed to start base Fleetspeak configuration: %v", err)
 	}
-	return nil
+	t.Cleanup(func() {
+		cc.killAll()
+	})
+
+	return cc.clientIDs
 }
