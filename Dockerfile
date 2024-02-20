@@ -1,4 +1,4 @@
-FROM golang:1.21 as builder
+FROM golang:1.22 as builder
 
 RUN apt-get update && \
     apt-get install -y  \
@@ -9,7 +9,7 @@ COPY . /fleetspeak
 RUN cd /fleetspeak && ./fleetspeak/build.sh
 
 
-FROM golang:1.21
+FROM golang:1.22
 
 RUN apt update
 
