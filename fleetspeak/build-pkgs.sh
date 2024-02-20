@@ -40,8 +40,8 @@ fakeroot bash -c '
 
   mkdir -p server-pkg/usr/bin
   install -o root -g root src/server/server/server server-pkg/usr/bin/fleetspeak-server
-  install -o root -g root src/config/fleetspeak_config server-pkg/usr/bin/fleetspeak-config
-  install -o root -g root src/admin/fleetspeak_admin server-pkg/usr/bin/fleetspeak-admin
+  install -o root -g root ../cmd/fleetspeak_config/fleetspeak_config server-pkg/usr/bin/fleetspeak-config
+  install -o root -g root ../cmd/fleetspeak_admin/fleetspeak_admin server-pkg/usr/bin/fleetspeak-admin
 
   cd server-pkg
   dpkg-buildpackage -us -uc
