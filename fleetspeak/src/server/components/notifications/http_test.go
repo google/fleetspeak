@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	log "github.com/golang/glog"
 
@@ -43,6 +44,9 @@ func TestListenNotify(t *testing.T) {
 			t.Errorf("Unable to send notification for client: %v", err)
 		}
 	}
+
+	// TODO: Clean up concurrency in this test! We are not waiting for results correctly.
+	time.Sleep(500 * time.Millisecond)
 
 	mtx.Lock()
 	defer mtx.Unlock()

@@ -31,10 +31,10 @@ if [[ -z "${SCRIPT_DIR}" ]]; then
     exit 1
   fi
 fi
-# Go to this script's directory.
-cd "${SCRIPT_DIR}"
+# Go one above this script's directory.
+cd "${SCRIPT_DIR}"/..
 
-readonly GOS=$(/usr/bin/find . -name '*.go')
+readonly GOS=$(/usr/bin/find ./cmd ./fleetspeak -name '*.go')
 # ${GOS} should not be double-quoted; disable lint check
 # shellcheck disable=SC2086
 readonly MAIN_FILES=$(grep -l 'func main' ${GOS})

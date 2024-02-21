@@ -62,11 +62,12 @@ func TestLocalEndToEnd(t *testing.T) {
 	frontendAddress := "localhost:6000"
 	msAddress := "localhost:6059"
 
-	var componentsInfo setup.ComponentsInfo
-	err = componentsInfo.ConfigureAndStart(setup.MysqlCredentials{Host: *mysqlAddress, Password: *mysqlPassword, Username: *mysqlUsername, Database: *mysqlDatabase}, frontendAddress, msAddress, *numServers, *numClients)
-	defer componentsInfo.KillAll()
-	if err != nil {
-		t.Fatalf("Failed to start components: %v", err)
-	}
-	tests.RunTests(t, msAddress, componentsInfo.ClientIDs)
+	clientIDs := setup.ConfigureAndStart(t, setup.MysqlCredentials{
+		Host:     *mysqlAddress,
+		Password: *mysqlPassword,
+		Username: *mysqlUsername,
+		Database: *mysqlDatabase,
+	}, frontendAddress, msAddress, *numServers, *numClients)
+
+	tests.RunTests(t, msAddress, clientIDs)
 }

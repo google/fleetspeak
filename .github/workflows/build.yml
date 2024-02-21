@@ -119,7 +119,7 @@ jobs:
       - name: Build installers
         shell: bash
         run: |
-          go build -v -x -o fleetspeak-client.exe ./fleetspeak/src/client/client/client.go
+          go build -v -x -o fleetspeak-client.exe ./cmd/fleetspeak_client/fleetspeak_client.go
           cd fleetspeak/client-win
           powershell -ExecutionPolicy Bypass -File ./build.ps1
           cd ../..
@@ -156,7 +156,7 @@ jobs:
           pip install wheel
       - name: Build installers
         run: |
-          go build -o fleetspeak-client ./fleetspeak/src/client/client/client.go
+          go build -o fleetspeak-client ./cmd/fleetspeak_client/fleetspeak_client.go
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
           mkdir -p $DEPLOY_PATH
           cd fleetspeak/client-mac
@@ -193,17 +193,21 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel pytest
-      - uses: ankane/setup-mysql@v1
-        with:
-          database: ${{ env.MYSQL_TEST_E2E_DB }}
-      - name: Build
+      - name: Build Python
         run: |
           pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
-          fleetspeak/build.sh
+      - name: Build Go
+        run: |
+          cd fleetspeak
+          ./build.sh
+      - uses: ankane/setup-mysql@v1
+        with:
+          database: ${{ env.MYSQL_TEST_E2E_DB }}
       - name: Test
         run: |
-          fleetspeak/test.sh
+          cd fleetspeak
+          ./test.sh
 
   test-windows:
     runs-on: windows-latest
