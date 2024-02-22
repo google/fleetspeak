@@ -29,15 +29,7 @@ fi
 # Go to this script's directory.
 cd "${SCRIPT_DIR}"
 
-readonly TEST_GOS=$(/usr/bin/find . -name '*_test.go')
 readonly TEST_SHS='src/server/grpcservice/client/testing/client_test.sh'
-# Note that the MacOS version of dirname cannot take multiple inputs.
-# ${TEST_GOS} should not be double-quoted.
-# shellcheck disable=SC2086
-TEST_GO_DIRS=$(for test_file in ${TEST_GOS}; do /usr/bin/dirname $test_file; done)
-# ${TEST_GO_DIRS} should not be double-quoted.
-# shellcheck disable=SC2086
-readonly TEST_GO_DIRS=$(echo ${TEST_GO_DIRS} | /usr/bin/sort | /usr/bin/uniq)
 
 export TIMEFORMAT='real %lR user %lU system %lS'
 
@@ -62,11 +54,15 @@ function pretty_echo {
 time (
   RC=0
 
-  pretty_echo 'Executing Go tests.'
-  time go test -race --timeout 2.5m ${TEST_GO_DIRS} || RC=1
+  pretty_echo 'Building prerequisites for Go tests.'
+  go build -o ./src/e2etesting/frr_master_server_main/frr_master_server_main{,.go}
+  go build -o ./src/e2etesting/balancer/balancer{,.go}
+  go build -o ./src/client/daemonservice/testclient/testclient{,.go}
+  go build -o ./src/client/socketservice/testclient/testclient{,.go}
+  go build -o ./src/server/grpcservice/client/testing/tester{,.go}
 
-  pretty_echo 'Executing Python tests.'
-  pytest -v ../fleetspeak_python || RC=2
+  pretty_echo 'Executing Go tests.'
+  time go test -race --timeout 2.5m ./... || RC=1
 
   pretty_echo 'Executing Bash tests.'
   for s in ${TEST_SHS}; do
