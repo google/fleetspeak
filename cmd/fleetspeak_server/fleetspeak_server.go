@@ -38,6 +38,7 @@ var servicesConfigPath = flag.String("services_config", "/etc/fleetspeak-server/
 
 func main() {
 	flag.Parse()
+
 	s, err := server.MakeServer(readServicesConfig(), loadComponents())
 	if err != nil {
 		log.Exitf("Unable to initialize Fleetspeak server: %v", err)

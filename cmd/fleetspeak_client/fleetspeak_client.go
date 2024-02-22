@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
+	"os"
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -27,7 +27,7 @@ var profileDir = flag.String("profile-dir", "/tmp", "Profile directory.")
 func innerMain() {
 	flag.Parse()
 
-	b, err := ioutil.ReadFile(*configFile)
+	b, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Exitf("Unable to read configuration file [%s]: %v", *configFile, err)
 	}
