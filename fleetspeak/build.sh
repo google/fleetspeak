@@ -39,8 +39,6 @@ readonly GOS=$(/usr/bin/find ./cmd ./fleetspeak -name '*.go')
 # shellcheck disable=SC2086
 readonly MAIN_FILES=$(grep -l 'func main' ${GOS})
 
-export TIMEFORMAT='real %lR user %lU system %lS'
-
 if ! python -c 'import fleetspeak'; then
   /bin/echo >&2 '
 Warning: Python fleetspeak module is not importable.
@@ -60,15 +58,11 @@ function build_single_main_file {
     local readonly COMPILED="${F%.go}"
   fi
 
-  time (
-    /bin/echo >&2 "Building ${F} => ${COMPILED} "
-    go build -o "${COMPILED}" "${F}"
-  )
+  /bin/echo >&2 "Building ${F} => ${COMPILED} "
+  go build -o "${COMPILED}" "${F}"
 }
 
-time (
-  for f in ${MAIN_FILES}; do
-    build_single_main_file "${f}"
-  done
-)
+for f in ${MAIN_FILES}; do
+  build_single_main_file "${f}"
+done
 
