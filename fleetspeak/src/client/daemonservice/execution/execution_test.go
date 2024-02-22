@@ -57,9 +57,6 @@ func TestFailures(t *testing.T) {
 			dsc := &dspb.Config{
 				Argv: []string{testClient(t), "--mode=" + mode},
 			}
-			if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-				dsc.Argv = append(dsc.Argv, "--log_dir="+d)
-			}
 
 			ex, err := New(context.Background(), "TestService", dsc, &sc)
 			if err != nil {
@@ -89,9 +86,6 @@ func TestLoopback(t *testing.T) {
 	}
 	dsc := &dspb.Config{
 		Argv: []string{testClient(t), "--mode=loopback"},
-	}
-	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 	ex := mustNew(t, "TestService", dsc, &sc)
 	msgs := []*fspb.Message{
@@ -132,9 +126,6 @@ func TestStd(t *testing.T) {
 			ServiceName:      "TestService",
 			FlushTimeSeconds: 5,
 		},
-	}
-	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 	ex := mustNew(t, "TestService", dsc, &sc)
 	_ = ex // only indirectly used through input and output
@@ -189,9 +180,6 @@ func TestStats(t *testing.T) {
 		Argv:                                  []string{testClient(t), "--mode=loopback"},
 		ResourceMonitoringSampleSize:          2,
 		ResourceMonitoringSamplePeriodSeconds: 1,
-	}
-	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
 	}
 	ex := mustNew(t, "TestService", dsc, &sc)
 
@@ -274,4 +262,11 @@ func mustNew(t *testing.T, name string, cfg *dspb.Config, sc service.Context) *E
 		}
 	})
 	return ex
+}
+
+func init() {
+	// Hack so that the testclient logs get written to the right place.
+	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
+		os.Setenv("GOOGLE_LOG_DIR", d)
+	}
 }

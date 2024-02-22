@@ -57,10 +57,6 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 		dsc.Argv = append(dsc.Argv, "--mode="+mode)
 	}
 
-	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-		dsc.Argv = append(dsc.Argv, "--log_dir="+d)
-	}
-
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name:   "TestDaemonService",
 		Config: anypbtest.New(t, dsc),
@@ -589,5 +585,12 @@ waitLoop:
 	terminations := stats.subprocessesFinished.Load()
 	if want := int64(0); terminations != want {
 		t.Errorf("Got %d terminations, want %d", terminations, want)
+	}
+}
+
+func init() {
+	// Hack so that daemonservice logs get written to the right place.
+	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
+		os.Setenv("GOOGLE_LOG_DIR", d)
 	}
 }

@@ -384,3 +384,10 @@ func TestStopDoesNotBlock(t *testing.T) {
 		t.Errorf("socketservice.Stop(): %v", err)
 	}
 }
+
+func init() {
+	// Hack so that socketservice logs get written to the right place.
+	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
+		os.Setenv("GOOGLE_LOG_DIR", d)
+	}
+}

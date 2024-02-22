@@ -17,7 +17,6 @@ package main
 
 import (
 	"flag"
-	"os"
 	"sync"
 
 	log "github.com/golang/glog"
@@ -31,10 +30,6 @@ var mode = flag.String("mode", "loopback", "Mode of operation.")
 var socketPath = flag.String("socket_path", "", "Location of socket to contact.")
 
 func main() {
-	if d := os.Getenv("TEST_UNDECLARED_OUTPUTS_DIR"); d != "" {
-		os.Args = append(os.Args, "--log_dir="+d)
-	}
-
 	flag.Parse()
 
 	// All of the modes require interaction with the socket.
