@@ -31,18 +31,18 @@ cd "${SCRIPT_DIR}"
 
 readonly TEST_SHS='src/server/grpcservice/client/testing/client_test.sh'
 
-export TIMEFORMAT='real %lR user %lU system %lS'
-
 function test_single_sh {
   local readonly SH=${1}
 
-  time (
-    OUT=$("${SH}" 2>&1) \
-        && /bin/echo -n "PASS ${SH} " \
-        || /bin/echo -n "FAIL ${SH}
-${OUT}
-"
-  ) 2>&1
+  OUT=$("${SH}" 2>&1)
+
+  if [ "$?" -ne 0 ]; then
+    /bin/echo "FAIL ${SH}"
+    /bin/echo "${OUT}"
+    return 1
+  fi
+
+  /bin/echo "PASS ${SH}"
 }
 
 function pretty_echo {
@@ -51,28 +51,24 @@ function pretty_echo {
   /bin/echo '---'
 }
 
-time (
-  RC=0
+RC=0
 
-  pretty_echo 'Building prerequisites for Go tests.'
-  go build -o ./src/e2etesting/frr_master_server_main/frr_master_server_main{,.go}
-  go build -o ./src/e2etesting/balancer/balancer{,.go}
-  go build -o ./src/client/daemonservice/testclient/testclient{,.go}
-  go build -o ./src/client/socketservice/testclient/testclient{,.go}
-  go build -o ./src/server/grpcservice/client/testing/tester{,.go}
+pretty_echo 'Building prerequisites for Go tests.'
+go build -o ./src/e2etesting/frr_master_server_main/frr_master_server_main{,.go}
+go build -o ./src/e2etesting/balancer/balancer{,.go}
+go build -o ./src/client/daemonservice/testclient/testclient{,.go}
+go build -o ./src/client/socketservice/testclient/testclient{,.go}
+go build -o ./src/server/grpcservice/client/testing/tester{,.go}
 
-  pretty_echo 'Executing Go tests.'
-  time go test -race --timeout 2.5m ./... || RC=1
+pretty_echo 'Executing Go tests.'
+go test -race --timeout 2.5m ./... || RC=1
 
-  pretty_echo 'Executing Bash tests.'
-  for s in ${TEST_SHS}; do
-    test_single_sh "${s}" || RC=3
-  done
+pretty_echo 'Executing Python tests.'
+pytest -v ../fleetspeak_python || RC=2
 
-  # This will prefix time's output.
-  /bin/echo -n "
-${ARGV0} "
+pretty_echo 'Executing Bash tests.'
+for s in ${TEST_SHS}; do
+  test_single_sh "${s}" || RC=3
+done
 
-  exit "${RC}"
-) 2>&1
-# RC will be forwarded because `set -e' is in effect.
+exit "${RC}"
