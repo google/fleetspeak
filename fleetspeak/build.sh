@@ -49,20 +49,9 @@ Warning: Python fleetspeak module is not importable.
   fi
 fi
 
-function build_single_main_file {
-  local readonly F=${1}
-  # `%.go' means strip the the `.go' suffix.
-  if [[ "$(uname)" == 'CYGWIN'* ]]; then
-    local readonly COMPILED="${F%.go}.exe"
-  else
-    local readonly COMPILED="${F%.go}"
-  fi
-
-  /bin/echo >&2 "Building ${F} => ${COMPILED} "
-  go build -o "${COMPILED}" "${F}"
-}
-
 for f in ${MAIN_FILES}; do
-  build_single_main_file "${f}"
+  COMPILED="${f%.go}$(go env GOEXE)"
+  /bin/echo >&2 "Building ${f} => ${COMPILED}"
+  go build -o "${COMPILED}" "${f}"
 done
 
