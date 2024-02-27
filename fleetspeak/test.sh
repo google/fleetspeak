@@ -59,6 +59,9 @@ go build -o ./src/e2etesting/balancer/balancer{,.go}
 go build -o ./src/client/daemonservice/testclient/testclient{,.go}
 go build -o ./src/client/socketservice/testclient/testclient{,.go}
 go build -o ./src/server/grpcservice/client/testing/tester{,.go}
+cd ..
+go build -o ./cmd/fleetspeak_config/fleetspeak_config{,.go}
+cd -
 
 pretty_echo 'Executing Go tests.'
 go test -race --timeout 2.5m ./... || RC=1
