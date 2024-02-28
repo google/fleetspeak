@@ -1,5 +1,5 @@
 # Copyright 2023 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -28,17 +28,16 @@ RUN git clone https://github.com/google/fleetspeak.git && \
     go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
+RUN mkdir -p /app/bin
+
 RUN cd /fleetspeak && \
     python3 -m venv /venv/FSENV && \
     source /venv/FSENV/bin/activate && \
     pip install wheel pytest && \
     pip install -e ./fleetspeak_python[test] && \
     pip install -e ./frr_python && \
-    ./fleetspeak/generate_go_py_protos.sh && \ 
-    ./fleetspeak/build.sh
+    ./fleetspeak/generate_go_py_protos.sh && \
+    go build -o /app/bin/server ./cmd/fleetspeak_server && \
+    go build -o /app/bin/client ./cmd/fleetspeak_client && \
+    go build -o /app/bin/fleetspeak_config ./cmd/fleetspeak_config
 
-RUN mkdir -p /app/bin
-
-RUN mv -f /fleetspeak/fleetspeak/src/server/server/server /app/bin/
-RUN mv -f /fleetspeak/fleetspeak/src/client/client/client /app/bin/
-RUN mv -f /fleetspeak/fleetspeak/src/config/fleetspeak_config /app/bin/
