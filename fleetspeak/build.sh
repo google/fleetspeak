@@ -13,6 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+cat >&2 <<EOF
+
+  **************************************************************
+  *                                                            *
+  *  Dear Fleetspeak users,                                    *
+  *                                                            *
+  *  Fleetspeak has become a regular Go module,                *
+  *  and you can stop using the build.sh script.               *
+  *                                                            *
+  *  To build from an existing repo clone, use:                *
+  *  $ go install ./cmd/...                                    *
+  *                                                            *
+  *  To build without first doing a clone, use:                *
+  *  $ go install github.com/google/fleetspeak/cmd/...@latest  *
+  *  (and replace @latest with the revision of your choice)    *
+  *                                                            *
+  *  The build.sh script will disappear in the near future.    *
+  *                                                            *
+  **************************************************************
+
+EOF
 
 readonly ARGV0=${0}
 
