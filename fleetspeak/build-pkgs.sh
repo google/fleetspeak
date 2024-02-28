@@ -16,6 +16,16 @@
 set -e
 
 /bin/echo >&2 ""
+/bin/echo >&2 "Building binaries"
+
+export BINDIR="$(mktemp -d)"
+trap "rm -rf ${BINDIR}" EXIT
+
+cd ..
+CGO_ENABLED=0 GOBIN="${BINDIR}" go install ./cmd/...
+cd -
+
+/bin/echo >&2 ""
 /bin/echo >&2 "Building server.deb"
 
 export DEB_DEST="server-pkg/debian/fleetspeak-server"
@@ -39,9 +49,9 @@ fakeroot bash -c '
   cd -
 
   mkdir -p server-pkg/usr/bin
-  install -o root -g root ../cmd/fleetspeak_server/fleetspeak_server server-pkg/usr/bin/fleetspeak-server
-  install -o root -g root ../cmd/fleetspeak_config/fleetspeak_config server-pkg/usr/bin/fleetspeak-config
-  install -o root -g root ../cmd/fleetspeak_admin/fleetspeak_admin server-pkg/usr/bin/fleetspeak-admin
+  install -o root -g root "${BINDIR}/fleetspeak_server" server-pkg/usr/bin/fleetspeak-server
+  install -o root -g root "${BINDIR}/fleetspeak_config" server-pkg/usr/bin/fleetspeak-config
+  install -o root -g root "${BINDIR}/fleetspeak_admin" server-pkg/usr/bin/fleetspeak-admin
 
   cd server-pkg
   dpkg-buildpackage -us -uc
@@ -68,7 +78,7 @@ fakeroot bash -c '
   cd -
 
   mkdir -p client-pkg/usr/bin
-  install -o root -g root ../cmd/fleetspeak_client/fleetspeak_client client-pkg/usr/bin/fleetspeak-client
+  install -o root -g root "${BINDIR}/fleetspeak_client" client-pkg/usr/bin/fleetspeak-client
 
   cd client-pkg
   dpkg-buildpackage -us -uc
