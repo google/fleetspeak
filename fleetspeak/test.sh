@@ -60,7 +60,10 @@ go build -o ./src/client/daemonservice/testclient/testclient{,.go}
 go build -o ./src/client/socketservice/testclient/testclient{,.go}
 go build -o ./src/server/grpcservice/client/testing/tester{,.go}
 cd ..
+# Required for src/e2etesting/localtesting.
 go build -o ./cmd/fleetspeak_config/fleetspeak_config{,.go}
+go build -o ./cmd/fleetspeak_client/fleetspeak_client{,.go}
+go build -o ./cmd/fleetspeak_server/fleetspeak_server{,.go}
 cd -
 
 pretty_echo 'Executing Go tests.'

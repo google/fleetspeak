@@ -59,7 +59,7 @@ jobs:
           echo "git status is clean; generated protos are consistent"
       - name: Build
         run: |
-          fleetspeak/build.sh
+          CGO_ENABLED=0 go build ./cmd/...
       - name: Test
         run: |
           fleetspeak/test.sh
@@ -199,8 +199,7 @@ jobs:
           pip install -e ./frr_python
       - name: Build Go
         run: |
-          cd fleetspeak
-          ./build.sh
+          CGO_ENABLED=0 go build ./cmd/...
       - uses: ankane/setup-mysql@v1
         with:
           database: ${{ env.MYSQL_TEST_E2E_DB }}
