@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -71,28 +70,11 @@ func (cc *ComponentsInfo) killAll() {
 	}
 }
 
-// Starts a command and redirects its output to main stdout
+// startCommand starts cmd and redirects its output to main stdout and stderr.
 func startCommand(cmd *exec.Cmd) error {
-	stdoutIn, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderrIn, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return fmt.Errorf("cmd.Start() failed: %v", err)
-	}
-
-	go func() {
-		io.Copy(os.Stdout, stdoutIn)
-	}()
-	go func() {
-		io.Copy(os.Stderr, stderrIn)
-	}()
-	return nil
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Start()
 }
 
 func getNewClientIDs(admin sgrpc.AdminClient, startTime time.Time) ([]string, error) {
