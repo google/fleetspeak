@@ -33,8 +33,8 @@ type serverInfo struct {
 	httpsListenPort int
 }
 
-// ComponentsInfo contains IDs of connected clients and exec.Cmds for all components
-type ComponentsInfo struct {
+// componentsInfo contains IDs of connected clients and exec.Cmds for all components
+type componentsInfo struct {
 	masterServerCmd *exec.Cmd
 	balancerCmd     *exec.Cmd
 	servers         []serverInfo
@@ -43,7 +43,7 @@ type ComponentsInfo struct {
 }
 
 // killAll kills all running processes
-func (cc *ComponentsInfo) killAll() {
+func (cc *componentsInfo) killAll() {
 	for _, cl := range cc.clientCmds {
 		if cl != nil {
 			cl.Process.Kill()
@@ -355,7 +355,7 @@ func BuildConfigurations(configDir string, serverHosts []string, serverFrontendI
 	return nil
 }
 
-func (cc *ComponentsInfo) start(configDir string, frontendAddress, msAddress string, numServers, numClients int) error {
+func (cc *componentsInfo) start(configDir string, frontendAddress, msAddress string, numServers, numClients int) error {
 	firstAdminPort := 6061
 
 	// Start Master server
@@ -444,7 +444,7 @@ func ConfigureAndStart(t *testing.T, mysqlCredentials MysqlCredentials, frontend
 		t.Fatalf("Failed to build base Fleetspeak configuration: %v", err)
 	}
 
-	cc := ComponentsInfo{}
+	cc := componentsInfo{}
 	err = cc.start(configDir, frontendAddress, msAddress, numServers, numClients)
 	if err != nil {
 		cc.killAll()
