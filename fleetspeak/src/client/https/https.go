@@ -143,11 +143,10 @@ func getFileIfModified(ctx context.Context, hosts []string, client *http.Client,
 	return nil, time.Time{}, fmt.Errorf("unable to retrieve file, last attempt failed with: %v", lastErr)
 }
 
-func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Client, service, name string, modSince time.Time, stats stats.CommunicatorCollector) (io.ReadCloser, time.Time, error) {
-	var didFetch bool
-	var err error
+func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Client, service, name string, modSince time.Time, stats stats.CommunicatorCollector) (rc io.ReadCloser, t time.Time, gErr error) {
 	defer func() {
-		stats.AfterGetFileRequest(host, service, name, didFetch, err)
+		didFetch := rc != nil
+		stats.AfterGetFileRequest(host, service, name, didFetch, gErr)
 	}()
 
 	u := url.URL{
@@ -157,7 +156,7 @@ func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Cl
 	}
 
 	var req *http.Request
-	req, err = http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
@@ -175,7 +174,6 @@ func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Cl
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		didFetch = true
 		modtime, err := http.ParseTime(resp.Header.Get("Last-Modified"))
 		if err != nil {
 			return resp.Body, time.Time{}, nil
