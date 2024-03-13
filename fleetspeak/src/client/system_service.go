@@ -17,7 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -270,7 +270,7 @@ func (s *systemService) pollRevokedCerts() {
 	}
 	defer data.Close()
 
-	b, err := ioutil.ReadAll(data)
+	b, err := io.ReadAll(data)
 	if err != nil {
 		log.Errorf("Unable to read revoked certificate list: %v", err)
 		return

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -171,7 +170,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	if err != nil {
 		return fmt.Errorf("Unable to marshal config: %v", err)
 	}
-	err = ioutil.WriteFile(builtConfiguratorConfigPath, b, 0644)
+	err = os.WriteFile(builtConfiguratorConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write configurator file: %v", err)
 	}
@@ -206,7 +205,7 @@ func buildBaseConfiguration(configDir string, mysqlCredentials MysqlCredentials,
 	if err != nil {
 		return fmt.Errorf("Unable to marshal clientServiceConfig: %v", err)
 	}
-	err = ioutil.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), b, 0644)
+	err = os.WriteFile(path.Join(configDir, "textservices", "frr.textproto"), b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write frr.textproto file: %v", err)
 	}
@@ -229,7 +228,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 	serverBaseConfigurationPath := path.Join(configDir, "server.config")
 
 	serverConfig := &fcpb.Config{}
-	serverConfigData, err := ioutil.ReadFile(serverBaseConfigurationPath)
+	serverConfigData, err := os.ReadFile(serverBaseConfigurationPath)
 	if err != nil {
 		return fmt.Errorf("Unable to read server.config: %v", err)
 	}
@@ -252,7 +251,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 	if err != nil {
 		return fmt.Errorf("Unable to marshal serverConfig: %v", err)
 	}
-	err = ioutil.WriteFile(newServerConfigPath, b, 0644)
+	err = os.WriteFile(newServerConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write serverConfig to file: %w", err)
 	}
@@ -270,7 +269,7 @@ func modifyFleetspeakServerConfig(configDir string, fsServerConfigs fleetspeakSe
 	if err != nil {
 		return fmt.Errorf("Unable to marshal serverConf: %v", err)
 	}
-	err = ioutil.WriteFile(newServerServicesConfigPath, b, 0644)
+	err = os.WriteFile(newServerServicesConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Unable to write server.services.config: %v", err)
 	}
@@ -281,7 +280,7 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 	linuxBaseConfigPath := path.Join(configDir, "linux_client.config")
 
 	clientConfig := &ccpb.Config{}
-	clientConfigData, err := ioutil.ReadFile(linuxBaseConfigPath)
+	clientConfigData, err := os.ReadFile(linuxBaseConfigPath)
 	if err != nil {
 		return fmt.Errorf("Unable to read LinuxClientConfigurationFile: %v", err)
 	}
@@ -300,7 +299,7 @@ func modifyFleetspeakClientConfig(configDir string, httpsListenAddress string, n
 	if err != nil {
 		return fmt.Errorf("Unable to marshal clientConfig: %v", err)
 	}
-	err = ioutil.WriteFile(newLinuxConfigPath, b, 0644)
+	err = os.WriteFile(newLinuxConfigPath, b, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to update LinuxClientConfigurationFile: %v", err)
 	}
@@ -404,7 +403,7 @@ func (cc *componentsInfo) start(configDir string, frontendAddress, msAddress str
 
 	// Start Load balancer
 	serverHostsFile := path.Join(configDir, "server_hosts.txt")
-	err := ioutil.WriteFile(serverHostsFile, []byte(serverHosts), 0644)
+	err := os.WriteFile(serverHostsFile, []byte(serverHosts), 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to write serverHostsFile: %v", err)
 	}

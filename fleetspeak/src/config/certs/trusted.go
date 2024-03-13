@@ -23,7 +23,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"time"
@@ -87,10 +86,10 @@ func makeCACert(cfg *cpb.Config) error {
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: key})
 
-	if err := ioutil.WriteFile(cfg.TrustedCertFile, certPEM, 0644); err != nil {
+	if err := os.WriteFile(cfg.TrustedCertFile, certPEM, 0644); err != nil {
 		return fmt.Errorf("failed to write CA cert file [%s]: %v", cfg.TrustedCertFile, err)
 	}
-	if err := ioutil.WriteFile(cfg.TrustedCertKeyFile, keyPEM, 0600); err != nil {
+	if err := os.WriteFile(cfg.TrustedCertKeyFile, keyPEM, 0600); err != nil {
 		return fmt.Errorf("failed to write CA key file [%s]: %v", cfg.TrustedCertKeyFile, err)
 	}
 
@@ -99,7 +98,7 @@ func makeCACert(cfg *cpb.Config) error {
 
 func getTrustedCert(cfg *cpb.Config) (cert *x509.Certificate, priv any, certPEM []byte, err error) {
 	// Read and validate the cert.
-	certPEM, err = ioutil.ReadFile(cfg.TrustedCertFile)
+	certPEM, err = os.ReadFile(cfg.TrustedCertFile)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to read trusted certificate file [%s]: %v", cfg.TrustedCertFile, err)
 	}
@@ -113,7 +112,7 @@ func getTrustedCert(cfg *cpb.Config) (cert *x509.Certificate, priv any, certPEM 
 	}
 
 	// Read the key file, if present.
-	keyPEM, err := ioutil.ReadFile(cfg.TrustedCertKeyFile)
+	keyPEM, err := os.ReadFile(cfg.TrustedCertKeyFile)
 	if err != nil {
 		log.Infof("unable to read the trusted certificate key file [%s], server certificate creation disabled: %v", cfg.TrustedCertKeyFile, err)
 		return cert, nil, certPEM, nil
