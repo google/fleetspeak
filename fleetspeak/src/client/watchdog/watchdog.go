@@ -18,7 +18,7 @@
 package watchdog
 
 import (
-	"io/ioutil"
+	"os"
 	"runtime/pprof"
 	"time"
 
@@ -85,7 +85,7 @@ func (w *Watchdog) watch() {
 				t = nil
 			case <-t.C:
 				log.Errorf("Watchdog expired, attempting to write goroutine traces.")
-				f, err := ioutil.TempFile(w.dir, w.prefix)
+				f, err := os.CreateTemp(w.dir, w.prefix)
 				if err != nil {
 					log.Errorf("Unable to create file for goroutine traces: %v", err)
 				} else {

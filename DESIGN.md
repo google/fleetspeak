@@ -250,17 +250,6 @@ Therefore by controlling access to the private part of the deployment key, and
 hardcoding the public exponent into the client binary, allows an installation to
 maintain strong control over what a particular client binary is capable of.
 
-### Stdinservice
-
-The
-[`stdinservice.Factory`](https://godoc.org/github.com/google/fleetspeak/fleetspeak/src/client/stdinservice#Factory)
-runs a binary with flags and standard input provided by a message, and returns
-the output it produces. The service configuration determines what binary to run.
-Every message received by the service causes and execution of the binary. The
-configuration used in the
-[`demo` directory](https://github.com/google/fleetspeak/tree/master/fleetspeak/src/demo)
-sets up services based on this for the `ls` and `cat` binaries.
-
 ### Daemonservice
 
 The

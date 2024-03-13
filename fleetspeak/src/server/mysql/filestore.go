@@ -19,14 +19,13 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 )
 
 func (d *Datastore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
-	b, err := ioutil.ReadAll(data)
+	b, err := io.ReadAll(data)
 	if err != nil {
 		return err
 	}

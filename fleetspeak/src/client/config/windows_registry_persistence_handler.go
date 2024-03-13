@@ -18,7 +18,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	log "github.com/golang/glog"
@@ -130,7 +130,7 @@ func (h *WindowsRegistryPersistenceHandler) ReadCommunicatorConfig() (*clpb.Comm
 		return nil, fmt.Errorf("can't read communicator file path [%s -> %s]: %v", h.configurationPath, communicatorValuename, err)
 	}
 
-	fbytes, err := ioutil.ReadFile(fpath)
+	fbytes, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, fmt.Errorf("can't read communicator config file [%s]: %v", fpath, err)
 	}
@@ -161,7 +161,7 @@ func (h *WindowsRegistryPersistenceHandler) ReadSignedServices() ([]*fspb.Signed
 			continue
 		}
 
-		fbytes, err := ioutil.ReadFile(fpath)
+		fbytes, err := os.ReadFile(fpath)
 		if err != nil {
 			log.Errorf("Unable to read signed service file [%s], ignoring: %v", fpath, err)
 			continue
@@ -197,7 +197,7 @@ func (h *WindowsRegistryPersistenceHandler) ReadServices() ([]*fspb.ClientServic
 			continue
 		}
 
-		fbytes, err := ioutil.ReadFile(fpath)
+		fbytes, err := os.ReadFile(fpath)
 		if err != nil {
 			log.Errorf("Unable to read service file [%s], ignoring: %v", fpath, err)
 			continue

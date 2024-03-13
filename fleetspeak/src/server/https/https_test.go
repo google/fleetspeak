@@ -30,7 +30,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
@@ -188,7 +187,7 @@ func TestNormalPoll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Error(err)
 	}
@@ -228,7 +227,7 @@ func TestFile(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected response code when reading file got [%v] want [%v].", resp.StatusCode, http.StatusOK)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Unexpected error reading file body: %v", err)
 	}
@@ -371,7 +370,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Error(err)
 	}

@@ -19,7 +19,6 @@ package checks
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,9 +74,9 @@ func CheckSocketFile(socketPath string) error {
 		log.Errorf("Unexpected ownership of socketPath (%q): %v", socketPath, err)
 	}
 
-	bytePipeFSPath, err := ioutil.ReadFile(socketPath)
+	bytePipeFSPath, err := os.ReadFile(socketPath)
 	if err != nil {
-		return fmt.Errorf("ioutil.ReadFile(%v): %v", socketPath, err)
+		return fmt.Errorf("os.ReadFile(%v): %v", socketPath, err)
 	}
 
 	return CheckSocketPipe(string(bytePipeFSPath))
@@ -111,7 +110,7 @@ func checkOwnership(filepath string) error {
 	// os/user.Current(), so we can't check against that. This can be worked
 	// around by creating a directory and recording what owner and group it
 	// gets assigned.
-	tmpdir, err := ioutil.TempDir("", "")
+	tmpdir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return fmt.Errorf("creating tmpdir to get user SID: %w", err)
 	}

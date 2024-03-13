@@ -26,7 +26,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
@@ -104,10 +103,10 @@ func makeServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv any) error {
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: key})
 
-	if err := ioutil.WriteFile(cfg.ServerCertFile, certPEM, 0644); err != nil {
+	if err := os.WriteFile(cfg.ServerCertFile, certPEM, 0644); err != nil {
 		return fmt.Errorf("failed to write server cert file [%s]: %v", cfg.ServerCertFile, err)
 	}
-	if err := ioutil.WriteFile(cfg.ServerCertKeyFile, keyPEM, 0600); err != nil {
+	if err := os.WriteFile(cfg.ServerCertKeyFile, keyPEM, 0600); err != nil {
 		return fmt.Errorf("failed to write server key file [%s]: %v", cfg.ServerCertKeyFile, err)
 	}
 
@@ -116,13 +115,13 @@ func makeServerCert(cfg *cpb.Config, ca *x509.Certificate, caPriv any) error {
 
 func getServerCert(cfg *cpb.Config) (cert, key []byte, err error) {
 	// Read the cert.
-	certPEM, err := ioutil.ReadFile(cfg.ServerCertFile)
+	certPEM, err := os.ReadFile(cfg.ServerCertFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to read server certificate file [%s]: %v", cfg.ServerCertFile, err)
 	}
 
 	// Read the key.
-	keyPEM, err := ioutil.ReadFile(cfg.ServerCertKeyFile)
+	keyPEM, err := os.ReadFile(cfg.ServerCertKeyFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("uanble to read the server certificate key file [%s]: %v", cfg.ServerCertKeyFile, err)
 	}

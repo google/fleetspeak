@@ -18,7 +18,6 @@ package hashpipe
 
 import (
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -55,7 +54,7 @@ func TestHashpipe(t *testing.T) {
 			t.Errorf("Winio pipe .Write([]byte(%q)): (%d, %v)", clientMsg, n, err)
 		}
 
-		msgBuf, err := ioutil.ReadAll(conn)
+		msgBuf, err := io.ReadAll(conn)
 		if err != nil {
 			t.Error(err)
 		}

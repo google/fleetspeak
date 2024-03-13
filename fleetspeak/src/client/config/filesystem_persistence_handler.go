@@ -17,7 +17,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -78,7 +77,7 @@ func (h *FilesystemPersistenceHandler) ReadState() (*clpb.ClientState, error) {
 		return &clpb.ClientState{}, nil
 	}
 
-	b, err := ioutil.ReadFile(h.stateFile)
+	b, err := os.ReadFile(h.stateFile)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +103,7 @@ func (h *FilesystemPersistenceHandler) WriteState(s *clpb.ClientState) error {
 
 	tmp := h.stateFile + ".new"
 	os.RemoveAll(tmp) // Deliberately ignoring errors.
-	if err := ioutil.WriteFile(tmp, b, 0600); err != nil {
+	if err := os.WriteFile(tmp, b, 0600); err != nil {
 		return fmt.Errorf("unable to write new configuration [%s]: %v", tmp, err)
 	}
 	if err := os.Rename(tmp, h.stateFile); err != nil {
@@ -120,7 +119,7 @@ func (h *FilesystemPersistenceHandler) ReadCommunicatorConfig() (*clpb.Communica
 		return nil, errors.New("configuration path not provided, can't read communicator config")
 	}
 	p := filepath.Join(h.configurationPath, communicatorFilename)
-	b, err := ioutil.ReadFile(p)
+	b, err := os.ReadFile(p)
 	if err != nil {
 		return nil, fmt.Errorf("can't read communicator config file [%s]: %v", p, err)
 	}
@@ -149,7 +148,7 @@ func (h *FilesystemPersistenceHandler) ReadSignedServices() ([]*fspb.SignedClien
 
 	for _, f := range fs {
 		fp := filepath.Join(p, f)
-		b, err := ioutil.ReadFile(fp)
+		b, err := os.ReadFile(fp)
 		if err != nil {
 			log.Errorf("Unable to read signed service file [%s], ignoring: %v", fp, err)
 			continue
@@ -183,7 +182,7 @@ func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConf
 
 	for _, f := range fs {
 		fp := filepath.Join(p, f)
-		b, err := ioutil.ReadFile(fp)
+		b, err := os.ReadFile(fp)
 		if err != nil {
 			log.Errorf("Unable to read service file [%s], ignoring: %v", fp, err)
 			continue

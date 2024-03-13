@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"reflect"
 	"sort"
@@ -72,7 +71,7 @@ func (f fakeClientServiceContext) GetLocalInfo() *cservice.LocalInfo {
 
 func (f fakeClientServiceContext) GetFileIfModified(ctx context.Context, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
 	if name == "TestFile" {
-		return ioutil.NopCloser(bytes.NewReader([]byte("Test file data."))), db.Now(), nil
+		return io.NopCloser(bytes.NewReader([]byte("Test file data."))), db.Now(), nil
 	}
 	return nil, time.Time{}, fmt.Errorf("File not found: %v", name)
 }

@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -131,7 +130,7 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 		if err != nil {
 			t.Errorf("unable to make ClientID in test server: %v", err)
 		}
-		buf, err := ioutil.ReadAll(req.Body)
+		buf, err := io.ReadAll(req.Body)
 		if err != nil {
 			t.Errorf("unable to read body in test server: %v", err)
 			http.Error(res, "unable to read body", http.StatusBadRequest)
@@ -619,7 +618,7 @@ func TestCertificateRevoked(t *testing.T) {
 	mux := http.NewServeMux()
 	received := make(chan *fspb.ContactData)
 	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
-		buf, err := ioutil.ReadAll(req.Body)
+		buf, err := io.ReadAll(req.Body)
 		if err != nil {
 			t.Fatalf("unable to read body in test server: %v", err)
 		}

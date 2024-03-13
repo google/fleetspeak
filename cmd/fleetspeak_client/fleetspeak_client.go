@@ -16,7 +16,6 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/socketservice"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
-	"github.com/google/fleetspeak/fleetspeak/src/client/stdinservice"
 
 	gpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
 )
@@ -54,7 +53,6 @@ func innerMain() {
 				"Daemon": daemonservice.Factory,
 				"NOOP":   service.NOOPFactory,
 				"Socket": socketservice.Factory,
-				"Stdin":  stdinservice.Factory,
 			},
 			Communicator: com,
 			Stats:        stats.NoopCollector{},

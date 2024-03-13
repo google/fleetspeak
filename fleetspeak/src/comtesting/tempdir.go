@@ -16,7 +16,6 @@ package comtesting
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	log "github.com/golang/glog"
@@ -39,7 +38,7 @@ func GetTempDir(testName string) (string, func()) {
 	tempDir = os.Getenv("TEST_TMPDIR")
 
 	if tempDir == "" {
-		d, err := ioutil.TempDir("", testName+"_")
+		d, err := os.MkdirTemp("", testName+"_")
 		if err != nil {
 			panic(fmt.Sprintf("Unable to create temp directory: %v", err))
 		}

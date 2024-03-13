@@ -15,7 +15,7 @@
 package watchdog
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -45,7 +45,7 @@ func TestDump(t *testing.T) {
 
 	time.Sleep(6500 * time.Millisecond)
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,7 @@ package monitoring
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -76,7 +76,7 @@ const (
 
 func getNumFDs(pid int) int32 {
 	fdPath := fmt.Sprintf("/proc/%d/fd", pid)
-	files, err := ioutil.ReadDir(fdPath)
+	files, err := os.ReadDir(fdPath)
 	if err != nil {
 		log.Errorf("can't list the file descriptors folder: %v", err)
 		return 0
@@ -91,7 +91,7 @@ func getNumFDs(pid int) int32 {
 func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, error) {
 	timestamp := time.Now()
 	statFilename := fmt.Sprintf("/proc/%d/stat", pid)
-	stat, err := ioutil.ReadFile(statFilename)
+	stat, err := os.ReadFile(statFilename)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading %s: %v", statFilename, err)
 	}
@@ -124,7 +124,7 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 	}
 
 	statmFilename := fmt.Sprintf("/proc/%d/statm", pid)
-	statm, err := ioutil.ReadFile(statmFilename)
+	statm, err := os.ReadFile(statmFilename)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading %s: %v", statmFilename, err)
 	}
@@ -154,7 +154,7 @@ func (f ResourceUsageFetcher) ResourceUsageForPID(pid int) (*ResourceUsage, erro
 // captured in ResourceUsage. This is only possible for running processes.
 func (f ResourceUsageFetcher) DebugStatusForPID(pid int) (string, error) {
 	statusFilename := fmt.Sprintf("/proc/%d/status", pid)
-	status, err := ioutil.ReadFile(statusFilename)
+	status, err := os.ReadFile(statusFilename)
 	if err != nil {
 		return "", fmt.Errorf("error while reading %s: %v", statusFilename, err)
 	}
