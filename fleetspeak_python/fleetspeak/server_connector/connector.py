@@ -275,8 +275,13 @@ class OutgoingConnection(object):
       timeout: Optional[datetime.timedelta] = None,
       single_try_timeout: Optional[datetime.timedelta] = None,
   ) -> admin_pb2.GetPendingMessageCountResponse:
-    def Fn(t: datetime.timedelta) -> None:
-      self._stub.GetPendingMessageCount(request, timeout=t.total_seconds())
+    """Returns the number of pending messages."""
+
+    def Fn(t: datetime.timedelta) -> admin_pb2.GetPendingMessageCountResponse:
+      return self._stub.GetPendingMessageCount(
+          request,
+          timeout=t.total_seconds(),
+      )
 
     return RetryLoop(
         Fn,
@@ -328,7 +333,7 @@ class OutgoingConnection(object):
     def Fn(
         t: datetime.timedelta,
     ) -> admin_pb2.FetchClientResourceUsageRecordsResponse:
-      self._stub.FetchClientResourceUsageRecords(
+      return self._stub.FetchClientResourceUsageRecords(
           request, timeout=t.total_seconds()
       )
 
