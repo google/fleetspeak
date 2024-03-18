@@ -341,15 +341,13 @@ class OutgoingConnection(object):
     self._keep_alive_thread.join()
 
 
-class ServiceClient(object):
+class ServiceClient(metaclass=abc.ABCMeta):
   """Bidirectional connection to Fleetspeak.
 
   This abstract class can be used to represent a bidirectional connection with
   fleetspeak. Users of this library are encourage to select (or provide) an
   implementation of this according to their grpc connection requirements.
   """
-
-  __metaclass__ = abc.ABCMeta
 
   @abc.abstractmethod
   def __init__(
