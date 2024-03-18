@@ -15,6 +15,8 @@ $PKG_WIX_CONFIG = ("fleetspeak.wxs" | Resolve-Path)
 $PKG_WIX_CONFIG_LIB = ("fleetspeak_lib.wxs" | Resolve-Path)
 $PKG_WORK_DIR = "${ROOT_WORK_DIR}\fleetspeak-pkg"
 
+$WIX_TOOLSET_PATH = "C:\Program Files (x86)\WiX Toolset v3.14"
+
 function Build-BinaryPkg {
   <#
   .SYNOPSIS
@@ -27,7 +29,7 @@ function Build-BinaryPkg {
 
   # -sw1150 arg disables warning due to
   # https://github.com/oleg-shilo/wixsharp/issues/299
-  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" `
+  & "${WIX_TOOLSET_PATH}\bin\candle.exe" `
     $PKG_WIX_CONFIG `
     -arch x64 `
     -ext WixUtilExtension `
@@ -36,7 +38,7 @@ function Build-BinaryPkg {
     -sw1150 `
     -out "fleetspeak-client.wixobj"
 
-  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" `
+  & "${WIX_TOOLSET_PATH}\bin\candle.exe" `
     $PKG_WIX_CONFIG_LIB `
     -arch x64 `
     -ext WixUtilExtension `
@@ -46,7 +48,7 @@ function Build-BinaryPkg {
     -out "fleetspeak-client-lib.wixobj"
 
   # -sw1076 arg disables warning due to 'AllowDowngrades' setting in Wix config.
-  & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" `
+  & "${WIX_TOOLSET_PATH}\bin\light.exe" `
     "fleetspeak-client.wixobj" `
     "fleetspeak-client-lib.wixobj" `
     -ext WixUtilExtension `
