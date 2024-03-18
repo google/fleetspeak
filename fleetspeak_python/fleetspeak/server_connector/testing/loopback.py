@@ -53,7 +53,7 @@ def main(argv=None):
     message.destination.service_name = message.source.service_name
     message.destination.client_id = message.source.client_id
 
-    service_client.Send(message)
+    service_client.outgoing.InsertMessage(message)
     logging.info("Sent message.")
 
   service_client.Listen(loop)

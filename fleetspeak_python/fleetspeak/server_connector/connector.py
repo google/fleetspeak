@@ -366,13 +366,6 @@ class ServiceClient(metaclass=abc.ABCMeta):
     """
 
   @abc.abstractmethod
-  def Send(
-      self,
-      message: common_pb2.Message,
-  ) -> None:
-    """Sends a message to the Fleetspeak server."""
-
-  @abc.abstractmethod
   def Listen(
       self,
       callback: Callable[[common_pb2.Message, grpc.ServicerContext], None],
