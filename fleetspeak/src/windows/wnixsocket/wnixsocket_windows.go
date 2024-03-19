@@ -19,7 +19,6 @@ package wnixsocket
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"time"
@@ -73,8 +72,8 @@ func Listen(socketPath string) (net.Listener, error) {
 
 	// The socket file will be truncated if it exists. Otherwise it wil be
 	// created with the attributes described by the permission bits.
-	if err := ioutil.WriteFile(socketPath, []byte{}, 0600); err != nil {
-		return nil, fmt.Errorf("error while truncating a Wnix socket file; ioutil.WriteFile(%q, ...): %v", socketPath, err)
+	if err := os.WriteFile(socketPath, []byte{}, 0600); err != nil {
+		return nil, fmt.Errorf("error while truncating a Wnix socket file; os.WriteFile(%q, ...): %v", socketPath, err)
 	}
 
 	// WriteFile doesn't set ACLs as expected on Windows, so we make
@@ -89,7 +88,7 @@ func Listen(socketPath string) (net.Listener, error) {
 	// Note that the third param _is_ significant here even though the file
 	// already exists - if it was 0 this call would set the read-only
 	// attribute.
-	if err := ioutil.WriteFile(socketPath, []byte(pipeFSPath), 0600); err != nil {
+	if err := os.WriteFile(socketPath, []byte(pipeFSPath), 0600); err != nil {
 		return nil, fmt.Errorf("failed to initialize a Wnix socket: %v", err)
 	}
 
@@ -98,7 +97,7 @@ func Listen(socketPath string) (net.Listener, error) {
 
 // Dial dials a Wnix socket bound to the given filesystem path.
 func Dial(socketPath string, timeout time.Duration) (net.Conn, error) {
-	bytePipeFSPath, err := ioutil.ReadFile(socketPath)
+	bytePipeFSPath, err := os.ReadFile(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial to a Wnix socket (socketPath: [%v]): %v", socketPath, err)
 	}

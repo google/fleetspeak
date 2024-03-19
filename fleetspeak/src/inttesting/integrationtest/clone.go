@@ -17,7 +17,6 @@ package integrationtest
 import (
 	"context"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -157,7 +156,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store) {
 	}
 	cl.Stop()
 
-	wb, err := ioutil.ReadFile(filepath.Join(configPath, "writeback"))
+	wb, err := os.ReadFile(filepath.Join(configPath, "writeback"))
 	if err != nil {
 		t.Fatalf("Unable to read example writeback file: %v", err)
 	}
@@ -166,7 +165,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store) {
 		if err := os.Mkdir(configPath, 0777); err != nil {
 			t.Fatalf("Unable to create client directory [%v]: %v", configPath, err)
 		}
-		ioutil.WriteFile(filepath.Join(configPath, "writeback"), wb, 0644)
+		os.WriteFile(filepath.Join(configPath, "writeback"), wb, 0644)
 	}
 
 	// We have 5 config dirs with the same key. Start a client running against

@@ -17,7 +17,7 @@ package clienttestutils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"google.golang.org/protobuf/encoding/prototext"
@@ -34,7 +34,7 @@ func WriteSignedServiceConfig(dirpath, filename string, cfg *fspb.SignedClientSe
 	}
 
 	configPath := filepath.Join(dirpath, filename)
-	if err := ioutil.WriteFile(configPath, b, 0644); err != nil {
+	if err := os.WriteFile(configPath, b, 0644); err != nil {
 		return fmt.Errorf("unable to write signed service config[%s]: %v", configPath, err)
 	}
 
@@ -49,7 +49,7 @@ func WriteServiceConfig(dirpath, filename string, cfg *fspb.ClientServiceConfig)
 	}
 
 	configPath := filepath.Join(dirpath, filename)
-	if err := ioutil.WriteFile(configPath, b, 0644); err != nil {
+	if err := os.WriteFile(configPath, b, 0644); err != nil {
 		return fmt.Errorf("unable to write service config[%s]: %v", configPath, err)
 	}
 

@@ -18,7 +18,6 @@ package wnixsocket
 
 import (
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -56,7 +55,7 @@ func TestWnixsocket(t *testing.T) {
 			t.Errorf("Wnixsocket .Write([]byte(%q)): (%d, %v)", clientMsg, n, err)
 		}
 
-		msgBuf, err := ioutil.ReadAll(conn)
+		msgBuf, err := io.ReadAll(conn)
 		if err != nil {
 			t.Error(err)
 		}

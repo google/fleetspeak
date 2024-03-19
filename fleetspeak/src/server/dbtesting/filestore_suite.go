@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
@@ -36,7 +35,7 @@ func FileStoreTest(t *testing.T, fs db.Store) {
 	if err != nil {
 		t.Fatalf("Error from ReadFile(testService, testFile): %v", err)
 	}
-	rb, err := ioutil.ReadAll(res)
+	rb, err := io.ReadAll(res)
 	if err != nil {
 		t.Errorf("Error reading result of ReadFile(testService, testFile): %v", err)
 	}

@@ -17,7 +17,7 @@ package https
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -131,7 +131,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	req.Body = http.MaxBytesReader(res, req.Body, MaxContactSize+1)
 	st := time.Now()
-	buf, err := ioutil.ReadAll(req.Body)
+	buf, err := io.ReadAll(req.Body)
 	pi.ReadTime = time.Since(st)
 	pi.ReadBytes = len(buf)
 

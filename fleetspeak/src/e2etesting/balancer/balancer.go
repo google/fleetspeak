@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -27,7 +26,7 @@ func copy(wc io.WriteCloser, r io.Reader) {
 }
 
 func run() error {
-	dat, err := ioutil.ReadFile(*serversFile)
+	dat, err := os.ReadFile(*serversFile)
 	if err != nil {
 		return fmt.Errorf("Failed to read serversFile: %v", err)
 	}

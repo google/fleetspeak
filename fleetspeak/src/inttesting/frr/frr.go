@@ -22,7 +22,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"sync"
 	"time"
@@ -157,7 +157,7 @@ func (s *frrClientService) processFileRequest(ctx context.Context, m *fspb.Messa
 		return fmt.Errorf("unable to get file [%v]: %v", rd.Name, err)
 	}
 	defer data.Close()
-	b, err := ioutil.ReadAll(data)
+	b, err := io.ReadAll(data)
 	if err != nil {
 		return fmt.Errorf("unable to read file body [%v]: %v", rd.Name, err)
 	}
