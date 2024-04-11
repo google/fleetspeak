@@ -130,7 +130,10 @@ client_id BINARY(8) NOT NULL,
 service_name VARCHAR(128) NOT NULL,
 label VARCHAR(128) NOT NULL,
 PRIMARY KEY (client_id, service_name, label),
-FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
+CONSTRAINT client_labels_fk_1
+  FOREIGN KEY (client_id)
+  REFERENCES clients(client_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS client_contacts(
 client_contact_id INTEGER NOT NULL AUTO_INCREMENT,
 client_id BINARY(8) NOT NULL,
@@ -139,7 +142,10 @@ sent_nonce BINARY(8) NOT NULL,
 received_nonce BINARY(8) NOT NULL,
 address VARCHAR(64),
 PRIMARY KEY (client_contact_id),
-FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
+CONSTRAINT client_contacts_fk_1
+  FOREIGN KEY (client_id)
+  REFERENCES clients(client_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS client_resource_usage_records(
 client_id BINARY(8) NOT NULL,
 scope VARCHAR(128) NOT NULL,
@@ -156,7 +162,10 @@ mean_resident_memory_mib INT4,
 max_resident_memory_mib INT4,
 mean_num_fds INT,
 max_num_fds INT,
-FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
+CONSTRAINT client_resource_usage_records_fk_1
+  FOREIGN KEY (client_id) 
+  REFERENCES clients(client_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS messages(
 message_id BINARY(32) NOT NULL,
 source_client_id BINARY(8),
@@ -182,13 +191,22 @@ scheduled_time BIGINT NOT NULL,
 data_type_url TEXT,
 data_value MEDIUMBLOB,
 PRIMARY KEY (for_server, message_id),
-FOREIGN KEY (message_id) REFERENCES messages(message_id))`,
+CONSTRAINT pending_messages_fk_1
+  FOREIGN KEY (message_id)
+  REFERENCES messages(message_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS client_contact_messages(
 client_contact_id INTEGER NOT NULL,
 message_id BINARY(32) NOT NULL,
 PRIMARY KEY (client_contact_id, message_id),
-FOREIGN KEY (client_contact_id) REFERENCES client_contacts(client_contact_id),
-FOREIGN KEY (message_id) REFERENCES messages(message_id))`,
+CONSTRAINT client_contact_messages_fk_1
+  FOREIGN KEY (client_contact_id)
+  REFERENCES client_contacts(client_contact_id)
+  ON DELETE CASCADE,
+CONSTRAINT client_contact_messages_fk_2
+  FOREIGN KEY (message_id)
+  REFERENCES messages(message_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS broadcasts(
 broadcast_id BINARY(8) NOT NULL,
 source_service_name VARCHAR(128) NOT NULL,
@@ -206,7 +224,10 @@ broadcast_id BINARY(8) NOT NULL,
 service_name VARCHAR(128) NOT NULL,
 label VARCHAR(128) NOT NULL,
 PRIMARY KEY (broadcast_id, service_name, label),
-FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id))`,
+CONSTRAINT broadcast_labels_fk_1
+  FOREIGN KEY (broadcast_id)
+  REFERENCES broadcasts(broadcast_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS broadcast_allocations(
 broadcast_id BINARY(8) NOT NULL,
 allocation_id BINARY(8) NOT NULL,
@@ -215,13 +236,22 @@ message_limit BIGINT UNSIGNED,
 expiration_time_seconds BIGINT,
 expiration_time_nanos INT,
 PRIMARY KEY (broadcast_id, allocation_id),
-FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id))`,
+CONSTRAINT broadcast_allocations_fk_1
+  FOREIGN KEY (broadcast_id)
+  REFERENCES broadcasts(broadcast_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS broadcast_sent(
 broadcast_id BINARY(8) NOT NULL,
 client_id BINARY(8) NOT NULL,
 PRIMARY KEY (client_id, broadcast_id),
-FOREIGN KEY (broadcast_id) REFERENCES broadcasts(broadcast_id),
-FOREIGN KEY (client_id) REFERENCES clients(client_id))`,
+CONSTRAINT broadcast_sent_fk_1
+  FOREIGN KEY (broadcast_id)
+  REFERENCES broadcasts(broadcast_id)
+  ON DELETE CASCADE,
+CONSTRAINT broadcast_sent_fk_2
+  FOREIGN KEY (client_id)
+  REFERENCES clients(client_id)
+  ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS files(
 service VARCHAR(128) NOT NULL,
 name VARCHAR(128) NOT NULL,
