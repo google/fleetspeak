@@ -60,11 +60,11 @@ mysql> show tables;
 
 Conveniently the auxiliary tables contain [ON DELETE CASCADE referential actions](https://dev.mysql.com/doc/refman/8.3/en/create-table-foreign-keys.html#foreign-key-referential-actions) on the respective [FOREIGN KEYS](https://dev.mysql.com/doc/refman/8.3/en/create-table-foreign-keys.html).
 
-Therefore, we can focus on pruning rows from the three 'main' tables (```clients```,```messages``` and ```broadcasts```) to wip our Fleetspeak database back in shape. MySQL will ensure that the related tables and their entries will get cleared up accordingly.
+Therefore, we can focus on pruning rows from the three 'main' tables (```clients```,```messages``` and ```broadcasts```) to wip our Fleetspeak database back into shape. MySQL will ensure that the related tables and their entries will get cleaned up accordingly.
 
 ## 3. The clients table
 
-This table contains records for clients that Fleetspeak communicats with. Clients with a ```last_contact_time``` sufficiently far in the past are good candiates to be pruned.
+This table contains records for clients that Fleetspeak communicates with. Clients with a ```last_contact_time``` sufficiently far in the past are good candiates to be pruned.
 
 ### 3.1. table details
 
@@ -87,11 +87,11 @@ mysql> DESCRIBE clients;
 
 ### 3.2. Pruning clients 
 
-In the example ```DELETE``` command below we delete all the rows that have been created 148h (7 days) ago or older. Feel free to adjust the time according to your needs.
+With the example ```DELETE``` command below we delete all the rows that have been created 168h (7 days) ago or older. Feel free to adjust the time according to your needs.
 ```
-DELETE FROM clients WHERE FROM_UNIXTIME(last_contact_time / 1000000000) < (NOW() - 3600 * 148);
+DELETE FROM clients WHERE FROM_UNIXTIME(last_contact_time / 1000000000) < (NOW() - 3600 * 168);
 
-# For good measures we should also prune any messages that related to these clients
+# For good measures we should also prune any messages that relate to these clients
 DELETE FROM messages WHERE source_client_id NOT IN (SELECT client_id FROM clients) AND destination_client_id NOT IN (SELECT client_id FROM clients);
 ```
 
@@ -125,16 +125,16 @@ mysql> DESCRIBE messages;
 15 rows in set (0.01 sec)
 ```
 
-4.2. Pruning messages
+### 4.2. Pruning messages
 
-In the example ```DELETE``` command below we delete all the rows that have been created 148h (7 days) ago or older. Feel free to adjust the time according to your needs.
+With the example ```DELETE``` command below we delete all the rows that have been created 168h (7 days) ago or older. Feel free to adjust the time according to your needs.
 ```
-DELETE FROM messages WHERE FROM_UNIXTIME(creation_time_seconds) < (NOW() - 3600 * 148);
+DELETE FROM messages WHERE FROM_UNIXTIME(creation_time_seconds) < (NOW() - 3600 * 168);
 ```
 
 ## 5. The broadcasts table
 
-This step is optional and you can safely leave this table in place as it will not grow to a large size anyway.
+This step is optional and you can safely leave the records in this table in place as they will not grow to a large size anyway.
 
 ### 5.1. table details
 
@@ -162,7 +162,7 @@ mysql> DESCRIBE broadcasts;
 As mentioned this table will grow much slower than the tables discussed above. So you might decide not to prune these entries.
 However, in case you decide to prune the ```broadcasts``` table then the below command is how you can go about it.
 
-In the example ```DELETE``` command below we delete all the rows that have been created 148h (7 days) ago or older. Feel free to adjust the time according to your needs.
+With the example ```DELETE``` command below we delete all the rows that have been created 168h (7 days) ago or older. Feel free to adjust the time according to your needs.
 ```
-DELETE FROM broadcasts WHERE expiration_time_seconds < NOW() - 3600 * 148;
+DELETE FROM broadcasts WHERE expiration_time_seconds < (NOW() - 3600 * 168);
 ```
