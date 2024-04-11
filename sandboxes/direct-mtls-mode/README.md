@@ -9,7 +9,7 @@ This sandbox demonstrates how to run Fleetspeak in 'direct mTLS mode'. \
 
 Before you run the commands below make sure that you successfully executed the
 steps outlined in the
-[setup instructions](../../sandboxes.md#setup-instructions).
+[setup instructions](../../sandboxes#setup-instructions).
 
 ## Bring up the test environment
 
