@@ -60,7 +60,7 @@ mysql> show tables;
 
 Conveniently the auxiliary tables contain [ON DELETE CASCADE referential actions](https://dev.mysql.com/doc/refman/8.3/en/create-table-foreign-keys.html#foreign-key-referential-actions) on the respective [FOREIGN KEYS](https://dev.mysql.com/doc/refman/8.3/en/create-table-foreign-keys.html).
 
-Therefore, we can focus on pruning rows from the three 'main' tables (```clients```,```messages``` and ```broadcasts```) to wip our Fleetspeak database back into shape. MySQL will ensure that the related tables and their entries will get cleaned up accordingly.
+Therefore, we can focus on pruning rows from the three 'main' tables (```clients```,```messages``` and ```broadcasts```) to whip our Fleetspeak database back into shape. MySQL will ensure that the related tables and their entries will get cleaned up accordingly.
 
 ## 3. The clients table
 
