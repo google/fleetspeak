@@ -26,8 +26,7 @@ Envoy proxy that terminates the mTLS connection.
 ## Setup
 
 Before you run the commands below make sure that you successfully executed the
-steps outlined in the
-[setup instructions](../../sandboxes#setup-instructions).
+steps outlined in the [setup instructions](../../sandboxes#setup-instructions).
 
 ## Bring up the test environment
 
