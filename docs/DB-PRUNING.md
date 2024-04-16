@@ -101,13 +101,16 @@ mysql> DESCRIBE clients;
 
 With the example `DELETE` command below we delete all the rows that have been
 created 168h (7 days) ago or older. Feel free to adjust the time according to
-your needs. ``` DELETE FROM clients WHERE FROM_UNIXTIME(last_contact_time /
-1000000000) < (NOW() - 3600 * 168);
+your needs.
+
+```
+DELETE FROM clients WHERE FROM_UNIXTIME(last_contact_time / 1000000000) < (NOW() - 3600 * 168);
 
 # For good measures we should also prune any messages that relate to these clients
 
-DELETE FROM messages WHERE source_client_id NOT IN (SELECT client_id FROM
-clients) AND destination_client_id NOT IN (SELECT client_id FROM clients); ```
+DELETE FROM messages WHERE source_client_id NOT IN (SELECT client_id FROM clients) AND \
+destination_client_id NOT IN (SELECT client_id FROM clients);
+```
 
 ## 4. The messages table
 
@@ -148,8 +151,11 @@ mysql> DESCRIBE messages;
 
 With the example `DELETE` command below we delete all the rows that have been
 created 168h (7 days) ago or older. Feel free to adjust the time according to
-your needs. `DELETE FROM messages WHERE FROM_UNIXTIME(creation_time_seconds) <
-(NOW() - 3600 * 168);`
+your needs.
+
+```
+DELETE FROM messages WHERE FROM_UNIXTIME(creation_time_seconds) < (NOW() - 3600 * 168);
+```
 
 ## 5. The broadcasts table
 
@@ -185,5 +191,9 @@ prune the `broadcasts` table then the below command is how you can go about it.
 
 With the example `DELETE` command below we delete all the rows that have been
 created 168h (7 days) ago or older. Feel free to adjust the time according to
-your needs. `DELETE FROM broadcasts WHERE expiration_time_seconds < (NOW() -
-3600 * 168);`
+your needs.
+
+```
+DELETE FROM broadcasts WHERE expiration_time_seconds < (NOW() - 3600 * 168);
+```
+
