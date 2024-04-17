@@ -8,8 +8,11 @@ become an issue in case you are either running out of space in your database
 partition or when you see the performance degrade.
 
 At that point you might decide that it is time to prune the Fleetspeak database.
-But... - Where do you start with pruning the Fleetspeak database? - What is a
-safe approach to prune the database? - What is best practice?
+But...
+
+- Where do you start with pruning the Fleetspeak database?
+- What is a safe approach to prune the database?
+- What is best practice?
 
 This README provides you with some guidance on the topic.
 
@@ -35,9 +38,11 @@ mysql> USE fleetspeak
 
 ## 2. Overview of the Fleetspeak database tables
 
-The Fleetspeak database contains three sets of database tables with one 'main'
-table each: - the tables for `clients` information, - the tables for `messages`
-information, and - the tables for `broadcasts` information
+The Fleetspeak database contains three sets of database tables with one 'main' table each:
+
+- the tables for `clients` information, 
+- the tables for `messages` information, and 
+- the tables for `broadcasts` information
 
 ```
 mysql> show tables;
@@ -196,4 +201,3 @@ your needs.
 ```
 DELETE FROM broadcasts WHERE expiration_time_seconds < (NOW() - 3600 * 168);
 ```
-
