@@ -109,6 +109,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			VerifyPeerCertificate: cv,
+			ServerName:            si.ServerName,
 		},
 		MaxIdleConns:          10,
 		DialContext:           dc,

@@ -157,6 +157,7 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 		Servers:                 cfg.Servers,
 		Proxy:                   cfg.Proxy,
 		ClientCertificateHeader: cfg.ClientCertificateHeader,
+		ServerName:              cfg.ServerName,
 	}, nil
 }
 

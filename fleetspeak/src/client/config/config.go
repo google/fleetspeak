@@ -43,6 +43,9 @@ type Configuration struct {
 	// Hardcoding recommended.
 	Servers []string
 
+	// If set, used for SNI and certificate validation.
+	ServerName string
+
 	// ClientLabels should all be of the form "client:<label>" and will be
 	// presented to the server as an initial set of labels for this client.
 	ClientLabels []*fspb.Label

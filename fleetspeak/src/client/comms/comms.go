@@ -80,6 +80,9 @@ type ServerInfo struct {
 	// If non-empty, populated with the header to use for the
 	// client certificate header
 	ClientCertificateHeader string
+
+	// If set, used for SNI and certificate validation.
+	ServerName string
 }
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.

@@ -67,4 +67,7 @@ message Config {
 
   // If set, write a linux client configuration file for this installation.
   string windows_client_configuration_file = 11;
+
+  // If set, used for SNI server name and client-side certificate validation.
+  string server_name = 12;
 }

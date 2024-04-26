@@ -17,6 +17,7 @@ func WriteLinuxConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	out := &gpb.Config{
 		TrustedCerts: string(trustedPEM),
 		Server:       cfg.PublicHostPort,
+		ServerName:   cfg.ServerName,
 		ClientLabel:  []string{cfg.ComponentsConfig.RequiredLabel},
 		PersistenceHandler: &gpb.Config_FilesystemHandler{
 			FilesystemHandler: &gpb.FilesystemHandler{
@@ -45,6 +46,7 @@ func WriteDarwinConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	out := &gpb.Config{
 		TrustedCerts: string(trustedPEM),
 		Server:       cfg.PublicHostPort,
+		ServerName:   cfg.ServerName,
 		ClientLabel:  []string{cfg.ComponentsConfig.RequiredLabel},
 		PersistenceHandler: &gpb.Config_FilesystemHandler{
 			FilesystemHandler: &gpb.FilesystemHandler{
@@ -73,6 +75,7 @@ func WriteWindowsConfig(cfg *cpb.Config, trustedPEM []byte) error {
 	out := &gpb.Config{
 		TrustedCerts: string(trustedPEM),
 		Server:       cfg.PublicHostPort,
+		ServerName:   cfg.ServerName,
 		ClientLabel:  []string{cfg.ComponentsConfig.RequiredLabel},
 		PersistenceHandler: &gpb.Config_RegistryHandler{
 			RegistryHandler: &gpb.RegistryHandler{
