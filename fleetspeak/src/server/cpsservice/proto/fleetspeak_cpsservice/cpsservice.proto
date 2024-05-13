@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package fleetspeak.cpsservice;
+
+option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/cpsservice/proto/fleetspeak_cpsservice";
+
+message Config {
+	string project = 1;
+	string topic = 2;  // The cloud pubsub topic to which messages will be posted for the service.
+}
