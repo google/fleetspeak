@@ -100,5 +100,5 @@ func (e TemporaryError) Timeout() bool {
 // system.
 func IsTemporary(err error) bool {
 	e, ok := err.(net.Error)
-	return ok && (e.Temporary() || e.Timeout())
+	return ok && e.Timeout()
 }

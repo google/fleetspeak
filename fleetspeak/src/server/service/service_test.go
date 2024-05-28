@@ -20,8 +20,8 @@ import (
 )
 
 type netErr struct {
-	msg        string
-	temp, time bool
+	msg     string
+	timeout bool
 }
 
 func (e netErr) Error() string {
@@ -29,11 +29,11 @@ func (e netErr) Error() string {
 }
 
 func (e netErr) Temporary() bool {
-	return e.temp
+	return e.timeout
 }
 
 func (e netErr) Timeout() bool {
-	return e.time
+	return e.timeout
 }
 
 func TestIsTemporary(t *testing.T) {
@@ -58,11 +58,7 @@ func TestIsTemporary(t *testing.T) {
 			want: false,
 		},
 		{
-			e:    netErr{msg: "A temporary net.Error", temp: true},
-			want: true,
-		},
-		{
-			e:    netErr{msg: "A timeout net.Error", time: true},
+			e:    netErr{msg: "A timeout net.Error", timeout: true},
 			want: true,
 		},
 	} {
