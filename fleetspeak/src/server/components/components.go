@@ -36,7 +36,6 @@ import (
 	chttps "github.com/google/fleetspeak/fleetspeak/src/server/components/https"
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/components/prometheus"
-	"github.com/google/fleetspeak/fleetspeak/src/server/cpsservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
@@ -191,7 +190,6 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		Datastore: db,
 		ServiceFactories: map[string]service.Factory{
 			"GRPC": grpcservice.Factory,
-			"CPS": cpsservice.Factory,
 			"NOOP": service.NOOPFactory,
 		},
 		Communicators: communicators,
