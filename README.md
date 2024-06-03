@@ -30,9 +30,6 @@ cd ~/go/src/github.com/google/fleetspeak
 virtualenv $HOME/FSENV
 source $HOME/FSENV/bin/activate
 
-# Pre-requisite to installing Fleetspeak (used to compile protos).
-pip install grpcio-tools
-
 pip install -e fleetspeak_python/
 
 # Set mysql parameters. The mysql datastore test will run if the following environment
@@ -44,6 +41,11 @@ export MYSQL_TEST_ADDR=<host:port>
 # Build and test the release:
 fleetspeak/build.sh
 fleetspeak/test.sh
+
+# After modifying proto files, the resulting go and python files need to be regenerated:
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.4
+fleetspeak/generate_go_py_protos.sh
 ```
 
 Once built, you can take a look at the files and instructions in our
