@@ -7,11 +7,10 @@
 package fleetspeak_cpsservice
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -27,7 +26,7 @@ type Config struct {
 	unknownFields protoimpl.UnknownFields
 
 	Project string `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`
-	Topic   string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"` // The cloud pubsub topic to which messages will be posted for the service.
+	Topic   string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"` // The cloud pubsub topic to which messages will be posted
 }
 
 func (x *Config) Reset() {

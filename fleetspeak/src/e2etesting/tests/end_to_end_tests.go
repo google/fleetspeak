@@ -92,7 +92,7 @@ func RunTests(t *testing.T, msAddr string, fsClientIDs []string) {
 	msAddress = msAddr
 	clientIDs = fsClientIDs
 	rand.Seed(int64(time.Now().Nanosecond()))
-	conn, err := grpc.Dial(msAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.NewClient(msAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("Failed to connect to master server: %v", err)
 	}

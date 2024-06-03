@@ -217,7 +217,7 @@ func ServerServiceFactory(sc *srpb.ServiceConfig) (service.Service, error) {
 		if err := sc.Config.UnmarshalTo(c); err != nil {
 			return nil, fmt.Errorf("Unable to parse Config attribute as frr.Config: %v", err)
 		}
-		conn, err := grpc.Dial(c.MasterServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(c.MasterServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("Unable to connect to master server[%v]: %v", c.MasterServer, err)
 		}

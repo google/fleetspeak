@@ -106,7 +106,7 @@ func getNewClientIDs(admin sgrpc.AdminClient, startTime time.Time) ([]string, er
 // WaitForNewClientIDs waits and returns IDs of numClients clients
 // connected to adminAddress after startTime
 func WaitForNewClientIDs(adminAddress string, startTime time.Time, numClients int) ([]string, error) {
-	conn, err := grpc.Dial(adminAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(adminAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to fleetspeak admin interface [%v]: %v", adminAddress, err)
 	}

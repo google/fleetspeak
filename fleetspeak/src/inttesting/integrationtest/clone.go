@@ -110,7 +110,7 @@ func CloneHandlingTest(t *testing.T, ds db.Store) {
 	go func() {
 		log.Infof("Finished with AdminServer[%v]: %v", asl.Addr(), gas.Serve(asl))
 	}()
-	conn, err := grpc.Dial(asl.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(asl.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("unable to connect to FS AdminInterface: %v", err)
 	}

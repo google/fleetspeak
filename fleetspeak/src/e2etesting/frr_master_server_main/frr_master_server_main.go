@@ -20,7 +20,7 @@ var (
 
 // StartMasterServer starts FRR Master Server listening to listenAddr
 func StartMasterServer(listenAddr, adminAddr string) error {
-	conn, err := grpc.Dial(adminAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(adminAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("Unable to connect to FS server: %v", err)
 	}
