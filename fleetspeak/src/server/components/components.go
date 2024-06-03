@@ -191,7 +191,7 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		Datastore: db,
 		ServiceFactories: map[string]service.Factory{
 			"GRPC": grpcservice.Factory,
-			"CPS": cpsservice.Factory,
+			"CPS":  cpsservice.Factory,
 			"NOOP": service.NOOPFactory,
 		},
 		Communicators: communicators,

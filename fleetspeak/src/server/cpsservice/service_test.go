@@ -42,7 +42,7 @@ type testEnv struct {
 }
 
 func createTestEnv(t *testing.T) testEnv {
-    t.Helper()
+	t.Helper()
 	requireEmulation(t)
 
 	svc, err := Factory(&spb.ServiceConfig{
