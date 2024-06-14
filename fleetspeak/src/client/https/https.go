@@ -36,6 +36,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+
+        "golang.org/x/net/http2"
 )
 
 const (
@@ -45,7 +47,7 @@ const (
 	closeWaitThreshold    = 30 * time.Second // Matches IdleTimeout in server/https.
 )
 
-func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, []byte, error) {
+func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http2.Transport, []byte, error) {
 	ci, err := cctx.CurrentIdentity()
 	if err != nil {
 		return common.ClientID{}, nil, nil, err
@@ -92,7 +94,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		proxy = http.ProxyURL(si.Proxy)
 	}
 
-	return ci.ID, &http.Transport{
+	return ci.ID, &http2.Transport{
 		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
 			RootCAs: si.TrustedCerts,
