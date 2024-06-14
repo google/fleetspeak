@@ -47,7 +47,7 @@ const (
 	closeWaitThreshold    = 30 * time.Second // Matches IdleTimeout in server/https.
 )
 
-func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http2.Transport, []byte, error) {
+func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, []byte, error) {
 	ci, err := cctx.CurrentIdentity()
 	if err != nil {
 		return common.ClientID{}, nil, nil, err
@@ -94,7 +94,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		proxy = http.ProxyURL(si.Proxy)
 	}
 
-	return ci.ID, &http2.Transport{
+	tr := &http.Transport{
 		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
 			RootCAs: si.TrustedCerts,
@@ -112,12 +112,16 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			VerifyPeerCertificate: cv,
 			ServerName:            si.ServerName,
+                        NextProtos:            []string{"h2", "http/1.1"},
 		},
 		MaxIdleConns:          10,
 		DialContext:           dc,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}, certBytes, nil
+	}
+
+	err = http2.ConfigureTransport(tr)
+	return ci.ID, tr, certBytes, err
 }
 
 // jitter adds up to 50% random jitter, and converts to time.Duration.
