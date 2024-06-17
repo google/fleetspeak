@@ -181,7 +181,8 @@ validation_info BLOB,
 failed INT1,
 failed_reason TEXT,
 annotations BLOB,
-PRIMARY KEY (message_id))`,
+PRIMARY KEY (message_id),
+INDEX (destination_client_id))`,
 		`CREATE TABLE IF NOT EXISTS pending_messages(
 for_server BOOL NOT NULL,
 message_id BINARY(32) NOT NULL,
@@ -190,6 +191,7 @@ scheduled_time BIGINT NOT NULL,
 data_type_url TEXT,
 data_value MEDIUMBLOB,
 PRIMARY KEY (for_server, message_id),
+INDEX (scheduled_time),
 CONSTRAINT pending_messages_fk_1
   FOREIGN KEY (message_id)
   REFERENCES messages(message_id)

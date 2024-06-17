@@ -639,12 +639,6 @@ func (d *Datastore) ClientMessagesForProcessing(ctx context.Context, id common.C
 	return d.internalClientMessagesForProcessing(ctx, id, lim, serviceLimits)
 }
 
-type pendingUpdate struct {
-	id  []byte
-	nc  uint32
-	due int64
-}
-
 func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
 
 	var read map[string]uint64
@@ -654,10 +648,13 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 	res := make([]*fspb.Message, 0, lim)
 
 	if err := d.runInTx(ctx, false, func(tx *sql.Tx) error {
-		var updates []*pendingUpdate
+		msgByID := make(map[string]*dbMessage)
+		idToHex := func(id []byte) string {
+			return hex.EncodeToString(id)
+		}
 
-		// As an internal addition to the MessageStore interface, this
-		// also gets server messages when id=ClientID{}.
+		// First, fetch the details for all messages that are pending for delivery
+		// to client `id`.
 		rs, err := tx.QueryContext(ctx, "SELECT "+
 			"m.message_id, "+
 			"m.source_client_id, "+
@@ -673,9 +670,9 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 			"pm.retry_count, "+
 			"pm.data_type_url, "+
 			"pm.data_value "+
-			"FROM messages AS m, pending_messages AS pm "+
-			"WHERE m.destination_client_id = ? AND m.message_id=pm.message_id AND pm.scheduled_time < ? "+
-			"FOR UPDATE",
+			"FROM messages AS m "+
+			"JOIN pending_messages AS pm ON m.message_id = pm.message_id "+
+			"WHERE m.destination_client_id = ? AND pm.scheduled_time < ? ",
 			id.Bytes(), toMicro(db.Now()))
 		if err != nil {
 			return err
@@ -708,29 +705,64 @@ func (d *Datastore) internalClientMessagesForProcessing(ctx context.Context, id 
 					read[dbm.destinationServiceName]++
 				}
 			}
+			msgByID[idToHex(dbm.messageID)] = &dbm
+		}
+		if err := rs.Err(); err != nil || len(msgByID) == 0 {
+			// No point in moving forward if either no pending messages were found,
+			// or some unexpected DB error occurred.
+			return err
+		}
 
-			if len(res) >= int(lim) {
-				continue
+		// We'll need to update the pending messages that we return, so we'll
+		// try to get a write lock on up to `lim` messages.
+		// Note: `(for_server, message_id)` is currently the primary key for
+		// `pending_messages`, so selecting by it should make MySQL use row-level
+		// locking.
+		lockQueryVals := make([]string, 0, len(msgByID))
+		for hexID := range msgByID {
+			lockQueryVals = append(lockQueryVals, fmt.Sprintf("(0, X'%s')", hexID))
+		}
+		lockQuery := "SELECT message_id " +
+			"FROM pending_messages " +
+			"WHERE (for_server, message_id) IN (" + strings.Join(lockQueryVals, ",") + ") " +
+			"LIMIT ? " +
+			"FOR UPDATE"
+		rsLocked, err := tx.QueryContext(ctx, lockQuery, lim)
+		if err != nil {
+			return err
+		}
+		defer rsLocked.Close()
+
+		updateQueryVals := make([]string, 0)
+		for rsLocked.Next() {
+			var id []byte
+			if err := rsLocked.Scan(&id); err != nil {
+				return err
 			}
-
-			updates = append(updates, &pendingUpdate{
-				id:  dbm.messageID,
-				nc:  dbm.retryCount + 1,
-				due: toMicro(db.ClientRetryTime())})
-			m, err := toMessageProto(&dbm)
+			hexID := idToHex(id)
+			updateQueryVals = append(updateQueryVals, fmt.Sprintf("(0, X'%s')", hexID))
+			m, err := toMessageProto(msgByID[hexID])
 			if err != nil {
 				return err
 			}
 			res = append(res, m)
 		}
-		if err := rs.Err(); err != nil {
+		if err := rsLocked.Err(); err != nil || len(res) == 0 {
+			// No point in moving forward if either no messages could be locked,
+			// or some unexpected DB error occurred.
 			return err
 		}
-		for _, u := range updates {
-			if _, err := tx.ExecContext(ctx, "UPDATE pending_messages SET retry_count=?, scheduled_time=? WHERE for_server=0 AND message_id=?", u.nc, u.due, u.id); err != nil {
-				return err
-			}
+
+		// Finally, update all pending messages that we'll return; i.e. all those
+		// that we were able to write-lock, up to the caller-requested limit
+		// (`lim`).
+		updateQuery := "UPDATE pending_messages " +
+			"SET retry_count=retry_count+1, scheduled_time=? " +
+			"WHERE (for_server, message_id) IN (" + strings.Join(updateQueryVals, ",") + ")"
+		if _, err := tx.ExecContext(ctx, updateQuery, toMicro(db.ClientRetryTime())); err != nil {
+			return err
 		}
+
 		return nil
 	}); err != nil {
 		return nil, err
