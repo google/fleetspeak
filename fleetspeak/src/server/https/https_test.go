@@ -17,6 +17,7 @@ package https
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -35,6 +36,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -237,7 +239,7 @@ func TestFile(t *testing.T) {
 	resp.Body.Close()
 }
 
-func makeWrapped() []byte {
+func makeWrapped(compress bool) []byte {
 	cd := &fspb.ContactData{
 		ClientClock: db.NowProto(),
 	}
@@ -250,14 +252,24 @@ func makeWrapped() []byte {
 		ClientLabels: []string{"linux", "test"},
 	}
 
-	buf, err := proto.Marshal(wcd)
+	rawBuf, err := proto.Marshal(wcd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	sizeBuf := make([]byte, 0, 16)
-	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
 
-	return append(sizeBuf, buf...)
+	var buf *bytes.Buffer
+	if compress {
+		buf = &bytes.Buffer{}
+		wr := gzip.NewWriter(buf)
+		wr.Write(rawBuf)
+		wr.Close()
+	} else {
+		buf = bytes.NewBuffer(rawBuf)
+	}
+
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(buf.Len()))
+	return append(sizeBuf, buf.Bytes()...)
 }
 
 func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
@@ -283,59 +295,83 @@ func TestStreaming(t *testing.T) {
 	_, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
-	br, bw := io.Pipe()
-	go func() {
-		// First exchange - these writes must happen during the http.Client.Do call
-		// below, because the server writes headers at the end of the first message
-		// exchange.
-
-		// Start with the magic number:
-		binary.Write(bw, binary.LittleEndian, magic)
-
-		if _, err := bw.Write(makeWrapped()); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
-	req, err := http.NewRequest("POST", u.String(), br)
-	req.ContentLength = -1
-	req.Close = true
-	req.Header.Set("Expect", "100-continue")
-	if err != nil {
-		t.Fatal(err)
+	testCases := []struct {
+		name     string
+		compress bool
+	}{
+		{
+			name:     "uncompressed",
+			compress: false,
+		},
+		{
+			name:     "compressed",
+			compress: true,
+		},
 	}
-	req = req.WithContext(ctx)
-	resp, err := cl.Do(req)
-	if err != nil {
-		t.Fatalf("Streaming post failed (%v): %v", resp, err)
-	}
-	// Read ContactData for first exchange.
-	body := bufio.NewReader(resp.Body)
-	cd, err := readContact(body)
-	if err != nil {
-		t.Error(err)
-	}
-	if cd.AckIndex != 0 {
-		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			br, bw := io.Pipe()
+			defer bw.Close()
 
-	for i := uint64(1); i < 10; i++ {
-		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
-			t.Error(err)
-		}
-		cd, err := readContact(body)
-		if err != nil {
-			t.Error(err)
-		}
-		if cd.AckIndex != i {
-			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
-		}
-	}
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			defer wg.Wait()
+			go func() {
+				// First exchange - these writes must happen during the http.Client.Do call
+				// below, because the server writes headers at the end of the first message
+				// exchange.
 
-	bw.Close()
-	resp.Body.Close()
+				// Start with the magic number:
+				binary.Write(bw, binary.LittleEndian, magic)
+
+				if _, err := bw.Write(makeWrapped(tc.compress)); err != nil {
+					t.Error(err)
+				}
+				wg.Done()
+			}()
+
+			u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+			req, err := http.NewRequest("POST", u.String(), br)
+			req.ContentLength = -1
+			req.Close = true
+			req.Header.Set("Expect", "100-continue")
+			if tc.compress {
+				req.Header.Set("Content-Encoding", "gzip")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			req = req.WithContext(ctx)
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatalf("Streaming post failed (%v): %v", resp, err)
+			}
+			defer resp.Body.Close()
+			// Read ContactData for first exchange.
+			body := bufio.NewReader(resp.Body)
+			cd, err := readContact(body)
+			if err != nil {
+				t.Error(err)
+			}
+			if cd.AckIndex != 0 {
+				t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+			}
+
+			for i := uint64(1); i < 10; i++ {
+				// Write another WrappedContactData.
+				if _, err := bw.Write(makeWrapped(tc.compress)); err != nil {
+					t.Error(err)
+				}
+				cd, err := readContact(body)
+				if err != nil {
+					t.Error(err)
+				}
+				if cd.AckIndex != i {
+					t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+				}
+			}
+		})
+	}
 }
 
 func TestHeaderNormalPoll(t *testing.T) {
@@ -415,7 +451,7 @@ func TestHeaderStreaming(t *testing.T) {
 		// Start with the magic number:
 		binary.Write(bw, binary.LittleEndian, magic)
 
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -448,7 +484,7 @@ func TestHeaderStreaming(t *testing.T) {
 
 	for i := uint64(1); i < 10; i++ {
 		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 		cd, err := readContact(body)
@@ -490,7 +526,7 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 		// Start with the magic number:
 		binary.Write(bw, binary.LittleEndian, magic)
 
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -527,7 +563,7 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 
 	for i := uint64(1); i < 10; i++ {
 		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 		cd, err := readContact(body)
@@ -567,7 +603,7 @@ func TestCleartextHeaderStreaming(t *testing.T) {
 		// Start with the magic number:
 		binary.Write(bw, binary.LittleEndian, magic)
 
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -600,7 +636,7 @@ func TestCleartextHeaderStreaming(t *testing.T) {
 
 	for i := uint64(1); i < 10; i++ {
 		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 		cd, err := readContact(body)
@@ -642,7 +678,7 @@ func TestCleartextHeaderStreamingChecksum(t *testing.T) {
 		// Start with the magic number:
 		binary.Write(bw, binary.LittleEndian, magic)
 
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -679,7 +715,7 @@ func TestCleartextHeaderStreamingChecksum(t *testing.T) {
 
 	for i := uint64(1); i < 10; i++ {
 		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 		cd, err := readContact(body)
@@ -719,7 +755,7 @@ func TestCleartextXfccStreaming(t *testing.T) {
 		// Start with the magic number:
 		binary.Write(bw, binary.LittleEndian, magic)
 
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -755,7 +791,7 @@ func TestCleartextXfccStreaming(t *testing.T) {
 
 	for i := uint64(1); i < 10; i++ {
 		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
+		if _, err := bw.Write(makeWrapped(false)); err != nil {
 			t.Error(err)
 		}
 		cd, err := readContact(body)

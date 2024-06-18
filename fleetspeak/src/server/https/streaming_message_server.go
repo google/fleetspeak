@@ -16,6 +16,8 @@ package https
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto"
 	"encoding/binary"
@@ -111,6 +113,18 @@ func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Re
 		return
 	}
 
+	gzip := false
+	contentEncoding := req.Header.Get("Content-Encoding")
+	switch contentEncoding {
+	case "":
+		// No compression.
+	case "gzip":
+		gzip = true
+	default:
+		earlyError(fmt.Sprintf("unsupported Content-Encoding: %v", contentEncoding), http.StatusBadRequest)
+		return
+	}
+
 	body := bufio.NewReader(req.Body)
 
 	// Set a 9-11 minute overall maximum lifespan of the connection.
@@ -122,7 +136,7 @@ func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Re
 	defer cancel()
 
 	addr := addrFromString(req.RemoteAddr)
-	info, moreMsgs, err := s.initialPoll(ctx, addr, cert.PublicKey, fullRes, body)
+	info, moreMsgs, err := s.initialPoll(ctx, addr, cert.PublicKey, fullRes, body, gzip)
 	if err != nil || info == nil {
 		return
 	}
@@ -133,6 +147,7 @@ func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Re
 		info: info,
 		res:  fullRes,
 		body: body,
+		gzip: gzip,
 
 		localNotices: make(chan struct{}, 1),
 		out:          make(chan *fspb.ContactData, 5),
@@ -173,7 +188,7 @@ func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Re
 	m.cancel()
 }
 
-func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader) (*comms.ConnectionInfo, bool, error) {
+func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr, key crypto.PublicKey, res fullResponseWriter, body *bufio.Reader, gzipBody bool) (*comms.ConnectionInfo, bool, error) {
 	ctx, fin := context.WithTimeout(ctx, 3*time.Minute)
 
 	pi := stats.PollInfo{
@@ -212,28 +227,14 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 	}
 
 	st := time.Now()
-	size, err := binary.ReadUvarint(body)
+	wcd, readBytes, err := readWcd(body, gzipBody)
 	if err != nil {
-		return nil, false, makeError(fmt.Sprintf("error reading size: %v", err), http.StatusBadRequest)
-	}
-	if size > MaxContactSize {
-		return nil, false, makeError(fmt.Sprintf("initial contact size too large: got %d, expected at most %d", size, MaxContactSize), http.StatusBadRequest)
-	}
-
-	buf := make([]byte, size)
-	_, err = io.ReadFull(body, buf)
-	if err != nil {
-		return nil, false, makeError(fmt.Sprintf("error reading body for initial exchange: %v", err), http.StatusBadRequest)
+		return nil, false, makeError(err.Error(), http.StatusBadRequest)
 	}
 	pi.ReadTime = time.Since(st)
-	pi.ReadBytes = int(size)
+	pi.ReadBytes = readBytes
 
-	var wcd fspb.WrappedContactData
-	if err := proto.Unmarshal(buf, &wcd); err != nil {
-		return nil, false, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
-	}
-
-	info, toSend, more, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
+	info, toSend, more, err := s.fs.InitializeConnection(ctx, addr, key, wcd, true)
 	if err == comms.ErrNotAuthorized {
 		return nil, false, makeError("not authorized", http.StatusServiceUnavailable)
 	}
@@ -277,6 +278,7 @@ type streamManager struct {
 	info *comms.ConnectionInfo
 	res  fullResponseWriter
 	body *bufio.Reader
+	gzip bool
 
 	// Signals that a we have more tokens and might retry sending.
 	localNotices chan struct{}
@@ -340,14 +342,6 @@ func (m *streamManager) readLoop() {
 }
 
 func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, error) {
-	size, err := binary.ReadUvarint(m.body)
-	if err != nil {
-		return nil, nil, err
-	}
-	if size > MaxContactSize {
-		return nil, nil, fmt.Errorf("streaming contact size too large: got %d, expected at most %d", size, MaxContactSize)
-	}
-
 	pi := &stats.PollInfo{
 		CTX:      m.ctx,
 		ID:       m.info.Client.ID,
@@ -362,19 +356,15 @@ func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, er
 		}
 		pi.End = db.Now()
 	}()
-	buf := make([]byte, size)
-	if _, err := io.ReadFull(m.body, buf); err != nil {
-		pi.Status = http.StatusBadRequest
-		return pi, nil, fmt.Errorf("error reading streamed data: %v", err)
-	}
-	pi.ReadTime = time.Since(pi.Start)
-	pi.ReadBytes = int(size)
 
-	wcd := &fspb.WrappedContactData{}
-	if err = proto.Unmarshal(buf, wcd); err != nil {
+	st := time.Now()
+	wcd, readBytes, err := readWcd(m.body, m.gzip)
+	if err != nil {
 		pi.Status = http.StatusBadRequest
-		return pi, nil, fmt.Errorf("error parsing streamed data: %v", err)
+		return pi, nil, err
 	}
+	pi.ReadTime = time.Since(st)
+	pi.ReadBytes = readBytes
 
 	// Validate message early to provide feedback to the agent and fail with a
 	// descriptive HTTP code.
@@ -610,4 +600,40 @@ func (m *streamManager) writeOne(cd *fspb.ContactData) (stats.PollInfo, error) {
 	pi.Status = http.StatusOK
 
 	return pi, nil
+}
+
+func readWcd(body *bufio.Reader, compressed bool) (*fspb.WrappedContactData, int, error) {
+	size, err := binary.ReadUvarint(body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error reading size: %v", err)
+	}
+	if size > MaxContactSize {
+		return nil, 0, fmt.Errorf("contact size too large: got %d, expected at most %d", size, MaxContactSize)
+	}
+
+	rawBuf := make([]byte, size)
+	_, err = io.ReadFull(body, rawBuf)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error reading body: %v", err)
+	}
+
+	var buf []byte
+	if compressed {
+		gzr, err := gzip.NewReader(bytes.NewReader(rawBuf))
+		if err != nil {
+			return nil, 0, fmt.Errorf("error decompressing body: %v", err)
+		}
+		defer gzr.Close()
+		buf, err = io.ReadAll(gzr)
+		if err != nil {
+			return nil, 0, fmt.Errorf("error decompressing body: %v", err)
+		}
+	} else {
+		buf = rawBuf
+	}
+	wcd := &fspb.WrappedContactData{}
+	if err := proto.Unmarshal(buf, wcd); err != nil {
+		return nil, 0, fmt.Errorf("error unmarshaling body: %v", err)
+	}
+	return wcd, int(size), nil
 }
