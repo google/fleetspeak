@@ -287,7 +287,7 @@ func clientMessagesForProcessingLimitTest(t *testing.T, ms db.Store) {
 		return
 	}
 	if len(m) != 10 {
-		t.Errorf("ClientMessagesForProcessing(10, nil) returned %d messages, but expected 5.", len(m))
+		t.Errorf("ClientMessagesForProcessing(10, nil) returned %d messages, but expected 10.", len(m))
 	}
 
 	// Get all messages remaining for processing, with limit.

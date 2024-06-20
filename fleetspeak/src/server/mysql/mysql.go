@@ -63,8 +63,7 @@ func (d *Datastore) Close() error {
 // runOnce runs f, passing it a transaction. The transaction will be committed
 // if f returns nil, otherwise rolled back.
 func (d *Datastore) runOnce(ctx context.Context, readOnly bool, f func(*sql.Tx) error) error {
-	// TODO: Pass along the readOnly flag, once some mysql driver supports it.
-	tx, err := d.db.BeginTx(ctx, nil)
+	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnly})
 	if err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ max_resident_memory_mib INT4,
 mean_num_fds INT,
 max_num_fds INT,
 CONSTRAINT client_resource_usage_records_fk_1
-  FOREIGN KEY (client_id) 
+  FOREIGN KEY (client_id)
   REFERENCES clients(client_id)
   ON DELETE CASCADE)`,
 		`CREATE TABLE IF NOT EXISTS messages(
@@ -182,7 +181,8 @@ validation_info BLOB,
 failed INT1,
 failed_reason TEXT,
 annotations BLOB,
-PRIMARY KEY (message_id))`,
+PRIMARY KEY (message_id),
+INDEX (destination_client_id))`,
 		`CREATE TABLE IF NOT EXISTS pending_messages(
 for_server BOOL NOT NULL,
 message_id BINARY(32) NOT NULL,
@@ -191,6 +191,7 @@ scheduled_time BIGINT NOT NULL,
 data_type_url TEXT,
 data_value MEDIUMBLOB,
 PRIMARY KEY (for_server, message_id),
+INDEX (scheduled_time),
 CONSTRAINT pending_messages_fk_1
   FOREIGN KEY (message_id)
   REFERENCES messages(message_id)
