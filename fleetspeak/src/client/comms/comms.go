@@ -83,6 +83,9 @@ type ServerInfo struct {
 
 	// If set, used for SNI and certificate validation.
 	ServerName string
+
+	// If true, then prefer HTTP2 Transport
+	PreferHttp2 bool
 }
 
 // A Context describes the view of the Fleetspeak client provided to a Communicator.

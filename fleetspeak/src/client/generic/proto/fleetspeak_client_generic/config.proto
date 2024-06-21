@@ -38,6 +38,9 @@ message Config {
 
   // If set, used for SNI and certificate validation.
   string server_name = 9;
+  
+  // If set, the client will prefer HTTP as a Transport
+  bool prefer_http2 = 10;
 }
 
 message FilesystemHandler {

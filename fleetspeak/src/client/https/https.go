@@ -94,6 +94,13 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		proxy = http.ProxyURL(si.Proxy)
 	}
 
+	// We'll make the Transport configurable so we can be both backwards compatible but also forward looking
+	nextProtos := []string{"http/1.1"}
+	preferHttp2 := si.PreferHttp2
+	if preferHttp2 {
+	  nextProtos = []string{"h2", "http/1.1"}
+        }
+
 	tr := &http.Transport{
 		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
@@ -112,7 +119,7 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			VerifyPeerCertificate: cv,
 			ServerName:            si.ServerName,
-                        NextProtos:            []string{"h2", "http/1.1"},
+                        NextProtos:            nextProtos,
 		},
 		MaxIdleConns:          10,
 		DialContext:           dc,
@@ -120,7 +127,9 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	err = http2.ConfigureTransport(tr)
+	if preferHttp2 {
+	  err = http2.ConfigureTransport(tr)
+        }
 	return ci.ID, tr, certBytes, err
 }
 
