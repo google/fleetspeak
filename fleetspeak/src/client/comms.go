@@ -152,8 +152,6 @@ func (c commsContext) CurrentIdentity() (comms.ClientIdentity, error) {
 func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 	cfg := c.c.config.Configuration()
 
-	log.Infof("--------------------- PreferHttp2: %t", cfg.PreferHttp2)
-
 	return comms.ServerInfo{
 		TrustedCerts:            cfg.TrustedCerts,
 		Servers:                 cfg.Servers,
