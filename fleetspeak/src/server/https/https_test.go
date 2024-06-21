@@ -17,6 +17,7 @@ package https
 import (
 	"bufio"
 	"bytes"
+	"compress/zlib"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -35,6 +36,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -100,11 +102,11 @@ func clientCertFingerprint(derBytes []byte) string {
 	// It also removes trailing "=" padding characters
 	base64EncodedStr := strings.TrimRight(base64.StdEncoding.EncodeToString(sha256Binary), "=")
 
-	// Rreturn the base64 encoded string
+	// Return the base64 encoded string
 	return base64EncodedStr
 }
 
-func makeClient(t *testing.T, doTls bool) (common.ClientID, *http.Client, []byte, string) {
+func makeClient(t *testing.T, doTLS bool) (common.ClientID, *http.Client, []byte, string) {
 	// Populate a CertPool with the server's certificate.
 	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(serverCert) {
@@ -143,7 +145,7 @@ func makeClient(t *testing.T, doTls bool) (common.ClientID, *http.Client, []byte
 		t.Fatal(err)
 	}
 	var cl http.Client
-	if doTls {
+	if doTLS {
 		cl = http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -278,64 +280,101 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 }
 
 func TestStreaming(t *testing.T) {
-	ctx := context.Background()
-	s, _, addr := makeServer(t, "Streaming", nil)
-	_, cl, _, _ := makeClient(t, true)
-	defer s.Stop()
-
-	br, bw := io.Pipe()
-	go func() {
-		// First exchange - these writes must happen during the http.Client.Do call
-		// below, because the server writes headers at the end of the first message
-		// exchange.
-
-		// Start with the magic number:
-		binary.Write(bw, binary.LittleEndian, magic)
-
-		if _, err := bw.Write(makeWrapped()); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
-	req, err := http.NewRequest("POST", u.String(), br)
-	req.ContentLength = -1
-	req.Close = true
-	req.Header.Set("Expect", "100-continue")
-	if err != nil {
-		t.Fatal(err)
+	testCases := []struct {
+		name     string
+		compress bool
+	}{
+		{
+			name:     "uncompressed",
+			compress: false,
+		},
+		{
+			name:     "compressed",
+			compress: true,
+		},
 	}
-	req = req.WithContext(ctx)
-	resp, err := cl.Do(req)
-	if err != nil {
-		t.Fatalf("Streaming post failed (%v): %v", resp, err)
-	}
-	// Read ContactData for first exchange.
-	body := bufio.NewReader(resp.Body)
-	cd, err := readContact(body)
-	if err != nil {
-		t.Error(err)
-	}
-	if cd.AckIndex != 0 {
-		t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			s, _, addr := makeServer(t, "Streaming", nil)
+			_, cl, _, _ := makeClient(t, true)
+			defer s.Stop()
 
-	for i := uint64(1); i < 10; i++ {
-		// Write another WrappedContactData.
-		if _, err := bw.Write(makeWrapped()); err != nil {
-			t.Error(err)
-		}
-		cd, err := readContact(body)
-		if err != nil {
-			t.Error(err)
-		}
-		if cd.AckIndex != i {
-			t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
-		}
-	}
+			pr, pw := io.Pipe()
+			defer pr.Close()
 
-	bw.Close()
-	resp.Body.Close()
+			var bw io.Writer
+			var flush func() error
+			if tc.compress {
+				zw := zlib.NewWriter(pw)
+				bw = zw
+				flush = zw.Flush
+			} else {
+				bw = pw
+				flush = func() error { return nil }
+			}
+
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			defer wg.Wait()
+			go func() {
+				// First exchange - these writes must happen during the http.Client.Do call
+				// below, because the server writes headers at the end of the first message
+				// exchange.
+
+				// Start with the magic number:
+				binary.Write(bw, binary.LittleEndian, magic)
+
+				if _, err := bw.Write(makeWrapped()); err != nil {
+					t.Error(err)
+				}
+				flush()
+				wg.Done()
+			}()
+
+			u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+			req, err := http.NewRequest("POST", u.String(), pr)
+			req.ContentLength = -1
+			req.Close = true
+			req.Header.Set("Expect", "100-continue")
+			if tc.compress {
+				req.Header.Set("Content-Encoding", "deflate")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			req = req.WithContext(ctx)
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatalf("Streaming post failed (%v): %v", resp, err)
+			}
+			defer resp.Body.Close()
+			// Read ContactData for first exchange.
+			body := bufio.NewReader(resp.Body)
+			cd, err := readContact(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cd.AckIndex != 0 {
+				t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+			}
+
+			for i := uint64(1); i < 100000; i++ {
+				// Write another WrappedContactData.
+				if _, err := bw.Write(makeWrapped()); err != nil {
+					t.Error(err)
+				}
+				flush()
+				cd, err := readContact(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if cd.AckIndex != i {
+					t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
+				}
+			}
+		})
+	}
 }
 
 func TestHeaderNormalPoll(t *testing.T) {

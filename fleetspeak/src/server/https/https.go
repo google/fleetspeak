@@ -108,7 +108,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	}
 
 	mux := http.NewServeMux()
-	h := Communicator{
+	h := &Communicator{
 		p: p,
 		hs: http.Server{
 			Handler:           mux,
@@ -146,11 +146,13 @@ func NewCommunicator(p Params) (*Communicator, error) {
 			NextProtos:             []string{"h2"},
 		}
 	}
-	mux.Handle("/message", messageServer{&h})
+	ms := &messageServer{h}
+	mux.Handle("/message", &compressionHandler{ms})
 	if p.Streaming {
-		mux.Handle("/streaming-message", newStreamingMessageServer(&h, p.MaxPerClientBatchProcessors))
+		sms := &streamingMessageServer{h, p.MaxPerClientBatchProcessors}
+		mux.Handle("/streaming-message", &compressionHandler{sms})
 	}
-	mux.Handle("/files/", fileServer{&h})
+	mux.Handle("/files/", fileServer{h})
 
 	switch l := h.p.Listener.(type) {
 	case *net.TCPListener:
@@ -158,7 +160,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	default:
 	}
 
-	return &h, nil
+	return h, nil
 }
 
 func (c *Communicator) serve(l net.Listener) {
