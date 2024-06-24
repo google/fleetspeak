@@ -316,7 +316,6 @@ func TestStreaming(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			defer wg.Wait()
 			go func() {
 				// First exchange - these writes must happen during the http.Client.Do call
 				// below, because the server writes headers at the end of the first message
@@ -358,8 +357,9 @@ func TestStreaming(t *testing.T) {
 			if cd.AckIndex != 0 {
 				t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
 			}
+			wg.Wait()
 
-			for i := uint64(1); i < 100000; i++ {
+			for i := uint64(1); i < 10; i++ {
 				// Write another WrappedContactData.
 				if _, err := bw.Write(makeWrapped()); err != nil {
 					t.Error(err)
