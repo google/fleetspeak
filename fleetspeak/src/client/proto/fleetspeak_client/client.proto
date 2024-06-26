@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fleetspeak.client;
 
+import "fleetspeak/src/common/proto/fleetspeak/common.proto";
+
 option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client";
 
 // Parameters used to configure communicator plugins.
@@ -30,6 +32,11 @@ message CommunicatorConfig {
   //
   // A default of 7 days is used if unset.
   int32 failure_suicide_time_seconds = 5;
+
+  // The compression algorithm to apply on data sent to the server.
+  //
+  // No compression is applied if unset.
+  fleetspeak.CompressionAlgorithm compression = 6;
 }
 
 // ClientState contains the state of the client which should be persisted across

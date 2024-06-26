@@ -38,6 +38,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -94,7 +95,7 @@ func (s *blockingService) ProcessMessage(ctx context.Context, m *fspb.Message) e
 	return nil
 }
 
-func testCommunicator(t *testing.T, proxy *url.URL) {
+func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.CompressionAlgorithm) {
 	// Create a local https server for the client to talk to.
 	pemCert, pemKey, err := common_util.ServerCert()
 	if err != nil {
@@ -119,13 +120,13 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 	}
 	addr := tl.Addr().String()
 
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+
 	// Dummy server just puts the ContactData records that we receive into a
 	// channel, and looks into a channel for ContactData records to pass to
 	// the client.
-	mux := http.NewServeMux()
-	received := make(chan *fspb.ContactData, 5)
-	toSend := make(chan *fspb.ContactData, 5)
-	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
+	var handle http.HandlerFunc = func(res http.ResponseWriter, req *http.Request) {
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
 		if err != nil {
 			t.Errorf("unable to make ClientID in test server: %v", err)
@@ -169,7 +170,10 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 		res.Header().Set("Content-Type", "application/octet-stream")
 		res.WriteHeader(http.StatusOK)
 		res.Write(buf)
-	})
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/message", &https.CompressionHandler{Wrapped: handle})
 
 	server := http.Server{
 		Addr:    addr,
@@ -194,6 +198,7 @@ func testCommunicator(t *testing.T, proxy *url.URL) {
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
 			MinFailureDelaySeconds: 1,
+			Compression:            compression,
 		},
 		Proxy: proxy,
 	}
@@ -378,7 +383,24 @@ G:
 }
 
 func TestCommunicator(t *testing.T) {
-	testCommunicator(t, nil)
+	testCases := []struct {
+		name        string
+		compression fspb.CompressionAlgorithm
+	}{
+		{
+			name:        "uncompressed",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		{
+			name:        "deflate",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testCommunicator(t, nil, tc.compression)
+		})
+	}
 }
 
 // A simple HTTPS proxy.
@@ -483,7 +505,7 @@ func TestCommunicatorWithProxyFromConfig(t *testing.T) {
 		Host: hp.addr(),
 	}
 
-	testCommunicator(t, url)
+	testCommunicator(t, url, fspb.CompressionAlgorithm_COMPRESSION_NONE)
 
 	if hp.numRequests() == 0 {
 		t.Fatalf("Expected to receive proxy requests.")

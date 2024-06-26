@@ -147,10 +147,10 @@ func NewCommunicator(p Params) (*Communicator, error) {
 		}
 	}
 	ms := &messageServer{h}
-	mux.Handle("/message", &compressionHandler{ms})
+	mux.Handle("/message", &CompressionHandler{ms})
 	if p.Streaming {
 		sms := &streamingMessageServer{h, p.MaxPerClientBatchProcessors}
-		mux.Handle("/streaming-message", &compressionHandler{sms})
+		mux.Handle("/streaming-message", &CompressionHandler{sms})
 	}
 	mux.Handle("/files/", fileServer{h})
 

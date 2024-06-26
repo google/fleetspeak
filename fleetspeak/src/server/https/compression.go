@@ -6,17 +6,17 @@ import (
 	"net/http"
 )
 
-// compressionHandler is a http.Handler that transparently decompresses the
+// CompressionHandler is a http.Handler that transparently decompresses the
 // request body if it is compressed and forwards the request to the wrapped
 // handler.
-type compressionHandler struct {
-	wrapped http.Handler
+type CompressionHandler struct {
+	Wrapped http.Handler
 }
 
 // ServeHTTP implements http.Handler.ServeHTTP by transparently decompressing
 // the request body if it is compressed and forwarding the call to the wrapped
 // handler.
-func (h *compressionHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (h *CompressionHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	encoding := req.Header.Get("Content-Encoding")
 	switch encoding {
 	case "":
@@ -36,5 +36,5 @@ func (h *compressionHandler) ServeHTTP(res http.ResponseWriter, req *http.Reques
 		http.Error(res, fmt.Sprintf("unsupported content encoding: %s", encoding), http.StatusUnsupportedMediaType)
 		return
 	}
-	h.wrapped.ServeHTTP(res, req)
+	h.Wrapped.ServeHTTP(res, req)
 }

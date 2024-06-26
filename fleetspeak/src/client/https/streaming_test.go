@@ -26,6 +26,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
+	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -94,9 +95,7 @@ func (s *streamingTestServer) Start() {
 		s.t.Fatal(err)
 	}
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/streaming-message", func(res http.ResponseWriter, req *http.Request) {
+	var handler http.HandlerFunc = func(res http.ResponseWriter, req *http.Request) {
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
 		if err != nil {
 			s.t.Errorf("unable to make ClientID in test server: %v", err)
@@ -203,7 +202,10 @@ func (s *streamingTestServer) Start() {
 				writerStarted = true
 			}
 		}
-	})
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/streaming-message", &https.CompressionHandler{Wrapped: handler})
 
 	server := http.Server{
 		Addr:    s.Addr(),
@@ -251,7 +253,7 @@ func (c slowConn) Write(b []byte) (int, error) {
 	return s, nil
 }
 
-func startStreamingClient(t *testing.T, addr string, cert []byte, out *rate.Limiter) *client.Client {
+func startStreamingClient(t *testing.T, addr string, cert []byte, out *rate.Limiter, compression fspb.CompressionAlgorithm) *client.Client {
 	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
 	if out != nil {
 		dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -270,6 +272,7 @@ func startStreamingClient(t *testing.T, addr string, cert []byte, out *rate.Limi
 			MaxPollDelaySeconds:    2,
 			MaxBufferDelaySeconds:  1,
 			MinFailureDelaySeconds: 1,
+			Compression:            compression,
 		},
 	}
 	if !conf.TrustedCerts.AppendCertsFromPEM(cert) {
@@ -287,6 +290,28 @@ func startStreamingClient(t *testing.T, addr string, cert []byte, out *rate.Limi
 }
 
 func TestStreamingCommunicator(t *testing.T) {
+	testCases := []struct {
+		name        string
+		compression fspb.CompressionAlgorithm
+	}{
+		{
+			name:        "uncompressed",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		{
+			name:        "deflate",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testStreamingCommunicator(t, tc.compression)
+		})
+	}
+}
+
+func testStreamingCommunicator(t *testing.T, compression fspb.CompressionAlgorithm) {
+	t.Helper()
 	received := make(chan *fspb.ContactData, 5)
 	toSend := make(chan *fspb.ContactData, 5)
 
@@ -298,7 +323,7 @@ func TestStreamingCommunicator(t *testing.T) {
 	server.Start()
 	defer server.Stop()
 
-	cl := startStreamingClient(t, server.Addr(), server.pemCert, nil)
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, nil, compression)
 	defer cl.Stop()
 
 	acks := make(chan int, 1000)
@@ -408,7 +433,7 @@ func TestStreamingCommunicatorBulkSlow(t *testing.T) {
 	defer server.Stop()
 
 	// Limit write rate to 100KB/sec in 1KB chunks
-	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(100*1024, 10*1024))
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(100*1024, 10*1024), fspb.CompressionAlgorithm_COMPRESSION_NONE)
 	defer cl.Stop()
 
 	// Send an initial message to make sure a streaming connection is started.
@@ -513,7 +538,7 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 	defer server.Stop()
 
 	// 5MB/sec in 10KB chunks
-	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(5*1024*1024, 10*1024))
+	cl := startStreamingClient(t, server.Addr(), server.pemCert, rate.NewLimiter(5*1024*1024, 10*1024), fspb.CompressionAlgorithm_COMPRESSION_NONE)
 	defer cl.Stop()
 
 	// Send an initial message to make sure a streaming connection is started.
