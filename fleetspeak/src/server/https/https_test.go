@@ -325,13 +325,13 @@ func TestStreaming(t *testing.T) {
 
 			u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
 			req, err := http.NewRequest("POST", u.String(), pr)
+			if err != nil {
+				t.Fatal(err)
+			}
 			req.ContentLength = -1
 			req.Close = true
 			req.Header.Set("Expect", "100-continue")
 			https.SetContentEncoding(req.Header, tc.compression)
-			if err != nil {
-				t.Fatal(err)
-			}
 			req = req.WithContext(ctx)
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -385,12 +385,12 @@ func TestHeaderNormalPoll(t *testing.T) {
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
 
 	req, err := http.NewRequest("POST", u.String(), nil)
-	req.Close = true
-	cc := url.PathEscape(string(bc))
-	req.Header.Set(clientCertHeader, cc)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Close = true
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, cc)
 
 	// An empty body is a valid, though atypical initial request.
 	req = req.WithContext(ctx)
@@ -451,15 +451,15 @@ func TestHeaderStreaming(t *testing.T) {
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
 
 	cc := url.PathEscape(string(bc))
 	req.Header.Set(clientCertHeader, cc)
-	if err != nil {
-		t.Fatal(err)
-	}
 	req = req.WithContext(ctx)
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -603,15 +603,15 @@ func TestCleartextHeaderStreaming(t *testing.T) {
 
 	u := url.URL{Scheme: "http", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
 
 	cc := url.PathEscape(string(bc))
 	req.Header.Set(clientCertHeader, cc)
-	if err != nil {
-		t.Fatal(err)
-	}
 	req = req.WithContext(ctx)
 	resp, err := cl.Do(req)
 	if err != nil {
