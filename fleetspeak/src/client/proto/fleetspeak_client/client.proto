@@ -37,6 +37,9 @@ message CommunicatorConfig {
   //
   // No compression is applied if unset.
   fleetspeak.CompressionAlgorithm compression = 6;
+
+  // If set, the client will prefer comms with HTTP2 Transport
+  bool prefer_http2 = 7;
 }
 
 // ClientState contains the state of the client which should be persisted across

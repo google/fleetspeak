@@ -345,6 +345,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		c.cctx.Stats().OutboundContactData(host, len(buf), err)
 		return fail(err)
 	}
+	log.V(2).Infof("POST to %v succeeded with status: %v and protocol: %v", host, resp.StatusCode, resp.Proto)
 	c.cctx.Stats().OutboundContactData(host, len(buf), nil)
 	body := bufio.NewReader(resp.Body)
 	cd, err := ret.readContact(body)
