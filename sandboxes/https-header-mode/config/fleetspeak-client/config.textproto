@@ -7,4 +7,3 @@ filesystem_handler: {
   state_file:"/fleetspeak-client.state"
 }
 streaming:true
-prefer_http2:true
