@@ -17,7 +17,6 @@ package https
 import (
 	"bufio"
 	"bytes"
-	"compress/zlib"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -43,6 +42,7 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/fleetspeak/fleetspeak/src/client/https"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
@@ -281,16 +281,16 @@ func readContact(body *bufio.Reader) (*fspb.ContactData, error) {
 
 func TestStreaming(t *testing.T) {
 	testCases := []struct {
-		name     string
-		compress bool
+		name        string
+		compression fspb.CompressionAlgorithm
 	}{
 		{
-			name:     "uncompressed",
-			compress: false,
+			name:        "uncompressed",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_NONE,
 		},
 		{
-			name:     "compressed",
-			compress: true,
+			name:        "deflate",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
 		},
 	}
 	for _, tc := range testCases {
@@ -303,16 +303,8 @@ func TestStreaming(t *testing.T) {
 			pr, pw := io.Pipe()
 			defer pr.Close()
 
-			var bw io.Writer
-			var flush func() error
-			if tc.compress {
-				zw := zlib.NewWriter(pw)
-				bw = zw
-				flush = zw.Flush
-			} else {
-				bw = pw
-				flush = func() error { return nil }
-			}
+			bw := https.CompressingWriter(pw, tc.compression)
+			defer bw.Close()
 
 			wg := sync.WaitGroup{}
 			wg.Add(1)
@@ -327,21 +319,19 @@ func TestStreaming(t *testing.T) {
 				if _, err := bw.Write(makeWrapped()); err != nil {
 					t.Error(err)
 				}
-				flush()
+				bw.Flush()
 				wg.Done()
 			}()
 
 			u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
 			req, err := http.NewRequest("POST", u.String(), pr)
-			req.ContentLength = -1
-			req.Close = true
-			req.Header.Set("Expect", "100-continue")
-			if tc.compress {
-				req.Header.Set("Content-Encoding", "deflate")
-			}
 			if err != nil {
 				t.Fatal(err)
 			}
+			req.ContentLength = -1
+			req.Close = true
+			req.Header.Set("Expect", "100-continue")
+			https.SetContentEncoding(req.Header, tc.compression)
 			req = req.WithContext(ctx)
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -364,7 +354,7 @@ func TestStreaming(t *testing.T) {
 				if _, err := bw.Write(makeWrapped()); err != nil {
 					t.Error(err)
 				}
-				flush()
+				bw.Flush()
 				cd, err := readContact(body)
 				if err != nil {
 					t.Fatal(err)
@@ -395,12 +385,12 @@ func TestHeaderNormalPoll(t *testing.T) {
 	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
 
 	req, err := http.NewRequest("POST", u.String(), nil)
-	req.Close = true
-	cc := url.PathEscape(string(bc))
-	req.Header.Set(clientCertHeader, cc)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Close = true
+	cc := url.PathEscape(string(bc))
+	req.Header.Set(clientCertHeader, cc)
 
 	// An empty body is a valid, though atypical initial request.
 	req = req.WithContext(ctx)
@@ -461,15 +451,15 @@ func TestHeaderStreaming(t *testing.T) {
 
 	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
 
 	cc := url.PathEscape(string(bc))
 	req.Header.Set(clientCertHeader, cc)
-	if err != nil {
-		t.Fatal(err)
-	}
 	req = req.WithContext(ctx)
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -613,15 +603,15 @@ func TestCleartextHeaderStreaming(t *testing.T) {
 
 	u := url.URL{Scheme: "http", Host: addr, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", u.String(), br)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
 
 	cc := url.PathEscape(string(bc))
 	req.Header.Set(clientCertHeader, cc)
-	if err != nil {
-		t.Fatal(err)
-	}
 	req = req.WithContext(ctx)
 	resp, err := cl.Do(req)
 	if err != nil {

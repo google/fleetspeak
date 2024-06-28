@@ -267,16 +267,18 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	sizeBuf := make([]byte, 0, 16)
 	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
 
-	br, bw := io.Pipe()
+	pr, pw := io.Pipe()
+	bw := CompressingWriter(pw, c.conf.GetCompression())
 
 	urn := url.URL{Scheme: "https", Host: host, Path: "/streaming-message"}
-	req, err := http.NewRequest("POST", urn.String(), br)
+	req, err := http.NewRequest("POST", urn.String(), pr)
 	if err != nil {
 		return nil, err
 	}
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
+	SetContentEncoding(req.Header, c.conf.GetCompression())
 	if c.clientCertificateHeader != "" {
 		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})
 		cc := url.PathEscape(string(bc))
@@ -299,15 +301,19 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 			// If we close context at the wrong time, the initial Do might not
 			// return until we close the pipe.
 			bw.Close()
+			pw.Close()
 			canceled <- true
 		}
 	}()
 	// We also need to feed the intital data into the pipe while Do
 	// executes.
+	ret.working.Add(1)
 	go func() {
 		binary.Write(bw, binary.LittleEndian, magic)
 		bw.Write(sizeBuf)
 		bw.Write(buf)
+		bw.Flush()
+		ret.working.Done()
 	}()
 	resp, err := c.hc.Do(req)
 	close(ok)
@@ -355,6 +361,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 	toSend = nil
 
+	ret.working.Wait()
 	ret.working.Add(2)
 	go ret.readLoop(body, resp.Body)
 	go ret.writeLoop(bw)
@@ -441,7 +448,7 @@ func (c *connection) groupMessages(ctx context.Context, rate float64) (msg []com
 	return r, false
 }
 
-func (c *connection) writeLoop(bw *io.PipeWriter) {
+func (c *connection) writeLoop(bw BodyWriter) {
 	steppedShutdown := false
 	defer func() {
 		log.V(2).Infof("<-%p: writeLoop stopping, steppedShutdown: %t", c, steppedShutdown)
@@ -508,6 +515,7 @@ func (c *connection) writeLoop(bw *io.PipeWriter) {
 			return
 		}
 		bufWritten, err := bw.Write(buf)
+		bw.Flush()
 		c.cctx.Stats().OutboundContactData(c.host, bufWritten, err)
 		if err != nil {
 			if c.ctx.Err() == nil {

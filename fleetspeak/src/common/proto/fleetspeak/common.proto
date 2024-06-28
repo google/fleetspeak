@@ -167,3 +167,10 @@ message ContactData {
 
 // An empty message, typically used as a trivial RPC response.
 message EmptyMessage {}
+
+// Compression algorithms that can be used by communicators.
+enum CompressionAlgorithm {
+  COMPRESSION_NONE = 0;
+  // Deflate compressed data will be formatted as zlib.
+  COMPRESSION_DEFLATE = 1;
+}

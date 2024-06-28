@@ -316,8 +316,25 @@ func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, er
 
 	u := url.URL{Scheme: "https", Host: host, Path: "/message"}
 
+	body := &bytes.Buffer{}
+	if c.conf.GetCompression() == fspb.CompressionAlgorithm_COMPRESSION_NONE {
+		// Shortcut to prevent unnecessary copying of data
+		body = bytes.NewBuffer(data)
+	} else {
+		bw := CompressingWriter(body, c.conf.GetCompression())
+		bw.Write(data)
+		bw.Close()
+	}
+
+	var req *http.Request
+	req, sendErr = http.NewRequest("POST", u.String(), body)
+	if sendErr != nil {
+		return nil, sendErr
+	}
+	SetContentEncoding(req.Header, c.conf.GetCompression())
+
 	var resp *http.Response
-	resp, sendErr = c.hc.Post(u.String(), "", bytes.NewReader(data))
+	resp, sendErr = c.hc.Do(req)
 	if sendErr != nil {
 		return nil, sendErr
 	}

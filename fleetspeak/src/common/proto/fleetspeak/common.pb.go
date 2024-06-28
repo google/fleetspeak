@@ -22,6 +22,54 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Compression algorithms that can be used by communicators.
+type CompressionAlgorithm int32
+
+const (
+	CompressionAlgorithm_COMPRESSION_NONE CompressionAlgorithm = 0
+	// Deflate compressed data will be formatted as zlib.
+	CompressionAlgorithm_COMPRESSION_DEFLATE CompressionAlgorithm = 1
+)
+
+// Enum value maps for CompressionAlgorithm.
+var (
+	CompressionAlgorithm_name = map[int32]string{
+		0: "COMPRESSION_NONE",
+		1: "COMPRESSION_DEFLATE",
+	}
+	CompressionAlgorithm_value = map[string]int32{
+		"COMPRESSION_NONE":    0,
+		"COMPRESSION_DEFLATE": 1,
+	}
+)
+
+func (x CompressionAlgorithm) Enum() *CompressionAlgorithm {
+	p := new(CompressionAlgorithm)
+	*p = x
+	return p
+}
+
+func (x CompressionAlgorithm) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CompressionAlgorithm) Descriptor() protoreflect.EnumDescriptor {
+	return file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[0].Descriptor()
+}
+
+func (CompressionAlgorithm) Type() protoreflect.EnumType {
+	return &file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[0]
+}
+
+func (x CompressionAlgorithm) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CompressionAlgorithm.Descriptor instead.
+func (CompressionAlgorithm) EnumDescriptor() ([]byte, []int) {
+	return file_fleetspeak_src_common_proto_fleetspeak_common_proto_rawDescGZIP(), []int{0}
+}
+
 // The message priority. The primary effect is on the ordering of messages
 // sent from the client to the server.
 type Message_Priority int32
@@ -57,11 +105,11 @@ func (x Message_Priority) String() string {
 }
 
 func (Message_Priority) Descriptor() protoreflect.EnumDescriptor {
-	return file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[0].Descriptor()
+	return file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[1].Descriptor()
 }
 
 func (Message_Priority) Type() protoreflect.EnumType {
-	return &file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[0]
+	return &file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes[1]
 }
 
 func (x Message_Priority) Number() protoreflect.EnumNumber {
@@ -982,12 +1030,16 @@ var file_fleetspeak_src_common_proto_fleetspeak_common_proto_rawDesc = []byte{
 	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14,
 	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x0e, 0x0a, 0x0c, 0x45, 0x6d, 0x70, 0x74,
-	0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x42, 0x45, 0x5a, 0x43, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x66, 0x6c,
-	0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70,
-	0x65, 0x61, 0x6b, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2a, 0x45, 0x0a, 0x14, 0x43, 0x6f, 0x6d, 0x70,
+	0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x41, 0x6c, 0x67, 0x6f, 0x72, 0x69, 0x74, 0x68, 0x6d,
+	0x12, 0x14, 0x0a, 0x10, 0x43, 0x4f, 0x4d, 0x50, 0x52, 0x45, 0x53, 0x53, 0x49, 0x4f, 0x4e, 0x5f,
+	0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x17, 0x0a, 0x13, 0x43, 0x4f, 0x4d, 0x50, 0x52, 0x45,
+	0x53, 0x53, 0x49, 0x4f, 0x4e, 0x5f, 0x44, 0x45, 0x46, 0x4c, 0x41, 0x54, 0x45, 0x10, 0x01, 0x42,
+	0x45, 0x5a, 0x43, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f,
+	0x66, 0x6c, 0x65, 0x65, 0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x63,
+	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x66, 0x6c, 0x65, 0x65,
+	0x74, 0x73, 0x70, 0x65, 0x61, 0x6b, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1002,42 +1054,43 @@ func file_fleetspeak_src_common_proto_fleetspeak_common_proto_rawDescGZIP() []by
 	return file_fleetspeak_src_common_proto_fleetspeak_common_proto_rawDescData
 }
 
-var file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_fleetspeak_src_common_proto_fleetspeak_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_fleetspeak_src_common_proto_fleetspeak_common_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_fleetspeak_src_common_proto_fleetspeak_common_proto_goTypes = []interface{}{
-	(Message_Priority)(0),         // 0: fleetspeak.Message.Priority
-	(*Address)(nil),               // 1: fleetspeak.Address
-	(*ValidationInfo)(nil),        // 2: fleetspeak.ValidationInfo
-	(*Message)(nil),               // 3: fleetspeak.Message
-	(*MessageResult)(nil),         // 4: fleetspeak.MessageResult
-	(*Annotations)(nil),           // 5: fleetspeak.Annotations
-	(*Label)(nil),                 // 6: fleetspeak.Label
-	(*Signature)(nil),             // 7: fleetspeak.Signature
-	(*WrappedContactData)(nil),    // 8: fleetspeak.WrappedContactData
-	(*ContactData)(nil),           // 9: fleetspeak.ContactData
-	(*EmptyMessage)(nil),          // 10: fleetspeak.EmptyMessage
-	nil,                           // 11: fleetspeak.ValidationInfo.TagsEntry
-	(*Annotations_Entry)(nil),     // 12: fleetspeak.Annotations.Entry
-	nil,                           // 13: fleetspeak.ContactData.AllowedMessagesEntry
-	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
-	(*anypb.Any)(nil),             // 15: google.protobuf.Any
+	(CompressionAlgorithm)(0),     // 0: fleetspeak.CompressionAlgorithm
+	(Message_Priority)(0),         // 1: fleetspeak.Message.Priority
+	(*Address)(nil),               // 2: fleetspeak.Address
+	(*ValidationInfo)(nil),        // 3: fleetspeak.ValidationInfo
+	(*Message)(nil),               // 4: fleetspeak.Message
+	(*MessageResult)(nil),         // 5: fleetspeak.MessageResult
+	(*Annotations)(nil),           // 6: fleetspeak.Annotations
+	(*Label)(nil),                 // 7: fleetspeak.Label
+	(*Signature)(nil),             // 8: fleetspeak.Signature
+	(*WrappedContactData)(nil),    // 9: fleetspeak.WrappedContactData
+	(*ContactData)(nil),           // 10: fleetspeak.ContactData
+	(*EmptyMessage)(nil),          // 11: fleetspeak.EmptyMessage
+	nil,                           // 12: fleetspeak.ValidationInfo.TagsEntry
+	(*Annotations_Entry)(nil),     // 13: fleetspeak.Annotations.Entry
+	nil,                           // 14: fleetspeak.ContactData.AllowedMessagesEntry
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
+	(*anypb.Any)(nil),             // 16: google.protobuf.Any
 }
 var file_fleetspeak_src_common_proto_fleetspeak_common_proto_depIdxs = []int32{
-	11, // 0: fleetspeak.ValidationInfo.tags:type_name -> fleetspeak.ValidationInfo.TagsEntry
-	1,  // 1: fleetspeak.Message.source:type_name -> fleetspeak.Address
-	1,  // 2: fleetspeak.Message.destination:type_name -> fleetspeak.Address
-	14, // 3: fleetspeak.Message.creation_time:type_name -> google.protobuf.Timestamp
-	15, // 4: fleetspeak.Message.data:type_name -> google.protobuf.Any
-	2,  // 5: fleetspeak.Message.validation_info:type_name -> fleetspeak.ValidationInfo
-	4,  // 6: fleetspeak.Message.result:type_name -> fleetspeak.MessageResult
-	0,  // 7: fleetspeak.Message.priority:type_name -> fleetspeak.Message.Priority
-	5,  // 8: fleetspeak.Message.annotations:type_name -> fleetspeak.Annotations
-	14, // 9: fleetspeak.MessageResult.processed_time:type_name -> google.protobuf.Timestamp
-	12, // 10: fleetspeak.Annotations.entries:type_name -> fleetspeak.Annotations.Entry
-	7,  // 11: fleetspeak.WrappedContactData.signatures:type_name -> fleetspeak.Signature
-	3,  // 12: fleetspeak.ContactData.messages:type_name -> fleetspeak.Message
-	14, // 13: fleetspeak.ContactData.client_clock:type_name -> google.protobuf.Timestamp
-	13, // 14: fleetspeak.ContactData.AllowedMessages:type_name -> fleetspeak.ContactData.AllowedMessagesEntry
+	12, // 0: fleetspeak.ValidationInfo.tags:type_name -> fleetspeak.ValidationInfo.TagsEntry
+	2,  // 1: fleetspeak.Message.source:type_name -> fleetspeak.Address
+	2,  // 2: fleetspeak.Message.destination:type_name -> fleetspeak.Address
+	15, // 3: fleetspeak.Message.creation_time:type_name -> google.protobuf.Timestamp
+	16, // 4: fleetspeak.Message.data:type_name -> google.protobuf.Any
+	3,  // 5: fleetspeak.Message.validation_info:type_name -> fleetspeak.ValidationInfo
+	5,  // 6: fleetspeak.Message.result:type_name -> fleetspeak.MessageResult
+	1,  // 7: fleetspeak.Message.priority:type_name -> fleetspeak.Message.Priority
+	6,  // 8: fleetspeak.Message.annotations:type_name -> fleetspeak.Annotations
+	15, // 9: fleetspeak.MessageResult.processed_time:type_name -> google.protobuf.Timestamp
+	13, // 10: fleetspeak.Annotations.entries:type_name -> fleetspeak.Annotations.Entry
+	8,  // 11: fleetspeak.WrappedContactData.signatures:type_name -> fleetspeak.Signature
+	4,  // 12: fleetspeak.ContactData.messages:type_name -> fleetspeak.Message
+	15, // 13: fleetspeak.ContactData.client_clock:type_name -> google.protobuf.Timestamp
+	14, // 14: fleetspeak.ContactData.AllowedMessages:type_name -> fleetspeak.ContactData.AllowedMessagesEntry
 	15, // [15:15] is the sub-list for method output_type
 	15, // [15:15] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
@@ -1189,7 +1242,7 @@ func file_fleetspeak_src_common_proto_fleetspeak_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_fleetspeak_src_common_proto_fleetspeak_common_proto_rawDesc,
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
