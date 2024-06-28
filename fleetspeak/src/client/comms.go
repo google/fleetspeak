@@ -158,7 +158,6 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 		Proxy:                   cfg.Proxy,
 		ClientCertificateHeader: cfg.ClientCertificateHeader,
 		ServerName:              cfg.ServerName,
-		PreferHttp2:             cfg.PreferHttp2,
 	}, nil
 }
 

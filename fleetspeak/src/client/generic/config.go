@@ -79,6 +79,5 @@ func MakeConfiguration(cfg *gpb.Config) (config.Configuration, error) {
 		Proxy:                   proxy,
 		ClientCertificateHeader: cfg.ClientCertificateHeader,
 		ServerName:              cfg.ServerName,
-		PreferHttp2:             cfg.PreferHttp2,
 	}, nil
 }

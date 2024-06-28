@@ -96,7 +96,10 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 
 	// We'll make the Transport configurable so we can be both backwards compatible but also forward looking
 	nextProtos := []string{"http/1.1"}
-	preferHttp2 := si.PreferHttp2
+	preferHttp2 := false 
+	if cctx.CommunicatorConfig() != nil {
+		preferHttp2 = cctx.CommunicatorConfig().PreferHttp2
+	}
 	if preferHttp2 {
 	  nextProtos = []string{"h2", "http/1.1"}
 	}

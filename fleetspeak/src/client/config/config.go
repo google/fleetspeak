@@ -79,9 +79,6 @@ type Configuration struct {
 	// This should be used if TLS is terminated at the load balancer and client certificates
 	// can be passed upstream to the fleetspeak server as an http header.
 	ClientCertificateHeader string
-
-	// If true, then prefer comms with HTTP2 Transport
-	PreferHttp2 bool
 }
 
 // PersistenceHandler manages client's configuration storage.
