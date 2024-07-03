@@ -15,16 +15,13 @@
 """Python library to communicate with Fleetspeak over grpc."""
 
 import abc
-import collections
 from concurrent import futures
 import datetime
 import logging
 import os
 import threading
 import time
-from typing import Callable
-from typing import Optional
-from typing import TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 from absl import flags
 from fleetspeak.src.common.proto.fleetspeak import common_pb2
@@ -395,6 +392,7 @@ class InsecureGRPCServiceClient(ServiceClient):
       fleetspeak_message_listen_address: Optional[str] = None,
       fleetspeak_server: Optional[str] = None,
       threadpool_size: int = 5,
+      options: Optional[dict[str, Any]] = None,
   ):
     """Constructor.
 
@@ -408,6 +406,8 @@ class InsecureGRPCServiceClient(ServiceClient):
         flag fleetspeak_server will be used. If still unset, the connection will
         not be open for writing and Send() will raise NotConfigured.
       threadpool_size: The number of threads to use to process messages.
+      options: An optional mapping of key-value pairs (channel_arguments in gRPC
+        runtime) to configure the channel.
 
     Raises:
       NotConfigured:
@@ -433,6 +433,7 @@ class InsecureGRPCServiceClient(ServiceClient):
     self._service_name = service_name
     self._listen_address = fleetspeak_message_listen_address
     self._threadpool_size = threadpool_size
+    self._options = list(options.items()) if options else None
 
     if fleetspeak_server is None:
       logging.info(
@@ -470,7 +471,8 @@ class InsecureGRPCServiceClient(ServiceClient):
     if self._listen_address is None:
       raise NotConfigured("Listen address not provided.")
     self._server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=self._threadpool_size)
+        futures.ThreadPoolExecutor(max_workers=self._threadpool_size),
+        options=self._options,
     )
     self._server.add_insecure_port(self._listen_address)
     servicer = Servicer(callback, self._service_name)
@@ -479,3 +481,6 @@ class InsecureGRPCServiceClient(ServiceClient):
     logging.info(
         "Fleetspeak GRPCService client listening on %s", self._listen_address
     )
+
+    if self._options:
+      logging.info("Using GRPC channel options %s", self._options)
