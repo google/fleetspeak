@@ -36,6 +36,8 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -92,7 +94,17 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		proxy = http.ProxyURL(si.Proxy)
 	}
 
-	return ci.ID, &http.Transport{
+	// We'll make the Transport configurable so we can be both backwards compatible but also forward looking
+	nextProtos := []string{"http/1.1"}
+	preferHttp2 := false
+	if cctx.CommunicatorConfig() != nil {
+		preferHttp2 = cctx.CommunicatorConfig().PreferHttp2
+	}
+	if preferHttp2 {
+		nextProtos = []string{"h2", "http/1.1"}
+	}
+
+	tr := &http.Transport{
 		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
 			RootCAs: si.TrustedCerts,
@@ -110,12 +122,18 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 			VerifyPeerCertificate: cv,
 			ServerName:            si.ServerName,
+			NextProtos:            nextProtos,
 		},
 		MaxIdleConns:          10,
 		DialContext:           dc,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}, certBytes, nil
+	}
+
+	if preferHttp2 {
+		err = http2.ConfigureTransport(tr)
+	}
+	return ci.ID, tr, certBytes, err
 }
 
 // jitter adds up to 50% random jitter, and converts to time.Duration.

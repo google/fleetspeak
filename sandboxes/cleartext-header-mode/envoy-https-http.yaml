@@ -80,6 +80,7 @@ static_resources:
           common_tls_context:
             validation_context:
               trust_chain_verification: ACCEPT_UNTRUSTED
+            alpn_protocols: ["h2,http/1.1"]
             tls_certificates:
             # The following self-signed certificate pair is generated using:
             # $ openssl req -x509 -newkey rsa:2048 -keyout a/front-proxy-key.pem -out  a/front-proxy-crt.pem -days 3650 -nodes -subj '/CN=front-envoy'
