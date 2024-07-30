@@ -187,12 +187,12 @@ setup(
     packages=_find_packages("fleetspeak"),
     install_requires=[
         "absl-py>=0.8.0",
-        f"grpcio{GRPCIO_VERSION}",
+        "grpcio>=1.0.0",
     ],
     extras_require={
         "test": [
             "pytest",
-            f"grpcio-testing{GRPCIO_VERSION}",
+            "grpcio-testing>=1.0.0",
         ],
     },
     package_data={},
