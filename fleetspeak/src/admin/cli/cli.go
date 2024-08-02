@@ -49,7 +49,7 @@ func Usage() {
 			"    %s listclients [<client_id>...]\n"+
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
-			"    %s blacklistclient <client_id>\n"+
+			"    %s blacklistclients [<client_id>...]\n"+
 			"\n", n, n, n, n)
 }
 
@@ -72,8 +72,8 @@ func Execute(conn *grpc.ClientConn, args ...string) {
 		ListContacts(admin, args[1:]...)
 	case "analysehistory":
 		AnalyseHistory(admin, args[1:]...)
-	case "blacklistclient":
-		BlacklistClient(admin, args[1:]...)
+	case "blacklistclients":
+		BlacklistClients(admin, args[1:]...)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
@@ -232,19 +232,21 @@ func AnalyseHistory(c sgrpc.AdminClient, args ...string) {
 	}
 }
 
-// BlacklistClient blacklists a client id, forcing any client(s) using it to
-// rekey. args[0] must be a client id.
-func BlacklistClient(c sgrpc.AdminClient, args ...string) {
-	if len(args) != 1 {
-		Usage()
-		os.Exit(1)
-	}
-	id, err := common.StringToClientID(args[0])
-	if err != nil {
-		log.Exitf("Unable to parse %s as client id: %v", args[0], err)
+// BlacklistClients blacklists given client ids, forcing any clients using them
+// to rekey.
+func BlacklistClients(c sgrpc.AdminClient, args ...string) {
+	var ids [][]byte
+	for i, arg := range args {
+		id, err := common.StringToClientID(arg)
+		if err != nil {
+			log.Exitf("Unable to convert %q (index %d) to client id: %v", arg, i, err)
+		}
+		ids = append(ids, id.Bytes())
 	}
 	ctx := context.Background()
-	if _, err := c.BlacklistClient(ctx, &spb.BlacklistClientRequest{ClientId: id.Bytes()}); err != nil {
-		log.Exitf("BlacklistClient RPC failed: %v", err)
+	for _, id := range ids {
+		if _, err := c.BlacklistClient(ctx, &spb.BlacklistClientRequest{ClientId: id}); err != nil {
+			log.Exitf("BlacklistClient RPC failed: %v", err)
+		}
 	}
 }
