@@ -17,6 +17,7 @@ package https
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
@@ -159,6 +160,13 @@ func (c *StreamingCommunicator) connectLoop() {
 				}
 				con = nil
 				log.Warningf("Connection to %v failed with error: %v", h, err)
+				var certErr *tls.CertificateVerificationError
+				if errors.As(err, &certErr) {
+					log.Warning("Unverified certificates:")
+					for _, cert := range certErr.UnverifiedCertificates {
+						log.Warningf("%+v", cert)
+					}
+				}
 				continue
 			}
 			if con != nil {
