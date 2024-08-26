@@ -22,10 +22,8 @@
             Source="$(var.FLEETSPEAK_EXECUTABLE)"
             Checksum="yes"
             KeyPath="yes" />
-        <!-- -stderrthreshold=3 turns off logging to stderr, which would
-             kill the Windows service. -->
         <ServiceInstall
-            Arguments="-config=[FleetspeakInstallDir]fleetspeak-client.config -stderrthreshold=3 -log_dir=[%SYSTEMROOT]\Temp\Fleetspeak"
+            Arguments="-config=[FleetspeakInstallDir]fleetspeak-client.config -log_dir=[%SYSTEMROOT]\Temp\Fleetspeak"
             Id="ServiceInstaller"
             Type="ownProcess"
             Name="FleetspeakClientService"

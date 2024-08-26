@@ -5,7 +5,6 @@ package entry
 import (
 	"context"
 	"errors"
-	"flag"
 	"os"
 	"os/signal"
 	"sync"
@@ -25,14 +24,7 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-
-	// stderr is not available when running as a Windows service, and writing to
-	// it causes the log library to exit.
-	//
-	// We work around this by setting the "stderrthreshold" flag to "FATAL",
-	// which ensures that ERROR logs don't get written to stderr. Only FATAL logs
-	// write to stderr, which is fine because on fatal errors we exit anyway.
-	flag.Set("stderrthreshold", "FATAL")
+	tryDisableStderr()
 	log.Info("Service started.")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -73,7 +65,7 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	// return an error, Windows doesn't seem to consider this orderly-shutdown an
 	// error, so it doesn't restart us. Hence if there's an error we exit.
 	if err != nil {
-		exitf("Stopped due to unrecoverable error: %v", err)
+		log.Exitf("Stopped due to unrecoverable error: %v", err)
 	}
 
 	log.Info("Successfully stopped service.")
@@ -88,7 +80,7 @@ func (m *fleetspeakService) ExecuteAsRegularProcess() {
 
 	err := m.innerMain(ctx)
 	if err != nil {
-		exitf("Stopped due to unrecoverable error: %v", err)
+		log.Exitf("Stopped due to unrecoverable error: %v", err)
 	}
 }
 
@@ -104,7 +96,7 @@ func RunMain(innerMain InnerMain, windowsServiceName string) {
 		log.Info("Not running as a service, executing as a regular process.")
 		fs.ExecuteAsRegularProcess()
 	} else if err != nil {
-		exitf("Failed to run service: %v", err)
+		log.Exitf("Failed to run service: %v", err)
 	}
 }
 
@@ -112,16 +104,19 @@ func enforceShutdownTimeout(ctx context.Context) {
 	context.AfterFunc(ctx, func() {
 		log.Info("Main context stopped, shutting down...")
 		time.AfterFunc(shutdownTimeout, func() {
-			exitf("Fleetspeak failed to shut down in %v. Exiting ungracefully.", shutdownTimeout)
+			log.Exitf("Fleetspeak failed to shut down in %v. Exiting ungracefully.", shutdownTimeout)
 		})
 	})
 }
 
-// exitf logs an error and exits with a non-zero code.
-// This is a replacement for log.Exitf which logs at FATAL level, and therefore
-// attempts to write to stderr, which is not available when running as a Windows
-// service.
-func exitf(format string, args ...any) {
-	log.Errorf(format, args...)
-	os.Exit(1)
+// tryDisableStderr redirects [os.Stderr] to [os.DevNull]. When running as a
+// Windows service, stderr is not available, causing the logging library to
+// crash when attempting to write an error log.
+func tryDisableStderr() {
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		log.Warningf("Failed to disable stderr while running as a Windows service, the application might spontaneously shut down ungracefully: %v", err)
+		return
+	}
+	os.Stderr = devNull
 }
