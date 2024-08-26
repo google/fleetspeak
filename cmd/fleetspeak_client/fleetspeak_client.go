@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 
-	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -22,23 +23,19 @@ import (
 )
 
 var configFile = flag.String("config", "", "Client configuration file, required.")
-var profileDir = flag.String("profile-dir", "/tmp", "Profile directory.")
 
-func innerMain() {
-	flag.Parse()
-
+func innerMain(ctx context.Context) error {
 	b, err := os.ReadFile(*configFile)
 	if err != nil {
-		log.Exitf("Unable to read configuration file [%s]: %v", *configFile, err)
+		return fmt.Errorf("unable to read configuration file %q: %v", *configFile, err)
 	}
 	cfgPB := &gpb.Config{}
 	if err := prototext.Unmarshal(b, cfgPB); err != nil {
-		log.Exitf("Unable to parse configuration file [%s]: %v", *configFile, err)
+		return fmt.Errorf("unable to parse configuration file %q: %v", *configFile, err)
 	}
-
 	cfg, err := generic.MakeConfiguration(cfgPB)
 	if err != nil {
-		log.Exitf("Error in configuration file: %v", err)
+		return fmt.Errorf("error in configuration file: %v", err)
 	}
 
 	var com comms.Communicator
@@ -60,12 +57,17 @@ func innerMain() {
 			Stats:        stats.NoopCollector{},
 		})
 	if err != nil {
-		log.Exitf("Error starting client: %v", err)
+		return fmt.Errorf("error starting client: %v", err)
 	}
 
-	entry.Wait(cl, *profileDir)
+	select {
+	case <-ctx.Done():
+		cl.Stop()
+	}
+	return nil
 }
 
 func main() {
+	flag.Parse()
 	entry.RunMain(innerMain, "FleetspeakService")
 }
