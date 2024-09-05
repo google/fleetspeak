@@ -96,7 +96,7 @@ jobs:
           cp dist/*.whl $DEPLOY_PATH
       - if: ${{ github.event_name == 'push' }}
         name: Upload installers to GitHub artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: linux-installers
           path: deploy/
@@ -135,7 +135,7 @@ jobs:
           ls -la $DEPLOY_PATH
       - if: ${{ github.event_name == 'push' }}
         name: Upload installers to GitHub artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-installers
           path: deploy/
@@ -170,7 +170,7 @@ jobs:
           ls -la $DEPLOY_PATH
       - if: ${{ github.event_name == 'push' }}
         name: Upload installers to GitHub artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: osx-installers
           path: deploy/
