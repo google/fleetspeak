@@ -6,6 +6,7 @@ Documentation=https://github.com/google/fleetspeak
 [Service]
 User=root
 ExecStart=/usr/bin/fleetspeak-client --config /etc/fleetspeak-client/client.config
+ExecReload=kill -s HUP $MAINPID
 Restart=always
 KillMode=process
 

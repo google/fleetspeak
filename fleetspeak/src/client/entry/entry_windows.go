@@ -21,7 +21,7 @@ type fleetspeakService struct {
 }
 
 func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange
 	changes <- svc.Status{State: svc.StartPending}
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 	tryDisableStderr()
@@ -31,6 +31,9 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	defer cancel()
 
 	enforceShutdownTimeout(ctx)
+
+	sighupCh := make(chan os.Signal, 1)
+	defer close(sighupCh)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -51,6 +54,11 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 				case svc.Stop, svc.Shutdown:
 					cancel()
 					return
+				case svc.ParamChange:
+					select {
+					case sighupCh <- syscall.SIGHUP:
+					default:
+					}
 				default:
 					log.Warningf("Unsupported control request: %v", c.Cmd)
 				}
@@ -58,7 +66,7 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 		}
 	}()
 
-	err := m.innerMain(ctx)
+	err := m.innerMain(ctx, sighupCh)
 	cancel()
 	wg.Wait()
 	// Returning from this function tells Windows we're shutting down. Even if we
@@ -78,7 +86,7 @@ func (m *fleetspeakService) ExecuteAsRegularProcess() {
 
 	enforceShutdownTimeout(ctx)
 
-	err := m.innerMain(ctx)
+	err := m.innerMain(ctx, nil)
 	if err != nil {
 		log.Exitf("Stopped due to unrecoverable error: %v", err)
 	}

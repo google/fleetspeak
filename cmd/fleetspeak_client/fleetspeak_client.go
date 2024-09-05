@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
@@ -24,18 +25,39 @@ import (
 
 var configFile = flag.String("config", "", "Client configuration file, required.")
 
-func innerMain(ctx context.Context) error {
+func innerMain(ctx context.Context, cfgReloadSignals <-chan os.Signal) error {
+	for {
+		cl, err := createClient()
+		if err != nil {
+			return fmt.Errorf("error starting client: %v", err)
+		}
+
+		select {
+		case <-cfgReloadSignals:
+			// We implement config reloading by tearing down the client and creating a
+			// new one.
+			log.Info("Config reload requested")
+			cl.Stop()
+			continue
+		case <-ctx.Done():
+			cl.Stop()
+			return nil
+		}
+	}
+}
+
+func createClient() (*client.Client, error) {
 	b, err := os.ReadFile(*configFile)
 	if err != nil {
-		return fmt.Errorf("unable to read configuration file %q: %v", *configFile, err)
+		return nil, fmt.Errorf("unable to read configuration file %q: %v", *configFile, err)
 	}
 	cfgPB := &gpb.Config{}
 	if err := prototext.Unmarshal(b, cfgPB); err != nil {
-		return fmt.Errorf("unable to parse configuration file %q: %v", *configFile, err)
+		return nil, fmt.Errorf("unable to parse configuration file %q: %v", *configFile, err)
 	}
 	cfg, err := generic.MakeConfiguration(cfgPB)
 	if err != nil {
-		return fmt.Errorf("error in configuration file: %v", err)
+		return nil, fmt.Errorf("error in configuration file: %v", err)
 	}
 
 	var com comms.Communicator
@@ -45,7 +67,8 @@ func innerMain(ctx context.Context) error {
 		com = &https.Communicator{}
 	}
 
-	cl, err := client.New(cfg,
+	return client.New(
+		cfg,
 		client.Components{
 			ServiceFactories: map[string]service.Factory{
 				"Daemon": daemonservice.Factory,
@@ -55,16 +78,8 @@ func innerMain(ctx context.Context) error {
 			},
 			Communicator: com,
 			Stats:        stats.NoopCollector{},
-		})
-	if err != nil {
-		return fmt.Errorf("error starting client: %v", err)
-	}
-
-	select {
-	case <-ctx.Done():
-		cl.Stop()
-	}
-	return nil
+		},
+	)
 }
 
 func main() {

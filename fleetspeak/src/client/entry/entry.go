@@ -4,6 +4,7 @@ package entry
 
 import (
 	"context"
+	"os"
 	"time"
 )
 
@@ -16,5 +17,8 @@ const shutdownTimeout = 10 * time.Second
 // InnerMain is an inner entry function responsible for creating a
 // [client.Client] and managing its configuration and lifecycle. It is called by
 // [RunMain] which handles platform-specific mechanics to manage the passed
-// Context.
-type InnerMain func(ctx context.Context) error
+// [Context].
+// The [cfgReloadSignals] channel gets a [syscall.SIGHUP] when a config reload
+// is requested. We use UNIX conventions here, the Windows layer can send a
+// [syscall.SIGHUP] when appropriate.
+type InnerMain func(ctx context.Context, cfgReloadSignals <-chan os.Signal) error

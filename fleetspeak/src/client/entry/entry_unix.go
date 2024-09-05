@@ -46,7 +46,12 @@ func RunMain(innerMain InnerMain, _ /* windowsServiceName */ string) {
 	}, syscall.SIGUSR1)
 	defer cancelSignal()
 
-	err := innerMain(ctx)
+	sighupCh := make(chan os.Signal, 1)
+	defer close(sighupCh)
+	signal.Notify(sighupCh, syscall.SIGHUP)
+	defer signal.Stop(sighupCh)
+
+	err := innerMain(ctx, sighupCh)
 	if err != nil {
 		log.Exitf("Stopped due to unrecoverable error: %v", err)
 	}
