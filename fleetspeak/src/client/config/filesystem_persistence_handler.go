@@ -189,7 +189,11 @@ func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConf
 		}
 
 		s := &fspb.ClientServiceConfig{}
-		if err := prototext.Unmarshal(b, s); err != nil {
+		err = prototext.UnmarshalOptions{
+			// Forward compatibility with future field names
+			DiscardUnknown: true,
+		}.Unmarshal(b, s)
+		if err != nil {
 			log.Errorf("Unable to parse service file [%s], ignoring: %v", fp, err)
 			continue
 		}
