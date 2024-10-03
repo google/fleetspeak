@@ -40,7 +40,6 @@ import (
 // GRPCService is a service.Service which forwards all received
 // messages to an implementation of ggrpc.Processor.
 type GRPCService struct {
-	sctx   service.Context
 	conn   *grpc.ClientConn
 	client ggrpc.ProcessorClient
 	l      sync.RWMutex
@@ -61,7 +60,6 @@ func NewGRPCService(c *grpc.ClientConn) *GRPCService {
 }
 
 func (s *GRPCService) Start(sctx service.Context) error {
-	s.sctx = sctx
 	return nil
 }
 
