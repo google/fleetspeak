@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -23,6 +24,8 @@ import (
 	gpb "github.com/google/fleetspeak/fleetspeak/src/client/generic/proto/fleetspeak_client_generic"
 )
 
+const stopTimeout = time.Minute
+
 var configFile = flag.String("config", "", "Client configuration file, required.")
 
 func innerMain(ctx context.Context, cfgReloadSignals <-chan os.Signal) error {
@@ -37,9 +40,13 @@ func innerMain(ctx context.Context, cfgReloadSignals <-chan os.Signal) error {
 			// We implement config reloading by tearing down the client and creating a
 			// new one.
 			log.Info("Config reload requested")
+			time.AfterFunc(stopTimeout, func() {
+				entry.ExitUngracefully(fmt.Errorf("client did not stop within %s", stopTimeout))
+			})
 			cl.Stop()
 			continue
 		case <-ctx.Done():
+			// A timeout for process termination is handled higher up.
 			cl.Stop()
 			return nil
 		}
