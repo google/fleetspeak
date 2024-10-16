@@ -5,13 +5,14 @@ package entry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	log "github.com/golang/glog"
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 )
@@ -30,7 +31,10 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	enforceShutdownTimeout(ctx)
+	stop := fscontext.AfterDelayFunc(ctx, shutdownTimeout, func() {
+		ExitUngracefully(fmt.Errorf("process did not exit within %s", shutdownTimeout))
+	})
+	defer stop()
 
 	sighupCh := make(chan os.Signal, 1)
 	defer close(sighupCh)
@@ -84,7 +88,10 @@ func (m *fleetspeakService) ExecuteAsRegularProcess() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	enforceShutdownTimeout(ctx)
+	stop := fscontext.AfterDelayFunc(ctx, shutdownTimeout, func() {
+		ExitUngracefully(fmt.Errorf("process did not exit within %s", shutdownTimeout))
+	})
+	defer stop()
 
 	err := m.innerMain(ctx, nil)
 	if err != nil {
@@ -108,13 +115,10 @@ func RunMain(innerMain InnerMain, windowsServiceName string) {
 	}
 }
 
-func enforceShutdownTimeout(ctx context.Context) {
-	context.AfterFunc(ctx, func() {
-		log.Info("Main context stopped, shutting down...")
-		time.AfterFunc(shutdownTimeout, func() {
-			log.Exitf("Fleetspeak failed to shut down in %v. Exiting ungracefully.", shutdownTimeout)
-		})
-	})
+// ExitUngracefully can be called to exit the process after a failed attempt to
+// properly free all resources.
+func ExitUngracefully(cause error) {
+	log.Exitf("Exiting ungracefully due to %v", cause)
 }
 
 // tryDisableStderr redirects [os.Stderr] to [os.DevNull]. When running as a

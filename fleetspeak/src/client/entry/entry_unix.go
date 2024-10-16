@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/common/fscontext"
+
 	log "github.com/golang/glog"
 )
 
@@ -28,15 +30,10 @@ func RunMain(innerMain InnerMain, _ /* windowsServiceName */ string) {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	context.AfterFunc(ctx, func() {
-		log.Info("Main context stopped, shutting down...")
-		time.AfterFunc(shutdownTimeout, func() {
-			if err := dumpProfile(*profileDir, "goroutine", 2); err != nil {
-				log.Errorf("Failed to dump goroutine profile: %v", err)
-			}
-			log.Exitf("Fleetspeak failed to shut down in %v. Exiting ungracefully.", shutdownTimeout)
-		})
+	stop := fscontext.AfterDelayFunc(ctx, shutdownTimeout, func() {
+		ExitUngracefully(fmt.Errorf("process did not exit within %s", shutdownTimeout))
 	})
+	defer stop()
 
 	cancelSignal := notifyFunc(func(si os.Signal) {
 		runtime.GC()
@@ -81,6 +78,15 @@ func notifyFunc(callback func(os.Signal), signals ...os.Signal) func() {
 		}
 		wg.Wait()
 	}
+}
+
+// ExitUngracefully can be called to exit the process after a failed attempt to
+// properly free all resources.
+func ExitUngracefully(cause error) {
+	if err := dumpProfile(*profileDir, "goroutine", 2); err != nil {
+		log.Errorf("Failed to dump goroutine profile: %v", err)
+	}
+	log.Exitf("Exiting ungracefully due to %v", cause)
 }
 
 // dumpProfile writes the given pprof profile to disk with the given debug flag.
