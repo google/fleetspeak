@@ -17,6 +17,7 @@ package fscontext_test
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ var (
 
 var shortDuration = 100 * time.Millisecond
 
-func TestWithDoneChanNotCanceled(t *testing.T) {
+func TestWithDoneChan_NotCanceled(t *testing.T) {
 	// Given
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -49,7 +50,7 @@ func TestWithDoneChanNotCanceled(t *testing.T) {
 	}
 }
 
-func TestWithDoneChanCanceledThroughChannel(t *testing.T) {
+func TestWithDoneChan_CanceledThroughChannel(t *testing.T) {
 	// Given
 	doneCh := make(chan struct{})
 
@@ -73,7 +74,7 @@ func TestWithDoneChanCanceledThroughChannel(t *testing.T) {
 	}
 }
 
-func TestWithDoneChanCanceledThroughOuterContext(t *testing.T) {
+func TestWithDoneChan_CanceledThroughOuterContext(t *testing.T) {
 	// Given
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -100,7 +101,7 @@ func TestWithDoneChanCanceledThroughOuterContext(t *testing.T) {
 	}
 }
 
-func TestWithDoneChanCanceledThroughOwnContext(t *testing.T) {
+func TestWithDoneChan_CanceledThroughOwnContext(t *testing.T) {
 	// Given
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -122,5 +123,125 @@ func TestWithDoneChanCanceledThroughOwnContext(t *testing.T) {
 		if !errors.Is(context.Cause(ctx), errMagic) {
 			t.Errorf("done channel closed: context.Cause(ctx) = %v, want errors.Is(…, %v)", context.Cause(ctx), errMagic)
 		}
+	}
+}
+
+func TestAfterDelayFunc_DelayReached(t *testing.T) {
+	// Given
+	const delay = 100 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	flag := atomic.Bool{}
+	setFlag := func() {
+		flag.Store(true)
+	}
+
+	stop := fscontext.AfterDelayFunc(ctx, delay, setFlag)
+	defer stop()
+
+	// When
+	cancel()
+	time.Sleep(2 * delay)
+
+	// Then
+	if !flag.Load() {
+		t.Errorf("flag not set after %v", delay)
+	}
+	if stop() {
+		t.Errorf("stop() returned true, but flag was set")
+	}
+}
+
+func TestAfterDelayFunc_StopBeforeCancel(t *testing.T) {
+	// Given
+	const delay = 100 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	flag := atomic.Bool{}
+	setFlag := func() {
+		flag.Store(true)
+	}
+
+	stop := fscontext.AfterDelayFunc(ctx, delay, setFlag)
+	defer stop()
+
+	// When
+	stopped := stop()
+	cancel()
+	time.Sleep(2 * delay)
+
+	// Then
+	if !stopped {
+		t.Errorf("stop() returned false, but context was not canceled")
+	}
+	if flag.Load() {
+		t.Errorf("flag was set, but stop() was called before")
+	}
+	if stop() {
+		t.Errorf("stop() returned true, but stop() was called before")
+	}
+}
+
+func TestAfterDelayFunc_StopAfterCancel(t *testing.T) {
+	// Given
+	const delay = 100 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	flag := atomic.Bool{}
+	setFlag := func() {
+		flag.Store(true)
+	}
+
+	stop := fscontext.AfterDelayFunc(ctx, delay, setFlag)
+	defer stop()
+
+	// When
+	cancel()
+	stopped := stop()
+	time.Sleep(2 * delay)
+
+	// Then
+	if !stopped {
+		t.Errorf("stop() returned false, but delay was not reached")
+	}
+	if flag.Load() {
+		t.Errorf("flag was set, but stop() was called before")
+	}
+	if stop() {
+		t.Errorf("stop() returned true, but stop() was called before")
+	}
+}
+
+func TestAfterDelayFunc_StopAfterDelay(t *testing.T) {
+	// Given
+	const delay = 100 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	flag := atomic.Bool{}
+	setFlag := func() {
+		flag.Store(true)
+	}
+
+	stop := fscontext.AfterDelayFunc(ctx, delay, setFlag)
+	defer stop()
+
+	// When
+	cancel()
+	time.Sleep(2 * delay)
+	stopped := stop()
+
+	// Then
+	if stopped {
+		t.Errorf("stop() returned true, but delay was reached")
+	}
+	if !flag.Load() {
+		t.Errorf("flag was not set, but delay was reached")
+	}
+	if stop() {
+		t.Errorf("stop() returned true, but stop() was called before")
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // ErrStopRequested is the cancelation cause to be used when callers
@@ -58,5 +59,32 @@ func WithDoneChan(ctx context.Context, cause error, done <-chan struct{}) (newCt
 	return myCtx, func(cause error) {
 		myCancel(cause)
 		wg.Wait()
+	}
+}
+
+// AfterDelayFunc behaves like context.AfterFunc, but with a delay.
+// The returned stop function must be called eventually to free resources.
+func AfterDelayFunc(ctx context.Context, delay time.Duration, f func()) func() bool {
+	stopCh := make(chan func() bool)
+
+	cancelInitiation := context.AfterFunc(ctx, func() {
+		timer := time.AfterFunc(delay, f)
+		stopCh <- timer.Stop
+		close(stopCh)
+	})
+
+	return func() bool {
+		if cancelInitiation() {
+			// context.AfterFunc will not fire
+			close(stopCh)
+			return true
+		}
+
+		stop, ok := <-stopCh
+		if ok {
+			return stop()
+		}
+
+		return false
 	}
 }
