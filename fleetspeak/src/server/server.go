@@ -44,11 +44,18 @@ import (
 
 // Components gathers the external components required to instantiate a Fleetspeak Server.
 type Components struct {
-	Datastore        db.Store                   // Required, used to store all server state.
+	Datastore db.Store // Required, used to store all server state.
+
 	ServiceFactories map[string]service.Factory // Required, used to configure services according to the ServerConfig.
-	Communicators    []comms.Communicator       // Required to communicate with clients.
-	Stats            stats.Collector            // If set, will be notified about interesting events.
-	Authorizer       authorizer.Authorizer      // If set, will control and validate contacts from clients.
+	// TODO(b/371158380): Should we create an alias for factories for batched
+	// services? If so, how should it be named? `BatchedFactory` sounds like a
+	// factory that returns batched things. `BatchedServiceFactory` is not very
+	// consistent with `Factory` for non-batched services.
+	BatchedServiceFactories map[string](func(*spb.BatchedServiceConfig) (service.BatchedService, error)) // Required, used to create batched services according to the BatchedServerConfig.
+
+	Communicators []comms.Communicator  // Required to communicate with clients.
+	Stats         stats.Collector       // If set, will be notified about interesting events.
+	Authorizer    authorizer.Authorizer // If set, will control and validate contacts from clients.
 
 	// If set, these will be used by Fleetspeak servers to pass simple
 	// notifications between themselves. Currently only important when using
@@ -116,7 +123,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		healthCheck:    sc.HealthCheck,
 	}
 
-	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
+	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.BatchedServiceFactories, sc.Stats, s.clientCache)
 
 	cn, err := s.listener.Start()
 	if err != nil {
@@ -126,6 +133,11 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 
 	for _, pc := range c.Services {
 		if err := s.serviceConfig.Install(pc); err != nil {
+			return nil, err
+		}
+	}
+	for _, cfg := range c.BatchedServices {
+		if err := s.serviceConfig.InstallBatched(cfg); err != nil {
 			return nil, err
 		}
 	}
