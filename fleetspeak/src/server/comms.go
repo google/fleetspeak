@@ -403,6 +403,36 @@ func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.
 		return nil
 	}
 
+	// TODO(b/371158380): Refactor validation and splitting by service to a single
+	// pass.
+	msgsByService := make(map[string][]*fspb.Message, len(msgs))
+	for _, msg := range msgs {
+		msgsByService[msg.Destination.ServiceName] = append(msgsByService[msg.Destination.ServiceName], msg)
+	}
+
+	// TODO(hanuszczak): Is it better to potentially over-allocate with capacity
+	// of `len(msgs)` or start with 0?
+	unbatchedMsgs := make([]*fspb.Message, 0)
+
+	for service, msgs := range msgsByService {
+		if len(msgs) == 0 {
+			continue
+		}
+		if service == "" {
+			log.ErrorContextf(ctx, "dropping %v messages with no service set", len(msgs))
+			continue
+		}
+
+		if c.s.serviceConfig.IsBatchedService(service) {
+			c.s.serviceConfig.ProcessBatchedMessages(service, msgs)
+		} else {
+			unbatchedMsgs = append(unbatchedMsgs, msgs...)
+		}
+	}
+
+	// TODO(hanuszczak): Is it better to assign `msgs` to `unbatchedMsgs` here or
+	// to change the occurrences below (that makes the diff worse?).
+	msgs = unbatchedMsgs
 	sort.Slice(msgs, func(a, b int) bool {
 		return bytes.Compare(msgs[a].MessageId, msgs[b].MessageId) == -1
 	})
