@@ -25,3 +25,25 @@ message ServiceConfig {
   // the service. The allowed type depends upon the factory.
   google.protobuf.Any config = 4;
 }
+
+// TODO(b/371158380): Does it make sense to have this a separate message?
+//
+// Most of the fields are the same as in `ServiceConfig` (except for the
+// `max_parallelism` field) but experience shows that these can diverge more in
+// the future and then we will have problems.
+message BatchedServiceConfig {
+  // Name that the service will be registered under.
+  //
+  // This is used by endpoints to uniquely identify the service to send messages
+  // to using the `service_name` field of `fleetspeak.Address` message.
+  string name = 1;
+
+  // Name of the factory which will be used to instantiate the service.
+  //
+  // List of available factories (and their names) is specific to a particular
+  // deployment and is defined during system startup.
+  string factory = 2;
+
+  // Configuration specific to the chosen service factory.
+  google.protobuf.Any config = 3;
+}

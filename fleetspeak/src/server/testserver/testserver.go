@@ -140,6 +140,46 @@ func MakeWithService(t *testing.T, testName, caseName string, serviceInstance se
 	return testServer
 }
 
+// MakeWithBatchedService creates with the given batched service backed by a
+// SQLite datastore.
+func MakeWithBatchedService(t *testing.T, svcName string, svc service.BatchedService) Server {
+	t.Helper()
+
+	tempdir := t.TempDir()
+
+	ds, err := sqlite.MakeDatastore(path.Join(tempdir, "test.sqlite"))
+	if err != nil {
+		t.Fatalf("create datastore: %v", err)
+	}
+
+	result := Server{}
+
+	server, err := server.MakeServer(
+		&spb.ServerConfig{
+			BatchedServices: []*spb.BatchedServiceConfig{{
+				Name:    svcName,
+				Factory: svcName,
+			}},
+		},
+		server.Components{
+			Datastore: ds,
+			BatchedServiceFactories: map[string](func(*spb.BatchedServiceConfig) (service.BatchedService, error)){
+				svcName: func(conf *spb.BatchedServiceConfig) (service.BatchedService, error) {
+					return svc, nil
+				},
+			},
+			Communicators: []comms.Communicator{FakeCommunicator{&result}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("create server: %v", err)
+	}
+
+	result.S = server
+	result.DS = ds
+	return result
+}
+
 // AddClient adds a new client with a random id to a server.
 func (s Server) AddClient() (crypto.PublicKey, error) {
 	k, err := rsa.GenerateKey(rand.Reader, 2048)
