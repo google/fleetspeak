@@ -74,8 +74,9 @@ type Client struct {
 	outHigh   chan service.AckMessage
 	outMedium chan service.AckMessage
 	outLow    chan service.AckMessage
-	// used to wait until the retry loop goroutines are done
+	// used to wait until the retry and sort loop goroutines are done
 	retryLoopsDone sync.WaitGroup
+	sortLoopDone   sync.WaitGroup
 
 	acks    chan common.MessageID
 	errs    chan *fspb.MessageErrorData
@@ -149,7 +150,11 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	if f == nil {
 		f = flow.NewFilter()
 	}
-	go message.SortLoop(ret.outUnsorted, ret.outbox, f)
+	ret.sortLoopDone.Add(1)
+	go func() {
+		message.SortLoop(ret.outUnsorted, ret.outbox, f)
+		ret.sortLoopDone.Done()
+	}()
 
 	ssd := &serviceData{
 		config: ret.sc,
@@ -258,33 +263,49 @@ func (c *Client) ProcessMessage(ctx context.Context, am service.AckMessage) (err
 
 // Stop shuts the client down gracefully. This includes stopping all communicators and services.
 func (c *Client) Stop() {
+	log.Info("Stopping client...")
 	if c.com != nil {
 		c.com.Stop()
 	}
 	c.sc.Stop()
 	c.config.Stop()
+	log.Info("Components have been stopped.")
+
+	// From here, shutdown is a little subtle:
+	//
+	// - At this point, the communicator is off, so nothing else should be
+	//   draining outbox. We do this ourselves and Ack everything so that the
+	//   RetryLoops are guaranteed to terminate.
+	//
+	// - The fake Acks in 1) are safe because the config manager is stopped.
+	//   This means that client services are shut down and the Acks will not be
+	//   reported outside of this process.
+
 	close(c.outLow)
 	close(c.outMedium)
 	close(c.outHigh)
-	// From here, shutdown is a little subtle:
+	c.retryLoopsDone.Wait()
+	log.Info("Retry loops have terminated.")
+
+	// - Now, no more messages enter outUnsorted.
 	//
-	// 1) At this point, the communicator is off, so nothing else should be
-	//    draining outbox. We do this ourselves and Ack everything so that the
-	//    RetryLoops are guaranteed to terminate.
-	//
-	// 2) The fake Acks in 1) are safe because the config manager is stopped.
-	//    This means that client services are shut down and the Acks will not be
-	//    reported outside of this process.
-	//
-	// 3) Then we close outUnsorted so that the SortLoop terminates.
-	for {
-		select {
-		case m := <-c.outbox:
-			m.Ack()
-		default:
-			c.retryLoopsDone.Wait()
-			close(c.outUnsorted)
-			return
+	// - We close outUnsorted and drain outbox, to make sure no messages are lost.
+	//   Once these two things are complete, SortLoop will return, and the client
+	//   can be shut down.
+
+	done := make(chan struct{})
+	close(c.outUnsorted)
+	go func() {
+		for {
+			select {
+			case m := <-c.outbox:
+				m.Ack()
+			case <-done:
+				return
+			}
 		}
-	}
+	}()
+	c.sortLoopDone.Wait()
+	done <- struct{}{}
+	log.Info("Messages have been drained.")
 }

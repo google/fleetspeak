@@ -49,6 +49,7 @@ func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats
 				if sm.m.Ack != nil {
 					sm.m.Ack()
 				}
+				stats.MessageAcknowledged(sm.m.M, sm.size)
 				acks <- sm
 			},
 			Nack: func() { nacks <- sm },
@@ -68,10 +69,9 @@ func RetryLoop(in <-chan service.AckMessage, out chan<- comms.MessageInfo, stats
 		case sm := <-acks:
 			size -= sm.size
 			count--
-			stats.MessageAcknowledged(sm.m.M, sm.size)
 		case sm := <-nacks:
-			out <- makeInfo(sm)
 			stats.BeforeMessageRetry(sm.m.M)
+			out <- makeInfo(sm)
 		case m, ok := <-optIn:
 			if !ok {
 				return

@@ -24,13 +24,27 @@ import (
 )
 
 // SortLoop connects in and out in a sorted manner. That is, it acts essentially
-// as a buffered channel between in and out which sorts any messages within
-// it. Caller is responsible for implementing any needed size limit. Returns
-// when "in" is closed.
+// as a buffered channel between in and out which sorts any messages within it.
+// The caller is responsible for implementing any needed size limit.
+// SortLoop returns when in is closed, and the buffered messages have been
+// drained through out, to make sure no messages are lost.
 func SortLoop(in <-chan comms.MessageInfo, out chan<- comms.MessageInfo, f *flow.Filter) {
 	// Keep a slice of messages for each priority level. These are used as fifo
-	// queues, appending to the end and retreiving from head.
+	// queues, appending to the end and retrieving from head.
 	var low, medium, high []comms.MessageInfo
+
+	// Block until all messages have been drained.
+	defer func() {
+		for _, mi := range high {
+			out <- mi
+		}
+		for _, mi := range medium {
+			out <- mi
+		}
+		for _, mi := range low {
+			out <- mi
+		}
+	}()
 
 	// Append a message to the correct list.
 	appendMI := func(mi comms.MessageInfo) {

@@ -188,3 +188,39 @@ func TestFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestBlockUntilDrained(t *testing.T) {
+	in := make(chan comms.MessageInfo)
+	out := make(chan comms.MessageInfo)
+
+	m := &fspb.Message{
+		MessageId: []byte{0},
+		Priority:  fspb.Message_HIGH,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		SortLoop(in, out, flow.NewFilter())
+		done <- struct{}{}
+	}()
+
+	in <- comms.MessageInfo{M: m}
+	close(in)
+
+	select {
+	case <-done:
+		t.Fatalf("SortLoop returned before all messages were drained.")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	got := <-out
+	if !proto.Equal(got.M, m) {
+		t.Errorf("Unexpected message from output, got %v want %v.", got.M, m)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("SortLoop did not return after all messages were drained.")
+	}
+}
