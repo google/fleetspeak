@@ -25,7 +25,6 @@ func (m *fleetspeakService) Execute(args []string, r <-chan svc.ChangeRequest, c
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange
 	changes <- svc.Status{State: svc.StartPending}
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-	tryDisableStderr()
 	log.Info("Service started.")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,16 +118,4 @@ func RunMain(innerMain InnerMain, windowsServiceName string) {
 // properly free all resources.
 func ExitUngracefully(cause error) {
 	log.Exitf("Exiting ungracefully due to %v", cause)
-}
-
-// tryDisableStderr redirects [os.Stderr] to [os.DevNull]. When running as a
-// Windows service, stderr is not available, causing the logging library to
-// crash when attempting to write an error log.
-func tryDisableStderr() {
-	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	if err != nil {
-		log.Warningf("Failed to disable stderr while running as a Windows service, the application might spontaneously shut down ungracefully: %v", err)
-		return
-	}
-	os.Stderr = devNull
 }
