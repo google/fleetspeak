@@ -14,6 +14,9 @@ message ServerConfig {
   // The collection of services that this server should include.
   repeated ServiceConfig services = 1;
 
+  // The collection of batched services that this server should include.
+  repeated BatchedServiceConfig batched_services = 3;
+
   // The approximate time to wait between checking for new broadcasts. If unset,
   // a default of 1 minute is used.
   google.protobuf.Duration broadcast_poll_time = 2;

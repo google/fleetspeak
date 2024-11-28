@@ -33,6 +33,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/batchedservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
@@ -138,6 +139,46 @@ func MakeWithService(t *testing.T, testName, caseName string, serviceInstance se
 	testServer.S = s
 	testServer.DS = ds
 	return testServer
+}
+
+// MakeWithBatchedService creates with the given batched service backed by a
+// SQLite datastore.
+func MakeWithBatchedService(t *testing.T, svcName string, svc batchedservice.BatchedService) Server {
+	t.Helper()
+
+	tempdir := t.TempDir()
+
+	ds, err := sqlite.MakeDatastore(path.Join(tempdir, "test.sqlite"))
+	if err != nil {
+		t.Fatalf("create datastore: %v", err)
+	}
+
+	result := Server{}
+
+	server, err := server.MakeServer(
+		&spb.ServerConfig{
+			BatchedServices: []*spb.BatchedServiceConfig{{
+				Name:    svcName,
+				Factory: svcName,
+			}},
+		},
+		server.Components{
+			Datastore: ds,
+			BatchedServiceFactories: map[string]batchedservice.Factory{
+				svcName: func(conf *spb.BatchedServiceConfig) (batchedservice.BatchedService, error) {
+					return svc, nil
+				},
+			},
+			Communicators: []comms.Communicator{FakeCommunicator{&result}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("create server: %v", err)
+	}
+
+	result.S = server
+	result.DS = ds
+	return result
 }
 
 // AddClient adds a new client with a random id to a server.

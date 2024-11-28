@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/server/batchedservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/ftime"
@@ -42,21 +43,25 @@ const MaxServiceFailureReasonLength = 900
 
 // A Manager starts, remembers, and shuts down services.
 type Manager struct {
-	services        map[string]*liveService
-	dataStore       db.Store
-	serviceRegistry map[string]service.Factory // Used to look up the correct factory when configuring services.
-	stats           stats.Collector
-	cc              *cache.Clients
+	services               map[string]*liveService
+	batchedServices        map[string]batchedservice.BatchedService
+	dataStore              db.Store
+	serviceRegistry        map[string]service.Factory // Used to look up the correct factory when configuring services.
+	batchedServiceRegistry map[string]batchedservice.Factory
+	stats                  stats.Collector
+	cc                     *cache.Clients
 }
 
 // NewManager creates a new manager using the provided components. Initially it only contains the 'system' service.
-func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, stats stats.Collector, clientCache *cache.Clients) *Manager {
+func NewManager(dataStore db.Store, serviceRegistry map[string]service.Factory, batchedServiceRegistry map[string]batchedservice.Factory, stats stats.Collector, clientCache *cache.Clients) *Manager {
 	m := Manager{
-		services:        make(map[string]*liveService),
-		dataStore:       dataStore,
-		serviceRegistry: serviceRegistry,
-		stats:           stats,
-		cc:              clientCache,
+		services:               make(map[string]*liveService),
+		batchedServices:        make(map[string]batchedservice.BatchedService),
+		dataStore:              dataStore,
+		serviceRegistry:        serviceRegistry,
+		batchedServiceRegistry: batchedServiceRegistry,
+		stats:                  stats,
+		cc:                     clientCache,
 	}
 
 	ssd := liveService{
@@ -137,6 +142,39 @@ func (c *Manager) Install(cfg *spb.ServiceConfig) error {
 	return nil
 }
 
+// InstallBatched adds a new batched service based on the given configuration,
+// replacing any existing service registered under the same name.
+func (c *Manager) InstallBatched(cfg *spb.BatchedServiceConfig) error {
+	if cfg.Name == "" {
+		return fmt.Errorf("batched service without name")
+	}
+	if cfg.Factory == "" {
+		return fmt.Errorf("batched service without factory")
+	}
+
+	factory := c.batchedServiceRegistry[cfg.Factory]
+	if factory == nil {
+		return fmt.Errorf("no such batched service factory: %v", cfg.Factory)
+	}
+
+	service, err := factory(cfg)
+	if err != nil {
+		return err
+	}
+
+	c.batchedServices[cfg.Name] = service
+	log.Infof("installed batched service: %v", cfg.Name)
+
+	return nil
+}
+
+// IsBatchedService returns true if the service under given name is registered
+// as a batched service.
+func (c *Manager) IsBatchedService(name string) bool {
+	_, ok := c.batchedServices[name]
+	return ok
+}
+
 // Stop closes and removes all services in the configuration.
 func (c *Manager) Stop() {
 	for _, d := range c.services {
@@ -193,6 +231,23 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 	defer fin()
 	if err := c.dataStore.StoreMessages(ctx, toSave, ""); err != nil {
 		log.Errorf("Error saving results for %d messages: %v", len(toSave), err)
+	}
+}
+
+// ProcessBatchedMessages processes a batch of messages using the specified
+// service.
+func (c *Manager) ProcessBatchedMessages(serviceName string, msgs []*fspb.Message) {
+	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
+	defer fin()
+
+	service := c.batchedServices[serviceName]
+	if service == nil {
+		log.ErrorContextf(ctx, "no such batched service: %v", serviceName)
+		return
+	}
+
+	if err := service.ProcessMessages(ctx, msgs); err != nil {
+		log.ErrorContextf(ctx, "process batched messages: %v", err)
 	}
 }
 
