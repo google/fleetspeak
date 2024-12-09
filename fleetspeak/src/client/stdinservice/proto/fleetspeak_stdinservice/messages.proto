@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package fleetspeak.stdinservice;
 
-import "fleetspeak/src/common/proto/fleetspeak_monitoring/resource.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice";
@@ -19,8 +18,8 @@ message OutputMessage {
   bytes stdout = 1;
   bytes stderr = 2;
 
-  fleetspeak.monitoring.AggregatedResourceUsage resource_usage = 3;
-
   // When the message was generated.
   google.protobuf.Timestamp timestamp = 4;
+
+  reserved 3;
 }

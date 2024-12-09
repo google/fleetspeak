@@ -22,11 +22,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	log "github.com/golang/glog"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/google/fleetspeak/fleetspeak/src/client/internal/monitoring"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
@@ -72,8 +70,6 @@ func (s *StdinService) Start(sc service.Context) error {
 
 // ProcessMessage processes an incoming message from the server side.
 func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
-	om := &sspb.OutputMessage{}
-
 	if m.MessageType != "StdinServiceInputMessage" {
 		return fmt.Errorf("unrecognized common.Message.message_type: %q", m.MessageType)
 	}
@@ -83,42 +79,23 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		return fmt.Errorf("error while unmarshalling common.Message.data: %v", err)
 	}
 
+	var stdout, stderr bytes.Buffer
+
 	cmd := exec.CommandContext(ctx, s.ssConf.Cmd, im.Args...)
+	cmd.Stdin = bytes.NewBuffer(im.Input)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	inBuf := bytes.NewBuffer(im.Input)
-	var outBuf, errBuf bytes.Buffer
-
-	cmd.Stdin = inBuf
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error while starting a process: %v", err)
-	}
-
-	ruf := monitoring.ResourceUsageFetcher{}
-	initialRU, ruErr := ruf.ResourceUsageForPID(cmd.Process.Pid)
-	if ruErr != nil {
-		log.Errorf("Failed to get resource usage for process: %v", ruErr)
-	}
-
-	err := cmd.Wait()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}
 
-	om.Stdout = outBuf.Bytes()
-	om.Stderr = errBuf.Bytes()
-
-	finalRU := ruf.ResourceUsageFromFinishedCmd(cmd)
-	aggRU, ruErr := monitoring.AggregateResourceUsageForFinishedCmd(initialRU, finalRU)
-	if ruErr != nil {
-		log.Errorf("Aggregation of resource-usage data failed: %v", ruErr)
-	} else {
-		om.ResourceUsage = aggRU
+	om := &sspb.OutputMessage{
+		Stdout:    stdout.Bytes(),
+		Stderr:    stderr.Bytes(),
+		Timestamp: tspb.Now(),
 	}
-
-	om.Timestamp = tspb.Now()
 	if err := s.respond(ctx, om); err != nil {
 		return fmt.Errorf("error while trying to send a response to the requesting server: %v", err)
 	}
@@ -133,17 +110,17 @@ func (s *StdinService) Stop() error {
 
 func (s *StdinService) respond(ctx context.Context, om *sspb.OutputMessage) error {
 	// TODO: Chunk the response into ~1MB parts.
+	data, err := anypb.New(om)
+	if err != nil {
+		return err
+	}
+
 	m := &fspb.Message{
 		Destination: &fspb.Address{
 			ServiceName: s.conf.Name,
 		},
 		MessageType: "StdinServiceOutputMessage",
-	}
-
-	var err error
-	m.Data, err = anypb.New(om)
-	if err != nil {
-		return err
+		Data:        data,
 	}
 
 	return s.sc.Send(ctx, service.AckMessage{M: m})

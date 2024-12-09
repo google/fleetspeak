@@ -190,18 +190,6 @@ while time.time() - t0 < 1.:
 		t.Fatal(err)
 	}
 
-	if om.ResourceUsage == nil {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage not set: %q", om)
-	}
-
-	if om.ResourceUsage.MeanUserCpuRate <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_user_cpu_rate not set: %q", om)
-	}
-
-	if om.ResourceUsage.MeanSystemCpuRate <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.resource_usage.mean_system_cpu_rate not set: %q", om)
-	}
-
 	// We don't test for ResourceUsage.MeanResidentMemory because memory is currently not being
 	// queried after the process has terminated. It's only queried right after launching the command
 	// in which case it can be recorded as "0" which would be indistinguishable from it not being set
