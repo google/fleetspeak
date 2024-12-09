@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
 
 	log "github.com/golang/glog"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -64,12 +63,14 @@ type StdinService struct {
 	sc     service.Context
 }
 
+// Start starts the StdinService.
 func (s *StdinService) Start(sc service.Context) error {
 	s.sc = sc
 
 	return nil
 }
 
+// ProcessMessage processes an incoming message from the server side.
 func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) error {
 	om := &sspb.OutputMessage{}
 
@@ -82,7 +83,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		return fmt.Errorf("error while unmarshalling common.Message.data: %v", err)
 	}
 
-	cmd := exec.Command(s.ssConf.Cmd, im.Args...)
+	cmd := exec.CommandContext(ctx, s.ssConf.Cmd, im.Args...)
 
 	inBuf := bytes.NewBuffer(im.Input)
 	var outBuf, errBuf bytes.Buffer
@@ -101,40 +102,9 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 		log.Errorf("Failed to get resource usage for process: %v", ruErr)
 	}
 
-	waitChan := make(chan error)
-	go func() {
-		// Note that using cmd.Run() here triggers panics.
-		waitChan <- cmd.Wait()
-	}()
-
-	var err error
-	select {
-	case err = <-waitChan:
-	case <-ctx.Done():
-		err = fmt.Errorf("context done: %v", ctx.Err())
-
-		// The error message string literal is a copypaste from exec_unix.go .
-		if e := cmd.Process.Kill(); e != nil && e.Error() != "os: process already finished" {
-			err = fmt.Errorf("%v; also, an error occurred while killing the process: %v", err, e)
-		}
-
-		e, ok := <-waitChan
-
-		const (
-			killedMessage    = "signal: killed"
-			killedMessageWin = "exit status " // + number representing the return code.
-		)
-
-		if !ok {
-			err = fmt.Errorf("%v; also, .Wait hasn't returned after killing the process", err)
-		} else if e != nil &&
-			e.Error() != killedMessage &&
-			!strings.HasPrefix(e.Error(), killedMessageWin) {
-			err = fmt.Errorf("%v; also, .Wait returned an error: %v", err, e)
-		}
-	}
+	err := cmd.Wait()
 	if err != nil {
-		return fmt.Errorf("error while running a process: %v", err)
+		return err
 	}
 
 	om.Stdout = outBuf.Bytes()
@@ -156,6 +126,7 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	return nil
 }
 
+// Stop stops the StdinService.
 func (s *StdinService) Stop() error {
 	return nil
 }
