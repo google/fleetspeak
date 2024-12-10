@@ -4,8 +4,17 @@ package fleetspeak.stdinservice;
 
 option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice";
 
-// The configuration information expected by stdinservice.Factory
-// in ClientServiceConfig.config.
+// The configuration information expected by stdinservice.Factory in
+// ClientServiceConfig.config.
 message Config {
+  // The path of the executable to run.
   string cmd = 1;
+
+  // If true, the arguments provided by the InputMessage will be discarded.
+  // This should be set to true if the target command does not expect arguments.
+  bool reject_args = 2;
+
+  // If true, the input provided by the InputMessage will be discarded.
+  // This should be set to true if the target command does not expect any input.
+  bool reject_stdin = 3;
 }

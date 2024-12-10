@@ -28,12 +28,11 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-func TestStdinServiceWithEcho(t *testing.T) {
+func mustProcessStdinService(t *testing.T, conf *sspb.Config, im *sspb.InputMessage) *sspb.OutputMessage {
+	t.Helper()
 	s, err := Factory(&fspb.ClientServiceConfig{
-		Name: "EchoService",
-		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
-		}),
+		Name:   "TestService",
+		Config: anypbtest.New(t, conf),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -50,9 +49,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	err = s.ProcessMessage(context.Background(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
-			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `print("foo bar")`},
-			}),
+			Data:        anypbtest.New(t, im),
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -62,146 +59,80 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	select {
 	case output = <-outChan:
 	default:
-		t.Fatal(".ProcessMessage (/bin/echo foo bar) expected to produce message, but none found")
+		t.Fatal("ProcessMessage() expected to produce message, but none found")
 	}
 
 	om := &sspb.OutputMessage{}
 	if err := output.Data.UnmarshalTo(om); err != nil {
 		t.Fatal(err)
 	}
+	return om
+}
 
+func TestStdinService_AcceptsArgs(t *testing.T) {
+	conf := &sspb.Config{
+		Cmd: "echo",
+	}
+	im := &sspb.InputMessage{
+		Args: []string{"foo bar"},
+	}
+
+	om := mustProcessStdinService(t, conf, im)
 	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
 
-func TestStdinServiceWithCat(t *testing.T) {
-	s, err := Factory(&fspb.ClientServiceConfig{
-		Name: "CatService",
-		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
-		}),
-	})
-	if err != nil {
-		t.Fatal(err)
+func TestStdinService_AcceptsStdin(t *testing.T) {
+	conf := &sspb.Config{
+		Cmd: "cat",
+	}
+	im := &sspb.InputMessage{
+		Input: []byte("foo bar"),
 	}
 
-	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
-		OutChan: outChan,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	om := mustProcessStdinService(t, conf, im)
 
-	err = s.ProcessMessage(context.Background(),
-		&fspb.Message{
-			MessageType: "StdinServiceInputMessage",
-			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `
-try:
-  my_input = raw_input  # Python2 compat
-except NameError:
-  my_input = input
-
-try:
-  while True:
-    print(my_input())
-except EOFError:
-  pass
-		`},
-				Input: []byte("foo bar"),
-			}),
-		})
-	if err != nil {
-		t.Fatalf("s.ProcessMessage(...) = %q, want success", err)
-	}
-
-	var output *fspb.Message
-	select {
-	case output = <-outChan:
-	default:
-		t.Fatal(".ProcessMessage (/bin/cat <<< 'foo bar') expected to produce message, but none found")
-	}
-
-	om := &sspb.OutputMessage{}
-	if err := output.Data.UnmarshalTo(om); err != nil {
-		t.Fatal(err)
-	}
-
-	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	wantStdout := []byte("foo bar")
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
 
-func TestStdinServiceReportsResourceUsage(t *testing.T) {
-	s, err := Factory(&fspb.ClientServiceConfig{
-		Name: "BashService",
-		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
-		}),
-	})
-	if err != nil {
-		t.Fatal(err)
+func TestStdinService_RejectsArgs(t *testing.T) {
+	conf := &sspb.Config{
+		Cmd:        "echo",
+		RejectArgs: true,
 	}
-
-	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
-		OutChan: outChan,
-	})
-	if err != nil {
-		t.Fatal(err)
+	im := &sspb.InputMessage{
+		Args: []string{"don't print this"},
 	}
+	om := mustProcessStdinService(t, conf, im)
 
-	err = s.ProcessMessage(context.Background(),
-		&fspb.Message{
-			MessageType: "StdinServiceInputMessage",
-			Data: anypbtest.New(t, &sspb.InputMessage{
-				// Generate some system (os.listdir) and user (everything else) execution time...
-				Args: []string{"-c", `
-import os
-import time
-
-t0 = time.time()
-while time.time() - t0 < 1.:
-  os.listdir(".")
-		`},
-			}),
-		})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var output *fspb.Message
-	select {
-	case output = <-outChan:
-	default:
-		t.Fatal(".ProcessMessage (/bin/bash ...) expected to produce message, but none found")
-	}
-
-	om := &sspb.OutputMessage{}
-	if err := output.Data.UnmarshalTo(om); err != nil {
-		t.Fatal(err)
-	}
-
-	// We don't test for ResourceUsage.MeanResidentMemory because memory is currently not being
-	// queried after the process has terminated. It's only queried right after launching the command
-	// in which case it can be recorded as "0" which would be indistinguishable from it not being set
-	// at all, resulting in a flaky test case. The fact that the other resource usage metrics have
-	// been set here is good enough for now.
-
-	if om.Timestamp.Seconds <= 0 {
-		t.Fatalf("unexpected output; StdinServiceOutputMessage.timestamp.seconds not set: %q", om)
+	wantStdout := []byte("\n")
+	if !bytes.Equal(om.Stdout, wantStdout) {
+		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
 
-func TestStdinServiceCancellation(t *testing.T) {
+func TestStdinService_RejectsStdin(t *testing.T) {
+	conf := &sspb.Config{
+		Cmd:         "cat",
+		RejectStdin: true,
+	}
+	im := &sspb.InputMessage{
+		Input: []byte("don't print this"),
+	}
+	om := mustProcessStdinService(t, conf, im)
+
+	wantStdout := []byte("")
+	if !bytes.Equal(om.Stdout, wantStdout) {
+		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
+	}
+}
+
+func TestStdinService_Cancelation(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "SleepService",
 		Config: anypbtest.New(t, &sspb.Config{
