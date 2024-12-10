@@ -51,7 +51,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `print("foo bar")`},
+				Args: []string{"-c", `print("foo bar", end="")`},
 			}),
 		})
 	if err != nil {
@@ -70,10 +70,8 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	wantStdout := []byte("foo bar")
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
@@ -109,7 +107,7 @@ except NameError:
 
 try:
   while True:
-    print(my_input())
+    print(my_input(), end="")
 except EOFError:
   pass
 		`},
@@ -132,10 +130,8 @@ except EOFError:
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	wantStdout := []byte("foo bar")
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
