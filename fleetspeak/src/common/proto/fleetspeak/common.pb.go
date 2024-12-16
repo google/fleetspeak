@@ -271,9 +271,9 @@ type Message struct {
 	// poll the server. This flag should be set on messages which are unlikely to
 	// trigger additional activity.
 	Background bool `protobuf:"varint,11,opt,name=background,proto3" json:"background,omitempty"`
-	// Optional debugging information provided by the originator of the
-	// message. Fleetspeak stores this information along with the message for
-	// later retrieval, but doesn't really do anything else with it.
+	// Optional information provided by the originator of the message.
+	// Fleetspeak stores this information along with the message for later
+	// retrieval.
 	Annotations *Annotations `protobuf:"bytes,12,opt,name=annotations,proto3" json:"annotations,omitempty"`
 }
 

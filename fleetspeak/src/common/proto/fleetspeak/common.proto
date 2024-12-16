@@ -80,9 +80,9 @@ message Message {
   // trigger additional activity.
   bool background = 11;
 
-  // Optional debugging information provided by the originator of the
-  // message. Fleetspeak stores this information along with the message for
-  // later retrieval, but doesn't really do anything else with it.
+  // Optional information provided by the originator of the message.
+  // Fleetspeak stores this information along with the message for later
+  // retrieval.
   Annotations annotations = 12;
 }
 
