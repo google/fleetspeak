@@ -51,7 +51,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `print("foo bar")`},
+				Args: []string{"-c", `import sys; sys.stdout.write("foo bar")`},
 			}),
 		})
 	if err != nil {
@@ -70,10 +70,8 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	wantStdout := []byte("foo bar")
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
@@ -102,16 +100,8 @@ func TestStdinServiceWithCat(t *testing.T) {
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
 				Args: []string{"-c", `
-try:
-  my_input = raw_input  # Python2 compat
-except NameError:
-  my_input = input
-
-try:
-  while True:
-    print(my_input())
-except EOFError:
-  pass
+import sys, shutil
+shutil.copyfileobj(sys.stdin, sys.stdout)
 		`},
 				Input: []byte("foo bar"),
 			}),
@@ -132,10 +122,8 @@ except EOFError:
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar\n")
-	wantStdoutWin := []byte("foo bar\r\n")
-	if !bytes.Equal(om.Stdout, wantStdout) &&
-		!bytes.Equal(om.Stdout, wantStdoutWin) {
+	wantStdout := []byte("foo bar")
+	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}
 }
