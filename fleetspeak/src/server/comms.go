@@ -402,6 +402,30 @@ func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.
 	if len(msgs) == 0 {
 		return nil
 	}
+	// TODO(b/371158380): Refactor validation and splitting by service to a single
+	// pass.
+	msgsByService := make(map[string][]*fspb.Message)
+	for _, msg := range msgs {
+		msgsByService[msg.Destination.ServiceName] = append(msgsByService[msg.Destination.ServiceName], msg)
+	}
+
+	var unbatchedMsgs []*fspb.Message
+
+	for service, msgs := range msgsByService {
+		if service == "" {
+			log.ErrorContextf(ctx, "Dropping %v messages with no service set", len(msgs))
+			continue
+		}
+
+		// TODO(b/371158380): Verify the batching configuration.
+		if c.s.serviceConfig.ShouldProcessMessageBatches(service) {
+			c.s.serviceConfig.ProcessMessageBatch(ctx, service, msgs)
+		} else {
+			unbatchedMsgs = append(unbatchedMsgs, msgs...)
+		}
+	}
+
+	msgs = unbatchedMsgs
 
 	sort.Slice(msgs, func(a, b int) bool {
 		return bytes.Compare(msgs[a].MessageId, msgs[b].MessageId) == -1

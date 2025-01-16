@@ -50,6 +50,21 @@ type Service interface {
 	Stop() error
 }
 
+// A BatchedService is an extension of the Service interface that allows
+// processing multiple messages at once.
+//
+// If a Service implements this interface, the original ProcessMessage method
+// (for processing individual messages) will not be used.
+type BatchedService interface {
+	// ProcessMessageBatch processes a batch of messages at once. Unlike the
+	// ProcessMessage method (of the Service interface), batches that failed to
+	// be processed will never be retried.
+	//
+	// In order for this method to be used, the service needs to enable `BATCHED`
+	// processing mode in its configuration.
+	ProcessMessageBatch(context.Context, []*fspb.Message) error
+}
+
 // Context allows a Fleetspeak Service to communicate back to the Fleetspeak system.
 type Context interface {
 	// Set sends a message to a client machine or other server component. It can be called
