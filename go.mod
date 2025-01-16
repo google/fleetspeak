@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/pubsub v1.38.0
 	github.com/Microsoft/go-winio v0.6.1
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/golang/glog v1.2.3
+	github.com/golang/glog v1.2.4
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/pires/go-proxyproto v0.6.2
