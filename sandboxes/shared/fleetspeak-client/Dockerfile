@@ -25,8 +25,9 @@ SHELL ["/bin/bash", "-c"]
 RUN git clone https://github.com/google/fleetspeak.git && \
     cd fleetspeak && \
     go get -u golang.org/x/lint/golint && \
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+    ./fleetspeak/generate_protos_setup.sh
+
+ENV PATH="$HOME/.local/bin:$PATH"
 
 RUN mkdir -p /app/bin
 
@@ -36,7 +37,7 @@ RUN cd /fleetspeak && \
     pip install wheel pytest && \
     pip install -e ./fleetspeak_python[test] && \
     pip install -e ./frr_python && \
-    ./fleetspeak/generate_go_py_protos.sh && \
+    ./fleetspeak/generate_protos.sh && \
     go build -o /app/bin/server ./cmd/fleetspeak_server && \
     go build -o /app/bin/client ./cmd/fleetspeak_client && \
     go build -o /app/bin/fleetspeak_config ./cmd/fleetspeak_config
