@@ -90,6 +90,9 @@ type Collector interface {
 	// a backlogged message from the datastore.
 	MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData)
 
+	// MessageSent is called when a message is sent to a client.
+	MessageSent(m *fspb.Message)
+
 	// MessageSaved is called when a message is first saved to the database.
 	// m.Data will have been set to nil for fully processed messages.
 	MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData)

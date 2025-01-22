@@ -174,6 +174,9 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, fmt.Sprintf("error preparing messages: %v", err), pi.Status)
 		return
 	}
+	for _, msg := range toSend.Messages {
+		s.fs.StatsCollector().MessageSent(msg)
+	}
 
 	res.Header().Set("Content-Type", "application/octet-stream")
 	res.WriteHeader(http.StatusOK)

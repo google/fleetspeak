@@ -36,6 +36,9 @@ type noopStatsCollector struct{}
 func (s noopStatsCollector) MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData) {
 }
 
+func (s noopStatsCollector) MessageSent(m *fspb.Message) {
+}
+
 func (s noopStatsCollector) MessageSaved(forClient bool, m *fspb.Message, cd *db.ClientData) {
 }
 

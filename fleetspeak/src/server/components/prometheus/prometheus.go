@@ -46,6 +46,20 @@ var (
 		[]string{"backlogged", "source_service", "destination_service", "message_type", "client_labels"},
 	)
 
+	messagesSent = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_sent_total",
+		Help: "The total number of messages sent to clients by Fleetspeak server",
+	},
+		[]string{"source_service", "destination_service", "message_type", "client_labels"},
+	)
+
+	messagesSentSize = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "fleetspeak_messages_sent_payload_bytes_size",
+		Help: "The total payload size of messages sent to clients by Fleetspeak server (in bytes)",
+	},
+		[]string{"source_service", "destination_service", "message_type", "client_labels"},
+	)
+
 	messagesSaved = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_saved_total",
 		Help: "The total number of messages saved by Fleetspeak server",
@@ -211,6 +225,13 @@ func (s StatsCollector) MessageIngested(backlogged bool, m *fspb.Message, cd *db
 	messagesIngested.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabels(cd)).Inc()
 	payloadBytes := calculatePayloadBytes(m)
 	messagesIngestedSize.WithLabelValues(strconv.FormatBool(backlogged), m.Source.ServiceName, m.Destination.ServiceName, m.MessageType, clientLabels(cd)).Add(float64(payloadBytes))
+}
+
+func (s StatsCollector) MessageSent(m *fspb.Message) {
+	messagesSent.WithLabelValues(m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
+	payloadBytes := calculatePayloadBytes(m)
+	messagesSentSize.WithLabelValues(m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Add(float64(payloadBytes))
+
 }
 
 func calculatePayloadBytes(m *fspb.Message) int {

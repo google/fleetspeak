@@ -62,12 +62,18 @@ const numClients = 5
 
 // statsCounter is a simple server.StatsCollector. It only counts messages for the "FRR" service.
 type statsCounter struct {
-	messagesIngested, payloadBytesSaved, messagesProcessed, messagesErrored, messagesDropped, clientPolls, datastoreOperations int64
+	messagesIngested, messagesSent, payloadBytesSaved, messagesProcessed, messagesErrored, messagesDropped, clientPolls, datastoreOperations int64
 }
 
 func (c *statsCounter) MessageIngested(backlogged bool, m *fspb.Message, cd *db.ClientData) {
 	if m.Destination.ServiceName == "FRR" {
 		atomic.AddInt64(&c.messagesIngested, 1)
+	}
+}
+
+func (c *statsCounter) MessageSent(m *fspb.Message) {
+	if m.Source.ServiceName == "FRR" {
+		atomic.AddInt64(&c.messagesSent, 1)
 	}
 }
 
@@ -313,6 +319,10 @@ func FRRIntegrationTest(t *testing.T, ds db.Store, streaming bool) {
 	// Each client should have produced between 20 and 40 messages, each should be processed exactly once.
 	if stats.messagesProcessed < 20*numClients || stats.messagesProcessed > 40*numClients {
 		t.Errorf("Got %v messages processed, expected %v <= x <= %v", stats.messagesProcessed, 20*numClients+1, 40*numClients+1)
+	}
+
+	if stats.messagesSent < numClients || stats.messagesSent > 2*numClients {
+		t.Errorf("Got %v messages sent, expected %v <= x <= %v", stats.messagesSent, numClients, 2*numClients)
 	}
 
 	// Each client should have produced at least 20 and 40, and each should have been sorted at least once.
