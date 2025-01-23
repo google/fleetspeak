@@ -35,7 +35,9 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -574,5 +576,135 @@ func TestServiceError(t *testing.T) {
 	expectedFailedReason := strings.Repeat("a", services.MaxServiceFailureReasonLength-3) + "..."
 	if messageResult.FailedReason != expectedFailedReason {
 		t.Errorf("Unexpected failure reason: got [%v], want [%v]", messageResult.FailedReason, expectedFailedReason)
+	}
+}
+
+type fakeBatchedService struct {
+	batches [][]*fspb.Message
+}
+
+func (s *fakeBatchedService) Start(sctx service.Context) error {
+	return nil
+}
+
+func (s *fakeBatchedService) ProcessMessage(ctx context.Context, msg *fspb.Message) error {
+	return s.ProcessMessageBatch(ctx, []*fspb.Message{msg})
+}
+
+func (s *fakeBatchedService) ProcessMessageBatch(ctx context.Context, msgs []*fspb.Message) error {
+	s.batches = append(s.batches, msgs)
+	return nil
+}
+
+func (s *fakeBatchedService) Stop() error {
+	return nil
+}
+
+func TestBatchedService(t *testing.T) {
+	ctx := context.Background()
+
+	service := &fakeBatchedService{}
+	server := testserver.MakeWithBatchedService(t, "TestServerService", service)
+	defer server.S.Stop()
+
+	clientKey, err := server.AddClient()
+	if err != nil {
+		t.Fatalf("add client: %v", err)
+	}
+	clientID, err := common.MakeClientID(clientKey)
+	if err != nil {
+		t.Fatalf("make client id: %v", err)
+	}
+
+	_, err = server.SimulateContactFromClient(ctx, clientKey, []*fspb.Message{
+		{
+			Source: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestEndpointService",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "TestServerService",
+			},
+			SourceMessageId: []byte("AA"),
+			MessageType:     "TestMessageType",
+		},
+	})
+	if err != nil {
+		t.Fatalf("simulate contact ('AA'): %v", err)
+	}
+
+	_, err = server.SimulateContactFromClient(ctx, clientKey, []*fspb.Message{
+		{
+			Source: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestEndpointService",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "TestServerService",
+			},
+			SourceMessageId: []byte("BA"),
+			MessageType:     "TestMessageType",
+		},
+		{
+			Source: &fspb.Address{
+				ClientId:    clientID.Bytes(),
+				ServiceName: "TestEndpointService",
+			},
+			Destination: &fspb.Address{
+				ServiceName: "TestServerService",
+			},
+			SourceMessageId: []byte("BB"),
+			MessageType:     "TestMessageType",
+		},
+	})
+	if err != nil {
+		t.Fatalf("simulate contact ('BA', 'BB'): %v", err)
+	}
+
+	wantBatches := [][]*fspb.Message{
+		{
+			{
+				Source: &fspb.Address{
+					ClientId:    clientID.Bytes(),
+					ServiceName: "TestEndpointService",
+				},
+				Destination: &fspb.Address{
+					ServiceName: "TestServerService",
+				},
+				SourceMessageId: []byte("AA"),
+				MessageType:     "TestMessageType",
+			},
+		},
+		{
+			{
+				Source: &fspb.Address{
+					ClientId:    clientID.Bytes(),
+					ServiceName: "TestEndpointService",
+				},
+				Destination: &fspb.Address{
+					ServiceName: "TestServerService",
+				},
+				SourceMessageId: []byte("BA"),
+				MessageType:     "TestMessageType",
+			},
+			{
+				Source: &fspb.Address{
+					ClientId:    clientID.Bytes(),
+					ServiceName: "TestEndpointService",
+				},
+				Destination: &fspb.Address{
+					ServiceName: "TestServerService",
+				},
+				SourceMessageId: []byte("BB"),
+				MessageType:     "TestMessageType",
+			},
+		},
+	}
+
+	if diff := cmp.Diff(wantBatches, service.batches,
+		protocmp.Transform(),
+		protocmp.IgnoreFields(&fspb.Message{}, "message_id"),
+	); diff != "" {
+		t.Errorf("unexpected batches from simulated contact (-want +got):\n%s", diff)
 	}
 }

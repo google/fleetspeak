@@ -145,6 +145,37 @@ func (c *Manager) Stop() {
 	c.services = map[string]*liveService{}
 }
 
+// ShouldProcessMessageBatches returns true if the specified service is
+// configured to process messages in batches.
+func (c *Manager) ShouldProcessMessageBatches(serviceName string) bool {
+	svc := c.services[serviceName]
+	if svc == nil {
+		return false
+	}
+
+	_, ok := svc.service.(service.BatchedService)
+	return ok
+}
+
+// ProcessMessageBatch processes a batch of messages using the specified
+// service.
+func (c *Manager) ProcessMessageBatch(ctx context.Context, serviceName string, msgs []*fspb.Message) {
+	svc := c.services[serviceName]
+	if svc == nil {
+		log.ErrorContextf(ctx, "No such service: %v", serviceName)
+		return
+	}
+
+	batchedSvc, ok := svc.service.(service.BatchedService)
+	if !ok {
+		log.ErrorContextf(ctx, "Service %v does not implement BatchedService", serviceName)
+	}
+
+	if err := batchedSvc.ProcessMessageBatch(ctx, msgs); err != nil {
+		log.ErrorContextf(ctx, "Process batched messages: %v", err)
+	}
+}
+
 // ProcessMessages implements MessageProcessor and is called by the datastore on
 // backlogged messages.
 func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
