@@ -2,8 +2,8 @@
 set -e
 
 PROTOC_VER="26.1" # https://github.com/protocolbuffers/protobuf/releases
-GEN_GO_VER="1.34.1" # https://pkg.go.dev/google.golang.org/protobuf/cmd/protoc-gen-go?tab=versions
-GEN_GO_GRPC_VER="1.4.0" # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc?tab=versions
+GEN_GO_VER="1.35.1" # https://pkg.go.dev/google.golang.org/protobuf/cmd/protoc-gen-go?tab=versions
+GEN_GO_GRPC_VER="1.5.1" # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc?tab=versions
 
 function err() {
   echo "$*" >&2

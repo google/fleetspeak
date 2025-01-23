@@ -5,7 +5,7 @@ import sys
 from setuptools import setup
 from setuptools.command.develop import develop
 
-GRPCIO_TOOLS = "grpcio-tools==1.46.3"
+GRPCIO_TOOLS = "grpcio-tools==1.69.0"
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)
 
