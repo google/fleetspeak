@@ -262,6 +262,9 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 		return nil, false, makeError(fmt.Sprintf("error writing body: %v", err), http.StatusInternalServerError)
 	}
 	res.Flush()
+	for _, msg := range toSend.Messages {
+		s.fs.StatsCollector().MessageSent(msg)
+	}
 
 	pi.WriteTime = time.Since(st)
 	pi.End = time.Now()
