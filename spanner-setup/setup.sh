@@ -86,6 +86,9 @@ gcloud spanner databases ddl update fleetspeak --instance fleetspeak-instance --
 echo "10/$ACTIONS : Creating Broadcasts table..."
 gcloud spanner databases ddl update fleetspeak --instance fleetspeak-instance --ddl='CREATE TABLE Broadcasts(
   BroadcastID BYTES(MAX) NOT NULL AS (Broadcast.broadcast_id) STORED,
+  BroadcastService STRING(MAX) NOT NULL AS (Broadcast.source.service_name) STORED,
+  BroadcastExpirySeconds INT64 NOT NULL AS (Broadcast.expiration_time.seconds) STORED,
+  BroadcastExpiryNanos INT64 NOT NULL AS (Broadcast.expiration_time.nanos) STORED,
   Broadcast `fleetspeak.server.Broadcast` NOT NULL,
   Sent INT64 NOT NULL,
   Allocated INT64 NOT NULL,

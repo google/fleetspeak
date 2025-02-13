@@ -97,7 +97,7 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 	var sent int64
 	var messageLimit int64
 	var expiresTime tspb.Timestamp
-    if err := row.Columns(&sent, &messageLimit, &expiresTime); err != nil {
+	if err := row.Columns(&sent, &messageLimit, &expiresTime); err != nil {
 		return err
 	}
 
@@ -115,8 +115,8 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent"}
 	sentCols := []string{"BroadcastID", "ClientID"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []interface{}{bid.Bytes(), aid.Bytes(), sent+1})}
-    ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []interface{}{bid.Bytes(), cid.Bytes()}))
+	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []interface{}{bid.Bytes(), aid.Bytes(), sent + 1})}
+	ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []interface{}{bid.Bytes(), cid.Bytes()}))
 	txn.BufferWrite(ms)
 	return nil
 }
@@ -226,7 +226,7 @@ func (d *Datastore) tryCreateAllocation(ctx context.Context, txn *spanner.ReadWr
 	var sent int64
 	var allocated int64
 	var messageLimit int64
-    if err := row.Columns(&sent, &allocated, &messageLimit); err != nil {
+	if err := row.Columns(&sent, &allocated, &messageLimit); err != nil {
 		return nil, err
 	}
 
@@ -245,7 +245,7 @@ func (d *Datastore) tryCreateAllocation(ctx context.Context, txn *spanner.ReadWr
 	broadcastCols := []string{"BroadcastID", "Allocated"}
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent", "MessageLimit", "ExpiresTime"}
 	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{id.Bytes(), int64(newAllocated)})}
-    ms = append(ms, spanner.InsertOrUpdate(d.broadcastAllocations, allocationCols, []interface{}{id.Bytes(), aid.Bytes(), 0, int64(toAllocate), ep}))
+	ms = append(ms, spanner.InsertOrUpdate(d.broadcastAllocations, allocationCols, []interface{}{id.Bytes(), aid.Bytes(), 0, int64(toAllocate), ep}))
 	txn.BufferWrite(ms)
 
 	return ai, nil
@@ -285,8 +285,8 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 	}
 
 	broadcastCols := []string{"BroadcastID", "Allocated", "Sent"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{bid.Bytes(), int64(newAllocated), bSent+baSent})}
-    ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}))
+	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{bid.Bytes(), int64(newAllocated), bSent + baSent})}
+	ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}))
 	txn.BufferWrite(ms)
 
 	return nil
