@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	cloud.google.com/go/pubsub v1.38.0
+	cloud.google.com/go/spanner v1.73.0
 	github.com/Microsoft/go-winio v0.6.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/glog v1.2.4
