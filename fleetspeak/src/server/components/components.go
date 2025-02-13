@@ -56,6 +56,27 @@ import (
 // MakeComponents creates server components from a given config.
 func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	var db db.Store
+	hcfg := cfg.HttpsConfig
+	if hcfg != nil {
+		switch {
+		case hcfg.GetFrontendConfig().GetCleartextHeaderConfig() != nil,
+			hcfg.GetFrontendConfig().GetCleartextHeaderChecksumConfig() != nil,
+			hcfg.GetFrontendConfig().GetCleartextXfccConfig() != nil:
+			if hcfg.ListenAddress == "" {
+				return nil, errors.New("http_config requires listen_address")
+			}
+		default:
+			if hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "" {
+				return nil, errors.New("https_config requires listen_address, certificates and key")
+			}
+		}
+	}
+
+	acfg := cfg.AdminConfig
+	if acfg != nil && acfg.ListenAddress == "" {
+		return nil, errors.New("admin_config.listen_address can't be empty")
+	}
+
 	if cfg.MysqlDataSourceName != "" {
 		// Database setup
 		con, err := sql.Open("mysql", cfg.MysqlDataSourceName)
@@ -77,26 +98,6 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 		db = db1
 	} else {
 		return nil, errors.New("mysql_data_source_name OR spanner_database_name is required")
-	}
-	hcfg := cfg.HttpsConfig
-	if hcfg != nil {
-		switch {
-		case hcfg.GetFrontendConfig().GetCleartextHeaderConfig() != nil,
-			hcfg.GetFrontendConfig().GetCleartextHeaderChecksumConfig() != nil,
-			hcfg.GetFrontendConfig().GetCleartextXfccConfig() != nil:
-			if hcfg.ListenAddress == "" {
-				return nil, errors.New("http_config requires listen_address")
-			}
-		default:
-			if hcfg.ListenAddress == "" || hcfg.Certificates == "" || hcfg.Key == "" {
-				return nil, errors.New("https_config requires listen_address, certificates and key")
-			}
-		}
-	}
-
-	acfg := cfg.AdminConfig
-	if acfg != nil && acfg.ListenAddress == "" {
-		return nil, errors.New("admin_config.listen_address can't be empty")
 	}
 
 	// Authorizer setup
