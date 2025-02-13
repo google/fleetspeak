@@ -37,12 +37,14 @@ import (
 	cnotifications "github.com/google/fleetspeak/fleetspeak/src/server/components/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/components/prometheus"
 	"github.com/google/fleetspeak/fleetspeak/src/server/cpsservice"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/grpcservice"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/mysql"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
+	"github.com/google/fleetspeak/fleetspeak/src/server/spanner"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -53,8 +55,28 @@ import (
 
 // MakeComponents creates server components from a given config.
 func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
-	if cfg.MysqlDataSourceName == "" {
-		return nil, errors.New("mysql_data_source_name is required")
+	var db db.Store
+	if cfg.MysqlDataSourceName != "" {
+		// Database setup
+		con, err := sql.Open("mysql", cfg.MysqlDataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open database: %v", err)
+		}
+
+		db, err = mysql.MakeDatastore(con)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create mysql datastore: %v", err)
+		}
+	} else if cfg.SpannerConfig != nil {
+		spcfg := cfg.SpannerConfig
+		db1, err := spanner.MakeDatastore(spcfg.GetProjectId(), spcfg.GetInstanceName(), spcfg.GetDatabaseName(),
+			spcfg.GetPubsubTopic(), spcfg.GetPubsubSub())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create spanner datastore: %v", err)
+		}
+		db = db1
+	} else {
+		return nil, errors.New("mysql_data_source_name OR spanner_database_name is required")
 	}
 	hcfg := cfg.HttpsConfig
 	if hcfg != nil {
@@ -75,17 +97,6 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 	acfg := cfg.AdminConfig
 	if acfg != nil && acfg.ListenAddress == "" {
 		return nil, errors.New("admin_config.listen_address can't be empty")
-	}
-
-	// Database setup
-	con, err := sql.Open("mysql", cfg.MysqlDataSourceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %v", err)
-	}
-
-	db, err := mysql.MakeDatastore(con)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create datastore: %v", err)
 	}
 
 	// Authorizer setup

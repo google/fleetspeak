@@ -15,6 +15,34 @@ jobs:
         run: |
           sudo /etc/init.d/mysql start
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
+      - name: 'Install Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'beta,pubsub-emulator,cloud-spanner-emulator'
+      - name: 'Start Pub/Sub emulator'
+        run: |
+          gcloud beta emulators pubsub start --project=${{ env.SPANNER_PROJECT }} --host-port=0.0.0.0:8085 &
+          git clone https://github.com/googleapis/python-pubsub.git
+          cd python-pubsub/samples/snippets
+          pip install -r requirements.txt
+          python publisher.py ${{ env.SPANNER_PROJECT }} create ${{ env.SPANNER_TOPIC }}
+          python subscriber.py ${{ env.SPANNER_PROJECT }} create ${{ env.SPANNER_TOPIC }} ${{ env.SPANNER_SUBSCRIPTION }}
+          cd -
+      - name: 'Start Spanner emulator'
+        run: |
+          gcloud config configurations create emulator
+          gcloud config set auth/disable_credentials true
+          gcloud config set project ${{ env.SPANNER_PROJECT }}
+          gcloud config set api_endpoint_overrides/spanner http://localhost:9020/
+          gcloud emulators spanner start &
+          gcloud spanner instances create ${{ env.SPANNER_INSTANCE }} \
+            --config=emulator-config --description="Spanner Test Instance" --nodes=1
+          sudo apt-get update
+          sudo apt install -y protobuf-compiler libprotobuf-dev
+          protoc -I=. -I=/usr/include --include_imports --descriptor_set_out=./spanner-setup/fleetspeak.pb ./fleetspeak/src/common/proto/fleetspeak/common.proto ./fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto ./fleetspeak/src/server/proto/fleetspeak_server/resource.proto
+          cd ./spanner-setup
+          bash ./setup.sh
+          cd ..
       - uses: actions/setup-go@v3
         with:
           go-version: '1.22'
