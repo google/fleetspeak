@@ -9,6 +9,14 @@ jobs:
       MYSQL_TEST_PASS: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
+      PUBSUB_EMULATOR_HOST: localhost:8085
+      PUBSUB_PROJECT_ID: fleetspeak-spanner
+      SPANNER_EMULATOR_HOST: localhost:9010
+      SPANNER_DATABASE: fleetspeak
+      SPANNER_INSTANCE: fleetspeak-instance
+      SPANNER_PROJECT: fleetspeak-spanner
+      SPANNER_TOPIC: spanner-msgs-top
+      SPANNER_SUBSCRIPTION: spanner-megs-sub
     steps:
       - uses: actions/checkout@v3
       - name: Set up MySQL
