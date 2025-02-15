@@ -43,7 +43,7 @@ func DataStoreTestSuite(t *testing.T, env DbTestEnv) {
 
 	messageStoreTestSuite(t, env)
 	clientStoreTestSuite(t, env)
-	//broadcastStoreTestSuite(t, env)
+	broadcastStoreTestSuite(t, env)
 	fileStoreTestSuite(t, env)
 	integrationTestSuite(t, env)
 

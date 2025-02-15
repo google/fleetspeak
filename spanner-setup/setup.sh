@@ -5,7 +5,7 @@ export ACTIONS=13
 echo "1/$ACTIONS : Creating fleetspeak database on Spanner..."
 gcloud spanner databases create fleetspeak --instance fleetspeak-instance
 
-echo "2/$ACTIONS : Adding common proto..."
+echo "2/$ACTIONS : Adding fleetspeak proto..."
 gcloud spanner databases ddl update fleetspeak --instance=fleetspeak-instance --ddl='CREATE PROTO BUNDLE (`google.protobuf.Any`,`google.protobuf.Timestamp`,`fleetspeak.Address`,`fleetspeak.Annotations`,`fleetspeak.Annotations.Entry`,`fleetspeak.Label`,`fleetspeak.MessageResult`,`fleetspeak.ValidationInfo`,`fleetspeak.server.Broadcast`,`fleetspeak.server.ClientResourceUsageRecord`);' --proto-descriptors-file=./fleetspeak.pb
 
 echo "3/$ACTIONS : Creating Clients table..."
@@ -86,8 +86,6 @@ gcloud spanner databases ddl update fleetspeak --instance fleetspeak-instance --
 echo "10/$ACTIONS : Creating Broadcasts table..."
 gcloud spanner databases ddl update fleetspeak --instance fleetspeak-instance --ddl='CREATE TABLE Broadcasts(
   BroadcastID BYTES(MAX) NOT NULL AS (Broadcast.broadcast_id) STORED,
-  BroadcastExpirySeconds INT64 AS (Broadcast.expiration_time.seconds) STORED,
-  BroadcastExpiryNanos INT64 AS (Broadcast.expiration_time.nanos) STORED,
   Broadcast `fleetspeak.server.Broadcast` NOT NULL,
   Sent INT64 NOT NULL,
   Allocated INT64 NOT NULL,
