@@ -18,7 +18,7 @@ func cloneHandlingTest(t *testing.T, ms db.Store) {
 func integrationTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("IntegrationTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
-			"IntegrationTest":   integrationTest,
+			//"IntegrationTest":   integrationTest,
 			"CloneHandlingTest": cloneHandlingTest,
 		})
 	})

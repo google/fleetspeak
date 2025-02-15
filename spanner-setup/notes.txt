@@ -8,7 +8,7 @@ docker build -t fleetspeak:test -f Dockerfile.dev .
 # RUN
 ########################################
 docker compose up -d
-docker exec -it spanner-setup-fleetspeak-server-1 bash
+docker exec -it spanner-setup-fleetspeak-1 bash
 # OR
 docker run -it --rm -v /home/user/.config/gcloud/:/root/.config/gcloud --entrypoint=/bin/bash fleetspeak:test
 
@@ -18,7 +18,7 @@ docker run -it --rm -v /home/user/.config/gcloud/:/root/.config/gcloud --entrypo
 
 export MYSQL_TEST_USER=root
 export MYSQL_TEST_PASS=password
-export MYSQL_TEST_ADDR=fleetspeak-db:3306
+export MYSQL_TEST_ADDR=mysql-db:3306
 export MYSQL_TEST_E2E_DB=fleetspeak
 export SPANNER_DATABASE=fleetspeak
 export SPANNER_INSTANCE=fleetspeak-instance
@@ -26,8 +26,22 @@ export SPANNER_PROJECT=fleetspeak-spanner
 export SPANNER_TOPIC=fleetspeak-server-messages
 export SPANNER_SUBSCRIPTION=fleetspeak-server-messages-sub
 
+export PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+export PUBSUB_PROJECT_ID=spanner-emulator-project
+export SPANNER_TOPIC=spanner-top
+export SPANNER_SUBSCRIPTION=spanner-sub
+
+export GRPC_DNS_RESOLVER=native
+
 cd fleetspeak
 source /venv/FSENV/bin/activate
+
+# create the PubSub topic
+python3 python-pubsub/samples/snippets/publisher.py $SPANNER_PROJECT create $SPANNER_TOPIC
+
+# create the PubSub subscription"
+python3 python-pubsub/samples/snippets/subscriber.py $SPANNER_PROJECT create $SPANNER_TOPIC $SPANNER_SUBSCRIPTION
+
 ./fleetspeak/test.sh
 # OR
 go test -race --timeout 5.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner

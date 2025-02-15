@@ -1,8 +1,8 @@
 services:
-  fleetspeak-db:
+  mysql-db:
     image: mysql:8.2
     restart: always
-    hostname: fleetspeak-db
+    hostname: mysql-db
     environment:
       MYSQL_DATABASE: 'fleetspeak'
       MYSQL_USER: 'fleetspeak-user'
@@ -17,19 +17,24 @@ services:
       timeout: 5s
       retries: 10
 
-  fleetspeak-server:
+  fleetspeak:
     build:
       context: ../
-      dockerfile: ./Dockerfile.dev
+      dockerfile: ./spanner-setup/Dockerfile.dev
     hostname: fleetspeak-test
     depends_on:
-      fleetspeak-db:
+      mysql-db:
         condition: service_healthy
     entrypoint: ["tail", "-F", "/fleetspeak/spanner-setup/setup.sh"]
     volumes:
       - "/home/user/.config/gcloud/:/root/.config/gcloud"
 
-volumes:
-  db_data:
-networks:
-  server-network:
+  pubsub-emulator:
+    image: google/cloud-sdk:emulators
+    restart: always
+    hostname: pubsub-emulator
+    entrypoint: ["/google-cloud-sdk/bin/gcloud", "beta", "emulators", "pubsub", "start", "--project=spanner-emulator-project", "--host-port=0.0.0.0:8085"]
+    ports:
+      - '8085:8085'
+    expose:
+      - '8085'

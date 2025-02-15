@@ -23,6 +23,12 @@ RUN cd /fleetspeak && \
 
 WORKDIR /
 
+RUN cd /fleetspeak && \
+    git clone https://github.com/googleapis/python-pubsub.git && \
+    cd python-pubsub/samples/snippets && \
+    source /venv/FSENV/bin/activate && \
+    pip install -r requirements.txt 
+
 ENV FLEETSPEAK_BIN=/fleetspeak/bin
 
 RUN ln -s /fleetspeak/bin/fleetspeak_server $FLEETSPEAK_BIN/server
