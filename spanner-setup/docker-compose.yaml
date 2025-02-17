@@ -38,3 +38,14 @@ services:
       - '8085:8085'
     expose:
       - '8085'
+
+  spanner-emulator:
+    image: europe-west1-docker.pkg.dev/repos-daschwanden/labs/spanner-emulator:v0.1
+    restart: always
+    hostname: spanner-emulator
+    ports:
+      - '9010:9010'
+      - '9020:9020'
+    expose:
+      - '9010'
+      - '9020'

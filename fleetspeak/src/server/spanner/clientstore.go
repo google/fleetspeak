@@ -101,7 +101,6 @@ func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool
 		if err != nil {
 			return err
 		}
-
 		cid, err := common.BytesToClientID(id)
 		if err != nil {
 			return err

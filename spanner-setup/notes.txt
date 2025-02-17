@@ -22,16 +22,17 @@ export MYSQL_TEST_ADDR=mysql-db:3306
 export MYSQL_TEST_E2E_DB=fleetspeak
 export SPANNER_DATABASE=fleetspeak
 export SPANNER_INSTANCE=fleetspeak-instance
+
 export SPANNER_PROJECT=fleetspeak-spanner
-export SPANNER_TOPIC=fleetspeak-server-messages
 export SPANNER_SUBSCRIPTION=fleetspeak-server-messages-sub
+export SPANNER_TOPIC=fleetspeak-server-messages
 
 export PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
 export PUBSUB_PROJECT_ID=spanner-emulator-project
-export SPANNER_TOPIC=spanner-top
+export SPANNER_EMULATOR_HOST=spanner-emulator:9010
+export SPANNER_PROJECT=fleetspeak-spanner
 export SPANNER_SUBSCRIPTION=spanner-sub
-
-export GRPC_DNS_RESOLVER=native
+export SPANNER_TOPIC=spanner-top
 
 cd fleetspeak
 source /venv/FSENV/bin/activate
@@ -45,3 +46,11 @@ python3 python-pubsub/samples/snippets/subscriber.py $SPANNER_PROJECT create $SP
 ./fleetspeak/test.sh
 # OR
 go test -race --timeout 5.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner
+
+
+########################################
+# MISC
+########################################
+gcloud config configurations activate emulator
+gcloud spanner instances create fleetspeak-instance   --config=emulator-config --description="Fleetspeak Test Instance"  --nodes=1
+gcloud spanner databases ddl describe fleetspeak --instance fleetspeak-instance
