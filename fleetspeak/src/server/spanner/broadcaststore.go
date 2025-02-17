@@ -123,7 +123,6 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 
 // ListActiveBroadcasts implements db.BroadcastStore.
 func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastInfo, error) {
-	//log.Error("+++ broadcaststore: ListActiveBroadcasts() called")
 	now := db.NowProto()
 	stmt := spanner.Statement{
 		SQL: "SELECT " +
@@ -132,10 +131,9 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			"b.MessageLimit " +
 			"FROM Broadcasts AS b " +
 			"WHERE b.Sent < b.MessageLimit " +
-			"AND (b.Broadcast.expiration_time IS NULL OR (b.Broadcast.expiration_time.seconds > @nowSec OR (b.Broadcast.expiration_time.seconds = @nowSec AND b.Broadcast.expiration_time.nanos > @nowNano)))",
+			"AND (b.Broadcast.expiration_time IS NULL OR (b.Broadcast.expiration_time.seconds > @nowSec))",
 		Params: map[string]interface{}{
 			"nowSec":  int64(now.Seconds),
-			"nowNano": int64(now.Nanos),
 		},
 	}
 

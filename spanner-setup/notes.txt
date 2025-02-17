@@ -45,7 +45,7 @@ python3 python-pubsub/samples/snippets/subscriber.py $SPANNER_PROJECT create $SP
 
 ./fleetspeak/test.sh
 # OR
-go test -race --timeout 5.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner
+go test -race --timeout 2.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner
 
 
 ########################################

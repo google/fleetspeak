@@ -40,7 +40,7 @@ services:
       - '8085'
 
   spanner-emulator:
-    image: europe-west1-docker.pkg.dev/repos-daschwanden/labs/spanner-emulator:v0.1
+    image: gcr.io/cloud-spanner-emulator/emulator
     restart: always
     hostname: spanner-emulator
     ports:
