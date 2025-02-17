@@ -352,9 +352,6 @@ func (d *Datastore) StreamClientContacts(ctx context.Context, id common.ClientID
 		if err != nil {
 			return err
 		}
-		if !ad.Valid {
-			ad.String()
-		}
 		tp := tspb.New(ts)
 		err = tp.CheckValid()
 		if err != nil {
