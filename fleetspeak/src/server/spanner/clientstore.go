@@ -281,8 +281,8 @@ func (d *Datastore) RemoveClientLabel(ctx context.Context, id common.ClientID, l
 
 func (d *Datastore) tryRemoveClientLabel(tr *spanner.ReadWriteTransaction, id common.ClientID, label *fspb.Label) error {
 	ms := []*spanner.Mutation{spanner.Delete(d.clientLabels, spanner.Key{id.Bytes(), label.ServiceName, label.Label})}
-	tr.BufferWrite(ms)
-	return nil
+	err := tr.BufferWrite(ms)
+	return err
 }
 
 // BlacklistClient implements db.Store.
