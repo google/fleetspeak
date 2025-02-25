@@ -267,8 +267,8 @@ func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, labe
 
 func (d *Datastore) tryAddClientLabel(tr *spanner.ReadWriteTransaction, id common.ClientID, label *fspb.Label) error {
 	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientLabels, []string{"ClientID", "Label"}, []interface{}{id.Bytes(), label})}
-	tr.BufferWrite(ms)
-	return nil
+	err := tr.BufferWrite(ms)
+	return err
 }
 
 // RemoveClientLabel implements db.Store.
