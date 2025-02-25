@@ -129,8 +129,7 @@ func (d *Datastore) trySetMessageResult(txn *spanner.ReadWriteTransaction, cid c
 		bcid := cid.Bytes()
 		ms = append(ms, spanner.Delete(d.clientPendingMessages, spanner.Key{bcid, bmid}))
 	}
-	txn.BufferWrite(ms)
-	return nil
+	return txn.BufferWrite(ms)
 }
 
 // GetPendingMessageCount implements db.MessageStore.
