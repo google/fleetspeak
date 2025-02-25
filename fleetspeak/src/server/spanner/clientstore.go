@@ -295,8 +295,8 @@ func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) err
 
 func (d *Datastore) tryBlacklistClient(txn *spanner.ReadWriteTransaction, id common.ClientID) error {
 	ms := []*spanner.Mutation{spanner.Update(d.clients, []string{"ClientID", "Blacklisted"}, []interface{}{id.Bytes(), true})}
-	txn.BufferWrite(ms)
-	return nil
+	err := txn.BufferWrite(ms)
+	return err
 }
 
 // RecordClientContact implements db.Store.
