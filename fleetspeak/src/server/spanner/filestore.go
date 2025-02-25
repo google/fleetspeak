@@ -35,8 +35,7 @@ func (d *Datastore) StoreFile(ctx context.Context, service, name string, data io
 	}
 
 	_, err = d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		d.tryStoreFile(txn, service, name, b)
-		return nil
+		return d.tryStoreFile(txn, service, name, b)
 	})
 	return err
 }
