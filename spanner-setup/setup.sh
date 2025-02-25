@@ -4,7 +4,7 @@ export ACTIONS=13
 
 if [ ! -f ./fleetspeak.pb ]; then
   echo "Creating fleetspeak.pb..."
-  protoc -I=. -I=/usr/include --include_imports --descriptor_set_out=./fleetspeak.pb \
+  protoc -I=.. -I=/usr/include --include_imports --descriptor_set_out=./fleetspeak.pb \
     ../fleetspeak/src/common/proto/fleetspeak/common.proto \
     ../fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto \
     ../fleetspeak/src/server/proto/fleetspeak_server/resource.proto
