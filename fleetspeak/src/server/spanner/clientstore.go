@@ -321,8 +321,8 @@ func (d *Datastore) tryRecordClientContact(txn *spanner.ReadWriteTransaction, da
 	contactCols := []string{"ClientID", "Time", "SentNonce", "ReceivedNonce", "Address"}
 	ms := []*spanner.Mutation{spanner.Update(d.clients, clientCols, []interface{}{bid, spanner.CommitTimestamp, data.Addr, streaming, data.ClientClock})}
 	ms = append(ms, spanner.InsertOrUpdate(d.clientContacts, contactCols, []interface{}{bid, spanner.CommitTimestamp, uint64ToBytes(data.NonceSent), uint64ToBytes(data.NonceReceived), data.Addr}))
-	txn.BufferWrite(ms)
-	return nil
+	err := txn.BufferWrite(ms)
+	return err
 }
 
 // StreamClientContacts implements db.Store.
