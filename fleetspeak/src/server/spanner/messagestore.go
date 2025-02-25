@@ -254,9 +254,6 @@ func (d *Datastore) getPendingMessages(ctx context.Context, txn *spanner.ReadWri
 		if err != nil {
 			return nil, err
 		}
-		if err != nil {
-			return nil, err
-		}
 		mid, err := common.BytesToMessageID(messageId)
 		if err != nil {
 			return nil, err
