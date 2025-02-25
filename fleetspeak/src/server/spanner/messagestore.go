@@ -35,29 +35,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
-// dbMessage matches the schema of the messages table, optionally joined to the
-// pending_messages table.
-type dbMessage struct {
-	messageID              []byte
-	sourceClientID         []byte
-	sourceServiceName      string
-	sourceMessageID        []byte
-	destinationClientID    []byte
-	destinationServiceName string
-	messageType            string
-	creationTimeSeconds    int64
-	creationTimeNanos      int32
-	processedTimeSeconds   sql.NullInt64
-	processedTimeNanos     sql.NullInt64
-	validationInfo         []byte
-	failed                 sql.NullBool
-	failedReason           sql.NullString
-	retryCount             int64
-	dataTypeURL            sql.NullString
-	dataValue              []byte
-	annotations            []byte
-}
-
 type pendingMessage struct {
 	ClientID               []byte
 	MessageID              []byte
