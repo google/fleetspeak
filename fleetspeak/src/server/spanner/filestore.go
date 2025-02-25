@@ -41,9 +41,10 @@ func (d *Datastore) StoreFile(ctx context.Context, service, name string, data io
 	return err
 }
 
-func (d *Datastore) tryStoreFile(txn *spanner.ReadWriteTransaction, service, name string, data []byte) {
+func (d *Datastore) tryStoreFile(txn *spanner.ReadWriteTransaction, service, name string, data []byte) error {
 	m := spanner.InsertOrUpdate(d.files, []string{"Service", "Name", "ModifiedTime", "Data"}, []interface{}{service, name, db.NowProto(), data})
-	txn.BufferWrite([]*spanner.Mutation{m})
+	err := txn.BufferWrite([]*spanner.Mutation{m})
+	return err
 }
 
 // StatFile implements db.FileStore.
