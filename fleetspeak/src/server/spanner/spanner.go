@@ -80,7 +80,7 @@ func MakeDatastore(projectId, inst, db, pubsubTopic, pubsubSubscription string) 
 		pubsubClient:               pubsubClient,
 		pubsubSub:                  sub,
 		pubsubTopic:                topic,
-		}, err
+	}, err
 }
 
 // Close implements db.Store.
