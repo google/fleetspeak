@@ -30,10 +30,10 @@ import (
 )
 
 type spannerTestEnv struct {
-	projectId string
-	instance string
-	database string
-	pubsubTopic string
+	projectId          string
+	instance           string
+	database           string
+	pubsubTopic        string
 	pubsubSubscription string
 }
 
