@@ -67,7 +67,7 @@ func (e *spannerTestEnv) Clean() (db.Store, error) {
 		return nil, err
 	}
 	_, err = client.CreateSubscription(ctx, e.pubsubSubscription, pubsub.SubscriptionConfig{
-		Topic:            top,
+		Topic: top,
 	})
 	if err != nil {
 		return nil, err
