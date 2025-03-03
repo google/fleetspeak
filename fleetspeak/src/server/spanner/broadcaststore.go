@@ -242,7 +242,9 @@ func (d *Datastore) tryCreateAllocation(ctx context.Context, txn *spanner.ReadWr
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent", "MessageLimit", "ExpiresTime"}
 	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{id.Bytes(), int64(newAllocated)})}
 	ms = append(ms, spanner.InsertOrUpdate(d.broadcastAllocations, allocationCols, []interface{}{id.Bytes(), aid.Bytes(), 0, int64(toAllocate), ep}))
-	txn.BufferWrite(ms)
+	if err := txn.BufferWrite(ms); err != nil {
+		return nil, err
+	}
 
 	return ai, nil
 }
