@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/spanner"
 
 	log "github.com/golang/glog"
@@ -43,6 +44,34 @@ func (e *spannerTestEnv) Create() error {
 func (e *spannerTestEnv) Clean() (db.Store, error) {
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
+	log.Info("Resetting PubSub Topic & Subscription")
+	client, err := pubsub.NewClient(ctx, e.projectId)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	sub := client.Subscription(e.pubsubSubscription)
+	if sub != nil {
+		if err = sub.Delete(ctx); err != nil {
+			return nil, err
+		}
+	}
+	top := client.Topic(e.pubsubTopic)
+	if top != nil {
+		if err = top.Delete(ctx); err != nil {
+			return nil, err
+		}
+	}
+	top, err = client.CreateTopic(ctx, e.pubsubTopic)
+	if err != nil {
+		return nil, err
+	}
+	sub, err = client.CreateSubscription(ctx, e.pubsubSubscription, pubsub.SubscriptionConfig{
+		Topic:            top,
+	})
+	if err != nil {
+		return nil, err
+	}
 	log.Infof("Using database: %v", e.database)
 	s, err := MakeDatastore(e.projectId, e.instance, e.database, e.pubsubTopic, e.pubsubSubscription)
 	if err != nil {
