@@ -43,7 +43,7 @@ func (e *spannerTestEnv) Create() error {
 func (e *spannerTestEnv) Clean() (db.Store, error) {
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
-	log.Infof("Using database: %v", )
+	log.Infof("Using database: %v", e.database)
 	s, err := MakeDatastore(e.projectId, e.instance, e.database, e.pubsubTopic, e.pubsubSubscription)
 	if err != nil {
 		return nil, err
