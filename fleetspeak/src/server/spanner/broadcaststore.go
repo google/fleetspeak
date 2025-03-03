@@ -284,7 +284,5 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 	broadcastCols := []string{"BroadcastID", "Allocated", "Sent"}
 	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{bid.Bytes(), int64(newAllocated), bSent + baSent})}
 	ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}))
-	txn.BufferWrite(ms)
-
-	return nil
+	return txn.BufferWrite(ms)
 }
