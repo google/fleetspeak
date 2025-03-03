@@ -253,8 +253,7 @@ func (d *Datastore) tryAddClient(txn *spanner.ReadWriteTransaction, id common.Cl
 	for _, label := range data.Labels {
 		ms = append(ms, spanner.InsertOrUpdate(d.clientLabels, labelCols, []interface{}{bid, label}))
 	}
-	txn.BufferWrite(ms)
-	return nil
+	return txn.BufferWrite(ms)
 }
 
 // AddClientLabel implements db.Store.
