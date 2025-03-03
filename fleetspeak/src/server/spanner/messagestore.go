@@ -16,7 +16,6 @@ package spanner
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
