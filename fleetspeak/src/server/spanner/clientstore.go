@@ -447,8 +447,7 @@ func (d *Datastore) tryRecordResourceUsageData(tr *spanner.ReadWriteTransaction,
 	}
 	resourceUsageCols := []string{"ClientID", "ServerTimestamp", "Record"}
 	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientResourceUsageRecords, resourceUsageCols, []interface{}{id.Bytes(), spanner.CommitTimestamp, &record})}
-	tr.BufferWrite(ms)
-	return nil
+	return tr.BufferWrite(ms)
 }
 
 // FetchResourceUsageRecords implements db.Store.
