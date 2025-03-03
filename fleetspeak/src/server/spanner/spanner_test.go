@@ -94,10 +94,10 @@ func (e *spannerTestEnv) Destroy() error {
 
 func newSpannerTestEnv(projectId, instance, database, pubsubTopic, pubsubSubscription string) *spannerTestEnv {
 	return &spannerTestEnv{
-		projectId:   projectId,
-		instance:   instance,
-		database:   database,
-		pubsubTopic: pubsubTopic,
+		projectId:          projectId,
+		instance:           instance,
+		database:           database,
+		pubsubTopic:        pubsubTopic,
 		pubsubSubscription: pubsubSubscription,
 	}
 }
