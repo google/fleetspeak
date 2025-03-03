@@ -418,8 +418,7 @@ func (d *Datastore) tryLinkMessagesToContact(tr *spanner.ReadWriteTransaction, c
 	for _, id := range ids {
 		ms = append(ms, spanner.InsertOrUpdate(d.clientContactMessages, contactMsgsCols, []interface{}{bcid, sts, id.Bytes()}))
 	}
-	tr.BufferWrite(ms)
-	return nil
+	return tr.BufferWrite(ms)
 }
 
 // RecordResourceUsageData implements db.Store.
