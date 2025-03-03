@@ -107,7 +107,7 @@ func (d *Datastore) IsNotFound(err error) bool {
 }
 
 func initDB(ctx context.Context, projectId, inst, db string) (*spanner.Client, error) {
-	dbString := "projects/"+projectId+"/instances/"+inst+"/databases/"+db
+	dbString := "projects/" + projectId + "/instances/" + inst + "/databases/" + db
 	client, err := spanner.NewClient(ctx, dbString)
 	if err != nil {
 		return nil, err
