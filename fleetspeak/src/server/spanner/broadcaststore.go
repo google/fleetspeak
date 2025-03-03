@@ -116,8 +116,7 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 	sentCols := []string{"BroadcastID", "ClientID"}
 	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []interface{}{bid.Bytes(), aid.Bytes(), sent + 1})}
 	ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []interface{}{bid.Bytes(), cid.Bytes()}))
-	txn.BufferWrite(ms)
-	return nil
+	return txn.BufferWrite(ms)
 }
 
 // ListActiveBroadcasts implements db.BroadcastStore.
