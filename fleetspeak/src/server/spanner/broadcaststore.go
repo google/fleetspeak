@@ -130,7 +130,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			"WHERE b.Sent < b.MessageLimit " +
 			"AND (b.Broadcast.expiration_time IS NULL OR (b.Broadcast.expiration_time.seconds > @nowSec))",
 		Params: map[string]interface{}{
-			"nowSec":  int64(now.Seconds),
+			"nowSec": int64(now.Seconds),
 		},
 	}
 
