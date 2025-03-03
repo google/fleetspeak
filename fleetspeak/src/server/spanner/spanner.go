@@ -19,7 +19,6 @@ package spanner
 import (
 	"context"
 	"errors"
-	
 	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/spanner"
 )
