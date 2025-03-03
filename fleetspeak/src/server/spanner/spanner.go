@@ -87,7 +87,9 @@ func MakeDatastore(projectId, inst, db, pubsubTopic, pubsubSubscription string) 
 // Close closes the underlying database resources.
 func (d *Datastore) Close() error {
 	d.dbClient.Close()
-	d.pubsubClient.Close()
+	if err := d.pubsubClient.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
