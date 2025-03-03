@@ -71,8 +71,7 @@ func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, l
 
 func (d *Datastore) trySetBroadcastLimit(txn *spanner.ReadWriteTransaction, id ids.BroadcastID, limit uint64) error {
 	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit"}, []interface{}{id.Bytes(), int(limit)})}
-	txn.BufferWrite(ms)
-	return nil
+	return txn.BufferWrite(ms)
 }
 
 // SaveBroadcastMessage implements db.BroadcastStore.
