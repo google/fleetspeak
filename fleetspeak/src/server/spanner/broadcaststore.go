@@ -58,8 +58,7 @@ func (d *Datastore) tryCreateBroadcast(txn *spanner.ReadWriteTransaction, b *bro
 	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.broadcasts,
 		[]string{"Broadcast", "Sent", "Allocated", "MessageLimit"},
 		[]interface{}{b.Broadcast, b.Sent, b.Allocated, b.MessageLimit})}
-	txn.BufferWrite(ms)
-	return nil
+	return txn.BufferWrite(ms)
 }
 
 // SetBroadcastLimit implements db.BroadcastStore.
