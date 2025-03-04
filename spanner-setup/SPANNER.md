@@ -8,7 +8,7 @@ Spanner is a fully managed, mission-critical database service on [Google Cloud](
 
 ## 1. Running Fleetspeak on Spanner
 
-Running Fleetspeak on Spanner requires that you create and configure a Spanner instance before you run Fleetspeak.
+Running Fleetspeak on Spanner requires that you create and configure a [Spanner instance](https://cloud.google.com/spanner/docs/instances) before you run Fleetspeak.
 
 Furthermore, you also need to create a [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) [Topic](https://cloud.google.com/pubsub/docs/publish-message-overview) and [Subscription](https://cloud.google.com/pubsub/docs/subscription-overview) that are needed by the datastore to call the [ProcessMessages()](https://github.com/daschwanden/fleetspeak/blob/a3f9826d0fb5419b47b5b4b0c50497723e35407b/fleetspeak/src/server/internal/services/manager.go#L181) method on backlogged messages.
 
@@ -22,7 +22,7 @@ You can follow the instructions in the Google Cloud online documentation to [cre
 > The script assumes that you use ```fleetspeak-instance``` as the Fleetspeak instance name and ```fleetspeak``` as the Fleetspeak database name.
 > In case you want to use different values then you need to update the [setup.sh](./setup.sh) script accordingly. 
 
-Run the following command to get the Fleetspeak database and its tables:
+Run the following command to create the Fleetspeak database and its tables:
 
 ```bash
 ./setup.sh
@@ -30,7 +30,7 @@ Run the following command to get the Fleetspeak database and its tables:
 
 ### 1.2. Google Cloud Pub/Sub Topic and Subscription
 
-You can follow these instructions to [create a Pub/Sub Topic](https://cloud.google.com/pubsub/docs/create-topic#create_a_topic_2) and to [create a Pub/Sub Subscription](https://cloud.google.com/pubsub/docs/create-subscription#create_a_pull_subscription).
+You can follow the instructions in the Google Cloud online documentation to [create a Pub/Sub Topic](https://cloud.google.com/pubsub/docs/create-topic#create_a_topic_2) and to [create a Pub/Sub Subscription](https://cloud.google.com/pubsub/docs/create-subscription#create_a_pull_subscription).
 
 ### 1.3. Fleetspeak Components Configuration
 
