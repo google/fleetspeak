@@ -72,12 +72,6 @@ jobs:
       - name: 'Start Pub/Sub emulator'
         run: |
           gcloud beta emulators pubsub start --project=${{ env.SPANNER_PROJECT }} --host-port=0.0.0.0:8085 &
-          git clone https://github.com/googleapis/python-pubsub.git
-          cd python-pubsub/samples/snippets
-          pip install -r requirements.txt
-          python publisher.py ${{ env.SPANNER_PROJECT }} create ${{ env.SPANNER_TOPIC }}
-          python subscriber.py ${{ env.SPANNER_PROJECT }} create ${{ env.SPANNER_TOPIC }} ${{ env.SPANNER_SUBSCRIPTION }}
-          cd -
       - name: 'Start Spanner emulator'
         run: |
           gcloud config configurations create emulator

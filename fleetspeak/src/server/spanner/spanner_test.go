@@ -124,6 +124,23 @@ func TestSpannerStore(t *testing.T) {
 	if pubsubSubscription == "" {
 		t.Skip("SPANNER_SUBSCRIPTION not set")
 	}
+	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
+	defer fin()
+	client, err := pubsub.NewClient(ctx, projectId)
+	if err != nil {
+		t.Skip("Failed to get PubSub client, is PubSub available?")
+	}
+	top, err := client.CreateTopic(ctx, pubsubTopic)
+	if err != nil {
+		t.Skip("Failed to create PubSub Topic")
+	}
+	_, err = client.CreateSubscription(ctx, pubsubSubscription, pubsub.SubscriptionConfig{
+		Topic: top,
+	})
+	if err != nil {
+		t.Skip("Failed to create PubSub Subscription")
+	}
+	defer client.Close()
 	dbtesting.DataStoreTestSuite(t, newSpannerTestEnv(
 		projectId, instance, database, pubsubTopic, pubsubSubscription))
 }
