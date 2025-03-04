@@ -23,10 +23,12 @@ export MYSQL_TEST_E2E_DB=fleetspeak
 export SPANNER_DATABASE=fleetspeak
 export SPANNER_INSTANCE=fleetspeak-instance
 
-export SPANNER_PROJECT=fleetspeak-spanner
-export SPANNER_SUBSCRIPTION=fleetspeak-server-messages-sub
-export SPANNER_TOPIC=fleetspeak-server-messages
+# Vars for testing against the real Spanner and PubSub services
+#export SPANNER_PROJECT=fleetspeak-spanner
+#export SPANNER_SUBSCRIPTION=fleetspeak-server-messages-sub
+#export SPANNER_TOPIC=fleetspeak-server-messages
 
+# Emulator vars for testing aginst Spanner and PubSub
 export PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
 export PUBSUB_PROJECT_ID=spanner-emulator-project
 export SPANNER_EMULATOR_HOST=spanner-emulator:9010
@@ -43,9 +45,10 @@ python3 python-pubsub/samples/snippets/publisher.py $SPANNER_PROJECT create $SPA
 # create the PubSub subscription"
 python3 python-pubsub/samples/snippets/subscriber.py $SPANNER_PROJECT create $SPANNER_TOPIC $SPANNER_SUBSCRIPTION
 
+go clean -testcache
 ./fleetspeak/test.sh
 # OR
-go test -race --timeout 2.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner
+go test -race --timeout 1.5m github.com/google/fleetspeak/fleetspeak/src/server/spanner
 
 
 ########################################
