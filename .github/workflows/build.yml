@@ -83,7 +83,6 @@ jobs:
             --config=emulator-config --description="Spanner Test Instance" --nodes=1
           sudo apt-get update
           sudo apt install -y protobuf-compiler libprotobuf-dev
-          protoc -I=. -I=/usr/include --include_imports --descriptor_set_out=./spanner-setup/fleetspeak.pb ./fleetspeak/src/common/proto/fleetspeak/common.proto ./fleetspeak/src/server/proto/fleetspeak_server/broadcasts.proto ./fleetspeak/src/server/proto/fleetspeak_server/resource.proto
           cd ./spanner-setup
           bash ./setup.sh
           cd ..
