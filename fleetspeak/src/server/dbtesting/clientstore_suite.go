@@ -426,6 +426,11 @@ func streamClientIdsTest(t *testing.T, ds db.Store) {
 		if err := ds.AddClient(ctx, cid, &db.ClientData{Key: []byte("test key"), Blacklisted: idx%2 != 0}); err != nil {
 			t.Fatalf("AddClient [%v] failed: %v", clientID, err)
 		}
+		// sleep for a second to make sure we do not add clients with the same LastContactTime
+		// this is required for testing on the emulator as it can take single digit microseconds to commit the change.
+		// i.e. spanner.CommitTimestamp - db.Now() > x microseconds
+		// so if we fire requests faster than the emulator can commit then the time based tests will fail.
+		time.Sleep(time.Second)
 	}
 
 	t.Run("Stream all clients", func(t *testing.T) {

@@ -1,4 +1,4 @@
-FROM golang:1.22 as builder
+FROM golang:1.22 AS builder
 
 RUN apt-get update && \
     apt-get install -y  \
@@ -6,7 +6,7 @@ RUN apt-get update && \
 
 COPY . /fleetspeak
 
-ENV GOBIN /fleetspeak/bin
+ENV GOBIN=/fleetspeak/bin
 RUN mkdir -p $GOBIN
 RUN cd /fleetspeak && go install ./...
 
@@ -17,7 +17,7 @@ RUN apt update
 
 WORKDIR /
 
-ENV FLEETSPEAK_BIN /fleetspeak/bin
+ENV FLEETSPEAK_BIN=/fleetspeak/bin
 RUN mkdir -p $FLEETSPEAK_BIN
 
 COPY --from=builder /fleetspeak/bin/fleetspeak_server $FLEETSPEAK_BIN/server

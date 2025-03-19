@@ -1,0 +1,39 @@
+FROM golang:1.22 AS builder
+
+RUN apt-get update && \
+    apt install -y python3-venv && \
+    apt install -y pip && \
+    apt install -y vim && \
+    apt-get install -y python-is-python3
+
+SHELL ["/bin/bash", "-c"]
+
+COPY . /fleetspeak
+
+ENV GOBIN=/fleetspeak/bin
+RUN mkdir -p $GOBIN
+RUN cd /fleetspeak && go install ./...
+
+RUN cd /fleetspeak && \
+    python3 -m venv /venv/FSENV && \
+    source /venv/FSENV/bin/activate && \
+    pip install wheel pytest && \
+    pip install -e ./fleetspeak_python[test] && \
+    pip install -e ./frr_python
+
+WORKDIR /
+
+RUN cd /fleetspeak && \
+    git clone https://github.com/googleapis/python-pubsub.git && \
+    cd python-pubsub/samples/snippets && \
+    source /venv/FSENV/bin/activate && \
+    pip install -r requirements.txt 
+
+ENV FLEETSPEAK_BIN=/fleetspeak/bin
+
+RUN ln -s /fleetspeak/bin/fleetspeak_server $FLEETSPEAK_BIN/server
+RUN ln -s /fleetspeak/bin/fleetspeak_client $FLEETSPEAK_BIN/client
+
+ENV PATH="$FLEETSPEAK_BIN:$PATH"
+
+ENTRYPOINT [ "server" ]
