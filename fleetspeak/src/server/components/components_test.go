@@ -27,7 +27,7 @@ func TestValidation(t *testing.T) {
 	}{
 		{
 			cfg:     &cpb.Config{},
-			wantErr: "mysql_data_source_name is required",
+			wantErr: "mysql_data_source_name OR spanner_database_name is required",
 		},
 		{
 			cfg: &cpb.Config{

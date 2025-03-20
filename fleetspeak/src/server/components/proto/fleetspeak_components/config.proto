@@ -19,7 +19,8 @@ package fleetspeak.components;
 option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components";
 
 message Config {
-  // Mysql connection string. Required.
+  // Mysql connection string. Optional.
+  // Either this or the SpannerConfig has to be set.
   //
   // https://github.com/go-sql-driver/mysql#dsn-data-source-name
   string mysql_data_source_name = 1;
@@ -62,6 +63,23 @@ message Config {
   // Set this if running a pure admin server (without a notification listener)
   // in a distributed setup.
   bool notification_use_http_notifier = 10;
+
+  // Spanner Config. Optional.
+  // Either this or the MySQL data source name has to be set.
+  //
+  SpannerConfig spanner_config = 11;
+}
+
+message SpannerConfig {
+  // https://pkg.go.dev/cloud.google.com/go/spanner#NewClient
+  // A valid database name has the form of
+  // projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID
+  string project_id = 1;
+  string instance_name = 2;
+  string database_name = 3;
+
+  string pubsub_topic = 4;
+  string pubsub_sub = 5;
 }
 
 // In this mode Fleetspeak accepts a mTLS connection directly from the client.

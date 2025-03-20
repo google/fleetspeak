@@ -1,0 +1,51 @@
+services:
+  mysql-db:
+    image: mysql:8.2
+    restart: always
+    hostname: mysql-db
+    environment:
+      MYSQL_DATABASE: 'fleetspeak'
+      MYSQL_USER: 'fleetspeak-user'
+      MYSQL_PASSWORD: 'fleetspeak-password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+
+  fleetspeak:
+    build:
+      context: ../
+      dockerfile: ./spanner-setup/Dockerfile.dev
+    hostname: fleetspeak-test
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    entrypoint: ["tail", "-F", "/fleetspeak/spanner-setup/setup.sh"]
+    volumes:
+      - "/home/user/.config/gcloud/:/root/.config/gcloud"
+
+  pubsub-emulator:
+    image: google/cloud-sdk:emulators
+    restart: always
+    hostname: pubsub-emulator
+    entrypoint: ["/google-cloud-sdk/bin/gcloud", "beta", "emulators", "pubsub", "start", "--project=spanner-emulator-project", "--host-port=0.0.0.0:8085"]
+    ports:
+      - '8085:8085'
+    expose:
+      - '8085'
+
+  spanner-emulator:
+    image: gcr.io/cloud-spanner-emulator/emulator
+    restart: always
+    hostname: spanner-emulator
+    ports:
+      - '9010:9010'
+      - '9020:9020'
+    expose:
+      - '9010'
+      - '9020'
