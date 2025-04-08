@@ -17,10 +17,10 @@
 package spanner
 
 import (
-	"context"
-	"errors"
 	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/spanner"
+	"context"
+	"errors"
 )
 
 // Datastore wraps a mysql backed sql.DB and implements db.Store.

@@ -773,6 +773,6 @@ func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 }
 
 func (d *Datastore) StopMessageProcessor() {
-        d.pubsubTopic.Stop()
+	d.pubsubTopic.Stop()
 	log.Error("+++ messagestore: StopMessageProcessor() called")
 }
