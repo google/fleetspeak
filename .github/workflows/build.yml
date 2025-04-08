@@ -9,6 +9,14 @@ jobs:
       MYSQL_TEST_PASS: root
       MYSQL_TEST_ADDR: 127.0.0.1:3306
       MYSQL_TEST_E2E_DB: e2e_test_db
+      PUBSUB_EMULATOR_HOST: localhost:8085
+      PUBSUB_PROJECT_ID: spanner-emulator-project
+      SPANNER_EMULATOR_HOST: localhost:9010
+      SPANNER_DATABASE: fleetspeak
+      SPANNER_INSTANCE: fleetspeak-instance
+      SPANNER_PROJECT: spanner-emulator-project
+      SPANNER_TOPIC: spanner-msgs-top
+      SPANNER_SUBSCRIPTION: spanner-megs-sub
     steps:
       - uses: actions/checkout@v3
       - name: Set up MySQL
@@ -57,6 +65,27 @@ jobs:
             exit 1;
           fi;
           echo "git status is clean; generated protos are consistent"
+      - name: 'Install Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'beta,pubsub-emulator,cloud-spanner-emulator'
+      - name: 'Start Pub/Sub emulator'
+        run: |
+          gcloud beta emulators pubsub start --project=${{ env.SPANNER_PROJECT }} --host-port=0.0.0.0:8085 &
+      - name: 'Start Spanner emulator'
+        run: |
+          gcloud config configurations create emulator
+          gcloud config set auth/disable_credentials true
+          gcloud config set project ${{ env.SPANNER_PROJECT }}
+          gcloud config set api_endpoint_overrides/spanner http://localhost:9020/
+          gcloud emulators spanner start &
+          gcloud spanner instances create ${{ env.SPANNER_INSTANCE }} \
+            --config=emulator-config --description="Spanner Test Instance" --nodes=1
+          sudo apt-get update
+          sudo apt install -y protobuf-compiler libprotobuf-dev
+          cd ./spanner-setup
+          bash ./setup.sh
+          cd ..
       - name: Build
         run: |
           CGO_ENABLED=0 go build ./cmd/...
