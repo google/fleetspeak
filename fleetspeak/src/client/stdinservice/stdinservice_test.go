@@ -40,7 +40,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	}
 
 	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
+	err = s.Start(&clitesting.FakeServiceContext{
 		OutChan: outChan,
 	})
 	if err != nil {
@@ -88,7 +88,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 	}
 
 	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
+	err = s.Start(&clitesting.FakeServiceContext{
 		OutChan: outChan,
 	})
 	if err != nil {
@@ -140,7 +140,7 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 	}
 
 	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
+	err = s.Start(&clitesting.FakeServiceContext{
 		OutChan: outChan,
 	})
 	if err != nil {
@@ -201,7 +201,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 	}
 
 	outChan := make(chan *fspb.Message, 1)
-	err = s.Start(&clitesting.MockServiceContext{
+	err = s.Start(&clitesting.FakeServiceContext{
 		OutChan: outChan,
 	})
 	if err != nil {
@@ -219,7 +219,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 import time
 
 time.sleep(%f)
-		`, clitesting.MockCommTimeout.Seconds())},
+		`, clitesting.FakeCommTimeout.Seconds())},
 			}),
 		}); err != nil && !strings.HasSuffix(err.Error(), "context canceled") {
 		t.Fatal(err)

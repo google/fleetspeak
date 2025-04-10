@@ -44,7 +44,7 @@ func TestFailures(t *testing.T) {
 	patchDuration(t, &channel.MessageTimeout, 50*time.Millisecond)
 	patchDuration(t, &startupDataTimeout, time.Second)
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 5),
 	}
 	if _, err := os.Stat(testClient(t)); err != nil {
@@ -81,7 +81,7 @@ func TestFailures(t *testing.T) {
 }
 
 func TestLoopback(t *testing.T) {
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	dsc := &dspb.Config{
@@ -117,7 +117,7 @@ func TestLoopback(t *testing.T) {
 }
 
 func TestStd(t *testing.T) {
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 20),
 	}
 	dsc := &dspb.Config{
@@ -173,7 +173,7 @@ func TestStd(t *testing.T) {
 }
 
 func TestStats(t *testing.T) {
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 2000),
 	}
 	dsc := &dspb.Config{

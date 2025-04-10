@@ -61,7 +61,7 @@ func (f *fakeResourceUsageFetcher) setDebugStatusStrings(statusList []string) {
 
 func TestResourceUsageMonitor(t *testing.T) {
 	start := time.Now()
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	pid := 1234

@@ -73,7 +73,7 @@ func startTestClient(t *testing.T, client []string, mode string, sc service.Cont
 
 func exerciseLoopback(t *testing.T, client []string) {
 	t.Logf("Starting loopback exercise for client %v", client)
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
@@ -127,7 +127,7 @@ func TestLoopbackPY(t *testing.T) {
 // Tests that Fleetspeak uses self-reported PIDs for monitoring resource-usage of
 // daemon services.
 func TestSelfReportedPIDs(t *testing.T) {
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientLauncherPY(t), "", &sc, &dspb.Config{})
@@ -215,7 +215,7 @@ func TestRespawn(t *testing.T) {
 	// May not run in parallel due to global variable mutation.
 	mustPatchGlobalRespawnDelay(t, time.Second)
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
 	}
 	s := startTestClient(t, testClient(t), "die", &sc, &dspb.Config{})
@@ -277,7 +277,7 @@ func TestInactivityTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Factory(...): %v", err)
 	}
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 100),
 	}
 	if err := s.Start(&sc); err != nil {
@@ -349,7 +349,7 @@ waitForThree:
 
 func exerciseBacklog(t *testing.T, client []string) {
 	t.Logf("Starting backlog exercise for client %v", client)
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, client, "loopback", &sc, &dspb.Config{})
@@ -428,7 +428,7 @@ func nextResourceUsage(t *testing.T, ch <-chan *fspb.Message) (rud *mpb.Resource
 func TestMemoryLimit(t *testing.T) {
 	mustPatchGlobalRespawnDelay(t, time.Second)
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message),
 	}
 	s := startTestClient(t, testClientPY(t), "memoryhog", &sc, &dspb.Config{
@@ -455,7 +455,7 @@ func TestNoHeartbeats(t *testing.T) {
 	mustPatchGlobalRespawnDelay(t, time.Second)
 	stats := &testStatsCollector{}
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan:        make(chan *fspb.Message),
 		StatsCollector: stats,
 	}
@@ -514,7 +514,7 @@ func TestHeartbeat(t *testing.T) {
 
 	stats := &testStatsCollector{}
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan:        make(chan *fspb.Message),
 		StatsCollector: stats,
 	}

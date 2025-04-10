@@ -101,7 +101,7 @@ func exerciseLoopback(t *testing.T, socketPath string) {
 	}
 
 	stats := &testStatsCollector{}
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan:        make(chan *fspb.Message, 5),
 		StatsCollector: stats,
 	}
@@ -236,7 +236,7 @@ func TestStutteringLoopback(t *testing.T) {
 	}
 
 	stats := &testStatsCollector{}
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan:        make(chan *fspb.Message),
 		StatsCollector: stats,
 	}
@@ -317,7 +317,7 @@ func TestResourceMonitoring(t *testing.T) {
 		t.Fatalf("Factory(...): %v", err)
 	}
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 5),
 	}
 	if err := s.Start(&sc); err != nil {
@@ -364,7 +364,7 @@ func TestStopDoesNotBlock(t *testing.T) {
 		t.Fatalf("Factory(...): %v", err)
 	}
 
-	sc := clitesting.MockServiceContext{
+	sc := clitesting.FakeServiceContext{
 		OutChan: make(chan *fspb.Message, 5),
 	}
 	if err := s.Start(&sc); err != nil {
