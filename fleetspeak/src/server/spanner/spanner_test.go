@@ -30,7 +30,7 @@ import (
 )
 
 type spannerTestEnv struct {
-	projectId          string
+	projectID          string
 	instance           string
 	database           string
 	pubsubTopic        string
@@ -45,7 +45,7 @@ func (e *spannerTestEnv) Clean() (db.Store, error) {
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
 	log.Info("Resetting PubSub Topic & Subscription")
-	client, err := pubsub.NewClient(ctx, e.projectId)
+	client, err := pubsub.NewClient(ctx, e.projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (e *spannerTestEnv) Clean() (db.Store, error) {
 		return nil, err
 	}
 	log.Infof("Using database: %v", e.database)
-	s, err := MakeDatastore(e.projectId, e.instance, e.database, e.pubsubTopic, e.pubsubSubscription)
+	s, err := MakeDatastore(e.projectID, e.instance, e.database, e.pubsubTopic, e.pubsubSubscription)
 	if err != nil {
 		return nil, err
 	}
@@ -92,9 +92,9 @@ func (e *spannerTestEnv) Destroy() error {
 	return nil
 }
 
-func newSpannerTestEnv(projectId, instance, database, pubsubTopic, pubsubSubscription string) *spannerTestEnv {
+func newSpannerTestEnv(projectID, instance, database, pubsubTopic, pubsubSubscription string) *spannerTestEnv {
 	return &spannerTestEnv{
-		projectId:          projectId,
+		projectID:          projectID,
 		instance:           instance,
 		database:           database,
 		pubsubTopic:        pubsubTopic,
@@ -103,11 +103,11 @@ func newSpannerTestEnv(projectId, instance, database, pubsubTopic, pubsubSubscri
 }
 
 func TestSpannerStore(t *testing.T) {
-	var database = os.Getenv("SPANNER_DATABASE")
-	var instance = os.Getenv("SPANNER_INSTANCE")
-	var projectId = os.Getenv("SPANNER_PROJECT")
-	var pubsubTopic = os.Getenv("SPANNER_TOPIC")
-	var pubsubSubscription = os.Getenv("SPANNER_SUBSCRIPTION")
+	database := os.Getenv("SPANNER_DATABASE")
+	instance := os.Getenv("SPANNER_INSTANCE")
+	projectID := os.Getenv("SPANNER_PROJECT")
+	pubsubTopic := os.Getenv("SPANNER_TOPIC")
+	pubsubSubscription := os.Getenv("SPANNER_SUBSCRIPTION")
 
 	if database == "" {
 		t.Skip("SPANNER_DATABASE not set")
@@ -115,7 +115,7 @@ func TestSpannerStore(t *testing.T) {
 	if instance == "" {
 		t.Skip("SPANNER_INSTANCE not set")
 	}
-	if projectId == "" {
+	if projectID == "" {
 		t.Skip("SPANNER_PROJECT not set")
 	}
 	if pubsubTopic == "" {
@@ -126,7 +126,7 @@ func TestSpannerStore(t *testing.T) {
 	}
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
-	client, err := pubsub.NewClient(ctx, projectId)
+	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
 		t.Skip("Failed to get PubSub client, is PubSub available?")
 	}
@@ -142,5 +142,5 @@ func TestSpannerStore(t *testing.T) {
 	}
 	defer client.Close()
 	dbtesting.DataStoreTestSuite(t, newSpannerTestEnv(
-		projectId, instance, database, pubsubTopic, pubsubSubscription))
+		projectID, instance, database, pubsubTopic, pubsubSubscription))
 }

@@ -20,11 +20,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
-
 	"google.golang.org/api/iterator"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -57,7 +55,7 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 func (d *Datastore) tryCreateBroadcast(txn *spanner.ReadWriteTransaction, b *broadcast) error {
 	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.broadcasts,
 		[]string{"Broadcast", "Sent", "Allocated", "MessageLimit"},
-		[]interface{}{b.Broadcast, b.Sent, b.Allocated, b.MessageLimit})}
+		[]any{b.Broadcast, b.Sent, b.Allocated, b.MessageLimit})}
 	return txn.BufferWrite(ms)
 }
 
@@ -70,7 +68,7 @@ func (d *Datastore) SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, l
 }
 
 func (d *Datastore) trySetBroadcastLimit(txn *spanner.ReadWriteTransaction, id ids.BroadcastID, limit uint64) error {
-	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit"}, []interface{}{id.Bytes(), int(limit)})}
+	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit"}, []any{id.Bytes(), int(limit)})}
 	return txn.BufferWrite(ms)
 }
 
@@ -113,8 +111,8 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent"}
 	sentCols := []string{"BroadcastID", "ClientID"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []interface{}{bid.Bytes(), aid.Bytes(), sent + 1})}
-	ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []interface{}{bid.Bytes(), cid.Bytes()}))
+	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []any{bid.Bytes(), aid.Bytes(), sent + 1})}
+	ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []any{bid.Bytes(), cid.Bytes()}))
 	return txn.BufferWrite(ms)
 }
 
@@ -129,7 +127,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			"FROM Broadcasts AS b " +
 			"WHERE b.Sent < b.MessageLimit " +
 			"AND (b.Broadcast.expiration_time IS NULL OR (b.Broadcast.expiration_time.seconds > @nowSec))",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"nowSec": int64(now.Seconds),
 		},
 	}
@@ -239,8 +237,8 @@ func (d *Datastore) tryCreateAllocation(ctx context.Context, txn *spanner.ReadWr
 
 	broadcastCols := []string{"BroadcastID", "Allocated"}
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent", "MessageLimit", "ExpiresTime"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{id.Bytes(), int64(newAllocated)})}
-	ms = append(ms, spanner.InsertOrUpdate(d.broadcastAllocations, allocationCols, []interface{}{id.Bytes(), aid.Bytes(), 0, int64(toAllocate), ep}))
+	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []any{id.Bytes(), int64(newAllocated)})}
+	ms = append(ms, spanner.InsertOrUpdate(d.broadcastAllocations, allocationCols, []any{id.Bytes(), aid.Bytes(), 0, int64(toAllocate), ep}))
 	if err := txn.BufferWrite(ms); err != nil {
 		return nil, err
 	}
@@ -282,7 +280,7 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 	}
 
 	broadcastCols := []string{"BroadcastID", "Allocated", "Sent"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []interface{}{bid.Bytes(), int64(newAllocated), bSent + baSent})}
+	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []any{bid.Bytes(), int64(newAllocated), bSent + baSent})}
 	ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}))
 	return txn.BufferWrite(ms)
 }

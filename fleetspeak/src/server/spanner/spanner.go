@@ -17,10 +17,11 @@
 package spanner
 
 import (
-	"cloud.google.com/go/pubsub"
-	"cloud.google.com/go/spanner"
 	"context"
 	"errors"
+
+	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/spanner"
 )
 
 // Datastore wraps a mysql backed sql.DB and implements db.Store.
@@ -44,16 +45,15 @@ type Datastore struct {
 }
 
 // MakeDatastore creates any missing tables and returns a Datastore. The db
-// parameter must be connected to a mysql database, e.g. using the mymysql
-// driver.
-func MakeDatastore(projectId, inst, db, pubsubTopic, pubsubSubscription string) (*Datastore, error) {
+// parameter must be connected to a mysql database, e.g. using the mysql driver.
+func MakeDatastore(projectID, inst, db, pubsubTopic, pubsubSubscription string) (*Datastore, error) {
 	ctx := context.Background()
-	dbClient, err := initDB(ctx, projectId, inst, db)
+	dbClient, err := initDB(ctx, projectID, inst, db)
 	if err != nil {
 		return nil, err
 	}
 
-	pubsubClient, err := pubsub.NewClient(ctx, projectId)
+	pubsubClient, err := pubsub.NewClient(ctx, projectID)
 
 	if err != nil {
 		return nil, err
@@ -107,8 +107,8 @@ func (d *Datastore) IsNotFound(err error) bool {
 	}
 }
 
-func initDB(ctx context.Context, projectId, inst, db string) (*spanner.Client, error) {
-	dbString := "projects/" + projectId + "/instances/" + inst + "/databases/" + db
+func initDB(ctx context.Context, projectID, inst, db string) (*spanner.Client, error) {
+	dbString := "projects/" + projectID + "/instances/" + inst + "/databases/" + db
 	client, err := spanner.NewClient(ctx, dbString)
 	if err != nil {
 		return nil, err

@@ -23,13 +23,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
-
 	"google.golang.org/api/iterator"
-
-	log "github.com/golang/glog"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	mpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -65,18 +62,18 @@ func uint64ToBytes(i uint64) []byte {
 // StreamClientIds implements db.Store.
 func (d *Datastore) StreamClientIds(ctx context.Context, includeBlacklisted bool, lastContactAfter *time.Time, callback func(common.ClientID) error) error {
 	query := "SELECT t.ClientID FROM Clients AS t"
-	var params map[string]interface{}
+	var params map[string]any
 	switch {
 	case !includeBlacklisted && lastContactAfter == nil:
 		query += " WHERE NOT t.Blacklisted"
 	case !includeBlacklisted && lastContactAfter != nil:
 		query += " WHERE NOT t.Blacklisted AND t.LastContactTime > @time"
-		params = map[string]interface{}{
+		params = map[string]any{
 			"time": lastContactAfter,
 		}
 	case includeBlacklisted && lastContactAfter != nil:
 		query += " WHERE t.LastContactTime > @time"
-		params = map[string]interface{}{
+		params = map[string]any{
 			"time": lastContactAfter,
 		}
 	}
@@ -249,9 +246,9 @@ func (d *Datastore) tryAddClient(txn *spanner.ReadWriteTransaction, id common.Cl
 	bid := id.Bytes()
 	clientCols := []string{"ClientID", "Blacklisted", "ClientKey", "LastContactTime"}
 	labelCols := []string{"ClientID", "Label"}
-	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clients, clientCols, []interface{}{bid, data.Blacklisted, data.Key, spanner.CommitTimestamp})}
+	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clients, clientCols, []any{bid, data.Blacklisted, data.Key, spanner.CommitTimestamp})}
 	for _, label := range data.Labels {
-		ms = append(ms, spanner.InsertOrUpdate(d.clientLabels, labelCols, []interface{}{bid, label}))
+		ms = append(ms, spanner.InsertOrUpdate(d.clientLabels, labelCols, []any{bid, label}))
 	}
 	return txn.BufferWrite(ms)
 }
@@ -265,7 +262,7 @@ func (d *Datastore) AddClientLabel(ctx context.Context, id common.ClientID, labe
 }
 
 func (d *Datastore) tryAddClientLabel(tr *spanner.ReadWriteTransaction, id common.ClientID, label *fspb.Label) error {
-	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientLabels, []string{"ClientID", "Label"}, []interface{}{id.Bytes(), label})}
+	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientLabels, []string{"ClientID", "Label"}, []any{id.Bytes(), label})}
 	err := tr.BufferWrite(ms)
 	return err
 }
@@ -293,7 +290,7 @@ func (d *Datastore) BlacklistClient(ctx context.Context, id common.ClientID) err
 }
 
 func (d *Datastore) tryBlacklistClient(txn *spanner.ReadWriteTransaction, id common.ClientID) error {
-	ms := []*spanner.Mutation{spanner.Update(d.clients, []string{"ClientID", "Blacklisted"}, []interface{}{id.Bytes(), true})}
+	ms := []*spanner.Mutation{spanner.Update(d.clients, []string{"ClientID", "Blacklisted"}, []any{id.Bytes(), true})}
 	err := txn.BufferWrite(ms)
 	return err
 }
@@ -318,8 +315,8 @@ func (d *Datastore) tryRecordClientContact(txn *spanner.ReadWriteTransaction, da
 	}
 	clientCols := []string{"ClientID", "LastContactTime", "LastContactAddress", "LastContactStreamingTo", "LastClock"}
 	contactCols := []string{"ClientID", "Time", "SentNonce", "ReceivedNonce", "Address"}
-	ms := []*spanner.Mutation{spanner.Update(d.clients, clientCols, []interface{}{bid, spanner.CommitTimestamp, data.Addr, streaming, data.ClientClock})}
-	ms = append(ms, spanner.InsertOrUpdate(d.clientContacts, contactCols, []interface{}{bid, spanner.CommitTimestamp, uint64ToBytes(data.NonceSent), uint64ToBytes(data.NonceReceived), data.Addr}))
+	ms := []*spanner.Mutation{spanner.Update(d.clients, clientCols, []any{bid, spanner.CommitTimestamp, data.Addr, streaming, data.ClientClock})}
+	ms = append(ms, spanner.InsertOrUpdate(d.clientContacts, contactCols, []any{bid, spanner.CommitTimestamp, uint64ToBytes(data.NonceSent), uint64ToBytes(data.NonceReceived), data.Addr}))
 	err := txn.BufferWrite(ms)
 	return err
 }
@@ -416,7 +413,7 @@ func (d *Datastore) tryLinkMessagesToContact(tr *spanner.ReadWriteTransaction, c
 	var ms []*spanner.Mutation
 	contactMsgsCols := []string{"ClientID", "Time", "MessageID"}
 	for _, id := range ids {
-		ms = append(ms, spanner.InsertOrUpdate(d.clientContactMessages, contactMsgsCols, []interface{}{bcid, sts, id.Bytes()}))
+		ms = append(ms, spanner.InsertOrUpdate(d.clientContactMessages, contactMsgsCols, []any{bcid, sts, id.Bytes()}))
 	}
 	return tr.BufferWrite(ms)
 }
@@ -446,7 +443,7 @@ func (d *Datastore) tryRecordResourceUsageData(tr *spanner.ReadWriteTransaction,
 		MaxNumFds:             int32(rud.ResourceUsage.GetMaxNumFds()),
 	}
 	resourceUsageCols := []string{"ClientID", "ServerTimestamp", "Record"}
-	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientResourceUsageRecords, resourceUsageCols, []interface{}{id.Bytes(), spanner.CommitTimestamp, &record})}
+	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientResourceUsageRecords, resourceUsageCols, []any{id.Bytes(), spanner.CommitTimestamp, &record})}
 	return tr.BufferWrite(ms)
 }
 
@@ -470,7 +467,7 @@ func (d *Datastore) FetchResourceUsageRecords(ctx context.Context, id common.Cli
 			"  t.ClientID = @cID AND " +
 			"  t.ServerTimestamp >= @start AND " +
 			"  t.ServerTimestamp < @end",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"cID":   id.Bytes(),
 			"start": startTimestamp.AsTime(),
 			"end":   endTimestamp.AsTime(),

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
@@ -41,7 +40,7 @@ func (d *Datastore) StoreFile(ctx context.Context, service, name string, data io
 }
 
 func (d *Datastore) tryStoreFile(txn *spanner.ReadWriteTransaction, service, name string, data []byte) error {
-	m := spanner.InsertOrUpdate(d.files, []string{"Service", "Name", "ModifiedTime", "Data"}, []interface{}{service, name, db.NowProto(), data})
+	m := spanner.InsertOrUpdate(d.files, []string{"Service", "Name", "ModifiedTime", "Data"}, []any{service, name, db.NowProto(), data})
 	err := txn.BufferWrite([]*spanner.Mutation{m})
 	return err
 }
