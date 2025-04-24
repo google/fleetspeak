@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
@@ -125,7 +124,7 @@ func (h *FilesystemPersistenceHandler) ReadCommunicatorConfig() (*clpb.Communica
 	}
 
 	ret := &clpb.CommunicatorConfig{}
-	if err := prototext.Unmarshal(b, ret); err != nil {
+	if err := unmarshalCompatible(b, ret); err != nil {
 		return nil, fmt.Errorf("can't parse communicator config [%s]: %v", p, err)
 	}
 
@@ -189,11 +188,7 @@ func (h *FilesystemPersistenceHandler) ReadServices() ([]*fspb.ClientServiceConf
 		}
 
 		s := &fspb.ClientServiceConfig{}
-		err = prototext.UnmarshalOptions{
-			// Forward compatibility with future field names
-			DiscardUnknown: true,
-		}.Unmarshal(b, s)
-		if err != nil {
+		if err := unmarshalCompatible(b, s); err != nil {
 			log.Errorf("Unable to parse service file [%s], ignoring: %v", fp, err)
 			continue
 		}

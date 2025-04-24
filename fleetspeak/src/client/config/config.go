@@ -19,6 +19,9 @@ import (
 	"crypto/x509"
 	"net/url"
 
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
@@ -89,4 +92,11 @@ type PersistenceHandler interface {
 
 	ReadSignedServices() ([]*fspb.SignedClientServiceConfig, error)
 	ReadServices() ([]*fspb.ClientServiceConfig, error)
+}
+
+func unmarshalCompatible(b []byte, m proto.Message) error {
+	return prototext.UnmarshalOptions{
+		// Forward compatibility with future field names
+		DiscardUnknown: true,
+	}.Unmarshal(b, m)
 }
