@@ -319,6 +319,9 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
