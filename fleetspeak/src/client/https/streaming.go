@@ -313,7 +313,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 			canceled <- true
 		}
 	}()
-	// We also need to feed the intital data into the pipe while Do
+	// We also need to feed the initial data into the pipe while Do
 	// executes.
 	ret.working.Add(1)
 	go func() {
@@ -390,7 +390,7 @@ type connection struct {
 	pendingLock sync.Mutex
 
 	serverDone  chan struct{} // done message received from server
-	writingDone chan struct{} // writeloop finished
+	writingDone chan struct{} // writeLoop finished
 
 	// Used to wait until everything is done.
 	working sync.WaitGroup
@@ -523,7 +523,7 @@ func (c *connection) writeLoop(bw BodyWriter) {
 			return
 		}
 		bufWritten, err := bw.Write(buf)
-		bw.Flush()
+		err = errors.Join(err, bw.Flush())
 		c.cctx.Stats().OutboundContactData(c.host, bufWritten, err)
 		if err != nil {
 			if c.ctx.Err() == nil {
