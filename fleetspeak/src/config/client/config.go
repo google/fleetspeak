@@ -25,6 +25,7 @@ func WriteLinuxConfig(cfg *cpb.Config, trustedPEM []byte) error {
 				StateFile:              "/var/lib/misc/fleetspeak-client.state",
 			}},
 		Streaming: !cfg.ComponentsConfig.HttpsConfig.DisableStreaming,
+		Proxy:     cfg.GetProxy(),
 	}
 
 	b, err := prototext.Marshal(out)
@@ -54,6 +55,7 @@ func WriteDarwinConfig(cfg *cpb.Config, trustedPEM []byte) error {
 				StateFile:              "/etc/fleetspeak-client/state",
 			}},
 		Streaming: !cfg.ComponentsConfig.HttpsConfig.DisableStreaming,
+		Proxy:     cfg.GetProxy(),
 	}
 
 	b, err := prototext.Marshal(out)
@@ -82,6 +84,7 @@ func WriteWindowsConfig(cfg *cpb.Config, trustedPEM []byte) error {
 				ConfigurationKey: `HKEY_LOCAL_MACHINE\SOFTWARE\FleetspeakClient`,
 			}},
 		Streaming: !cfg.ComponentsConfig.HttpsConfig.DisableStreaming,
+		Proxy:     cfg.GetProxy(),
 	}
 
 	b, err := prototext.Marshal(out)
