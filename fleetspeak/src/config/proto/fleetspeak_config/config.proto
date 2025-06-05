@@ -70,4 +70,9 @@ message Config {
 
   // If set, used for SNI server name and client-side certificate validation.
   string server_name = 12;
+
+  // If provided, proxy used for connecting to the server.
+  // The format is a URL.
+  // See https://golang.org/pkg/net/http/#Transport.Proxy for details.
+  string proxy = 13;
 }
