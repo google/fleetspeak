@@ -84,14 +84,15 @@ func (l listener) Accept() (net.Conn, error) {
 
 // Params wraps the parameters required to create an https communicator.
 type Params struct {
-	Listener                    net.Listener        // Where to listen for connections, required.
-	Cert, Key                   []byte              // x509 encoded certificate and matching private key, required.
-	Streaming                   bool                // Whether to enable streaming communications.
-	FrontendConfig              *cpb.FrontendConfig // Configure how the frontend identifies and communicates with clients
-	StreamingLifespan           time.Duration       // Maximum time to keep a streaming connection open, defaults to 10 min.
-	StreamingCloseTime          time.Duration       // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
-	StreamingJitter             time.Duration       // Maximum amount of jitter to add to StreamingLifespan.
-	MaxPerClientBatchProcessors uint32              // Maximum number of concurrent processors for messages coming from a single client.
+	Listener                    net.Listener                                         // Where to listen for connections, required.
+	Cert, Key                   []byte                                               // x509 encoded certificate and matching private key, required.
+	GetCertificate              func(*tls.ClientHelloInfo) (*tls.Certificate, error) // If set, used instead of Cert and Key.
+	Streaming                   bool                                                 // Whether to enable streaming communications.
+	FrontendConfig              *cpb.FrontendConfig                                  // Configure how the frontend identifies and communicates with clients
+	StreamingLifespan           time.Duration                                        // Maximum time to keep a streaming connection open, defaults to 10 min.
+	StreamingCloseTime          time.Duration                                        // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
+	StreamingJitter             time.Duration                                        // Maximum amount of jitter to add to StreamingLifespan.
+	MaxPerClientBatchProcessors uint32                                               // Maximum number of concurrent processors for messages coming from a single client.
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
@@ -123,13 +124,22 @@ func NewCommunicator(p Params) (*Communicator, error) {
 	if p.FrontendConfig.GetCleartextHeaderConfig() == nil &&
 		p.FrontendConfig.GetCleartextHeaderChecksumConfig() == nil &&
 		p.FrontendConfig.GetCleartextXfccConfig() == nil {
-		c, err := tls.X509KeyPair(p.Cert, p.Key)
-		if err != nil {
-			return nil, err
+
+		getCertificate := p.GetCertificate
+		if getCertificate == nil {
+			c, err := tls.X509KeyPair(p.Cert, p.Key)
+			if err != nil {
+				return nil, err
+			}
+
+			getCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return &c, nil
+			}
 		}
+
 		h.hs.TLSConfig = &tls.Config{
-			ClientAuth:   tls.RequestClientCert,
-			Certificates: []tls.Certificate{c},
+			ClientAuth:     tls.RequestClientCert,
+			GetCertificate: getCertificate,
 			CipherSuites: []uint16{
 				// We may as well allow only the strongest (as far as we can guess)
 				// ciphers. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 is
