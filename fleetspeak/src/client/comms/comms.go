@@ -24,10 +24,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
-	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -60,6 +60,7 @@ type ClientIdentity struct {
 	ID      common.ClientID
 	Private crypto.PrivateKey
 	Public  crypto.PublicKey
+	Labels  []string
 }
 
 // A ServerInfo describes what a Communicator needs to know about the servers
@@ -112,7 +113,7 @@ type Context interface {
 	// the previous call.
 	MakeContactData(msgs []*fspb.Message, baseMessages map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error)
 
-	// ProcessContactData processes a ContactData recevied from the server.
+	// ProcessContactData processes a ContactData received from the server.
 	ProcessContactData(ctx context.Context, data *fspb.ContactData, streaming bool) error
 
 	// ChainRevoked takes an x509 certificate chain, and returns true if any link

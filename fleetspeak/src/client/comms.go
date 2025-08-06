@@ -21,13 +21,12 @@ import (
 	"fmt"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
-
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"google.golang.org/protobuf/proto"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -141,10 +140,17 @@ func (c commsContext) CurrentIdentity() (comms.ClientIdentity, error) {
 		return comms.ClientIdentity{}, fmt.Errorf("failed to create ClientID: %v", err)
 	}
 
+	labels := c.c.config.Labels()
+	stringLabels := make([]string, 0, len(labels))
+	for _, l := range labels {
+		stringLabels = append(stringLabels, l.Label)
+	}
+
 	return comms.ClientIdentity{
 		ID:      id,
 		Private: k,
 		Public:  k.Public(),
+		Labels:  stringLabels,
 	}, nil
 }
 

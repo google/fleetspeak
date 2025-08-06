@@ -215,6 +215,10 @@ message HttpsConfig {
   // The frontend config.
   // Optional; If not set, Fleetspeak will default to using MTlsConfig.
   FrontendConfig frontend_config = 7;
+
+  // If set, the file server will only serve requests from clients that have
+  // been allowed by the authorizer.
+  bool enable_file_server_authorization = 8;
 }
 
 message AdminConfig {

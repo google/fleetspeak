@@ -24,7 +24,6 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 
@@ -93,6 +92,7 @@ type Params struct {
 	StreamingCloseTime          time.Duration                                        // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
 	StreamingJitter             time.Duration                                        // Maximum amount of jitter to add to StreamingLifespan.
 	MaxPerClientBatchProcessors uint32                                               // Maximum number of concurrent processors for messages coming from a single client.
+	FileServerAuthorization     bool                                                 // Whether to authorize file server requests using the authorizer.
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies

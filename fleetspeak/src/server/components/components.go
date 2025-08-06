@@ -46,7 +46,6 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/spanner"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
@@ -119,11 +118,12 @@ func MakeComponents(cfg *cpb.Config) (*server.Components, error) {
 			l = &chttps.ProxyListener{Listener: l}
 		}
 		comm, err = https.NewCommunicator(https.Params{
-			Listener:       l,
-			Cert:           []byte(hcfg.Certificates),
-			FrontendConfig: hcfg.GetFrontendConfig(),
-			Key:            []byte(hcfg.Key),
-			Streaming:      !hcfg.DisableStreaming,
+			Listener:                l,
+			Cert:                    []byte(hcfg.Certificates),
+			FrontendConfig:          hcfg.GetFrontendConfig(),
+			Key:                     []byte(hcfg.Key),
+			Streaming:               !hcfg.DisableStreaming,
+			FileServerAuthorization: hcfg.EnableFileServerAuthorization,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create communicator: %v", err)

@@ -16,10 +16,22 @@ package https
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
+	"time"
+
+	log "github.com/golang/glog"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
+	"golang.org/x/time/rate"
 )
+
+// unauthorizedLogging is used to rate-limit logging of unauthorized file
+// requests to avoid spam during potential DoS attacks.
+var unauthorizedLogging = rate.Sometimes{Interval: time.Minute}
 
 // fileServer wraps a Communicator in order to serve files.
 type fileServer struct {
@@ -28,6 +40,16 @@ type fileServer struct {
 
 // ServeHTTP implements http.Handler
 func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	if s.p.FileServerAuthorization {
+		if err := s.authorizeFileRequest(req); err != nil {
+			http.Error(res, "unauthorized", http.StatusUnauthorized)
+			unauthorizedLogging.Do(func() {
+				log.Warningf("Unauthorized file request: %v", err)
+			})
+			return
+		}
+	}
+
 	path := strings.Split(strings.TrimPrefix(req.URL.EscapedPath(), "/"), "/")
 	if len(path) != 3 || path[0] != "files" {
 		http.Error(res, fmt.Sprintf("unable to parse files uri: %v", req.URL.EscapedPath()), http.StatusBadRequest)
@@ -56,4 +78,35 @@ func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	http.ServeContent(res, req, name, modtime, data)
 	data.Close()
+}
+
+func (s fileServer) authorizeFileRequest(req *http.Request) error {
+	addrPort, err := netip.ParseAddrPort(req.RemoteAddr)
+	if err != nil {
+		return err
+	}
+	addr := net.TCPAddrFromAddrPort(addrPort)
+	if !s.fs.Authorizer().Allow1(addr) {
+		return fmt.Errorf("unauthorized via Allow1 (addr: %v)", addr)
+	}
+
+	cert, err := GetClientCert(req, s.p.FrontendConfig)
+	if err != nil {
+		return err
+	}
+	id, err := common.MakeClientID(cert.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	ci := authorizer.ContactInfo{
+		ID:           id,
+		ContactSize:  0,
+		ClientLabels: req.Header["X-Fleetspeak-Labels"],
+	}
+
+	if !s.fs.Authorizer().Allow2(addr, ci) {
+		return fmt.Errorf("unauthorized via Allow2 (addr: %v, contact: %v)", addr, ci)
+	}
+	return nil
 }

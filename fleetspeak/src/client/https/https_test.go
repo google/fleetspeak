@@ -24,11 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 )
 
 type testStatsCollector struct {
-	stats.CommunicatorCollector
+	stats.Collector
 	fetches atomic.Int64
 }
 
@@ -38,12 +39,37 @@ func (c *testStatsCollector) AfterGetFileRequest(_, _, _ string, didFetch bool, 
 	}
 }
 
-func (*testStatsCollector) OutboundContactData(string, int, error) {}
+type testCommsContext struct {
+	comms.Context
+	stats        stats.Collector
+	clientLabels []string
+}
 
-func (*testStatsCollector) InboundContactData(string, int, error) {}
+func (c *testCommsContext) Stats() stats.Collector {
+	return c.stats
+}
 
-func createFakeServer(lastModified time.Time) (*httptest.Server, []string) {
+func (c *testCommsContext) CurrentIdentity() (comms.ClientIdentity, error) {
+	return comms.ClientIdentity{Labels: c.clientLabels}, nil
+}
+
+func (c *testCommsContext) ServerInfo() (comms.ServerInfo, error) {
+	return comms.ServerInfo{}, nil
+}
+
+func createFakeServer(lastModified time.Time, blockedLabels ...string) (*httptest.Server, []string) {
+	blocked := make(map[string]bool)
+	for _, label := range blockedLabels {
+		blocked[label] = true
+	}
 	fakeServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, label := range r.Header.Values("X-Fleetspeak-Labels") {
+			if blocked[label] {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		content := strings.NewReader("test")
 		http.ServeContent(w, r, "test.txt", lastModified, content)
 	}))
@@ -52,12 +78,12 @@ func createFakeServer(lastModified time.Time) (*httptest.Server, []string) {
 	return fakeServer, hosts
 }
 
-func doRequest(t *testing.T, hosts []string, client *http.Client, lastModifiedOnClient time.Time, stats stats.CommunicatorCollector) (string, time.Time) {
+func doRequest(t *testing.T, cctx comms.Context, hosts []string, client *http.Client, lastModifiedOnClient time.Time) (string, time.Time) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 
-	reader, modTime, err := getFileIfModified(ctx, hosts, client, "TestService", "test.txt", lastModifiedOnClient, stats)
+	reader, modTime, err := getFileIfModified(ctx, cctx, nil, hosts, client, "TestService", "test.txt", lastModifiedOnClient)
 	if err != nil {
 		t.Fatalf("getFileIfModified() failed: %v", err)
 	}
@@ -74,12 +100,13 @@ func doRequest(t *testing.T, hosts []string, client *http.Client, lastModifiedOn
 
 func TestGetFileIfModified(t *testing.T) {
 	stats := &testStatsCollector{}
+	cctx := &testCommsContext{stats: stats}
 	lastModifiedOnServer := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	lastModifiedOnClient := lastModifiedOnServer.Add(-time.Hour)
 	fakeServer, hosts := createFakeServer(lastModifiedOnServer)
 	defer fakeServer.Close()
 
-	body, modTime := doRequest(t, hosts, fakeServer.Client(), lastModifiedOnClient, stats)
+	body, modTime := doRequest(t, cctx, hosts, fakeServer.Client(), lastModifiedOnClient)
 	if !modTime.Equal(lastModifiedOnServer) {
 		t.Errorf("Unexpected modTime, got: %v, want: %v", modTime, lastModifiedOnServer)
 	}
@@ -94,12 +121,13 @@ func TestGetFileIfModified(t *testing.T) {
 
 func TestGetFileIfNotModified(t *testing.T) {
 	stats := &testStatsCollector{}
+	cctx := &testCommsContext{stats: stats}
 	lastModifiedOnServer := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	lastModifiedOnClient := lastModifiedOnServer
 	fakeServer, hosts := createFakeServer(lastModifiedOnServer)
 	defer fakeServer.Close()
 
-	body, _ := doRequest(t, hosts, fakeServer.Client(), lastModifiedOnClient, stats)
+	body, _ := doRequest(t, cctx, hosts, fakeServer.Client(), lastModifiedOnClient)
 	if want := ""; body != want {
 		t.Errorf("Unexpected response body, got: %q, want: %q", body, want)
 	}
@@ -110,6 +138,7 @@ func TestGetFileIfNotModified(t *testing.T) {
 }
 
 func TestGetFileUnreachableHost(t *testing.T) {
+	cctx := &testCommsContext{stats: &stats.NoopCollector{}}
 	lastModifiedOnServer := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	lastModifiedOnClient := lastModifiedOnServer.Add(-time.Hour)
 	fakeServer, hosts := createFakeServer(lastModifiedOnServer)
@@ -119,11 +148,28 @@ func TestGetFileUnreachableHost(t *testing.T) {
 	// should still succeed by trying the next one in the list.
 	hosts = append([]string{"unreachable_host"}, hosts...)
 
-	body, modTime := doRequest(t, hosts, fakeServer.Client(), lastModifiedOnClient, stats.NoopCollector{})
+	body, modTime := doRequest(t, cctx, hosts, fakeServer.Client(), lastModifiedOnClient)
 	if !modTime.Equal(lastModifiedOnServer) {
 		t.Errorf("Unexpected modTime, got: %v, want: %v", modTime, lastModifiedOnServer)
 	}
 	if want := "test"; body != want {
 		t.Errorf("Unexpected body, got: %q, want: %q", body, want)
+	}
+}
+
+func TestGetFileUnauthorizedClient(t *testing.T) {
+	stats := &testStatsCollector{}
+	cctx := &testCommsContext{stats: stats, clientLabels: []string{"label1"}}
+	lastModifiedOnServer := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	lastModifiedOnClient := lastModifiedOnServer.Add(-time.Hour)
+	fakeServer, hosts := createFakeServer(lastModifiedOnServer, "label1")
+	defer fakeServer.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	_, _, err := getFileIfModified(ctx, cctx, nil, hosts, fakeServer.Client(), "TestService", "test.txt", lastModifiedOnClient)
+
+	if err == nil {
+		t.Errorf("getFileIfModified() succeeded, want error")
 	}
 }

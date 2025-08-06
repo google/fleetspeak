@@ -31,11 +31,10 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/watchdog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"google.golang.org/protobuf/proto"
 
 	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -104,7 +103,7 @@ func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, 
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, hosts, c.hc, service, name, modSince, c.cctx.Stats())
+	return getFileIfModified(ctx, c.cctx, c.certBytes, hosts, c.hc, service, name, modSince)
 }
 
 func (c *StreamingCommunicator) configure() error {

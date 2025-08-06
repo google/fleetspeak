@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -33,10 +34,9 @@ import (
 	"path"
 	"time"
 
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
-	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
-
 	"golang.org/x/net/http2"
 )
 
@@ -145,10 +145,10 @@ func jitter(seconds int32) time.Duration {
 // with the HTTP GET method. The hosts are sequentially dialed until one of them
 // successfully responds. If no proper response was received, the function
 // returns the most recent error.
-func getFileIfModified(ctx context.Context, hosts []string, client *http.Client, service, name string, modSince time.Time, stats stats.CommunicatorCollector) (io.ReadCloser, time.Time, error) {
+func getFileIfModified(ctx context.Context, cctx comms.Context, clientCert []byte, hosts []string, client *http.Client, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
 	var lastErr error
 	for _, h := range hosts {
-		body, modSince, err := getFileIfModifiedFromHost(ctx, h, client, service, name, modSince, stats)
+		body, modSince, err := getFileIfModifiedFromHost(ctx, cctx, clientCert, h, client, service, name, modSince)
 		if err != nil {
 			lastErr = err
 			if ctx.Err() != nil {
@@ -162,11 +162,11 @@ func getFileIfModified(ctx context.Context, hosts []string, client *http.Client,
 	return nil, time.Time{}, fmt.Errorf("unable to retrieve file, last attempt failed with: %v", lastErr)
 }
 
-func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Client, service, name string, modSince time.Time, stats stats.CommunicatorCollector) (io.ReadCloser, time.Time, error) {
+func getFileIfModifiedFromHost(ctx context.Context, cctx comms.Context, clientCert []byte, host string, client *http.Client, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
 	var didFetch bool
 	var err error
 	defer func() {
-		stats.AfterGetFileRequest(host, service, name, didFetch, err)
+		cctx.Stats().AfterGetFileRequest(host, service, name, didFetch, err)
 	}()
 
 	u := url.URL{
@@ -184,6 +184,24 @@ func getFileIfModifiedFromHost(ctx context.Context, host string, client *http.Cl
 
 	if !modSince.IsZero() {
 		req.Header.Set("If-Modified-Since", modSince.Format(http.TimeFormat))
+	}
+
+	if ci, err := cctx.CurrentIdentity(); err == nil {
+		for _, label := range ci.Labels {
+			req.Header.Add("X-Fleetspeak-Labels", label)
+		}
+	} else {
+		log.Errorf("Failed to get current identity: %v", err)
+	}
+
+	if si, err := cctx.ServerInfo(); err == nil {
+		if si.ClientCertificateHeader != "" && clientCert != nil {
+			bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientCert})
+			cc := url.PathEscape(string(bc))
+			req.Header.Set(si.ClientCertificateHeader, cc)
+		}
+	} else {
+		log.Errorf("Failed to get server info: %v", err)
 	}
 
 	var resp *http.Response
