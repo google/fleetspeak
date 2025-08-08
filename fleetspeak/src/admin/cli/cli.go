@@ -50,7 +50,9 @@ func Usage() {
 			"    %s listcontacts <client_id> [limit]\n"+
 			"    %s analysehistory <client_id>\n"+
 			"    %s blacklistclients [<client_id>...]\n"+
-			"\n", n, n, n, n)
+			"    %s storefile <service_name> <file_name> <file_path>\n"+
+			"    %s deletefile <service_name> <file_name>\n"+
+			"\n", n, n, n, n, n, n)
 }
 
 // Execute examines command line flags and executes one of the standard command line
@@ -74,6 +76,10 @@ func Execute(conn *grpc.ClientConn, args ...string) {
 		AnalyseHistory(admin, args[1:]...)
 	case "blacklistclients":
 		BlacklistClients(admin, args[1:]...)
+	case "storefile":
+		StoreFile(admin, args[1:]...)
+	case "deletefile":
+		DeleteFile(admin, args[1:]...)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
@@ -249,4 +255,56 @@ func BlacklistClients(c sgrpc.AdminClient, args ...string) {
 			log.Exitf("BlacklistClient RPC failed: %v", err)
 		}
 	}
+}
+
+// StoreFile reads a file from disk and sends it to the server's file store.
+// args[0] must be a service name, args[1] the file name to store as, and
+// args[2] the path to the file on disk.
+func StoreFile(c sgrpc.AdminClient, args ...string) {
+	if len(args) != 3 {
+		Usage()
+		os.Exit(1)
+	}
+	serviceName := args[0]
+	fileName := args[1]
+	filePath := args[2]
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Exitf("Failed to read file [%s]: %v", filePath, err)
+	}
+
+	req := &spb.StoreFileRequest{
+		ServiceName: serviceName,
+		FileName:    fileName,
+		Data:        data,
+	}
+
+	ctx := context.Background()
+	if _, err := c.StoreFile(ctx, req); err != nil {
+		log.Exitf("StoreFile RPC failed: %v", err)
+	}
+	fmt.Printf("Stored file %s/%s to server.\n", serviceName, fileName)
+}
+
+// DeleteFile tells the server to delete a file from its file store.
+// args[0] must be a service name, args[1] the file name to delete.
+func DeleteFile(c sgrpc.AdminClient, args ...string) {
+	if len(args) != 2 {
+		Usage()
+		os.Exit(1)
+	}
+	serviceName := args[0]
+	fileName := args[1]
+
+	req := &spb.DeleteFileRequest{
+		ServiceName: serviceName,
+		FileName:    fileName,
+	}
+
+	ctx := context.Background()
+	if _, err := c.DeleteFile(ctx, req); err != nil {
+		log.Exitf("DeleteFile RPC failed: %v", err)
+	}
+	fmt.Printf("Deleted file %s/%s from server.\n", serviceName, fileName)
 }
