@@ -282,6 +282,10 @@ func (d MonitoredDatastore) StoreFile(ctx context.Context, service, name string,
 	return d.D.StoreFile(ctx, service, name, data)
 }
 
+func (d MonitoredDatastore) DeleteFile(ctx context.Context, service, name string) error {
+	return d.D.DeleteFile(ctx, service, name)
+}
+
 func (d MonitoredDatastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
 	return d.D.StatFile(ctx, service, name)
 }

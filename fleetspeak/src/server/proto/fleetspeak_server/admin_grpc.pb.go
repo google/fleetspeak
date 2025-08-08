@@ -32,6 +32,7 @@ const (
 	Admin_GetPendingMessages_FullMethodName              = "/fleetspeak.server.Admin/GetPendingMessages"
 	Admin_GetPendingMessageCount_FullMethodName          = "/fleetspeak.server.Admin/GetPendingMessageCount"
 	Admin_StoreFile_FullMethodName                       = "/fleetspeak.server.Admin/StoreFile"
+	Admin_DeleteFile_FullMethodName                      = "/fleetspeak.server.Admin/DeleteFile"
 	Admin_KeepAlive_FullMethodName                       = "/fleetspeak.server.Admin/KeepAlive"
 	Admin_BlacklistClient_FullMethodName                 = "/fleetspeak.server.Admin/BlacklistClient"
 	Admin_FetchClientResourceUsageRecords_FullMethodName = "/fleetspeak.server.Admin/FetchClientResourceUsageRecords"
@@ -69,6 +70,8 @@ type AdminClient interface {
 	GetPendingMessageCount(ctx context.Context, in *GetPendingMessageCountRequest, opts ...grpc.CallOption) (*GetPendingMessageCountResponse, error)
 	// StoreFile inserts a file into the Fleetspeak system.
 	StoreFile(ctx context.Context, in *StoreFileRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
+	// DeleteFile deletes a file from the Fleetspeak system.
+	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// KeepAlive does as little as possible.
 	KeepAlive(ctx context.Context, in *fleetspeak.EmptyMessage, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// BlacklistClient marks a client_id as invalid, forcing all Fleetspeak
@@ -225,6 +228,16 @@ func (c *adminClient) StoreFile(ctx context.Context, in *StoreFileRequest, opts 
 	return out, nil
 }
 
+func (c *adminClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(fleetspeak.EmptyMessage)
+	err := c.cc.Invoke(ctx, Admin_DeleteFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *adminClient) KeepAlive(ctx context.Context, in *fleetspeak.EmptyMessage, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(fleetspeak.EmptyMessage)
@@ -287,6 +300,8 @@ type AdminServer interface {
 	GetPendingMessageCount(context.Context, *GetPendingMessageCountRequest) (*GetPendingMessageCountResponse, error)
 	// StoreFile inserts a file into the Fleetspeak system.
 	StoreFile(context.Context, *StoreFileRequest) (*fleetspeak.EmptyMessage, error)
+	// DeleteFile deletes a file from the Fleetspeak system.
+	DeleteFile(context.Context, *DeleteFileRequest) (*fleetspeak.EmptyMessage, error)
 	// KeepAlive does as little as possible.
 	KeepAlive(context.Context, *fleetspeak.EmptyMessage) (*fleetspeak.EmptyMessage, error)
 	// BlacklistClient marks a client_id as invalid, forcing all Fleetspeak
@@ -340,6 +355,9 @@ func (UnimplementedAdminServer) GetPendingMessageCount(context.Context, *GetPend
 }
 func (UnimplementedAdminServer) StoreFile(context.Context, *StoreFileRequest) (*fleetspeak.EmptyMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StoreFile not implemented")
+}
+func (UnimplementedAdminServer) DeleteFile(context.Context, *DeleteFileRequest) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFile not implemented")
 }
 func (UnimplementedAdminServer) KeepAlive(context.Context, *fleetspeak.EmptyMessage) (*fleetspeak.EmptyMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KeepAlive not implemented")
@@ -573,6 +591,24 @@ func _Admin_StoreFile_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Admin_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).DeleteFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_DeleteFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).DeleteFile(ctx, req.(*DeleteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Admin_KeepAlive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(fleetspeak.EmptyMessage)
 	if err := dec(in); err != nil {
@@ -673,6 +709,10 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StoreFile",
 			Handler:    _Admin_StoreFile_Handler,
+		},
+		{
+			MethodName: "DeleteFile",
+			Handler:    _Admin_DeleteFile_Handler,
 		},
 		{
 			MethodName: "KeepAlive",

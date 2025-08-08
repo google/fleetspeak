@@ -296,6 +296,16 @@ func (s adminServer) StoreFile(ctx context.Context, req *spb.StoreFileRequest) (
 	return &fspb.EmptyMessage{}, nil
 }
 
+func (s adminServer) DeleteFile(ctx context.Context, req *spb.DeleteFileRequest) (*fspb.EmptyMessage, error) {
+	if req.ServiceName == "" || req.FileName == "" {
+		return nil, errors.New("file must have service_name and file_name")
+	}
+	if err := s.store.DeleteFile(ctx, req.ServiceName, req.FileName); err != nil {
+		return nil, err
+	}
+	return &fspb.EmptyMessage{}, nil
+}
+
 func (s adminServer) KeepAlive(ctx context.Context, _ *fspb.EmptyMessage) (*fspb.EmptyMessage, error) {
 	return &fspb.EmptyMessage{}, nil
 }

@@ -38,6 +38,15 @@ func (d *Datastore) StoreFile(ctx context.Context, service, name string, data io
 	})
 }
 
+func (d *Datastore) DeleteFile(ctx context.Context, service, name string) error {
+	d.l.Lock()
+	defer d.l.Unlock()
+	return d.runInTx(func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM files WHERE service = ? AND name = ?", service, name)
+		return err
+	})
+}
+
 func (d *Datastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
 	d.l.Lock()
 	defer d.l.Unlock()

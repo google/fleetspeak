@@ -45,6 +45,15 @@ func (d *Datastore) tryStoreFile(txn *spanner.ReadWriteTransaction, service, nam
 	return err
 }
 
+// DeleteFile implements db.FileStore.
+func (d *Datastore) DeleteFile(ctx context.Context, service, name string) error {
+	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		m := spanner.Delete(d.files, spanner.Key{service, name})
+		return txn.BufferWrite([]*spanner.Mutation{m})
+	})
+	return err
+}
+
 // StatFile implements db.FileStore.
 func (d *Datastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
 	txn := d.dbClient.Single()

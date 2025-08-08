@@ -373,6 +373,10 @@ type FileStore interface {
 	// StoreFile stores data into the Filestore, organized by service and name.
 	StoreFile(ctx context.Context, service, name string, data io.Reader) error
 
+	// DeleteFile deletes a file from the filestore. It is not an error if the
+	// file does not exist.
+	DeleteFile(ctx context.Context, service, name string) error
+
 	// StatFile returns the modification time of a file previously stored by
 	// StoreFile. Returns ErrNotFound if not found.
 	StatFile(ctx context.Context, servce, name string) (time.Time, error)

@@ -92,6 +92,11 @@ message StoreFileRequest {
   bytes data = 3;
 }
 
+message DeleteFileRequest {
+  string service_name = 1;
+  string file_name = 2;
+}
+
 message ListClientContactsRequest {
   bytes client_id = 1;
 }
@@ -178,6 +183,9 @@ service Admin {
 
   // StoreFile inserts a file into the Fleetspeak system.
   rpc StoreFile(StoreFileRequest) returns (fleetspeak.EmptyMessage) {}
+
+  // DeleteFile deletes a file from the Fleetspeak system.
+  rpc DeleteFile(DeleteFileRequest) returns (fleetspeak.EmptyMessage) {}
 
   // KeepAlive does as little as possible.
   rpc KeepAlive(fleetspeak.EmptyMessage) returns (fleetspeak.EmptyMessage) {}

@@ -53,6 +53,20 @@ func FileStoreTest(t *testing.T, fs db.Store) {
 	if _, _, err := fs.ReadFile(ctx, "testService", "missingFile"); err == nil || !fs.IsNotFound(err) {
 		t.Errorf("Wrong error for ReadFile(testService, missingFile), want IsNotFound(err)=true, got %v", err)
 	}
+
+	if err := fs.DeleteFile(ctx, "testService", "testFile"); err != nil {
+		t.Errorf("Error from DeleteFile(testService, testFile): %v", err)
+	}
+	if _, err := fs.StatFile(ctx, "testService", "testFile"); err == nil || !fs.IsNotFound(err) {
+		t.Errorf("Wrong error for StatFile(testService, testFile) after delete, want IsNotFound(err)=true, got %v", err)
+	}
+	// Deleting a non-existent file should not error.
+	if err := fs.DeleteFile(ctx, "testService", "testFile"); err != nil {
+		t.Errorf("Error from DeleteFile(testService, testFile) when file not present: %v", err)
+	}
+	if err := fs.DeleteFile(ctx, "testService", "missingFile"); err != nil {
+		t.Errorf("Error from DeleteFile(testService, missingFile): %v", err)
+	}
 }
 
 func fileStoreTestSuite(t *testing.T, env DbTestEnv) {
