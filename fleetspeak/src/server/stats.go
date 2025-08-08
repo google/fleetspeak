@@ -279,19 +279,31 @@ func (d MonitoredDatastore) StopMessageProcessor() {
 }
 
 func (d MonitoredDatastore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
-	return d.D.StoreFile(ctx, service, name, data)
+	s := ftime.Now()
+	err := d.D.StoreFile(ctx, service, name, data)
+	d.C.DatastoreOperation(s, ftime.Now(), "StoreFile", err)
+	return err
 }
 
 func (d MonitoredDatastore) DeleteFile(ctx context.Context, service, name string) error {
-	return d.D.DeleteFile(ctx, service, name)
+	s := ftime.Now()
+	err := d.D.DeleteFile(ctx, service, name)
+	d.C.DatastoreOperation(s, ftime.Now(), "DeleteFile", err)
+	return err
 }
 
 func (d MonitoredDatastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
-	return d.D.StatFile(ctx, service, name)
+	s := ftime.Now()
+	res, err := d.D.StatFile(ctx, service, name)
+	d.C.DatastoreOperation(s, ftime.Now(), "StatFile", err)
+	return res, err
 }
 
 func (d MonitoredDatastore) ReadFile(ctx context.Context, service, name string) (db.ReadSeekerCloser, time.Time, error) {
-	return d.D.ReadFile(ctx, service, name)
+	s := ftime.Now()
+	res, t, err := d.D.ReadFile(ctx, service, name)
+	d.C.DatastoreOperation(s, ftime.Now(), "ReadFile", err)
+	return res, t, err
 }
 
 func (d MonitoredDatastore) IsNotFound(err error) bool {
