@@ -8,4 +8,8 @@ option go_package = "github.com/google/fleetspeak/fleetspeak/src/client/stdinser
 // in ClientServiceConfig.config.
 message Config {
   string cmd = 1;
+
+  // Command line arguments.
+  // These arguments are prepended to the arguments specified in the message.
+  repeated string args = 2;
 }

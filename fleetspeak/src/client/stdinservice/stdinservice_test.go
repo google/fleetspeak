@@ -32,7 +32,8 @@ func TestStdinServiceWithEcho(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "EchoService",
 		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
+			Cmd:  "python",
+			Args: []string{"-c", `import sys; sys.stdout.write(" ".join(sys.argv[1:]))`},
 		}),
 	})
 	if err != nil {
@@ -51,7 +52,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `import sys; sys.stdout.write("foo bar")`},
+				Args: []string{"a", "b"},
 			}),
 		})
 	if err != nil {
@@ -70,7 +71,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantStdout := []byte("foo bar")
+	wantStdout := []byte("a b")
 	if !bytes.Equal(om.Stdout, wantStdout) {
 		t.Fatalf("unexpected output; got %q, want %q", om.Stdout, wantStdout)
 	}

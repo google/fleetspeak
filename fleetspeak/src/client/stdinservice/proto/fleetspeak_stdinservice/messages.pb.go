@@ -29,6 +29,7 @@ type InputMessage struct {
 	// The data to be forwarded to the service.
 	Input []byte `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
 	// Command line arguments.
+	// These arguments are appended to the arguments specified in the config.
 	Args []string `protobuf:"bytes,2,rep,name=args,proto3" json:"args,omitempty"`
 }
 

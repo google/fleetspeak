@@ -81,7 +81,11 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 
 	var stdout, stderr bytes.Buffer
 
-	cmd := exec.CommandContext(ctx, s.ssConf.Cmd, im.Args...)
+	var args []string
+	args = append(args, s.ssConf.Args...)
+	args = append(args, im.Args...)
+
+	cmd := exec.CommandContext(ctx, s.ssConf.Cmd, args...)
 	cmd.Stdin = bytes.NewBuffer(im.Input)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
