@@ -17,6 +17,8 @@
 package stats
 
 import (
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -42,8 +44,11 @@ type ConfigManagerCollector interface {
 	// AfterConfigSync is called after each config sync attempt by the config manager.
 	// err is the result of the operation.
 	AfterConfigSync(err error)
-	// AfterRekey is called after each rekey attempt by the config manager.
-	AfterRekey(err error)
+	// AfterKeyLoaded is called after the config manager loads a client key. This
+	// happens after reading the persisted state and on rekey operations.
+	// id is the client ID that corresponds to the loaded key. new is true if the
+	// key is newly generated, and err is the result of that operation.
+	AfterKeyLoaded(id common.ClientID, new bool, err error)
 }
 
 // ClientCollector gets notified about client operations.
@@ -132,8 +137,8 @@ func (c NoopCollector) MessageAcknowledged(msg *fspb.Message, size int) {}
 // AfterConfigSync implements Collector by doing nothing.
 func (c NoopCollector) AfterConfigSync(err error) {}
 
-// AfterRekey implements Collector by doing nothing.
-func (c NoopCollector) AfterRekey(err error) {}
+// AfterKeyLoaded implements Collector by doing nothing.
+func (c NoopCollector) AfterKeyLoaded(id common.ClientID, new bool, err error) {}
 
 // AfterMessageProcessed implements Collector by doing nothing.
 func (c NoopCollector) AfterMessageProcessed(msg *fspb.Message, isLocal bool, err error) {}

@@ -62,8 +62,6 @@ type Manager struct {
 //
 // The labels parameter defines what client labels the client should
 // report to the server.
-// TODO(b/297019580): Consider defining and consuming a more specific `ConfigManagerCollector`
-// interface here, containing only the methods that Manager actually cares about.
 func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientInfoData, c stats.ConfigManagerCollector) (*Manager, error) {
 	if cfg == nil {
 		return nil, errors.New("configuration must be provided")
@@ -107,7 +105,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 	r.AddRevokedSerials(r.state.RevokedCertSerials)
 	r.AddRevokedSerials(cfg.RevokedCertSerials)
 
-	if r.state.ClientKey == nil {
+	if len(r.state.GetClientKey()) == 0 {
 		if err := r.Rekey(); err != nil {
 			return nil, fmt.Errorf("no key present, and %v", err)
 		}
@@ -120,6 +118,7 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 		if err != nil {
 			return nil, fmt.Errorf("unable to create clientID: %v", err)
 		}
+		r.stats.AfterKeyLoaded(r.id, false, nil)
 		log.Infof("Using client id: %v", r.id)
 	}
 
@@ -143,8 +142,9 @@ func StartManager(cfg *config.Configuration, configChanges chan<- *fspb.ClientIn
 
 // Rekey creates a new private key and identity for the client.
 func (m *Manager) Rekey() (err error) {
+	var id common.ClientID
 	defer func() {
-		m.stats.AfterRekey(err)
+		m.stats.AfterKeyLoaded(id, true, err)
 	}()
 
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -155,7 +155,7 @@ func (m *Manager) Rekey() (err error) {
 	if err != nil {
 		return fmt.Errorf("unable to marshal new key: %v", err)
 	}
-	id, err := common.MakeClientID(k.Public())
+	id, err = common.MakeClientID(k.Public())
 	if err != nil {
 		return fmt.Errorf("unable to create client id: %v", err)
 	}
@@ -220,7 +220,7 @@ func (m *Manager) AddRevokedSerials(revoked [][]byte) {
 	}
 }
 
-// Stop shuts down the Manager, in particular it will stop sychronizing to the
+// Stop shuts down the Manager, in particular it will stop synchronizing to the
 // writeback file.
 func (m *Manager) Stop() {
 	if m.syncTicker != nil {
@@ -250,7 +250,7 @@ func (m *Manager) ClientID() common.ClientID {
 // RecordRunningService adds name to the list of services which this client is
 // currently running. This list will be included when sending a ClientInfo
 // record to the server. The optional parameter sig should be set when the
-// configuration was signed to emake it clear to the server which instance of
+// configuration was signed to make it clear to the server which instance of
 // the service is running.
 func (m *Manager) RecordRunningService(name string, sig []byte) {
 	m.lock.Lock()

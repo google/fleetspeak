@@ -32,12 +32,16 @@ type statsCollector struct {
 	stats.ConfigManagerCollector
 	mu     sync.Mutex
 	rekeys int
+	ids    []common.ClientID
 }
 
-func (sc *statsCollector) AfterRekey(err error) {
+func (sc *statsCollector) AfterKeyLoaded(id common.ClientID, new bool, err error) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
-	sc.rekeys++
+	sc.ids = append(sc.ids, id)
+	if new {
+		sc.rekeys++
+	}
 }
 
 func (sc *statsCollector) AfterConfigSync(err error) {
@@ -71,6 +75,9 @@ func TestRekey(t *testing.T) {
 	// 1 initial attempt, 1 explicit attempt
 	if sc.rekeys != 2 {
 		t.Errorf("Unexpected amount of rekeys reported, got: %d, want: 2", sc.rekeys)
+	}
+	if id1 != sc.ids[0] || id2 != sc.ids[1] {
+		t.Errorf("Unexpected client IDs reported, got: %v, %v, want: %v, %v", sc.ids[0], sc.ids[1], id1, id2)
 	}
 }
 
