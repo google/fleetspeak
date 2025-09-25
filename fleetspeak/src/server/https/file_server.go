@@ -50,9 +50,9 @@ func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	path := strings.Split(strings.TrimPrefix(req.URL.EscapedPath(), "/"), "/")
+	path := strings.Split(strings.TrimPrefix(req.URL.Path, "/"), "/")
 	if len(path) != 3 || path[0] != "files" {
-		http.Error(res, fmt.Sprintf("unable to parse files uri: %v", req.URL.EscapedPath()), http.StatusBadRequest)
+		http.Error(res, fmt.Sprintf("unable to parse files uri: %v", req.URL.Path), http.StatusBadRequest)
 		return
 	}
 	service, err := url.PathUnescape(path[1])

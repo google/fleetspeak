@@ -34,6 +34,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"testing"
@@ -216,12 +217,17 @@ func TestFile(t *testing.T) {
 	_, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
+	service, name := "testService", "testsFiles/foo"
 	data := []byte("The quick sly fox jumped over the lazy dogs.")
-	if err := ds.StoreFile(ctx, "testService", "testFile", bytes.NewReader(data)); err != nil {
-		t.Errorf("Error from StoreFile(testService, testFile): %v", err)
+	if err := ds.StoreFile(ctx, service, name, bytes.NewReader(data)); err != nil {
+		t.Errorf("Error from StoreFile(%s, %s): %v", service, name, err)
 	}
 
-	u := url.URL{Scheme: "https", Host: addr, Path: "/files/testService/testFile"}
+	u := url.URL{
+		Scheme: "https",
+		Host:   addr,
+		Path:   path.Join("/files", url.PathEscape(service), url.PathEscape(name)),
+	}
 	resp, err := cl.Get(u.String())
 	if err != nil {
 		t.Fatal(err)
