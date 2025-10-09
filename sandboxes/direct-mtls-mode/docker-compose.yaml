@@ -19,14 +19,12 @@ services:
       retries: 10
 
   fleetspeak-server:
-    build:
-      context: .
-      dockerfile: ../shared/fleetspeak-server/Dockerfile
+    image: ghcr.io/google/fleetspeak:latest
     hostname: fleetspeak-frontend
     depends_on:
       mysql-server:
         condition: service_healthy
-    entrypoint: ["/app/bin/server", "-components_config", "/config/fleetspeak-server/components.textproto", "-services_config", "/config/fleetspeak-server/services.textproto", "-alsologtostderr"]
+    entrypoint: ["/fleetspeak/bin/server", "-components_config", "/config/fleetspeak-server/components.textproto", "-services_config", "/config/fleetspeak-server/services.textproto", "-alsologtostderr"]
     volumes:
       - "./config:/config"
     ports:
@@ -50,6 +48,6 @@ services:
     depends_on:
       fleetspeak-server:
         condition: service_healthy
-    entrypoint: ["/app/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
+    entrypoint: ["/fleetspeak/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
     volumes:
       - "./config:/config"

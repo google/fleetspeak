@@ -1,4 +1,4 @@
-# Copyright 2023 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM golang:1.22 as builder
+FROM ghcr.io/google/fleetspeak:latest AS fleetspeakbin
+FROM golang:1.22 AS builder
 
 RUN apt update && \
     apt install -y python3-venv && \
@@ -24,21 +25,10 @@ SHELL ["/bin/bash", "-c"]
 
 RUN git clone https://github.com/google/fleetspeak.git && \
     cd fleetspeak && \
-    go get -u golang.org/x/lint/golint && \
-    ./fleetspeak/generate_protos_setup.sh
-
-ENV PATH="$HOME/.local/bin:$PATH"
-
-RUN mkdir -p /app/bin
-
-RUN cd /fleetspeak && \
     python3 -m venv /venv/FSENV && \
     source /venv/FSENV/bin/activate && \
     pip install wheel pytest && \
     pip install -e ./fleetspeak_python[test] && \
-    pip install -e ./frr_python && \
-    ./fleetspeak/generate_protos.sh && \
-    go build -o /app/bin/server ./cmd/fleetspeak_server && \
-    go build -o /app/bin/client ./cmd/fleetspeak_client && \
-    go build -o /app/bin/fleetspeak_config ./cmd/fleetspeak_config
+    pip install -e ./frr_python
 
+COPY --from=fleetspeakbin /fleetspeak/bin/client /fleetspeak/bin/client
