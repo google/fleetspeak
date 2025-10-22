@@ -77,18 +77,6 @@ func (c *serviceConfiguration) InstallSignedService(sd *fspb.SignedClientService
 		return fmt.Errorf("Unable to parse service config [%v], ignoring: %v", sd.Signature, err)
 	}
 
-ll:
-	for _, l := range cfg.RequiredLabels {
-		if l.ServiceName == "client" {
-			for _, cl := range c.client.cfg.ClientLabels {
-				if cl.Label == l.Label {
-					continue ll
-				}
-			}
-			return fmt.Errorf("service config [%s] requires label %v", cfg.Name, l)
-		}
-	}
-
 	if err := c.InstallService(&cfg, sd.Signature); err != nil {
 		return fmt.Errorf("installing [%s]: %w", cfg.Name, err)
 	}
@@ -105,6 +93,18 @@ func validateServiceName(sname string) error {
 func (c *serviceConfiguration) InstallService(cfg *fspb.ClientServiceConfig, sig []byte) error {
 	if err := validateServiceName(cfg.Name); err != nil {
 		return fmt.Errorf("can't install service: %v", err)
+	}
+
+ll:
+	for _, l := range cfg.RequiredLabels {
+		if l.ServiceName == "client" {
+			for _, cl := range c.client.cfg.ClientLabels {
+				if cl.Label == l.Label {
+					continue ll
+				}
+			}
+			return fmt.Errorf("service config [%s] requires label %v", cfg.Name, l)
+		}
 	}
 
 	f := c.factories[cfg.Factory]
