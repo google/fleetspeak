@@ -173,6 +173,16 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		ssd.processingLoop(context.TODO())
 	}()
 
+	if ret.com != nil {
+		cctx := commsContext{c: ret}
+		if err := ret.com.Setup(cctx); err != nil {
+			ssd.stop()
+			return nil, fmt.Errorf("unable to configure communicator: %v", err)
+		}
+		ret.com.Start()
+		ssd.service.(*systemService).pollRevokedCerts()
+	}
+
 	for _, s := range cfg.FixedServices {
 		if err := ret.sc.InstallService(s, nil); err != nil {
 			log.Errorf("Unable to install fixed service [%s]: %v", s.Name, err)
@@ -199,15 +209,6 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 		}
 	}
 
-	if ret.com != nil {
-		cctx := commsContext{c: ret}
-		if err := ret.com.Setup(cctx); err != nil {
-			ssd.stop()
-			return nil, fmt.Errorf("unable to configure communicator: %v", err)
-		}
-		ret.com.Start()
-		ssd.service.(*systemService).pollRevokedCerts()
-	}
 	cm.Sync()
 	cm.SendConfigUpdate()
 	return ret, nil
