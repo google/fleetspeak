@@ -1,0 +1,10 @@
+services {
+  name: "greeter"
+  factory: "GRPC"
+  config: {
+    [type.googleapis.com/fleetspeak.grpcservice.Config] {
+      target: "greeter:1337"
+      insecure: true
+    }
+  }
+}

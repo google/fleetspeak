@@ -1,0 +1,65 @@
+services:
+
+  mysql-server:
+    image: mysql:8.2
+    restart: always
+    hostname: mysql-server
+    environment:
+      MYSQL_DATABASE: 'fleetspeak'
+      MYSQL_USER: 'fleetspeak-user'
+      MYSQL_PASSWORD: 'FLEETSPEAK_PASSWORD'
+      MYSQL_ROOT_PASSWORD: 'MYSQL_PASSWORD'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+
+  front-envoy:
+    build:
+      context: .
+      dockerfile: ../shared/envoy/Dockerfile
+      args:
+        ENVOY_CONFIG: ./envoy-https-passthrough.yaml
+    hostname: fleetspeak-frontend
+    ports:
+    - "10003:10003"
+    expose:
+      - '10003'
+
+  fleetspeak-server:
+    image: ghcr.io/google/fleetspeak:latest
+    hostname: fleetspeak-server
+    depends_on:
+      mysql-server:
+        condition: service_healthy
+    entrypoint: ["/fleetspeak/bin/server", "-components_config", "/config/fleetspeak-server/components.textproto", "-services_config", "/config/fleetspeak-server/services.textproto", "-alsologtostderr"]
+    volumes:
+      - "./config:/config"
+    ports:
+      - '9090:9090'
+      - '9091:9091'
+      - '8080:8080'
+    expose:
+      - '9090'
+      - '9091'
+      - '8080'
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:8080"]
+      timeout: 5s
+      retries: 10
+
+  fleetspeak-client:
+    build:
+      context: .
+      dockerfile: ../shared/fleetspeak-client/Dockerfile
+    hostname: fleetspeak-client
+    depends_on:
+      fleetspeak-server:
+        condition: service_healthy
+    entrypoint: ["/fleetspeak/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
+    volumes:
+      - "./config:/config"

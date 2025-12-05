@@ -1,0 +1,13 @@
+mysql_data_source_name:"fleetspeak-user:FLEETSPEAK_PASSWORD@tcp(mysql-server:3306)/fleetspeak"
+https_config: {
+  listen_address: "0.0.0.0:9090"
+  certificates:"FRONTEND_CERTIFICATE"
+  key:"FRONTEND_KEY"
+}
+admin_config: {
+  listen_address: "0.0.0.0:9091"
+}
+health_check_config: {
+  listen_address: "0.0.0.0:8080"
+}
+notification_use_http_notifier:false
