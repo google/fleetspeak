@@ -561,6 +561,8 @@ func (e *Execution) SendMsg(ctx context.Context, m *fspb.Message) error {
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)
+	case <-e.shuttingDown:
+		return ErrShuttingDown
 	case e.channel.Out <- m:
 		return nil
 	}
