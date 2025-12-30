@@ -10,21 +10,31 @@ option go_package = "github.com/google/fleetspeak/fleetspeak/src/server/proto/fl
 
 // A Broadcast is a template to build messages to send to a number of machines.
 message Broadcast {
+  // 8 byte id of the broadcast. Randomly generated if unset at creation time.
   bytes broadcast_id = 1;
 
-  // The source of the broadcast, it should only be a server side service. The
-  // destinations for the resulting broadcast messages will be different clients
-  // with the same service name.
+  // The source of the broadcast, must be a server side service.
   fleetspeak.Address source = 2;
 
+  // The destination of the broadcast, must be a client side service.
+  // The client_id of the destination is ignored and overwritten with any client
+  // that is eligible to receive the broadcast.
+  // If unset, the broadcast will be addressed to a client service with the same
+  // name as the source.
+  fleetspeak.Address destination = 7;
+
+  // The message type of the payload.
   string message_type = 3;
 
   // A client will only be sent this broadcast if it has been marked with all of
   // the required labels.
+  // Note: All labels (installed+generated) are usually set by the "client"
+  // service.
   repeated fleetspeak.Label required_labels = 4;
 
   // A broadcast will stop being sent at this time.
   google.protobuf.Timestamp expiration_time = 5;
 
+  // The payload of the broadcast.
   google.protobuf.Any data = 6;
 }

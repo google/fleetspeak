@@ -48,6 +48,7 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 	b0 := &spb.Broadcast{
 		BroadcastId: bid[0].Bytes(),
 		Source:      &fspb.Address{ServiceName: "testService"},
+		Destination: &fspb.Address{ServiceName: "clientService"},
 		MessageType: "message type 1",
 		Data: &anypb.Any{
 			TypeUrl: "message proto name 1",
@@ -67,6 +68,7 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 			br: &spb.Broadcast{
 				BroadcastId:    bid[1].Bytes(),
 				Source:         &fspb.Address{ServiceName: "testService"},
+				Destination:    &fspb.Address{ServiceName: "clientService"},
 				ExpirationTime: future},
 			lim: 8,
 		},

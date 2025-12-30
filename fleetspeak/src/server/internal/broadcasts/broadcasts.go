@@ -17,6 +17,7 @@
 package broadcasts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -189,7 +190,7 @@ Infos:
 			Source:    i.b.Source,
 			Destination: &fspb.Address{
 				ClientId:    id.Bytes(),
-				ServiceName: i.b.Source.ServiceName,
+				ServiceName: cmp.Or(i.b.GetDestination().GetServiceName(), i.b.GetSource().GetServiceName()),
 			},
 			MessageType:  i.b.MessageType,
 			Data:         i.b.Data,

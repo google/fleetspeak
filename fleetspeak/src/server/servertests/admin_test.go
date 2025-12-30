@@ -57,6 +57,9 @@ func TestBroadcastsAPI(t *testing.T) {
 		Source: &fspb.Address{
 			ServiceName: "TestService",
 		},
+		Destination: &fspb.Address{
+			ServiceName: "clientService",
+		},
 		MessageType: "TestMessage",
 	}
 

@@ -26,6 +26,7 @@ import (
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
+	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	inotifications "github.com/google/fleetspeak/fleetspeak/src/server/internal/notifications"
 	"github.com/google/fleetspeak/fleetspeak/src/server/notifications"
 	"google.golang.org/protobuf/proto"
@@ -61,6 +62,13 @@ type adminServer struct {
 }
 
 func (s adminServer) CreateBroadcast(ctx context.Context, req *spb.CreateBroadcastRequest) (*fspb.EmptyMessage, error) {
+	if len(req.Broadcast.BroadcastId) == 0 {
+		bid, err := ids.RandomBroadcastID()
+		if err != nil {
+			return nil, err
+		}
+		req.Broadcast.BroadcastId = bid.Bytes()
+	}
 	if err := s.store.CreateBroadcast(ctx, req.Broadcast, req.Limit); err != nil {
 		return nil, err
 	}

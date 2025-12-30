@@ -173,6 +173,7 @@ WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS broadcasts(
 broadcast_id TEXT(32) NOT NULL,
 source_service_name TEXT(128) NOT NULL,
+destination_service_name TEXT(128),
 message_type TEXT(128) NOT NULL,
 expiration_time_seconds INT8,
 expiration_time_nanos INT4,

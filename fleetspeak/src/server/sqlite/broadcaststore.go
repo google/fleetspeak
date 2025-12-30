@@ -33,16 +33,17 @@ import (
 
 // dbBroadcast matches the schema of the broadcasts table.
 type dbBroadcast struct {
-	broadcastID           string
-	sourceServiceName     string
-	messageType           string
-	expirationTimeSeconds sql.NullInt64
-	expirationTimeNanos   sql.NullInt64
-	dataTypeURL           sql.NullString
-	dataValue             []byte
-	sent                  uint64
-	allocated             uint64
-	messageLimit          uint64
+	broadcastID            string
+	sourceServiceName      string
+	destinationServiceName sql.NullString
+	messageType            string
+	expirationTimeSeconds  sql.NullInt64
+	expirationTimeNanos    sql.NullInt64
+	dataTypeURL            sql.NullString
+	dataValue              []byte
+	sent                   uint64
+	allocated              uint64
+	messageLimit           uint64
 }
 
 func fromBroadcastProto(b *spb.Broadcast) (*dbBroadcast, error) {
@@ -61,6 +62,9 @@ func fromBroadcastProto(b *spb.Broadcast) (*dbBroadcast, error) {
 		broadcastID:       id.String(),
 		sourceServiceName: b.Source.ServiceName,
 		messageType:       b.MessageType,
+	}
+	if b.Destination != nil {
+		res.destinationServiceName = sql.NullString{String: b.Destination.ServiceName, Valid: true}
 	}
 	if b.ExpirationTime != nil {
 		res.expirationTimeSeconds = sql.NullInt64{Int64: b.ExpirationTime.Seconds, Valid: true}
@@ -82,6 +86,9 @@ func toBroadcastProto(b *dbBroadcast) (*spb.Broadcast, error) {
 		BroadcastId: bid.Bytes(),
 		Source:      &fspb.Address{ServiceName: b.sourceServiceName},
 		MessageType: b.messageType,
+	}
+	if b.destinationServiceName.Valid {
+		ret.Destination = &fspb.Address{ServiceName: b.destinationServiceName.String}
 	}
 	if b.expirationTimeSeconds.Valid && b.expirationTimeNanos.Valid {
 		ret.ExpirationTime = &tspb.Timestamp{
@@ -110,6 +117,7 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 		if _, err := tx.ExecContext(ctx, "INSERT INTO broadcasts("+
 			"broadcast_id, "+
 			"source_service_name, "+
+			"destination_service_name, "+
 			"message_type, "+
 			"expiration_time_seconds, "+
 			"expiration_time_nanos, "+
@@ -118,9 +126,10 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 			"sent, "+
 			"allocated, "+
 			"message_limit) "+
-			"VALUES(?, ?, ?, ?, ?, ?, ?, 0, 0, ?)",
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)",
 			dbB.broadcastID,
 			dbB.sourceServiceName,
+			dbB.destinationServiceName,
 			dbB.messageType,
 			dbB.expirationTimeSeconds,
 			dbB.expirationTimeNanos,
@@ -196,6 +205,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 		rs, err := tx.QueryContext(ctx, "SELECT "+
 			"broadcast_id, "+
 			"source_service_name, "+
+			"destination_service_name, "+
 			"message_type, "+
 			"expiration_time_seconds, "+
 			"expiration_time_nanos, "+
@@ -219,6 +229,7 @@ func (d *Datastore) ListActiveBroadcasts(ctx context.Context) ([]*db.BroadcastIn
 			if err := rs.Scan(
 				&b.broadcastID,
 				&b.sourceServiceName,
+				&b.destinationServiceName,
 				&b.messageType,
 				&b.expirationTimeSeconds,
 				&b.expirationTimeNanos,

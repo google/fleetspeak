@@ -59,6 +59,7 @@ func TestManager(t *testing.T) {
 			br: &spb.Broadcast{
 				BroadcastId:    bid[0].Bytes(),
 				Source:         &fspb.Address{ServiceName: "testService"},
+				Destination:    &fspb.Address{ServiceName: "clientService"},
 				MessageType:    "WindowsBroadcast1",
 				RequiredLabels: []*fspb.Label{{ServiceName: "system", Label: "Windows"}},
 				Data: &anypb.Any{

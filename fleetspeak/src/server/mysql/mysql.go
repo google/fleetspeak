@@ -211,6 +211,7 @@ CONSTRAINT client_contact_messages_fk_2
 		`CREATE TABLE IF NOT EXISTS broadcasts(
 broadcast_id BINARY(8) NOT NULL,
 source_service_name VARCHAR(128) NOT NULL,
+destination_service_name VARCHAR(128),
 message_type VARCHAR(128) NOT NULL,
 expiration_time_seconds BIGINT,
 expiration_time_nanos INT,
