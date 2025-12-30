@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """A setuptools based setup module for Fleetspeak."""
+
 import os
 import shutil
 import subprocess
