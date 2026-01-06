@@ -34,9 +34,23 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-// messageServer wraps a Communicator in order to handle clients polls.
+// messageServer uses a subset of Communicator in order to handle clients polls.
 type messageServer struct {
-	*Communicator
+	fs              func() comms.Context
+	p               Params
+	stopProcessing  func()
+	startProcessing func() bool
+}
+
+// NewMessageServer creates a new messageServer with limited logic for starting and stopping
+// processing.
+func NewMessageServer(fs func() comms.Context, p Params) *messageServer {
+	return &messageServer{
+		fs:              fs,
+		p:               p,
+		stopProcessing:  func() {},
+		startProcessing: func() bool { return true },
+	}
 }
 
 type unknownAddr struct {
@@ -87,7 +101,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			log.Errorf("Forgot to set status.")
 		}
 		pi.End = db.Now()
-		s.fs.StatsCollector().ClientPoll(pi)
+		s.fs().StatsCollector().ClientPoll(pi)
 	}()
 
 	if !s.startProcessing() {
@@ -153,7 +167,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	addr := addrFromString(req.RemoteAddr)
 
-	info, toSend, _, err := s.fs.InitializeConnection(ctx, addr, cert.PublicKey, &wcd, false)
+	info, toSend, _, err := s.fs().InitializeConnection(ctx, addr, cert.PublicKey, &wcd, false)
 	if err == comms.ErrNotAuthorized {
 		pi.Status = http.StatusServiceUnavailable
 		http.Error(res, "not authorized", pi.Status)
@@ -175,7 +189,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	for _, msg := range toSend.Messages {
-		s.fs.StatsCollector().MessageSent(msg)
+		s.fs().StatsCollector().MessageSent(msg)
 	}
 
 	res.Header().Set("Content-Type", "application/octet-stream")

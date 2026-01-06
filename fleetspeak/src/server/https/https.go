@@ -156,7 +156,12 @@ func NewCommunicator(p Params) (*Communicator, error) {
 			NextProtos:             []string{"h2"},
 		}
 	}
-	ms := &messageServer{h}
+	ms := &messageServer{
+		fs:              func() comms.Context { return h.fs },
+		p:               h.p,
+		stopProcessing:  h.stopProcessing,
+		startProcessing: h.startProcessing,
+	}
 	mux.Handle("/message", &CompressionHandler{ms})
 	if p.Streaming {
 		sms := &streamingMessageServer{h, p.MaxPerClientBatchProcessors}
