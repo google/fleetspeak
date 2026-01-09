@@ -95,7 +95,7 @@ func (s *blockingService) ProcessMessage(ctx context.Context, m *fspb.Message) e
 	return nil
 }
 
-func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.CompressionAlgorithm) {
+func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.CompressionAlgorithm, clientCertHeader string) {
 	// Create a local https server for the client to talk to.
 	pemCert, pemKey, err := common_util.ServerCert()
 	if err != nil {
@@ -127,6 +127,11 @@ func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.Compression
 	// channel, and looks into a channel for ContactData records to pass to
 	// the client.
 	var handle http.HandlerFunc = func(res http.ResponseWriter, req *http.Request) {
+		if clientCertHeader != "" {
+			if req.Header.Get(clientCertHeader) == "" {
+				t.Errorf("client certificate header is not set")
+			}
+		}
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
 		if err != nil {
 			t.Errorf("unable to make ClientID in test server: %v", err)
@@ -200,7 +205,8 @@ func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.Compression
 			MinFailureDelaySeconds: 1,
 			Compression:            compression,
 		},
-		Proxy: proxy,
+		Proxy:                   proxy,
+		ClientCertificateHeader: clientCertHeader,
 	}
 	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
 		t.Fatal("unable to add server cert to pool")
@@ -398,7 +404,7 @@ func TestCommunicator(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testCommunicator(t, nil, tc.compression)
+			testCommunicator(t, nil, tc.compression, "")
 		})
 	}
 }
@@ -505,11 +511,15 @@ func TestCommunicatorWithProxyFromConfig(t *testing.T) {
 		Host: hp.addr(),
 	}
 
-	testCommunicator(t, url, fspb.CompressionAlgorithm_COMPRESSION_NONE)
+	testCommunicator(t, url, fspb.CompressionAlgorithm_COMPRESSION_NONE, "")
 
 	if hp.numRequests() == 0 {
 		t.Fatalf("Expected to receive proxy requests.")
 	}
+}
+
+func TestClientCertHeader(t *testing.T) {
+	testCommunicator(t, nil, fspb.CompressionAlgorithm_COMPRESSION_NONE, "Fleetspeak-Certificate")
 }
 
 func TestErrorDelay(t *testing.T) {

@@ -17,6 +17,7 @@ package https
 import (
 	"bytes"
 	"context"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -52,6 +53,11 @@ type Communicator struct {
 
 	// 1 hour watchdog for server communication attempts.
 	wd *watchdog.Watchdog
+
+	// header name for the client certificate
+	clientCertificateHeader string
+
+	certBytes []byte
 }
 
 // Setup implements comms.Communicator.
@@ -61,7 +67,7 @@ func (c *Communicator) Setup(cl comms.Context) error {
 }
 
 func (c *Communicator) configure() error {
-	id, tr, _, err := makeTransport(c.cctx, c.DialContext)
+	id, tr, certBytes, err := makeTransport(c.cctx, c.DialContext)
 	if err != nil {
 		return err
 	}
@@ -101,6 +107,8 @@ func (c *Communicator) configure() error {
 		Timeout:   5 * time.Minute,
 	}
 	c.ctx, c.done = context.WithCancel(context.Background())
+	c.clientCertificateHeader = si.ClientCertificateHeader
+	c.certBytes = certBytes
 	return nil
 }
 
@@ -332,6 +340,11 @@ func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, er
 		return nil, sendErr
 	}
 	SetContentEncoding(req.Header, c.conf.GetCompression())
+	if c.clientCertificateHeader != "" {
+		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})
+		cc := url.PathEscape(string(bc))
+		req.Header.Set(c.clientCertificateHeader, cc)
+	}
 
 	var resp *http.Response
 	resp, sendErr = c.hc.Do(req)
@@ -366,5 +379,5 @@ func (c *Communicator) GetFileIfModified(ctx context.Context, service, name stri
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, c.cctx, nil, hosts, c.hc, service, name, modSince)
+	return getFileIfModified(ctx, c.cctx, c.certBytes, hosts, c.hc, service, name, modSince)
 }
