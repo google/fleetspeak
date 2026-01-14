@@ -60,20 +60,31 @@ func writeUint32(res fullResponseWriter, i uint32) error {
 	return binary.Write(res, binary.LittleEndian, i)
 }
 
-func newStreamingMessageServer(c *Communicator, maxPerClientBatchProcessors uint32) *streamingMessageServer {
-	return &streamingMessageServer{c, maxPerClientBatchProcessors}
+// NewStreamingMessageServer allows reuse of streamingMessageServer in
+// non-HTTPS communicators.
+func NewStreamingMessageServer(fs func() comms.Context, p Params, stopping <-chan struct{}) *streamingMessageServer {
+	return &streamingMessageServer{
+		fs:              fs,
+		p:               p,
+		stopping:        stopping,
+		stopProcessing:  func() {},
+		startProcessing: func() bool { return true },
+	}
 }
 
-// messageServer wraps a Communicator in order to handle clients polls.
+// streamingMessageServer uses a subset of Communicator in order to handle streaming client polls.
 type streamingMessageServer struct {
-	*Communicator
-	maxPerClientBatchProcessors uint32
+	fs              func() comms.Context
+	p               Params
+	stopping        <-chan struct{}
+	stopProcessing  func()
+	startProcessing func() bool
 }
 
 func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	earlyError := func(msg string, status int) {
 		log.ErrorDepth(1, fmt.Sprintf("%s: %s", http.StatusText(status), msg))
-		s.fs.StatsCollector().ClientPoll(stats.PollInfo{
+		s.fs().StatsCollector().ClientPoll(stats.PollInfo{
 			CTX:    req.Context(),
 			Start:  db.Now(),
 			End:    db.Now(),
@@ -188,7 +199,7 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 			log.Errorf("Forgot to set status, PollInfo: %v", pi)
 		}
 		pi.End = db.Now()
-		s.fs.StatsCollector().ClientPoll(pi)
+		s.fs().StatsCollector().ClientPoll(pi)
 	}()
 
 	makeError := func(msg string, status int) error {
@@ -233,7 +244,7 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 		return nil, false, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
 	}
 
-	info, toSend, more, err := s.fs.InitializeConnection(ctx, addr, key, &wcd, true)
+	info, toSend, more, err := s.fs().InitializeConnection(ctx, addr, key, &wcd, true)
 	if err == comms.ErrNotAuthorized {
 		return nil, false, makeError("not authorized", http.StatusServiceUnavailable)
 	}
@@ -263,7 +274,7 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 	}
 	res.Flush()
 	for _, msg := range toSend.Messages {
-		s.fs.StatsCollector().MessageSent(msg)
+		s.fs().StatsCollector().MessageSent(msg)
 	}
 
 	pi.WriteTime = time.Since(st)
@@ -302,7 +313,7 @@ func (m *streamManager) readLoop() {
 
 	// Number of batches from the same client that will be processed concurrently.
 	const maxBatchProcessors = 10
-	batchCh := make(chan *fspb.WrappedContactData, m.s.maxPerClientBatchProcessors)
+	batchCh := make(chan *fspb.WrappedContactData, m.s.p.MaxPerClientBatchProcessors)
 
 	for {
 		pi, wcd, err := m.readOne()
@@ -312,7 +323,7 @@ func (m *streamManager) readLoop() {
 			// we are going to tear down everything because of an unexpected read
 			// error and should log/record why.
 			if m.ctx.Err() == nil && pi != nil {
-				m.s.fs.StatsCollector().ClientPoll(*pi)
+				m.s.fs().StatsCollector().ClientPoll(*pi)
 				log.Errorf("Streaming Connection to %v terminated with error: %v", m.info.Client.ID, err)
 			}
 			return
@@ -338,7 +349,7 @@ func (m *streamManager) readLoop() {
 			m.out <- &fspb.ContactData{AckIndex: curCnt}
 		}(cnt)
 
-		m.s.fs.StatsCollector().ClientPoll(*pi)
+		m.s.fs().StatsCollector().ClientPoll(*pi)
 	}
 }
 
@@ -381,7 +392,7 @@ func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, er
 
 	// Validate message early to provide feedback to the agent and fail with a
 	// descriptive HTTP code.
-	_, err = m.s.fs.ValidateMessagesFromClient(context.Background(), m.info, wcd)
+	_, err = m.s.fs().ValidateMessagesFromClient(context.Background(), m.info, wcd)
 	if err != nil {
 		pi.Status = http.StatusServiceUnavailable
 		return pi, nil, fmt.Errorf("message validation failed: %v", err)
@@ -420,7 +431,7 @@ func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
 			}
 		}
 	}()
-	err := m.s.fs.HandleMessagesFromClient(ctx, m.info, wcd)
+	err := m.s.fs().HandleMessagesFromClient(ctx, m.info, wcd)
 	fin()
 	if err != nil {
 		if err == comms.ErrNotAuthorized {
@@ -526,7 +537,7 @@ func (m *streamManager) notifyLoop(closeTime time.Duration, moreMsgs bool) {
 		}
 		var cd *fspb.ContactData
 		var err error
-		cd, moreMsgs, err = m.s.fs.GetMessagesForClient(m.ctx, m.info)
+		cd, moreMsgs, err = m.s.fs().GetMessagesForClient(m.ctx, m.info)
 		if err != nil {
 			if err == m.ctx.Err() {
 				return
@@ -560,17 +571,17 @@ func (m *streamManager) writeLoop() {
 				if m.ctx.Err() != nil {
 					log.Errorf("Error sending ContactData to client [%v]: %v", m.info.Client.ID, err)
 					m.cancel()
-					m.s.fs.StatsCollector().ClientPoll(pi)
+					m.s.fs().StatsCollector().ClientPoll(pi)
 				}
 				// ctx was already canceled - more or less normal shutdown, so don't log
 				// as a poll.
 				return
 			}
 			if len(cd.Messages) > 0 {
-				m.s.fs.StatsCollector().ClientPoll(pi)
+				m.s.fs().StatsCollector().ClientPoll(pi)
 			}
 			for _, msg := range cd.Messages {
-				m.s.fs.StatsCollector().MessageSent(msg)
+				m.s.fs().StatsCollector().MessageSent(msg)
 			}
 		case <-m.ctx.Done():
 			return
