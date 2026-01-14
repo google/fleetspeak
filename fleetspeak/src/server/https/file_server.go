@@ -26,6 +26,7 @@ import (
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
+	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"golang.org/x/time/rate"
 )
 
@@ -33,9 +34,18 @@ import (
 // requests to avoid spam during potential DoS attacks.
 var unauthorizedLogging = rate.Sometimes{Interval: time.Minute}
 
-// fileServer wraps a Communicator in order to serve files.
+// fileServer uses a subset of Communicator in order to serve files.
 type fileServer struct {
-	*Communicator
+	fs func() comms.Context
+	p  Params
+}
+
+// NewFileServer allows reuse of fileServer in non-HTTPS communicators.
+func NewFileServer(fs func() comms.Context, p Params) fileServer {
+	return fileServer{
+		fs: fs,
+		p:  p,
+	}
 }
 
 // ServeHTTP implements http.Handler
@@ -67,9 +77,9 @@ func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := req.Context()
-	data, modtime, err := s.fs.ReadFile(ctx, service, name)
+	data, modtime, err := s.fs().ReadFile(ctx, service, name)
 	if err != nil {
-		if s.fs.IsNotFound(err) {
+		if s.fs().IsNotFound(err) {
 			http.Error(res, "file not found", http.StatusNotFound)
 			return
 		}
@@ -86,7 +96,7 @@ func (s fileServer) authorizeFileRequest(req *http.Request) error {
 		return err
 	}
 	addr := net.TCPAddrFromAddrPort(addrPort)
-	if !s.fs.Authorizer().Allow1(addr) {
+	if !s.fs().Authorizer().Allow1(addr) {
 		return fmt.Errorf("unauthorized via Allow1 (addr: %v)", addr)
 	}
 
@@ -105,7 +115,7 @@ func (s fileServer) authorizeFileRequest(req *http.Request) error {
 		ClientLabels: req.Header["X-Fleetspeak-Labels"],
 	}
 
-	if !s.fs.Authorizer().Allow2(addr, ci) {
+	if !s.fs().Authorizer().Allow2(addr, ci) {
 		return fmt.Errorf("unauthorized via Allow2 (addr: %v, contact: %v)", addr, ci)
 	}
 	return nil

@@ -173,7 +173,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 		}
 		mux.Handle("/streaming-message", &CompressionHandler{sms})
 	}
-	mux.Handle("/files/", fileServer{h})
+	mux.Handle("/files/", fileServer{fs: func() comms.Context { return h.fs }, p: h.p})
 
 	switch l := h.p.Listener.(type) {
 	case *net.TCPListener:
