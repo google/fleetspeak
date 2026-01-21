@@ -620,7 +620,7 @@ func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version st
 func (e *Execution) statsRoutine(ctx context.Context) error {
 	pid, version, err := e.waitForStartupData(ctx)
 	if err != nil {
-		// If this was due to an external cancelation, return.
+		// If this was due to an external cancellation, return.
 		if ctx.Err() != nil {
 			return context.Cause(ctx)
 		}
