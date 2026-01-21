@@ -44,7 +44,6 @@ const baseErrorDelay = float64(100 * time.Millisecond)
 
 type fullResponseWriter interface {
 	http.ResponseWriter
-	http.CloseNotifier
 	http.Flusher
 }
 
@@ -178,7 +177,6 @@ func (s *streamingMessageServer) ServeHTTP(res http.ResponseWriter, req *http.Re
 
 	select {
 	case <-ctx.Done():
-	case <-fullRes.CloseNotify():
 	case <-s.stopping:
 	}
 	m.cancel()
