@@ -154,7 +154,7 @@ func getOwnership(filepath string) (string, string, error) {
 		return "", "", err
 	}
 
-	// Musn't call LocalFree until we've copied the data backed by the handle (hence defer).
+	// Mustn't call LocalFree until we've copied the data backed by the handle (hence defer).
 	defer windows.LocalFree(securityDescriptor)
 
 	return psidOwner.String(), psidGroup.String(), nil

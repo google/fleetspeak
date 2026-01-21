@@ -111,7 +111,7 @@ message Label {
   // The service which set this label.
   string service_name = 1;
 
-  // A free form tag choosen by the setting plugin.
+  // A free form tag chosen by the setting plugin.
   string label = 2;
 }
 

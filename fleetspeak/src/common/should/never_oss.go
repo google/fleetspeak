@@ -20,7 +20,7 @@
 // when it is hooked up with an appropriate monitoring framework.
 package should
 
-// Never indicates that the given condition should never (or seldomly) happen.
+// Never indicates that the given condition should never (or seldom) happen.
 //
 // Callers should only pass a fixed set of strings to Never(),
 // to avoid a state explosion in monitoring counters.

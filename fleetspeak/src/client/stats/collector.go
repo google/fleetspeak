@@ -25,7 +25,7 @@ import (
 // RetryLoopCollector gets notified about messages currently kept in memory by the RetryLoop.
 // Implementations of this interface must be thread-safe.
 type RetryLoopCollector interface {
-	// BeforeMessageRetry is called when a message has been nacked and got readded to the outbound
+	// BeforeMessageRetry is called when a message has been nacked and got re-added to the outbound
 	// message queue.
 	BeforeMessageRetry(msg *fspb.Message)
 	// MessagePending is called before a new message is being placed into the output channel.

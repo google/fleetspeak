@@ -70,7 +70,7 @@ func Listen(socketPath string) (net.Listener, error) {
 		}
 	}
 
-	// The socket file will be truncated if it exists. Otherwise it wil be
+	// The socket file will be truncated if it exists. Otherwise it will be
 	// created with the attributes described by the permission bits.
 	if err := os.WriteFile(socketPath, []byte{}, 0600); err != nil {
 		return nil, fmt.Errorf("error while truncating a Wnix socket file; os.WriteFile(%q, ...): %v", socketPath, err)

@@ -158,7 +158,7 @@ func (c *serviceConfiguration) removeService(sname string) (*serviceData, error)
 	defer c.lock.Unlock()
 	srv := c.services[sname]
 	if srv == nil {
-		return nil, fmt.Errorf("falied to remove non-existent service: %v", sname)
+		return nil, fmt.Errorf("failed to remove non-existent service: %v", sname)
 	}
 	delete(c.services, sname)
 	return srv, nil

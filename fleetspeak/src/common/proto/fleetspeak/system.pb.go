@@ -129,7 +129,7 @@ func (x *MessageErrorData) GetError() string {
 }
 
 // A ClientInfo message is sent from the client to the server on initial contact
-// and after every configurate change.
+// and after every configuration change.
 type ClientInfoData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

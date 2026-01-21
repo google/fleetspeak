@@ -112,7 +112,7 @@ func (s *Service) Stop() error {
 }
 
 // newExec creates a new execution. It retries on failure, giving up only if ctx
-// is canceled, in which case it returns the context's cancelation cause.
+// is canceled, in which case it returns the context's cancellation cause.
 func (s *Service) newExec(ctx context.Context, lastStart time.Time) (*execution.Execution, error) {
 	for {
 		delta := time.Until(lastStart.Add(RespawnDelay))
@@ -167,7 +167,7 @@ func monitorExecution(ctx context.Context, e *execution.Execution, inactivityTim
 // feedExecution feeds messages to the given execution, starting with msg if msg
 // is non-nil, and then reading from s.msgs.  It exits when the context is
 // canceled and returns the message for the next execution to process, along
-// with the context's cancelation cause.
+// with the context's cancellation cause.
 func (s *Service) feedExecution(ctx context.Context, msg *fspb.Message, e *execution.Execution) (*fspb.Message, error) {
 	for {
 		if msg == nil {

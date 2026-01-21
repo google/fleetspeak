@@ -512,7 +512,7 @@ type Label struct {
 
 	// The service which set this label.
 	ServiceName string `protobuf:"bytes,1,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
-	// A free form tag choosen by the setting plugin.
+	// A free form tag chosen by the setting plugin.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 }
 

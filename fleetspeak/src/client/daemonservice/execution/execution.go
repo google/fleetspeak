@@ -405,7 +405,7 @@ func (w stderrWriter) Write(p []byte) (int, error) {
 
 // stdFlushRoutine calls e.flushOut() periodically with e.outLock held.
 // When ctx is canceled, it does it one last time and returns the context's
-// cancelation cause.
+// cancellation cause.
 func (e *Execution) stdFlushRoutine(ctx context.Context, period time.Duration) error {
 	t := time.NewTicker(period)
 	defer t.Stop()
@@ -586,7 +586,7 @@ func (e *Execution) readMsg(ctx context.Context) (*fspb.Message, error) {
 }
 
 // waitForStartupData waits for startup data from e.startupData
-// and returns early on context cancelation.
+// and returns early on context cancellation.
 //
 // On error or timeout, it will still return a valid PID.
 // The caller may choose to continue anyway.
@@ -616,7 +616,7 @@ func (e *Execution) waitForStartupData(ctx context.Context) (pid int, version st
 // sending reports to the server at regular intervals.
 //
 // It runs until there is an error, or until ctx is canceled,
-// in which case it returns the cancelation cause.
+// in which case it returns the cancellation cause.
 func (e *Execution) statsRoutine(ctx context.Context) error {
 	pid, version, err := e.waitForStartupData(ctx)
 	if err != nil {

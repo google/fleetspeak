@@ -136,6 +136,6 @@ func getTrustedCert(cfg *cpb.Config) (cert *x509.Certificate, priv any, certPEM 
 		}
 		return cert, priv, certPEM, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("unsupport PEM block type [%s] in certificate key file [%s]", keyBlock.Type, cfg.TrustedCertKeyFile)
+		return nil, nil, nil, fmt.Errorf("unsupported PEM block type [%s] in certificate key file [%s]", keyBlock.Type, cfg.TrustedCertKeyFile)
 	}
 }

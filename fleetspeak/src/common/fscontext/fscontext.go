@@ -14,7 +14,7 @@
 
 // Package fscontext contains helpers for migrating Fleetspeak to context.Context.
 //
-// Fleetspeak should better use context.Context for cancelation than chan struct{}s.
+// Fleetspeak should better use context.Context for cancellation than chan struct{}s.
 package fscontext
 
 import (
@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-// ErrStopRequested is the cancelation cause to be used when callers
+// ErrStopRequested is the cancellation cause to be used when callers
 // intentionally cancel a context from the outside.
 var ErrStopRequested = fmt.Errorf("%w: stop requested", context.Canceled)
 

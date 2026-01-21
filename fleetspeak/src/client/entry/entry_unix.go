@@ -57,7 +57,7 @@ func RunMain(innerMain InnerMain, _ /* windowsServiceName */ string) {
 
 // notifyFunc is similar to other signal.Notify* functions, and calls the given
 // callback each time one of the specified signals is received. It returns a
-// cancelation function to reset signals and free resources.
+// cancellation function to reset signals and free resources.
 func notifyFunc(callback func(os.Signal), signals ...os.Signal) func() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)

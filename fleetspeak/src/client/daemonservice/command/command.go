@@ -39,7 +39,7 @@ func (cmd *Command) Start() error {
 		return err
 	}
 
-	// Close our copy of the passed pipe file descrptors.
+	// Close our copy of the passed pipe file descriptors.
 	for _, f := range cmd.filesToClose {
 		f.Close()
 	}

@@ -106,7 +106,7 @@ func (h *FilesystemPersistenceHandler) WriteState(s *clpb.ClientState) error {
 		return fmt.Errorf("unable to write new configuration [%s]: %v", tmp, err)
 	}
 	if err := os.Rename(tmp, h.stateFile); err != nil {
-		return fmt.Errorf("unable to rename new confguration [%s]: %v", h.stateFile, err)
+		return fmt.Errorf("unable to rename new configuration [%s]: %v", h.stateFile, err)
 	}
 
 	return nil
