@@ -277,6 +277,8 @@ func (m *ResourceUsageMonitor) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	log.Errorf("XYZ Resource Usage Monitor Run()")
+	defer log.Errorf("XYZ Resource Usage Monitor Run() exit")
 	// 1s, 2s, 4s, 8s, 16s, ..., m.maxSamplePeriod, m.maxSamplePeriod, m.maxSamplePeriod, ...
 	backoffPeriod := min(time.Second, m.maxSamplePeriod)
 	backoff := time.NewTimer(backoffPeriod)
@@ -297,6 +299,7 @@ func (m *ResourceUsageMonitor) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Errorf("XYZ Resource Usage Monitor ctx done: %v (cause %v)", ctx.Err(), context.Cause(ctx))
 			return
 		case <-backoff.C:
 			backoffPeriod = min(backoffPeriod*2, m.maxSamplePeriod)
@@ -323,6 +326,7 @@ func (m *ResourceUsageMonitor) Run(ctx context.Context) {
 
 			err = AggregateResourceUsage(prevRU, currRU, ss, &aggRU, false)
 			if err != nil {
+				log.Errorf("XYZ Resource Usage Monitor: agg error: %v", err)
 				m.errorf("aggregation error: %v", err)
 				resetSamples()
 				continue
@@ -333,8 +337,10 @@ func (m *ResourceUsageMonitor) Run(ctx context.Context) {
 
 			// Sample size reached.
 			if numSamplesCollected == ss {
+				log.Errorf("XYZ Resource Usage Monitor: %v samples collected!", numSamplesCollected)
 				debugStatus, err := m.ruf.DebugStatusForPID(m.pid)
 				if err != nil {
+					log.Errorf("XYZ Resource Usage Monitor: fail to get debug status")
 					m.errorf("failed to get debug status for process[%d]: %v", m.pid, err)
 				}
 				rud := &mpb.ResourceUsageData{
@@ -393,13 +399,17 @@ func (m *ResourceUsageMonitor) errorf(format string, a ...any) {
 }
 
 // SendProtoToServer wraps a proto in a fspb.Message and sends it to the server.
-func SendProtoToServer(ctx context.Context, pb proto.Message, msgType string, sc service.Context) error {
+func SendProtoToServer(ctx context.Context, pb proto.Message, msgType string, sc service.Context) (sErr error) {
 	d, err := anypb.New(pb)
 	if err != nil {
 		return err
 	}
+	log.Errorf("XYZ SendProtoToServer()")
+	defer func() { log.Errorf("XYZ SendProtoToServer(): exit: %v", sErr) }()
+
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+
 	return sc.Send(ctx, service.AckMessage{
 		M: &fspb.Message{
 			Destination: &fspb.Address{ServiceName: "system"},
