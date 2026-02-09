@@ -29,7 +29,7 @@ function cp_from_bucket {
     mkdir -p $(dirname $2)
     while [[ (! -f $2) && (! -e $2) ]]
     do
-        gsutil cp -r $1 $(dirname $2) ||:
+        gcloud storage cp --recursive $1 $(dirname $2) ||:
         sleep 5
     done
 }
@@ -40,7 +40,7 @@ cp_from_bucket ${storage_bucket_url}/bin/server ./server
 cp_from_bucket ${storage_bucket_url}/server_configs/server${self_index}.config ./server${self_index}.config
 cp_from_bucket ${storage_bucket_url}/server_configs/server${self_index}.services.config ./server${self_index}.services.config
 touch server${self_index}.ready
-gsutil cp server${self_index}.ready ${storage_bucket_url}/started_components/
+gcloud storage cp server${self_index}.ready ${storage_bucket_url}/started_components/
 
 chmod +x server
 

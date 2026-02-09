@@ -2,7 +2,7 @@
 
 set -e
 
-while ! gsutil cp ${storage_bucket_url}/bin/frr_master_server_main ./; do
+while ! gcloud storage cp ${storage_bucket_url}/bin/frr_master_server_main ./; do
     sleep 10
 done
 

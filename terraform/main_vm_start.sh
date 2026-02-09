@@ -50,12 +50,12 @@ ln -fs /usr/bin/python3 /usr/bin/python
 pip3 install --user --upgrade setuptools wheel
 python3 frr_python/setup.py bdist_wheel
 
-gsutil cp frr_python/dist/* ${storage_bucket_url}/frr_python/wheel/
+gcloud storage cp frr_python/dist/* ${storage_bucket_url}/frr_python/wheel/
 pip3 install fleetspeak
 fleetspeak/build.sh
-gsutil cp fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main ${storage_bucket_url}/bin/frr_master_server_main
-gsutil cp fleetspeak/src/client/client/client ${storage_bucket_url}/bin/client
-gsutil cp fleetspeak/src/server/server/server ${storage_bucket_url}/bin/server
+gcloud storage cp fleetspeak/src/e2etesting/frr_master_server_main/frr_master_server_main ${storage_bucket_url}/bin/frr_master_server_main
+gcloud storage cp fleetspeak/src/client/client/client ${storage_bucket_url}/bin/client
+gcloud storage cp fleetspeak/src/server/server/server ${storage_bucket_url}/bin/server
 
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O $HOME/cloud_sql_proxy
 chmod +x $HOME/cloud_sql_proxy
@@ -68,11 +68,11 @@ seq -f ${ip_fs_server_prefix}.%g 0 $((${num_servers}-1)) > server_hosts.txt;
 go run terraform/fleetspeak_configurator/build_configs.go --config_dir=terraform/tmp/ --num_clients=${num_clients} --servers_file=server_hosts.txt --frontend_address=${lb_frontend_ip} --mysql_address=127.0.0.1:3306 --mysql_database=fleetspeak_test --mysql_username=fsuser --mysql_password=fsuserPass1!
 
 for i in $(seq 0 $((${num_servers}-1))); do
-    gsutil cp terraform/tmp/server$${i}.config ${storage_bucket_url}/server_configs/server$${i}.config
-    gsutil cp terraform/tmp/server$${i}.services.config ${storage_bucket_url}/server_configs/server$${i}.services.config
+    gcloud storage cp terraform/tmp/server$${i}.config ${storage_bucket_url}/server_configs/server$${i}.config
+    gcloud storage cp terraform/tmp/server$${i}.services.config ${storage_bucket_url}/server_configs/server$${i}.services.config
 done
 
-if retry '[ $(gsutil ls ${storage_bucket_url}/started_components/server*ready | wc -l) -eq ${num_servers} ]'; then
+if retry '[ $(gcloud storage ls ${storage_bucket_url}/started_components/server*ready | wc -l) -eq ${num_servers} ]'; then
     log "All servers connected"
 else
     log "Not all servers connected within 30 minutes. Probably some of the servers failed to start, and the error occured before starting Fleetspeak. Try to check servers logs and restart the test."
@@ -80,10 +80,10 @@ fi
 
 sleep 30
 
-gsutil cp terraform/tmp/textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto
-gsutil cp terraform/tmp/linux_client.config ${storage_bucket_url}/client_configs/linux_client.config
+gcloud storage cp terraform/tmp/textservices/frr.textproto ${storage_bucket_url}/protos/frr.textproto
+gcloud storage cp terraform/tmp/linux_client.config ${storage_bucket_url}/client_configs/linux_client.config
 
-if retry '[ $(gsutil ls -r ${storage_bucket_url}/started_components/client*ready | wc -l) -eq ${num_clients} ]'; then
+if retry '[ $(gcloud storage ls --recursive ${storage_bucket_url}/started_components/client*ready | wc -l) -eq ${num_clients} ]'; then
     log "All clients connected"
 else
     log "Not all clients connected within 30 minutes. Probably some of the clients failed to start, and the error occured before starting Fleetspeak. Try to check clients logs and restart the test."
@@ -91,4 +91,4 @@ fi
 
 go test terraform/cloudtesting/end_to_end_test.go --num_clients=${num_clients} --servers_file=server_hosts.txt --ms_address=${master_server_host}:6059 >> $HOME/results.txt
 log "Script finished"
-gsutil cp $HOME/results.txt ${storage_bucket_url}
+gcloud storage cp $HOME/results.txt ${storage_bucket_url}
