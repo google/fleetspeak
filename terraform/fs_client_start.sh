@@ -24,7 +24,7 @@ function cp_from_bucket {
     mkdir -p $(dirname $2)
     while [[ (! -f $2) && (! -e $2) ]]
     do
-        gsutil cp -r $1 $(dirname $2) ||:
+        gcloud storage cp --recursive $1 $(dirname $2) ||:
         sleep 5
     done
 }
@@ -36,7 +36,7 @@ cp_from_bucket ${storage_bucket_url}/bin/client ./client
 cp_from_bucket ${storage_bucket_url}/protos/frr.textproto textservices/frr.textproto
 cp_from_bucket ${storage_bucket_url}/client_configs/linux_client.config linux_client.config
 touch client${self_index}.ready
-gsutil cp client${self_index}.ready ${storage_bucket_url}/started_components/
+gcloud storage cp client${self_index}.ready ${storage_bucket_url}/started_components/
 
 chmod +x client
 
