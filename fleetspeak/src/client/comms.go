@@ -163,6 +163,7 @@ func (c commsContext) ServerInfo() (comms.ServerInfo, error) {
 		Servers:                 cfg.Servers,
 		Proxy:                   cfg.Proxy,
 		ClientCertificateHeader: cfg.ClientCertificateHeader,
+		GetAuthCertificate:      cfg.GetAuthCertificate,
 		ServerName:              cfg.ServerName,
 	}, nil
 }

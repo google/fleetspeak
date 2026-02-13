@@ -19,6 +19,7 @@ package comms
 import (
 	"context"
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"io"
 	"net/url"
@@ -74,13 +75,17 @@ type ServerInfo struct {
 	// attempt to communicate with.
 	Servers []string
 
-	// If non-nil, proxy used for connecting to the server.
+	// If set, proxy used for connecting to the server.
 	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
 	Proxy *url.URL
 
-	// If non-empty, populated with the header to use for the
-	// client certificate header
+	// If set, the communicator must include the client certificate in this header
+	// in all requests to the server.
 	ClientCertificateHeader string
+
+	// If set, the communicator must use the certificate provided by this function
+	// for authentication, instead of the client certificate.
+	GetAuthCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 
 	// If set, used for SNI and certificate validation.
 	ServerName string

@@ -104,16 +104,21 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 		nextProtos = []string{"h2", "http/1.1"}
 	}
 
+	getClientCert := si.GetAuthCertificate
+	if getClientCert == nil {
+		getClientCert = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{
+				Certificate: [][]byte{certBytes},
+				PrivateKey:  ci.Private,
+			}, nil
+		}
+	}
+
 	tr := &http.Transport{
 		Proxy: proxy,
 		TLSClientConfig: &tls.Config{
-			RootCAs: si.TrustedCerts,
-			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return &tls.Certificate{
-					Certificate: [][]byte{certBytes},
-					PrivateKey:  ci.Private,
-				}, nil
-			},
+			RootCAs:              si.TrustedCerts,
+			GetClientCertificate: getClientCert,
 			CipherSuites: []uint16{
 				// We implement both endpoints, so we might as well require long keys and
 				// perfect forward secrecy. Note that TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256

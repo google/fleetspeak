@@ -16,6 +16,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"net/url"
 
@@ -78,10 +79,23 @@ type Configuration struct {
 	// See https://golang.org/pkg/net/http/#Transport.Proxy for details.
 	Proxy *url.URL
 
-	// If set, the server will validate the client certificate from the request header.
-	// This should be used if TLS is terminated at the load balancer and client certificates
-	// can be passed upstream to the fleetspeak server as an http header.
+	// If set, the communicator includes the client certificate in this header,
+	// which the server will use to identify the client. This should be used if
+	// TLS is terminated by e.g. a load balancer that can forward the certificate
+	// to the server as another header, so that the server can check the
+	// forwarded certificate against this header.
+	// If the proxy can not forward the certificate to the server, there is no
+	// guarantee that the certificate in this header is the actual client's
+	// certificate, making identity spoofing possible.
 	ClientCertificateHeader string
+
+	// If set, used instead of the client certificate for authenticating with a
+	// the server or a proxy. Requires ClientCertificateHeader to be set for the
+	// server to still be able to identify the client.
+	// Using this setting waives Fleetspeak's identity guarantees and offloads
+	// the identity verification to the system that provides and verifies the
+	// certificate.
+	GetAuthCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 }
 
 // PersistenceHandler manages client's configuration storage.
