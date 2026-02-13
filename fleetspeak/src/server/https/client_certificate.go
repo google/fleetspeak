@@ -111,6 +111,7 @@ func verifyCertSha256Checksum(headerCert string, clientCertSha256Checksum string
 
 	calculatedClientCertSha256 := calculateClientCertificateChecksum(headerCert)
 	if calculatedClientCertSha256 != clientCertSha256Checksum {
+		log.Infof("received client certificate checksum for client cert header %q is invalid, calculated: %s, received: %s", headerCert, calculatedClientCertSha256, clientCertSha256Checksum)
 		return errors.New("received client certificate checksum is invalid")
 	}
 
