@@ -12,4 +12,16 @@ message Config {
   // Command line arguments.
   // These arguments are prepended to the arguments specified in the message.
   repeated string args = 2;
+
+  // Log level for the service.
+  LogLevel log_level = 3;
+}
+
+// The log level for the service, defining what command output should be logged
+// locally. This does not affect the output that is included in responses to
+// the server.
+enum LogLevel {
+  LOG_LEVEL_NONE = 0;
+  LOG_LEVEL_STDERR = 1;
+  LOG_LEVEL_ALL = 2;
 }

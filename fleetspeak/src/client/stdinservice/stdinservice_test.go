@@ -48,7 +48,7 @@ func TestStdinServiceWithEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = s.ProcessMessage(context.Background(),
+	err = s.ProcessMessage(t.Context(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
@@ -96,7 +96,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = s.ProcessMessage(context.Background(),
+	err = s.ProcessMessage(t.Context(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
@@ -148,7 +148,7 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = s.ProcessMessage(context.Background(),
+	err = s.ProcessMessage(t.Context(),
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
@@ -209,7 +209,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, c := context.WithCancel(context.Background())
+	ctx, c := context.WithCancel(t.Context())
 	c()
 
 	if err := s.ProcessMessage(ctx,
@@ -226,5 +226,68 @@ time.sleep(%f)
 		t.Fatal(err)
 	} else if err == nil {
 		t.Fatal(".ProcessMessage was expected to be cancelled, but returned with no error")
+	}
+}
+
+func TestStdinServiceLogLevel(t *testing.T) {
+	oldLogOutputFunc := logOutputFunc
+	t.Cleanup(func() { logOutputFunc = oldLogOutputFunc })
+
+	const py = `
+import sys
+sys.stdout.write("stdout_")
+sys.stdout.flush()
+sys.stderr.write("stderr_")
+sys.stderr.flush()
+sys.stdout.write("stdout_")
+sys.stdout.flush()
+`
+
+	tests := []struct {
+		name    string
+		level   sspb.LogLevel
+		wantLog string
+	}{
+		{"None", sspb.LogLevel_LOG_LEVEL_NONE, ""},
+		{"Stderr", sspb.LogLevel_LOG_LEVEL_STDERR, "stderr_"},
+		{"All", sspb.LogLevel_LOG_LEVEL_ALL, "stderr_stdout_stdout_"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotLog string
+			logOutputFunc = func(_ string, _ string, buf *bytes.Buffer) {
+				gotLog += buf.String()
+			}
+
+			s, err := Factory(&fspb.ClientServiceConfig{
+				Config: anypbtest.New(t, &sspb.Config{
+					Cmd:      "python",
+					Args:     []string{"-c", py},
+					LogLevel: tc.level,
+				}),
+			})
+			if err != nil {
+				t.Fatalf("Factory: %v", err)
+			}
+
+			outChan := make(chan *fspb.Message, 1)
+			if err := s.Start(&clitesting.FakeServiceContext{
+				OutChan: outChan,
+			}); err != nil {
+				t.Fatalf("Start: %v", err)
+			}
+
+			err = s.ProcessMessage(t.Context(),
+				&fspb.Message{
+					MessageType: "StdinServiceInputMessage",
+					Data:        anypbtest.New(t, &sspb.InputMessage{}),
+				})
+			if err != nil {
+				t.Fatalf("ProcessMessage: %v", err)
+			}
+			if gotLog != tc.wantLog {
+				t.Errorf("unexpected log output: got %q, want %q", gotLog, tc.wantLog)
+			}
+		})
 	}
 }

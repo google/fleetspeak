@@ -22,14 +22,18 @@ import (
 	"fmt"
 	"os/exec"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
-	tspb "google.golang.org/protobuf/types/known/timestamppb"
-
+	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 
 	sspb "github.com/google/fleetspeak/fleetspeak/src/client/stdinservice/proto/fleetspeak_stdinservice"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// logOutputFunc is called after a command terminated to log its output.
+// Can be overridden in tests.
+var logOutputFunc = logOutput
 
 // Factory is a service.Factory for StdinServices.
 //
@@ -45,7 +49,6 @@ func Factory(conf *fspb.ClientServiceConfig) (service.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &StdinService{
 		conf:   conf,
 		ssConf: ssConf,
@@ -64,7 +67,6 @@ type StdinService struct {
 // Start starts the StdinService.
 func (s *StdinService) Start(sc service.Context) error {
 	s.sc = sc
-
 	return nil
 }
 
@@ -73,38 +75,47 @@ func (s *StdinService) ProcessMessage(ctx context.Context, m *fspb.Message) erro
 	if m.MessageType != "StdinServiceInputMessage" {
 		return fmt.Errorf("unrecognized common.Message.message_type: %q", m.MessageType)
 	}
-
 	im := &sspb.InputMessage{}
 	if err := m.Data.UnmarshalTo(im); err != nil {
 		return fmt.Errorf("error while unmarshalling common.Message.data: %v", err)
 	}
+	om, err := s.execute(ctx, im)
+	if err != nil {
+		return fmt.Errorf("command failed: %v", err)
+	}
+	if err := s.respond(ctx, om); err != nil {
+		return fmt.Errorf("error while trying to send a response to the requesting server: %v", err)
+	}
+	return nil
+}
 
+func (s *StdinService) execute(ctx context.Context, im *sspb.InputMessage) (*sspb.OutputMessage, error) {
 	var stdout, stderr bytes.Buffer
 
-	var args []string
-	args = append(args, s.ssConf.Args...)
-	args = append(args, im.Args...)
-
+	args := append(s.ssConf.Args, im.Args...)
 	cmd := exec.CommandContext(ctx, s.ssConf.Cmd, args...)
 	cmd.Stdin = bytes.NewBuffer(im.Input)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	if err != nil {
-		return err
+
+	if s.ssConf.LogLevel >= sspb.LogLevel_LOG_LEVEL_STDERR {
+		logOutputFunc(s.conf.Name, "stderr", &stderr)
+	}
+	if s.ssConf.LogLevel == sspb.LogLevel_LOG_LEVEL_ALL {
+		logOutputFunc(s.conf.Name, "stdout", &stdout)
 	}
 
-	om := &sspb.OutputMessage{
+	if err != nil {
+		return nil, err
+	}
+
+	return &sspb.OutputMessage{
 		Stdout:    stdout.Bytes(),
 		Stderr:    stderr.Bytes(),
 		Timestamp: tspb.Now(),
-	}
-	if err := s.respond(ctx, om); err != nil {
-		return fmt.Errorf("error while trying to send a response to the requesting server: %v", err)
-	}
-
-	return nil
+	}, nil
 }
 
 // Stop stops the StdinService.
@@ -118,7 +129,6 @@ func (s *StdinService) respond(ctx context.Context, om *sspb.OutputMessage) erro
 	if err != nil {
 		return err
 	}
-
 	m := &fspb.Message{
 		Destination: &fspb.Address{
 			ServiceName: s.conf.Name,
@@ -126,6 +136,16 @@ func (s *StdinService) respond(ctx context.Context, om *sspb.OutputMessage) erro
 		MessageType: "StdinServiceOutputMessage",
 		Data:        data,
 	}
-
 	return s.sc.Send(ctx, service.AckMessage{M: m})
+}
+
+func logOutput(name, level string, buf *bytes.Buffer) {
+	str := buf.String()
+	if str == "" {
+		return
+	}
+	if len(str) > 4096 {
+		str = str[:4096] + "\n[truncated]"
+	}
+	log.Infof("StdinService %q command %s:\n%s", name, level, str)
 }
