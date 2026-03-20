@@ -192,12 +192,19 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 			defer working.Done()
 			l := c.services[m.Destination.ServiceName]
 			if l == nil {
-				log.Errorf("Message in datastore [%v] is for unknown service [%s].", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
+				log.Errorf("Message in datastore %q is for unknown service %q.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
+				hasResult[i] = true
+				m.Result = &fspb.MessageResult{
+					ProcessedTime: db.NowProto(),
+					Failed:        true,
+					FailedReason:  fmt.Sprintf("unknown service %q", m.Destination.ServiceName),
+				}
+				c.stats.MessageErrored(ftime.Now(), ftime.Now(), true, m, false, nil)
 				return
 			}
 			cData, err := c.clientData(ctx, m)
 			if err != nil {
-				log.Warningf("Message in datastore [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+				log.Warningf("Message in datastore %q for service %q is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 			}
 
 			c.stats.MessageIngested(true, m, cData)
@@ -310,13 +317,20 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 			defer wg.Done()
 			l := c.services[m.Destination.ServiceName]
 			if l == nil {
-				log.Errorf("Received new message [%v] for unknown service [%s].", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
+				log.Errorf("Received new message %q for unknown service %q.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
+				m.Result = &fspb.MessageResult{
+					ProcessedTime: db.NowProto(),
+					Failed:        true,
+					FailedReason:  fmt.Sprintf("unknown service %q", m.Destination.ServiceName),
+				}
+				m.Data = nil
+				c.stats.MessageErrored(ftime.Now(), ftime.Now(), true, m, true, nil)
 				return
 			}
 
 			cData, err := c.clientData(ctx1, m)
 			if err != nil {
-				log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+				log.Warningf("Can't get client data for message %q for service %q is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 			}
 			c.stats.MessageIngested(false, m, cData)
 
@@ -342,7 +356,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 	for _, m := range msgs {
 		cData, err := c.clientData(ctx2, m)
 		if err != nil {
-			log.Warningf("Can't get client data for message [%v] for service [%s] is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
+			log.Warningf("Can't get client data for message %q for service %q is from unknown client: %v.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName, err)
 		}
 
 		c.stats.MessageSaved(false, m, cData)

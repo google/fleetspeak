@@ -237,3 +237,48 @@ func TestSystemServiceMessageError(t *testing.T) {
 		t.Fatal("Added message should now be failed.")
 	}
 }
+
+func TestUnknownService(t *testing.T) {
+	ctx := context.Background()
+
+	ts := testserver.Make(t, "server", "UnknownService", nil)
+	defer ts.S.Stop()
+
+	k, err := ts.AddClient()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	id, err := common.MakeClientID(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := fspb.Message{
+		Source: &fspb.Address{
+			ClientId:    id.Bytes(),
+			ServiceName: "system",
+		},
+		Destination: &fspb.Address{
+			ServiceName: "UnknownService",
+		},
+		SourceMessageId: []byte("1"),
+		MessageType:     "TestMessage",
+	}
+	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
+
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
+		t.Fatal(err)
+	}
+
+	msgResult, err := ts.DS.GetMessageResult(ctx, common.MakeMessageID(m.Source, m.SourceMessageId))
+	if err != nil {
+		t.Fatalf("Failed to get message result: %v", err)
+	}
+	if msgResult == nil {
+		t.Fatal("Expected message to have a result.")
+	}
+	if !msgResult.Failed {
+		t.Errorf("Got Failed = false, want true")
+	}
+}
