@@ -1,8 +1,8 @@
 module github.com/google/fleetspeak
 
-go 1.22.7
+go 1.26
 
-toolchain go1.23.6
+toolchain go1.26.1
 
 require (
 	cloud.google.com/go/pubsub v1.45.3

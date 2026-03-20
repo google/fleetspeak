@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM golang:1.22 AS builder
+FROM golang:1.26 AS builder
 
 RUN apt update && \
     apt install -y python3-venv && \

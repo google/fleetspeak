@@ -1,4 +1,4 @@
-FROM golang:1.22 AS builder
+FROM golang:1.26 AS builder
 
 RUN apt-get update && \
     apt-get install -y  \
@@ -11,7 +11,7 @@ RUN mkdir -p $GOBIN
 RUN cd /fleetspeak && go install ./...
 
 
-FROM golang:1.22
+FROM golang:1.26
 
 RUN apt update
 

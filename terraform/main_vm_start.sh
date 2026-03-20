@@ -37,7 +37,7 @@ SECONDS=0
 apt_install pip3 python3-pip
 apt_install mysql mysql-client
 
-snap install --classic --channel=1.14/stable go
+snap install --classic --channel=1.26/stable go
 
 export GOPATH=$HOME/go
 export PATH=/snap/bin:$GOPATH/bin:$PATH
