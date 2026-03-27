@@ -235,6 +235,13 @@ func (d MonitoredDatastore) SetBroadcastLimit(ctx context.Context, id ids.Broadc
 	return err
 }
 
+func (d MonitoredDatastore) DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastID) error {
+	s := ftime.Now()
+	err := d.D.DisableBroadcasts(ctx, bIDs)
+	d.C.DatastoreOperation(s, ftime.Now(), "DisableBroadcasts", err)
+	return err
+}
+
 func (d MonitoredDatastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error {
 	s := ftime.Now()
 	err := d.D.SaveBroadcastMessage(ctx, msg, bid, cid, aid)

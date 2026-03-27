@@ -24,6 +24,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -72,6 +73,77 @@ func (d *Datastore) trySetBroadcastLimit(txn *spanner.ReadWriteTransaction, id i
 	return txn.BufferWrite(ms)
 }
 
+// DisableBroadcasts implements db.BroadcastStore. It disables the listed
+// broadcasts and immediately deletes any active allocations while aggregating
+// their stats to the parent broadcast totals.
+func (d *Datastore) DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastID) error {
+	if len(bIDs) == 0 {
+		return nil
+	}
+	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		for _, bID := range bIDs {
+			var totalSent, totalLimit int64
+			var allocKeys []spanner.Key
+
+			// Read active allocations to sum up their sent/limit stats before deleting
+			// them. This allows us to attribute any messages sent during this window
+			// to the parent broadcast's count and maintain the b.Allocated budget invariant.
+			iter := txn.Read(ctx, d.broadcastAllocations, spanner.Key{bID.Bytes()}.AsPrefix(), []string{"AllocationID", "Sent", "MessageLimit"})
+			for {
+				row, err := iter.Next()
+				if err == iterator.Done {
+					break
+				}
+				if err != nil {
+					iter.Stop()
+					return err
+				}
+				var aid []byte
+				var sent, limit int64
+				if err := row.Columns(&aid, &sent, &limit); err != nil {
+					iter.Stop()
+					return err
+				}
+				totalSent += sent
+				totalLimit += limit
+				allocKeys = append(allocKeys, spanner.Key{bID.Bytes(), aid})
+			}
+			iter.Stop()
+
+			row, err := txn.ReadRow(ctx, d.broadcasts, spanner.Key{bID.Bytes()}, []string{"Sent", "Allocated"})
+			if err != nil {
+				if spanner.ErrCode(err) == codes.NotFound {
+					continue
+				}
+				return err
+			}
+			var bSent, allocated int64
+			if err := row.Columns(&bSent, &allocated); err != nil {
+				return err
+			}
+
+			newAllocated := allocated
+			if newAllocated >= totalLimit {
+				newAllocated -= totalLimit
+			} else {
+				newAllocated = 0
+			}
+
+			var ms []*spanner.Mutation
+			if len(allocKeys) > 0 {
+				ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.KeySetFromKeys(allocKeys...)))
+			}
+			ms = append(ms, spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit", "Sent", "Allocated"}, []any{bID.Bytes(), int64(0), bSent + totalSent, newAllocated}))
+
+			if err := txn.BufferWrite(ms); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
+}
+
 // SaveBroadcastMessage implements db.BroadcastStore.
 func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error {
 	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
@@ -87,6 +159,9 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 
 	row, err := txn.ReadRow(ctx, d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}, []string{"Sent", "MessageLimit", "ExpiresTime"})
 	if err != nil {
+		if spanner.ErrCode(err) == codes.NotFound {
+			return db.ErrBroadcastDisabled
+		}
 		return err
 	}
 
@@ -267,6 +342,9 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 
 	row, err = txn.ReadRow(ctx, d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}, []string{"MessageLimit", "Sent"})
 	if err != nil {
+		if spanner.ErrCode(err) == codes.NotFound {
+			return nil
+		}
 		return err
 	}
 	var messageLimit, baSent int64

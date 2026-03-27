@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Admin_CreateBroadcast_FullMethodName                 = "/fleetspeak.server.Admin/CreateBroadcast"
 	Admin_ListActiveBroadcasts_FullMethodName            = "/fleetspeak.server.Admin/ListActiveBroadcasts"
+	Admin_DisableBroadcasts_FullMethodName               = "/fleetspeak.server.Admin/DisableBroadcasts"
 	Admin_ListClients_FullMethodName                     = "/fleetspeak.server.Admin/ListClients"
 	Admin_StreamClientIds_FullMethodName                 = "/fleetspeak.server.Admin/StreamClientIds"
 	Admin_ListClientContacts_FullMethodName              = "/fleetspeak.server.Admin/ListClientContacts"
@@ -47,6 +48,8 @@ type AdminClient interface {
 	CreateBroadcast(ctx context.Context, in *CreateBroadcastRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// ListActiveBroadcasts lists the currently active FS broadcasts.
 	ListActiveBroadcasts(ctx context.Context, in *ListActiveBroadcastsRequest, opts ...grpc.CallOption) (*ListActiveBroadcastsResponse, error)
+	// DisableBroadcasts explicitly disables FS broadcasts.
+	DisableBroadcasts(ctx context.Context, in *DisableBroadcastsRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// ListClients lists the currently active FS clients.
 	ListClients(ctx context.Context, in *ListClientsRequest, opts ...grpc.CallOption) (*ListClientsResponse, error)
 	// StreamClientIds lists the currently active FS clients as a stream.
@@ -104,6 +107,16 @@ func (c *adminClient) ListActiveBroadcasts(ctx context.Context, in *ListActiveBr
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListActiveBroadcastsResponse)
 	err := c.cc.Invoke(ctx, Admin_ListActiveBroadcasts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) DisableBroadcasts(ctx context.Context, in *DisableBroadcastsRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(fleetspeak.EmptyMessage)
+	err := c.cc.Invoke(ctx, Admin_DisableBroadcasts_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -277,6 +290,8 @@ type AdminServer interface {
 	CreateBroadcast(context.Context, *CreateBroadcastRequest) (*fleetspeak.EmptyMessage, error)
 	// ListActiveBroadcasts lists the currently active FS broadcasts.
 	ListActiveBroadcasts(context.Context, *ListActiveBroadcastsRequest) (*ListActiveBroadcastsResponse, error)
+	// DisableBroadcasts explicitly disables FS broadcasts.
+	DisableBroadcasts(context.Context, *DisableBroadcastsRequest) (*fleetspeak.EmptyMessage, error)
 	// ListClients lists the currently active FS clients.
 	ListClients(context.Context, *ListClientsRequest) (*ListClientsResponse, error)
 	// StreamClientIds lists the currently active FS clients as a stream.
@@ -325,6 +340,9 @@ func (UnimplementedAdminServer) CreateBroadcast(context.Context, *CreateBroadcas
 }
 func (UnimplementedAdminServer) ListActiveBroadcasts(context.Context, *ListActiveBroadcastsRequest) (*ListActiveBroadcastsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListActiveBroadcasts not implemented")
+}
+func (UnimplementedAdminServer) DisableBroadcasts(context.Context, *DisableBroadcastsRequest) (*fleetspeak.EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableBroadcasts not implemented")
 }
 func (UnimplementedAdminServer) ListClients(context.Context, *ListClientsRequest) (*ListClientsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
@@ -421,6 +439,24 @@ func _Admin_ListActiveBroadcasts_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AdminServer).ListActiveBroadcasts(ctx, req.(*ListActiveBroadcastsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_DisableBroadcasts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisableBroadcastsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).DisableBroadcasts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_DisableBroadcasts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).DisableBroadcasts(ctx, req.(*DisableBroadcastsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -677,6 +713,10 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListActiveBroadcasts",
 			Handler:    _Admin_ListActiveBroadcasts_Handler,
+		},
+		{
+			MethodName: "DisableBroadcasts",
+			Handler:    _Admin_DisableBroadcasts_Handler,
 		},
 		{
 			MethodName: "ListClients",

@@ -23,6 +23,10 @@ message ListActiveBroadcastsResponse {
   repeated Broadcast broadcasts = 1;
 }
 
+message DisableBroadcastsRequest {
+  repeated bytes broadcast_ids = 1;
+}
+
 message ListClientsRequest {
   // If non-empty, restricts results to the listed client_ids. If empty, all
   // clients known to the system will be listed.
@@ -143,6 +147,10 @@ service Admin {
   // ListActiveBroadcasts lists the currently active FS broadcasts.
   rpc ListActiveBroadcasts(ListActiveBroadcastsRequest)
       returns (ListActiveBroadcastsResponse) {}
+
+  // DisableBroadcasts explicitly disables FS broadcasts.
+  rpc DisableBroadcasts(DisableBroadcastsRequest)
+      returns (fleetspeak.EmptyMessage) {}
 
   // ListClients lists the currently active FS clients.
   rpc ListClients(ListClientsRequest) returns (ListClientsResponse) {}

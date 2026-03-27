@@ -90,6 +90,28 @@ func (s adminServer) ListActiveBroadcasts(ctx context.Context, req *spb.ListActi
 	return &ret, nil
 }
 
+// DisableBroadcasts implements the corresponding gRPC method to disable given
+// broadcasts.
+func (s adminServer) DisableBroadcasts(ctx context.Context, req *spb.DisableBroadcastsRequest) (*fspb.EmptyMessage, error) {
+	if len(req.BroadcastIds) == 0 {
+		return &fspb.EmptyMessage{}, nil
+	}
+
+	bIDs := make([]ids.BroadcastID, 0, len(req.BroadcastIds))
+	for _, idBytes := range req.BroadcastIds {
+		bid, err := ids.BytesToBroadcastID(idBytes)
+		if err != nil {
+			return nil, err
+		}
+		bIDs = append(bIDs, bid)
+	}
+
+	if err := s.store.DisableBroadcasts(ctx, bIDs); err != nil {
+		return nil, err
+	}
+	return &fspb.EmptyMessage{}, nil
+}
+
 func (s adminServer) GetMessageStatus(ctx context.Context, req *spb.GetMessageStatusRequest) (*spb.GetMessageStatusResponse, error) {
 	mid, err := common.BytesToMessageID(req.MessageId)
 	if err != nil {

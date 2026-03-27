@@ -29,6 +29,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -44,6 +45,10 @@ import (
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// ErrBroadcastDisabled is returned on an attempted operation on a disabled
+// broadcast or an associated allocation.
+var ErrBroadcastDisabled = errors.New("broadcast is disabled and allocation expired")
 
 // A Store describes the full persistence mechanism required by the base
 // fleetspeak system. These operations must be thread safe. These must also be
@@ -320,6 +325,10 @@ type BroadcastStore interface {
 
 	// SetBroadcastLimit adjusts the limit of an existing broadcast.
 	SetBroadcastLimit(ctx context.Context, id ids.BroadcastID, limit uint64) error
+
+	// DisableBroadcasts disables all broadcasts with given IDs by setting their
+	// limit to [BroadcastDisabled] and deleting associated allocations.
+	DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastID) error
 
 	// SaveBroadcastMessage saves a new broadcast message.
 	SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error

@@ -2,6 +2,7 @@ package dbtesting
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -212,6 +213,44 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 	}
 	if sb[0] != bid[0] {
 		t.Errorf("Expected sent broadcast to be %v got: %v", bid[0], sb[0])
+	}
+
+	// Now test DisableBroadcasts
+	testDisableBroadcasts(t, ds, bid[0], clientID)
+}
+
+func testDisableBroadcasts(t *testing.T, ds db.Store, bid ids.BroadcastID, clientID common.ClientID) {
+	ctx := t.Context()
+
+	// 1. Create a fresh allocation
+	a, err := ds.CreateAllocation(ctx, bid, 0.5, db.Now().Add(5*time.Minute))
+	if err != nil {
+		t.Fatalf("CreateAllocation failed: %v", err)
+	}
+	if a == nil {
+		t.Fatalf("Expected non-nil allocation")
+	}
+
+	// 2. Disable the broadcast. This should delete the allocation we just made.
+	if err := ds.DisableBroadcasts(ctx, []ids.BroadcastID{bid}); err != nil {
+		t.Fatalf("DisableBroadcasts failed: %v", err)
+	}
+
+	// 3. Attempting to use the deleted allocation should fail with ErrBroadcastDisabled.
+	mid, _ := common.RandomMessageID()
+	err = ds.SaveBroadcastMessage(ctx, &fspb.Message{
+		MessageId:    mid.Bytes(),
+		Destination:  &fspb.Address{ClientId: clientID.Bytes(), ServiceName: "test"},
+		CreationTime: db.NowProto(),
+	}, bid, clientID, a.ID)
+
+	if !errors.Is(err, db.ErrBroadcastDisabled) {
+		t.Errorf("Expected ErrBroadcastDisabled, got: %v", err)
+	}
+
+	// 4. CleanupAllocation should ignore the missing allocation and succeed gracefully.
+	if err := ds.CleanupAllocation(ctx, bid, a.ID); err != nil {
+		t.Errorf("CleanupAllocation failed for deleted allocation: %v", err)
 	}
 }
 

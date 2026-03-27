@@ -200,7 +200,9 @@ Infos:
 		err = m.bs.SaveBroadcastMessage(ctx, msg, i.bID, id, i.aID)
 		i.lock.Unlock()
 		if err != nil {
-			log.Errorf("SaveBroadcastMessage of instance of broadcast %v failed. Not sending. [%v]", i.bID, err)
+			if !errors.Is(err, db.ErrBroadcastDisabled) {
+				log.Errorf("SaveBroadcastMessage of instance of broadcast %v failed. Not sending. [%v]", i.bID, err)
+			}
 			if i.limit != db.BroadcastUnlimited {
 				// Incantation to decrement a uint64, recommend by AddUint64 docs:
 				atomic.AddUint64(&i.sent, ^uint64(0))
