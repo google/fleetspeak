@@ -33,7 +33,7 @@ jobs:
           PATH="$HOME/.local/bin:$PATH"
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           pip-version: '25.2'
       - uses: actions/cache@v3
         with:
@@ -43,9 +43,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Set up Python
         run: |
-          pip install wheel pytest
-          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
-          pip install --upgrade setuptools==77.0.3
+          pip install setuptools wheel pytest
           pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
       - name: Lint
@@ -143,12 +141,12 @@ jobs:
           go-version: '1.26'
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           pip-version: '25.2'
       - name: Install dependencies
         run: |
           powershell Install-WindowsFeature Net-Framework-Core
-          pip install wheel
+          pip install setuptools wheel
       - name: Build installers
         shell: bash
         run: |
@@ -183,11 +181,11 @@ jobs:
           go-version: '1.26'
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           pip-version: '25.2'
       - name: Install dependencies
         run: |
-          pip install wheel
+          pip install setuptools wheel
       - name: Build installers
         run: |
           go build -o fleetspeak-client ./cmd/fleetspeak_client/fleetspeak_client.go
@@ -223,13 +221,11 @@ jobs:
           go-version: '1.26'
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           pip-version: '25.2'
       - name: Install dependencies
         run: |
-          pip install wheel pytest
-          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
-          pip install --upgrade setuptools==77.0.3
+          pip install setuptools wheel pytest
       - name: Build Python
         run: |
           pip install -e ./fleetspeak_python[test]
@@ -259,7 +255,7 @@ jobs:
           path: ${{ github.workspace }}/src/github.com/google/fleetspeak
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           pip-version: '25.2'
       - name: Install dependencies
         shell: bash
@@ -267,9 +263,7 @@ jobs:
           # TODO: The dependency installation fails, but good enough to make the tests pass.
           # Ideally, required dependencies should be installed in a non-hacky, proper way.
           # go get -v -t ./... || echo "Dependency installation failed, continuing anyway ¯\_(ツ)_/¯"
-          pip install wheel
-          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
-          pip install --upgrade setuptools==77.0.3
+          pip install setuptools wheel
       - name: Build
         shell: bash
         run: |
