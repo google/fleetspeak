@@ -24,7 +24,7 @@ from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
 from setuptools.command.sdist import sdist
 
-GRPCIO_VERSION = "==1.69.0"
+GRPCIO_VERSION = "==1.78.0"
 
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_DIRECTORY)

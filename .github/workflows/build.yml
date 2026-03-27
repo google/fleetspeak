@@ -44,6 +44,8 @@ jobs:
       - name: Set up Python
         run: |
           pip install wheel pytest
+          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
+          pip install --upgrade setuptools==77.0.3
           pip install -e ./fleetspeak_python[test]
           pip install -e ./frr_python
       - name: Lint
@@ -226,6 +228,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel pytest
+          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
+          pip install --upgrade setuptools==77.0.3
       - name: Build Python
         run: |
           pip install -e ./fleetspeak_python[test]
@@ -264,6 +268,8 @@ jobs:
           # Ideally, required dependencies should be installed in a non-hacky, proper way.
           # go get -v -t ./... || echo "Dependency installation failed, continuing anyway ¯\_(ツ)_/¯"
           pip install wheel
+          # TODO: b/494671594 - Remove once Python is upgraded to Python 3.13.
+          pip install --upgrade setuptools==77.0.3
       - name: Build
         shell: bash
         run: |
