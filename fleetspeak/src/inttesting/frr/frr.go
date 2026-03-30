@@ -127,7 +127,7 @@ func (s *frrClientService) processTrafficRequest(m *fspb.Message) error {
 				MessageType: "TrafficResponse",
 			}
 			for {
-				ctx, c := context.WithTimeout(context.Background(), time.Second)
+				ctx, c := context.WithTimeout(context.Background(), 30*time.Second)
 				err := s.sc.Send(ctx, cservice.AckMessage{M: m})
 				c()
 				if err == nil {
