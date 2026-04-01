@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/admin/history"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
+	"github.com/google/fleetspeak/fleetspeak/src/server/ids"
 
 	sgrpc "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
 	spb "github.com/google/fleetspeak/fleetspeak/src/server/proto/fleetspeak_server"
@@ -52,7 +53,9 @@ func Usage() {
 			"    %s blacklistclients [<client_id>...]\n"+
 			"    %s storefile <service_name> <file_name> <file_path>\n"+
 			"    %s deletefile <service_name> <file_name>\n"+
-			"\n", n, n, n, n, n, n)
+			"    %s listactivebroadcasts [<service_name>]\n"+
+			"    %s disablebroadcasts <broadcast_id>...\n"+
+			"\n", n, n, n, n, n, n, n, n)
 }
 
 // Execute examines command line flags and executes one of the standard command line
@@ -80,6 +83,10 @@ func Execute(conn *grpc.ClientConn, args ...string) {
 		StoreFile(admin, args[1:]...)
 	case "deletefile":
 		DeleteFile(admin, args[1:]...)
+	case "listactivebroadcasts":
+		ListActiveBroadcasts(admin, args[1:]...)
+	case "disablebroadcasts":
+		DisableBroadcasts(admin, args[1:]...)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %v\n", args[0])
 		Usage()
@@ -307,4 +314,65 @@ func DeleteFile(c sgrpc.AdminClient, args ...string) {
 		log.Exitf("DeleteFile RPC failed: %v", err)
 	}
 	fmt.Printf("Deleted file %s/%s from server.\n", serviceName, fileName)
+}
+
+// ListActiveBroadcasts prints a list of active broadcasts, optionally filtered by ServiceName.
+func ListActiveBroadcasts(c sgrpc.AdminClient, args ...string) {
+	if len(args) > 1 {
+		Usage()
+		os.Exit(1)
+	}
+	serviceName := ""
+	if len(args) == 1 {
+		serviceName = args[0]
+	}
+
+	ctx := context.Background()
+	res, err := c.ListActiveBroadcasts(ctx, &spb.ListActiveBroadcastsRequest{ServiceName: serviceName})
+	if err != nil {
+		log.Exitf("ListActiveBroadcasts RPC failed: %v", err)
+	}
+
+	if len(res.Broadcasts) == 0 {
+		fmt.Println("No active broadcasts found.")
+		return
+	}
+
+	fmt.Printf("Found %d active broadcasts.\n", len(res.Broadcasts))
+	fmt.Printf("%-20s %-20s %s\n", "Broadcast ID:", "Source Service:", "Message Type:")
+	for _, b := range res.Broadcasts {
+		id, err := ids.BytesToBroadcastID(b.BroadcastId)
+		if err != nil {
+			log.Errorf("Ignoring invalid broadcast_id [%x], %v", b.BroadcastId, err)
+			continue
+		}
+		source := ""
+		if b.Source != nil {
+			source = b.Source.ServiceName
+		}
+		fmt.Printf("%-20v %-20s %s\n", id, source, b.MessageType)
+	}
+}
+
+// DisableBroadcasts disables a specific set of broadcasts by their IDs.
+func DisableBroadcasts(c sgrpc.AdminClient, args ...string) {
+	if len(args) == 0 {
+		Usage()
+		os.Exit(1)
+	}
+
+	req := &spb.DisableBroadcastsRequest{}
+	for i, arg := range args {
+		id, err := ids.StringToBroadcastID(arg)
+		if err != nil {
+			log.Exitf("Unable to convert %q (index %d) to broadcast id: %v", arg, i, err)
+		}
+		req.BroadcastIds = append(req.BroadcastIds, id.Bytes())
+	}
+
+	ctx := context.Background()
+	if _, err := c.DisableBroadcasts(ctx, req); err != nil {
+		log.Exitf("DisableBroadcasts RPC failed: %v", err)
+	}
+	fmt.Printf("Successfully sent disable request for %d broadcasts.\n", len(args))
 }
