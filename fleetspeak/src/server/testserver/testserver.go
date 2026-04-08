@@ -34,6 +34,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
+	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
 
@@ -66,9 +67,9 @@ func (c FakeCommunicator) Start() error { return nil }
 
 func (c FakeCommunicator) Stop() {}
 
-// Make creates a server.Server using the provided communicators. It creates and
-// attaches it to an sqlite datastore based on the test and test case names.
-func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) Server {
+// makeTestServer is a helper to create a test server with optional components.
+func makeTestServer(t *testing.T, testName, caseName string, comms []comms.Communicator, fileStores map[string]db.FileStore, factories map[string]service.Factory, config *spb.ServerConfig) Server {
+	t.Helper()
 	tempDir, tmpDirCleanup := comtesting.GetTempDir(testName)
 	defer tmpDirCleanup()
 	p := path.Join(tempDir, caseName+".sqlite")
@@ -80,18 +81,26 @@ func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) S
 
 	var ret Server
 
-	s, err := server.MakeServer(
-		&spb.ServerConfig{
+	if factories == nil {
+		factories = map[string]service.Factory{"NOOP": service.NOOPFactory}
+	}
+	if config == nil {
+		config = &spb.ServerConfig{
 			Services: []*spb.ServiceConfig{{
 				Name:           "TestService",
 				Factory:        "NOOP",
 				MaxParallelism: 5,
 			}},
-		},
+		}
+	}
+
+	s, err := server.MakeServer(
+		config,
 		server.Components{
 			Datastore:        ds,
-			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			ServiceFactories: factories,
 			Communicators:    append(comms, FakeCommunicator{&ret}),
+			FileStores:       fileStores,
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -101,43 +110,32 @@ func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) S
 	return ret
 }
 
+// Make creates a server.Server using the provided communicators. It creates and
+// attaches it to an sqlite datastore based on the test and test case names.
+func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) Server {
+	return makeTestServer(t, testName, caseName, comms, nil, nil, nil)
+}
+
+// MakeWithFileStores creates a server.Server using the provided communicators and file stores.
+func MakeWithFileStores(t *testing.T, testName, caseName string, comms []comms.Communicator, fileStores map[string]db.FileStore) Server {
+	return makeTestServer(t, testName, caseName, comms, fileStores, nil, nil)
+}
+
 // MakeWithService creates a server.Server using the provided service. Like in Make(), a sqlite
 // datastore is created for the provided test-case.
 func MakeWithService(t *testing.T, testName, caseName string, serviceInstance service.Service) Server {
-	tempDir, tmpDirCleanup := comtesting.GetTempDir(testName)
-	defer tmpDirCleanup()
-	p := path.Join(tempDir, caseName+".sqlite")
-	ds, err := sqlite.MakeDatastore(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Infof("Created database: %s", p)
-
-	serviceFactory := func(conf *spb.ServiceConfig) (service.Service, error) {
+	factory := func(conf *spb.ServiceConfig) (service.Service, error) {
 		return serviceInstance, nil
 	}
-
-	var testServer Server
-	s, err := server.MakeServer(
-		&spb.ServerConfig{
-			Services: []*spb.ServiceConfig{{
-				Name:           "TestService",
-				Factory:        "CustomFactory",
-				MaxParallelism: 5,
-			}},
-		},
-		server.Components{
-			Datastore:        ds,
-			ServiceFactories: map[string]service.Factory{"CustomFactory": serviceFactory},
-			Communicators:    []comms.Communicator{FakeCommunicator{&testServer}},
-		})
-	if err != nil {
-		t.Fatal(err)
+	factories := map[string]service.Factory{"CustomFactory": factory}
+	config := &spb.ServerConfig{
+		Services: []*spb.ServiceConfig{{
+			Name:           "TestService",
+			Factory:        "CustomFactory",
+			MaxParallelism: 5,
+		}},
 	}
-
-	testServer.S = s
-	testServer.DS = ds
-	return testServer
+	return makeTestServer(t, testName, caseName, nil, nil, factories, config)
 }
 
 // MakeWithBatchedService creates with the given batched service backed by a
@@ -149,37 +147,19 @@ func MakeWithBatchedService(t *testing.T, svcName string, svc service.Service) *
 		t.Fatalf("service %v does not implement BatchedService", svcName)
 	}
 
-	ds, err := sqlite.MakeDatastore(path.Join(t.TempDir(), "test.sqlite"))
-	if err != nil {
-		t.Fatalf("create datastore: %v", err)
+	factory := func(conf *spb.ServiceConfig) (service.Service, error) {
+		return svc, nil
+	}
+	factories := map[string]service.Factory{svcName: factory}
+	config := &spb.ServerConfig{
+		Services: []*spb.ServiceConfig{{
+			Name:    svcName,
+			Factory: svcName,
+		}},
 	}
 
-	result := &Server{}
-
-	server, err := server.MakeServer(
-		&spb.ServerConfig{
-			Services: []*spb.ServiceConfig{{
-				Name:    svcName,
-				Factory: svcName,
-			}},
-		},
-		server.Components{
-			Datastore: ds,
-			ServiceFactories: map[string]service.Factory{
-				svcName: func(conf *spb.ServiceConfig) (service.Service, error) {
-					return svc, nil
-				},
-			},
-			Communicators: []comms.Communicator{FakeCommunicator{result}},
-		},
-	)
-	if err != nil {
-		t.Fatalf("create server: %v", err)
-	}
-
-	result.S = server
-	result.DS = ds
-	return result
+	ts := makeTestServer(t, "batched_service", svcName, nil, nil, factories, config)
+	return &ts
 }
 
 // AddClient adds a new client with a random id to a server.

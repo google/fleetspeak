@@ -43,6 +43,8 @@ import (
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/https"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
@@ -60,7 +62,8 @@ var (
 	serverCert []byte
 )
 
-func makeServer(t *testing.T, caseName string, frontendConfig *cpb.FrontendConfig) (*server.Server, *sqlite.Datastore, string) {
+func makeServer(t *testing.T, caseName string, frontendConfig *cpb.FrontendConfig, fileStores map[string]db.FileStore) (*server.Server, *sqlite.Datastore, string) {
+	t.Helper()
 	cert, key, err := comtesting.ServerCert()
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +84,8 @@ func makeServer(t *testing.T, caseName string, frontendConfig *cpb.FrontendConfi
 	}
 	time.Sleep(time.Second)
 	log.Infof("Communicator listening to: %v", tl.Addr())
-	ts := testserver.Make(t, "https", caseName, []comms.Communicator{com})
+
+	ts := testserver.MakeWithFileStores(t, "https", caseName, []comms.Communicator{com}, fileStores)
 
 	return ts.S, ts.DS, tl.Addr().String()
 }
@@ -178,7 +182,7 @@ func makeClient(t *testing.T, doTLS bool) (common.ClientID, *http.Client, []byte
 func TestNormalPoll(t *testing.T) {
 	ctx := context.Background()
 
-	s, ds, addr := makeServer(t, "Normal", nil)
+	s, ds, addr := makeServer(t, "Normal", nil, nil)
 	id, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
@@ -213,7 +217,7 @@ func TestNormalPoll(t *testing.T) {
 
 func TestFile(t *testing.T) {
 	ctx := context.Background()
-	s, ds, addr := makeServer(t, "File", nil)
+	s, ds, addr := makeServer(t, "File", nil, nil)
 	_, cl, _, _ := makeClient(t, true)
 	defer s.Stop()
 
@@ -241,6 +245,39 @@ func TestFile(t *testing.T) {
 	}
 	if !bytes.Equal(data, b) {
 		t.Errorf("Unexpected file body, got [%v], want [%v]", string(b), string(data))
+	}
+	resp.Body.Close()
+}
+
+func TestServiceSpecificFile(t *testing.T) {
+	mockFS := sertesting.NewMapFileStore()
+	mockFS.SetFile("testService", "foo", []byte("bar"), time.Now())
+
+	s, _, addr := makeServer(t, "ServiceSpecificFile", nil, map[string]db.FileStore{"testService": mockFS})
+	_, cl, _, _ := makeClient(t, true)
+	defer s.Stop()
+
+	service, name := "testService", "foo"
+
+	u := url.URL{
+		Scheme: "https",
+		Host:   addr,
+		Path:   path.Join("/files", url.PathEscape(service), url.PathEscape(name)),
+	}
+	resp, err := cl.Get(u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected response code when reading file got %v want %v.", resp.StatusCode, http.StatusOK)
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Unexpected error reading file body: %v", err)
+	}
+	expectedData := []byte("bar")
+	if !bytes.Equal(expectedData, b) {
+		t.Errorf("Unexpected file body, got %s, want %s", string(b), string(expectedData))
 	}
 	resp.Body.Close()
 }
@@ -302,7 +339,7 @@ func TestStreaming(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			s, _, addr := makeServer(t, "Streaming", nil)
+			s, _, addr := makeServer(t, "Streaming", nil, nil)
 			_, cl, _, _ := makeClient(t, true)
 			defer s.Stop()
 
@@ -384,7 +421,7 @@ func TestHeaderNormalPoll(t *testing.T) {
 		},
 	}
 
-	s, ds, addr := makeServer(t, "Normal", frontendConfig)
+	s, ds, addr := makeServer(t, "Normal", frontendConfig, nil)
 	id, cl, bc, _ := makeClient(t, true)
 	defer s.Stop()
 
@@ -437,7 +474,7 @@ func TestHeaderStreaming(t *testing.T) {
 		},
 	}
 
-	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig, nil)
 	_, cl, bc, _ := makeClient(t, true)
 	defer s.Stop()
 
@@ -512,7 +549,7 @@ func TestHeaderStreamingChecksum(t *testing.T) {
 		},
 	}
 
-	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig, nil)
 	_, cl, bc, fp := makeClient(t, true)
 	defer s.Stop()
 
@@ -589,7 +626,7 @@ func TestCleartextHeaderStreaming(t *testing.T) {
 		},
 	}
 
-	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig, nil)
 	_, cl, bc, _ := makeClient(t, false)
 	defer s.Stop()
 
@@ -664,7 +701,7 @@ func TestCleartextHeaderStreamingChecksum(t *testing.T) {
 		},
 	}
 
-	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig, nil)
 	_, cl, bc, fp := makeClient(t, false)
 	defer s.Stop()
 
@@ -741,7 +778,7 @@ func TestCleartextXfccStreaming(t *testing.T) {
 		},
 	}
 
-	s, _, addr := makeServer(t, "Streaming", frontendConfig)
+	s, _, addr := makeServer(t, "Streaming", frontendConfig, nil)
 	_, cl, bc, _ := makeClient(t, false)
 	defer s.Stop()
 

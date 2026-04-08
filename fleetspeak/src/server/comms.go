@@ -448,6 +448,9 @@ func (c commsContext) handleMessagesFromClient(ctx context.Context, info *comms.
 //
 // Calls to data are permitted to fail if ctx is canceled or expired.
 func (c commsContext) ReadFile(ctx context.Context, service, name string) (data db.ReadSeekerCloser, modtime time.Time, err error) {
+	if f, ok := c.s.fileStores[service]; ok {
+		return f.ReadFile(ctx, service, name)
+	}
 	return c.s.dataStore.ReadFile(ctx, service, name)
 }
 

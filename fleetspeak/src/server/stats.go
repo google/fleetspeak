@@ -66,8 +66,21 @@ func (s noopStatsCollector) KillNotificationReceived(cd *db.ClientData, kn *mpb.
 // A MonitoredDatastore wraps a base Datastore and collects statistics about all
 // datastore operations.
 type MonitoredDatastore struct {
+	MonitoredFileStore
 	D db.Store
 	C stats.Collector
+}
+
+// NewMonitoredDatastore returns a MonitoredDatastore with the given components.
+func NewMonitoredDatastore(d db.Store, c stats.Collector) MonitoredDatastore {
+	return MonitoredDatastore{
+		MonitoredFileStore: MonitoredFileStore{
+			F: d,
+			C: c,
+		},
+		D: d,
+		C: c,
+	}
 }
 
 func (d MonitoredDatastore) ClientMessagesForProcessing(ctx context.Context, id common.ClientID, lim uint64, serviceLimits map[string]uint64) ([]*fspb.Message, error) {
@@ -285,38 +298,45 @@ func (d MonitoredDatastore) StopMessageProcessor() {
 	d.D.StopMessageProcessor()
 }
 
-func (d MonitoredDatastore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
-	s := ftime.Now()
-	err := d.D.StoreFile(ctx, service, name, data)
-	d.C.DatastoreOperation(s, ftime.Now(), "StoreFile", err)
-	return err
-}
-
-func (d MonitoredDatastore) DeleteFile(ctx context.Context, service, name string) error {
-	s := ftime.Now()
-	err := d.D.DeleteFile(ctx, service, name)
-	d.C.DatastoreOperation(s, ftime.Now(), "DeleteFile", err)
-	return err
-}
-
-func (d MonitoredDatastore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
-	s := ftime.Now()
-	res, err := d.D.StatFile(ctx, service, name)
-	d.C.DatastoreOperation(s, ftime.Now(), "StatFile", err)
-	return res, err
-}
-
-func (d MonitoredDatastore) ReadFile(ctx context.Context, service, name string) (db.ReadSeekerCloser, time.Time, error) {
-	s := ftime.Now()
-	res, t, err := d.D.ReadFile(ctx, service, name)
-	d.C.DatastoreOperation(s, ftime.Now(), "ReadFile", err)
-	return res, t, err
-}
-
 func (d MonitoredDatastore) IsNotFound(err error) bool {
 	return d.D.IsNotFound(err)
 }
 
 func (d MonitoredDatastore) Close() error {
 	return d.D.Close()
+}
+
+// A MonitoredFileStore wraps a base FileStore and collects statistics about all
+// file store operations.
+type MonitoredFileStore struct {
+	F db.FileStore
+	C stats.Collector
+}
+
+func (f MonitoredFileStore) StoreFile(ctx context.Context, service, name string, data io.Reader) error {
+	s := ftime.Now()
+	err := f.F.StoreFile(ctx, service, name, data)
+	f.C.DatastoreOperation(s, ftime.Now(), "StoreFile", err)
+	return err
+}
+
+func (f MonitoredFileStore) DeleteFile(ctx context.Context, service, name string) error {
+	s := ftime.Now()
+	err := f.F.DeleteFile(ctx, service, name)
+	f.C.DatastoreOperation(s, ftime.Now(), "DeleteFile", err)
+	return err
+}
+
+func (f MonitoredFileStore) StatFile(ctx context.Context, service, name string) (time.Time, error) {
+	s := ftime.Now()
+	res, err := f.F.StatFile(ctx, service, name)
+	f.C.DatastoreOperation(s, ftime.Now(), "StatFile", err)
+	return res, err
+}
+
+func (f MonitoredFileStore) ReadFile(ctx context.Context, service, name string) (db.ReadSeekerCloser, time.Time, error) {
+	s := ftime.Now()
+	res, t, err := f.F.ReadFile(ctx, service, name)
+	f.C.DatastoreOperation(s, ftime.Now(), "ReadFile", err)
+	return res, t, err
 }

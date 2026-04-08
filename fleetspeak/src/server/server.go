@@ -59,6 +59,8 @@ type Components struct {
 	HealthCheck *http.Server
 
 	Admin *grpc.Server
+
+	FileStores map[string]db.FileStore // Optional, overrides the default filestore for specific services.
 }
 
 // A Server is an active fleetspeak server instance.
@@ -78,16 +80,25 @@ type Server struct {
 	dispatcher       *inotifications.Dispatcher
 	admin            *grpc.Server
 	healthCheck      *http.Server
+	fileStores       map[string]db.FileStore
 }
 
 // MakeServer builds and initializes a fleetspeak server using the provided components.
 func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
+	var fileStores map[string]db.FileStore
 	if sc.Stats == nil {
 		sc.Stats = noopStatsCollector{}
+		fileStores = sc.FileStores
 	} else {
-		sc.Datastore = MonitoredDatastore{
-			D: sc.Datastore,
-			C: sc.Stats,
+		sc.Datastore = NewMonitoredDatastore(sc.Datastore, sc.Stats)
+		if sc.FileStores != nil {
+			fileStores = make(map[string]db.FileStore)
+			for k, f := range sc.FileStores {
+				fileStores[k] = MonitoredFileStore{
+					F: f,
+					C: sc.Stats,
+				}
+			}
 		}
 	}
 	if sc.Authorizer == nil {
@@ -114,6 +125,7 @@ func MakeServer(c *spb.ServerConfig, sc Components) (*Server, error) {
 		dispatcher:     inotifications.NewDispatcher(),
 		admin:          sc.Admin,
 		healthCheck:    sc.HealthCheck,
+		fileStores:     fileStores,
 	}
 
 	s.serviceConfig = services.NewManager(sc.Datastore, sc.ServiceFactories, sc.Stats, s.clientCache)
