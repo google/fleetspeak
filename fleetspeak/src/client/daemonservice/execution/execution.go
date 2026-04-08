@@ -193,6 +193,10 @@ func New(ctx context.Context, daemonServiceName string, cfg *dspb.Config, sc ser
 		ret.samplePeriod = time.Duration(cfg.ResourceMonitoringSamplePeriodSeconds) * time.Second
 	}
 
+	if info := sc.GetLocalInfo(); info != nil {
+		ret.cmd.AddEnvVar("FLEETSPEAK_CLIENT_ID=" + info.ClientID.String())
+	}
+
 	var err error
 	ret.channel, err = ret.cmd.SetupCommsChannel()
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
 
 	dspb "github.com/google/fleetspeak/fleetspeak/src/client/daemonservice/proto/fleetspeak_daemonservice"
@@ -585,6 +586,59 @@ waitLoop:
 	terminations := stats.subprocessesFinished.Load()
 	if want := int64(0); terminations != want {
 		t.Errorf("Got %d terminations, want %d", terminations, want)
+	}
+}
+
+func TestClientIDEnvVar(t *testing.T) {
+	cid, err := common.StringToClientID("0102030405060708")
+	if err != nil {
+		t.Fatalf("Failed to create ClientID: %v", err)
+	}
+	sc := clitesting.FakeServiceContext{
+		OutChan: make(chan *fspb.Message, 100),
+		LocalInfo: &service.LocalInfo{
+			ClientID: cid,
+		},
+	}
+
+	bashCmd := "echo $FLEETSPEAK_CLIENT_ID"
+
+	cfg := &fspb.ClientServiceConfig{
+		Name: "TestDaemonService",
+		Config: anypbtest.New(t, &dspb.Config{
+			Argv: []string{"bash", "-c", bashCmd},
+			StdParams: &dspb.Config_StdParams{
+				ServiceName: "test_service",
+				FlushBytes:  1024,
+			},
+		}),
+	}
+
+	s, err := Factory(cfg)
+	if err != nil {
+		t.Fatalf("Factory(...): %v", err)
+	}
+	if err := s.Start(&sc); err != nil {
+		t.Fatalf("Service.Start(...): %v", err)
+	}
+	defer s.Stop()
+
+	for {
+		select {
+		case <-time.After(time.Second):
+			t.Fatal("Timeout waiting for StdOutput")
+		case m := <-sc.OutChan:
+			if m.MessageType == "StdOutput" {
+				var out dspb.StdOutputData
+				if err := m.Data.UnmarshalTo(&out); err != nil {
+					t.Fatalf("UnmarshalTo failed: %v", err)
+				}
+				if got, want := string(out.Stdout), "0102030405060708\n"; got != want {
+					t.Errorf("Unexpected output: got %q, want %q", got, want)
+				}
+				return
+			}
+		}
 	}
 }
 
