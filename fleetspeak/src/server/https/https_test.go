@@ -249,6 +249,73 @@ func TestFile(t *testing.T) {
 	resp.Body.Close()
 }
 
+func TestParseFilePath(t *testing.T) {
+	testCases := []struct {
+		name        string
+		path        string
+		wantService string
+		wantName    string
+		wantErr     bool
+	}{
+		{
+			name:        "valid path",
+			path:        "/files/service/name",
+			wantService: "service",
+			wantName:    "name",
+		},
+		{
+			name:        "valid path with escaped characters",
+			path:        "/files/service%20name/file%2Fname",
+			wantService: "service name",
+			wantName:    "file/name",
+		},
+		{
+			name:        "valid path with empty name",
+			path:        "/files/service/",
+			wantService: "service",
+			wantName:    "",
+		},
+		{
+			name:    "invalid path - too short",
+			path:    "/files/service",
+			wantErr: true,
+		},
+		{
+			name:    "invalid path - too long",
+			path:    "/files/service/name/extra",
+			wantErr: true,
+		},
+		{
+			name:    "invalid path - wrong prefix",
+			path:    "/notfiles/service/name",
+			wantErr: true,
+		},
+		{
+			name:    "invalid path - malformed escape",
+			path:    "/files/service/name%2",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotService, gotName, err := parseFilePath(tc.path)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("parseFilePath(%q) returned error %v, wantErr %v", tc.path, err, tc.wantErr)
+			}
+			if tc.wantErr {
+				return
+			}
+			if gotService != tc.wantService {
+				t.Errorf("parseFilePath(%q) gotService = %q, want %q", tc.path, gotService, tc.wantService)
+			}
+			if gotName != tc.wantName {
+				t.Errorf("parseFilePath(%q) gotName = %q, want %q", tc.path, gotName, tc.wantName)
+			}
+		})
+	}
+}
+
 func TestServiceSpecificFile(t *testing.T) {
 	mockFS := sertesting.NewMapFileStore()
 	mockFS.SetFile("testService", "foo", []byte("bar"), time.Now())

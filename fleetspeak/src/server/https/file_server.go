@@ -50,8 +50,30 @@ func NewFileServer(fs func() comms.Context, p Params) fileServer {
 
 // ServeHTTP implements http.Handler
 func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	clientID, idErr := s.extractClientID(req)
+	if idErr == nil {
+		ctx = comms.WithClientID(ctx, clientID)
+	}
+
+	labels := req.Header["X-Fleetspeak-Labels"]
+	if len(labels) > 0 {
+		ctx = comms.WithLabels(ctx, labels)
+	}
+
+	req = req.WithContext(ctx)
+
 	if s.p.FileServerAuthorization {
-		if err := s.authorizeFileRequest(req); err != nil {
+		if idErr != nil {
+			http.Error(res, "unauthorized", http.StatusUnauthorized)
+			unauthorizedLogging.Do(func() {
+				log.Warningf("Unauthorized file request: failed to extract client ID: %v", idErr)
+			})
+			return
+		}
+
+		if err := s.authorizeFileRequest(req, clientID, labels); err != nil {
 			http.Error(res, "unauthorized", http.StatusUnauthorized)
 			unauthorizedLogging.Do(func() {
 				log.Warningf("Unauthorized file request: %v", err)
@@ -60,23 +82,12 @@ func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	path := strings.Split(strings.TrimPrefix(req.URL.Path, "/"), "/")
-	if len(path) != 3 || path[0] != "files" {
-		http.Error(res, fmt.Sprintf("unable to parse files uri: %v", req.URL.Path), http.StatusBadRequest)
-		return
-	}
-	service, err := url.PathUnescape(path[1])
+	service, name, err := parseFilePath(req.URL.Path)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("unable to parse path component [%v]: %v", path[1], err), http.StatusBadRequest)
-		return
-	}
-	name, err := url.PathUnescape(path[2])
-	if err != nil {
-		http.Error(res, fmt.Sprintf("unable to parse path component [%v]: %v", path[2], err), http.StatusBadRequest)
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx := req.Context()
 	data, modtime, err := s.fs().ReadFile(ctx, service, name)
 	if err != nil {
 		if s.fs().IsNotFound(err) {
@@ -90,7 +101,31 @@ func (s fileServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	data.Close()
 }
 
-func (s fileServer) authorizeFileRequest(req *http.Request) error {
+func (s fileServer) extractClientID(req *http.Request) (common.ClientID, error) {
+	cert, err := GetClientCert(req, s.p.FrontendConfig)
+	if err != nil {
+		return common.ClientID{}, err
+	}
+	return common.MakeClientID(cert.PublicKey)
+}
+
+func parseFilePath(pathStr string) (string, string, error) {
+	path := strings.Split(strings.TrimPrefix(pathStr, "/"), "/")
+	if len(path) != 3 || path[0] != "files" {
+		return "", "", fmt.Errorf("unable to parse files URI: %q", pathStr)
+	}
+	service, err := url.PathUnescape(path[1])
+	if err != nil {
+		return "", "", fmt.Errorf("unable to parse path component %q: %w", path[1], err)
+	}
+	name, err := url.PathUnescape(path[2])
+	if err != nil {
+		return "", "", fmt.Errorf("unable to parse path component %q: %w", path[2], err)
+	}
+	return service, name, nil
+}
+
+func (s fileServer) authorizeFileRequest(req *http.Request, id common.ClientID, labels []string) error {
 	addrPort, err := netip.ParseAddrPort(req.RemoteAddr)
 	if err != nil {
 		return err
@@ -100,19 +135,10 @@ func (s fileServer) authorizeFileRequest(req *http.Request) error {
 		return fmt.Errorf("unauthorized via Allow1 (addr: %v)", addr)
 	}
 
-	cert, err := GetClientCert(req, s.p.FrontendConfig)
-	if err != nil {
-		return err
-	}
-	id, err := common.MakeClientID(cert.PublicKey)
-	if err != nil {
-		return err
-	}
-
 	ci := authorizer.ContactInfo{
 		ID:           id,
 		ContactSize:  0,
-		ClientLabels: req.Header["X-Fleetspeak-Labels"],
+		ClientLabels: labels,
 	}
 
 	if !s.fs().Authorizer().Allow2(addr, ci) {

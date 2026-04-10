@@ -154,7 +154,8 @@ type Context interface {
 	GetMessagesForClient(ctx context.Context, info *ConnectionInfo) (data *fspb.ContactData, more bool, err error)
 
 	// ReadFile returns the data and modification time of file. Caller is
-	// responsible for closing data.
+	// responsible for closing data. If available, the caller should also attach
+	// the client ID and labels to ctx using [WithClientID] and [WithLabels].
 	//
 	// Calls to data are permitted to fail if ctx is canceled or expired.
 	ReadFile(ctx context.Context, service, name string) (data db.ReadSeekerCloser, modtime time.Time, err error)
@@ -170,4 +171,34 @@ type Context interface {
 	// Authorizer returns the authorizer.Authorizer used by the Fleetspeak
 	// system.  The Communicator is responsible for calling Accept1.
 	Authorizer() authorizer.Authorizer
+}
+
+type clientIDKeyType struct{}
+type labelsKeyType struct{}
+
+var (
+	clientIDKey = clientIDKeyType{}
+	labelsKey   = labelsKeyType{}
+)
+
+// WithClientID attaches the client ID to the context.
+func WithClientID(ctx context.Context, id common.ClientID) context.Context {
+	return context.WithValue(ctx, clientIDKey, id)
+}
+
+// ClientIDFromContext retrieves the client ID from the context.
+func ClientIDFromContext(ctx context.Context) (common.ClientID, bool) {
+	v, ok := ctx.Value(clientIDKey).(common.ClientID)
+	return v, ok
+}
+
+// WithLabels attaches the labels to the context.
+func WithLabels(ctx context.Context, labels []string) context.Context {
+	return context.WithValue(ctx, labelsKey, labels)
+}
+
+// LabelsFromContext retrieves the labels from the context.
+func LabelsFromContext(ctx context.Context) ([]string, bool) {
+	v, ok := ctx.Value(labelsKey).([]string)
+	return v, ok
 }
