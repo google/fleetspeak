@@ -35,6 +35,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 
+	"github.com/google/fleetspeak/fleetspeak/src/client/darkwake"
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
@@ -100,6 +101,8 @@ func New(cfg config.Configuration, cmps Components) (*Client, error) {
 	if cmps.Stats == nil {
 		cmps.Stats = stats.NoopCollector{}
 	}
+
+	darkwake.RegisterXPC()
 
 	configChanges := make(chan *fspb.ClientInfoData)
 	cm, err := intconfig.StartManager(&cfg, configChanges, cmps.Stats)
