@@ -27,7 +27,6 @@ from fleetspeak.src.server.proto.fleetspeak_server import admin_pb2_grpc
 import grpc
 import grpc_testing
 
-
 # Keeping additional reference to datetime.datetime, as it gets mocked
 # in some tests below.
 orig_datetime_datetime = datetime.datetime

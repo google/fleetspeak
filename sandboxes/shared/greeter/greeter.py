@@ -20,7 +20,6 @@ from fleetspeak.server_connector.connector import InsecureGRPCServiceClient
 from fleetspeak.src.common.proto.fleetspeak.common_pb2 import Message
 from google.protobuf.wrappers_pb2 import StringValue
 
-
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string(
