@@ -114,6 +114,12 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 	}
 	dbB.messageLimit = limit
 	return d.runInTx(func(tx *sql.Tx) error {
+		if b.GetGroupName() != "" {
+			// Failing broadcast requests with a groupname set is preferable to silently failing
+			// to meet the expected behavior.
+			return fmt.Errorf("broadcast replacement feature is not supported by the sqlite datastore: %w", db.ErrNotSupported)
+		}
+
 		if _, err := tx.ExecContext(ctx, "INSERT INTO broadcasts("+
 			"broadcast_id, "+
 			"source_service_name, "+

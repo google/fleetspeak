@@ -32,6 +32,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"time"
 
@@ -46,9 +47,14 @@ import (
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ErrBroadcastDisabled is returned on an attempted operation on a disabled
-// broadcast or an associated allocation.
-var ErrBroadcastDisabled = errors.New("broadcast is disabled and allocation expired")
+var (
+	// ErrBroadcastDisabled is returned on an attempted operation on a disabled
+	// broadcast or an associated allocation.
+	ErrBroadcastDisabled = errors.New("broadcast is disabled and allocation expired")
+
+	// ErrNotSupported is returned when a feature is not supported by the datastore.
+	ErrNotSupported = errors.New("feature not supported")
+)
 
 // A Store describes the full persistence mechanism required by the base
 // fleetspeak system. These operations must be thread safe. These must also be
@@ -318,9 +324,29 @@ func ComputeBroadcastAllocationCleanup(allocationLimit, allocated uint64) (uint6
 	return allocated - allocationLimit, nil
 }
 
+// LabelsEqual returns true if the two lists of labels are equivalent in the
+// context of required labels of broadcasts.
+func LabelsEqual(l1, l2 []*fspb.Label) bool {
+	if len(l1) != len(l2) {
+		return false
+	}
+	type label struct{ s, l string }
+	toSet := func(ls []*fspb.Label) map[label]struct{} {
+		m := make(map[label]struct{})
+		for _, l := range ls {
+			m[label{l.ServiceName, l.Label}] = struct{}{}
+		}
+		return m
+	}
+	return maps.Equal(toSet(l1), toSet(l2))
+}
+
 // BroadcastStore provides methods to store and retrieve information about broadcasts.
 type BroadcastStore interface {
 	// CreateBroadcast stores a new broadcast message.
+	// If b.GroupName is non-empty, existing active broadcasts with the same
+	// group, source, destination, and required_labels will be disabled
+	// before inserting this new broadcast.
 	CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit uint64) error
 
 	// SetBroadcastLimit adjusts the limit of an existing broadcast.

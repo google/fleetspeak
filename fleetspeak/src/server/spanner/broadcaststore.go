@@ -48,6 +48,11 @@ func (d *Datastore) CreateBroadcast(ctx context.Context, b *spb.Broadcast, limit
 		MessageLimit: int64(limit),
 	}
 	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		if b.GetGroupName() != "" {
+			// Failing broadcast requests with a groupname set is preferable to silently failing
+			// to meet the expected behavior.
+			return fmt.Errorf("broadcast replacement feature is not supported by the spanner datastore: %w", db.ErrNotSupported)
+		}
 		return d.tryCreateBroadcast(txn, &br)
 	})
 	return err

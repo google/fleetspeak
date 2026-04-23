@@ -1,7 +1,7 @@
 package dbtesting
 
 import (
-	"context"
+	"bytes"
 	"errors"
 	"testing"
 	"time"
@@ -32,7 +32,7 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 	fin2 := sertesting.SetServerRetryTime(func(_ uint32) time.Time { return db.Now().Add(time.Minute) })
 	defer fin2()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var bid []ids.BroadcastID
 
@@ -254,10 +254,110 @@ func testDisableBroadcasts(t *testing.T, ds db.Store, bid ids.BroadcastID, clien
 	}
 }
 
+func isBroadcastActive(t *testing.T, ds db.Store, bID ids.BroadcastID) bool {
+	t.Helper()
+	bs, err := ds.ListActiveBroadcasts(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range bs {
+		if bytes.Equal(b.Broadcast.BroadcastId, bID.Bytes()) {
+			return true
+		}
+	}
+	return false
+}
+
+func testBroadcastReplacement(t *testing.T, ds db.Store) {
+	ctx := t.Context()
+
+	createBC := func(grp, src, dst string, labels ...*fspb.Label) *spb.Broadcast {
+		return &spb.Broadcast{
+			GroupName:      grp,
+			Source:         &fspb.Address{ServiceName: src},
+			Destination:    &fspb.Address{ServiceName: dst},
+			RequiredLabels: labels,
+			MessageType:    "Empty",
+		}
+	}
+
+	l1 := &fspb.Label{ServiceName: "client", Label: "label1"}
+	l2 := &fspb.Label{ServiceName: "client", Label: "label2"}
+
+	for _, tc := range []struct {
+		desc        string
+		b1          *spb.Broadcast
+		b2          *spb.Broadcast
+		wantReplace bool
+	}{
+		{
+			desc:        "IdenticalMatchingProperties",
+			b1:          createBC("g1", "src1", "dst1", l1),
+			b2:          createBC("g1", "src1", "dst1", l1),
+			wantReplace: true,
+		},
+		{
+			desc:        "DifferentSource",
+			b1:          createBC("g2", "src1", "dst1", l1),
+			b2:          createBC("g2", "src2", "dst1", l1),
+			wantReplace: false,
+		},
+		{
+			desc:        "DifferentLabels",
+			b1:          createBC("g3", "src1", "dst1", l1),
+			b2:          createBC("g3", "src1", "dst1", l2),
+			wantReplace: false,
+		},
+		{
+			desc:        "DifferentDestination",
+			b1:          createBC("g4", "src1", "dst1", l1),
+			b2:          createBC("g4", "src1", "dst2", l1),
+			wantReplace: false,
+		},
+		{
+			desc:        "DifferentGroup",
+			b1:          createBC("g5", "src1", "dst1", l1),
+			b2:          createBC("g6", "src1", "dst1", l1),
+			wantReplace: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			id1, _ := ids.RandomBroadcastID()
+			id2, _ := ids.RandomBroadcastID()
+			tc.b1.BroadcastId = id1.Bytes()
+			tc.b2.BroadcastId = id2.Bytes()
+
+			if err := ds.CreateBroadcast(ctx, tc.b1, 10); err != nil {
+				if errors.Is(err, db.ErrNotSupported) {
+					t.Skip("Broadcast replacement feature not supported by this datastore")
+				}
+				t.Fatalf("Failed to create b1: %v", err)
+			}
+			if !isBroadcastActive(t, ds, id1) {
+				t.Fatalf("b1 should be active upon creation")
+			}
+
+			if err := ds.CreateBroadcast(ctx, tc.b2, 10); err != nil {
+				t.Fatalf("Failed to create b2: %v", err)
+			}
+
+			gotActive := isBroadcastActive(t, ds, id1)
+			wantActive := !tc.wantReplace
+			if gotActive != wantActive {
+				t.Errorf("b1 got active status %v, want %v", gotActive, wantActive)
+			}
+			if !isBroadcastActive(t, ds, id2) {
+				t.Errorf("b2 should always be active")
+			}
+		})
+	}
+}
+
 func broadcastStoreTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("BroadcastStoreTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
-			"BroadcastStoreTest": broadcastStoreTest,
+			"BroadcastStoreTest":       broadcastStoreTest,
+			"BroadcastReplacementTest": testBroadcastReplacement,
 		})
 	})
 }

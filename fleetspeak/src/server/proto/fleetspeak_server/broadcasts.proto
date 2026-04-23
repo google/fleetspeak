@@ -37,4 +37,10 @@ message Broadcast {
 
   // The payload of the broadcast.
   google.protobuf.Any data = 6;
+
+  // An optional group name that the broadcast gets categorized under.
+  // If set, this broadcast will replace older broadcasts with the same group,
+  // source, destination, and required labels on creation. This effectively
+  // causes clients to only receive the latest broadcast in the same group.
+  string group_name = 8;
 }
