@@ -81,67 +81,71 @@ func (d *Datastore) DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastI
 		return nil
 	}
 	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		for _, bID := range bIDs {
-			var totalSent, totalLimit int64
-			var allocKeys []spanner.Key
-
-			// Read active allocations to sum up their sent/limit stats before deleting
-			// them. This allows us to attribute any messages sent during this window
-			// to the parent broadcast's count and maintain the b.Allocated budget invariant.
-			iter := txn.Read(ctx, d.broadcastAllocations, spanner.Key{bID.Bytes()}.AsPrefix(), []string{"AllocationID", "Sent", "MessageLimit"})
-			for {
-				row, err := iter.Next()
-				if err == iterator.Done {
-					break
-				}
-				if err != nil {
-					iter.Stop()
-					return err
-				}
-				var aid []byte
-				var sent, limit int64
-				if err := row.Columns(&aid, &sent, &limit); err != nil {
-					iter.Stop()
-					return err
-				}
-				totalSent += sent
-				totalLimit += limit
-				allocKeys = append(allocKeys, spanner.Key{bID.Bytes(), aid})
-			}
-			iter.Stop()
-
-			row, err := txn.ReadRow(ctx, d.broadcasts, spanner.Key{bID.Bytes()}, []string{"Sent", "Allocated"})
-			if err != nil {
-				if spanner.ErrCode(err) == codes.NotFound {
-					continue
-				}
-				return err
-			}
-			var bSent, allocated int64
-			if err := row.Columns(&bSent, &allocated); err != nil {
-				return err
-			}
-
-			newAllocated := allocated
-			if newAllocated >= totalLimit {
-				newAllocated -= totalLimit
-			} else {
-				newAllocated = 0
-			}
-
-			var ms []*spanner.Mutation
-			if len(allocKeys) > 0 {
-				ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.KeySetFromKeys(allocKeys...)))
-			}
-			ms = append(ms, spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit", "Sent", "Allocated"}, []any{bID.Bytes(), int64(0), bSent + totalSent, newAllocated}))
-
-			if err := txn.BufferWrite(ms); err != nil {
-				return err
-			}
-		}
-		return nil
+		return d.tryDisableBroadcasts(ctx, txn, bIDs)
 	})
 	return err
+}
+
+func (d *Datastore) tryDisableBroadcasts(ctx context.Context, txn *spanner.ReadWriteTransaction, bIDs []ids.BroadcastID) error {
+	for _, bID := range bIDs {
+		var totalSent, totalLimit int64
+		var allocKeys []spanner.Key
+
+		// Read active allocations to sum up their sent/limit stats before deleting
+		// them. This allows us to attribute any messages sent during this window
+		// to the parent broadcast's count and maintain the b.Allocated budget invariant.
+		iter := txn.Read(ctx, d.broadcastAllocations, spanner.Key{bID.Bytes()}.AsPrefix(), []string{"AllocationID", "Sent", "MessageLimit"})
+		for {
+			row, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				iter.Stop()
+				return err
+			}
+			var aid []byte
+			var sent, limit int64
+			if err := row.Columns(&aid, &sent, &limit); err != nil {
+				iter.Stop()
+				return err
+			}
+			totalSent += sent
+			totalLimit += limit
+			allocKeys = append(allocKeys, spanner.Key{bID.Bytes(), aid})
+		}
+		iter.Stop()
+
+		row, err := txn.ReadRow(ctx, d.broadcasts, spanner.Key{bID.Bytes()}, []string{"Sent", "Allocated"})
+		if err != nil {
+			if spanner.ErrCode(err) == codes.NotFound {
+				continue
+			}
+			return err
+		}
+		var bSent, allocated int64
+		if err := row.Columns(&bSent, &allocated); err != nil {
+			return err
+		}
+
+		newAllocated := allocated
+		if newAllocated >= totalLimit {
+			newAllocated -= totalLimit
+		} else {
+			newAllocated = 0
+		}
+
+		var ms []*spanner.Mutation
+		if len(allocKeys) > 0 {
+			ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.KeySetFromKeys(allocKeys...)))
+		}
+		ms = append(ms, spanner.Update(d.broadcasts, []string{"BroadcastID", "MessageLimit", "Sent", "Allocated"}, []any{bID.Bytes(), int64(0), bSent + totalSent, newAllocated}))
+
+		if err := txn.BufferWrite(ms); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SaveBroadcastMessage implements db.BroadcastStore.

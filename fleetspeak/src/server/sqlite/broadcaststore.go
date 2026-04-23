@@ -168,52 +168,56 @@ func (d *Datastore) DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastI
 	d.l.Lock()
 	defer d.l.Unlock()
 	return d.runInTx(func(tx *sql.Tx) error {
-		for _, bID := range bIDs {
-			var totalSent, totalLimit uint64
-			rs, err := tx.QueryContext(ctx, "SELECT sent, message_limit FROM broadcast_allocations WHERE broadcast_id = ?", bID.String())
-			if err != nil {
-				return err
-			}
-			for rs.Next() {
-				var sent, limit uint64
-				if err := rs.Scan(&sent, &limit); err != nil {
-					rs.Close()
-					return err
-				}
-				totalSent += sent
-				totalLimit += limit
-			}
-			rs.Close()
-			if err := rs.Err(); err != nil {
-				return err
-			}
-
-			if _, err := tx.ExecContext(ctx, "DELETE FROM broadcast_allocations WHERE broadcast_id = ?", bID.String()); err != nil {
-				return err
-			}
-
-			var bSent, bAllocated uint64
-			row := tx.QueryRowContext(ctx, "SELECT sent, allocated FROM broadcasts WHERE broadcast_id = ?", bID.String())
-			if err := row.Scan(&bSent, &bAllocated); err != nil {
-				if err == sql.ErrNoRows {
-					continue
-				}
-				return err
-			}
-
-			newAllocated := bAllocated
-			if newAllocated >= totalLimit {
-				newAllocated -= totalLimit
-			} else {
-				newAllocated = 0
-			}
-
-			if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET message_limit = 0, sent = ?, allocated = ? WHERE broadcast_id = ?", bSent+totalSent, newAllocated, bID.String()); err != nil {
-				return err
-			}
-		}
-		return nil
+		return d.tryDisableBroadcasts(ctx, tx, bIDs)
 	})
+}
+
+func (d *Datastore) tryDisableBroadcasts(ctx context.Context, tx *sql.Tx, bIDs []ids.BroadcastID) error {
+	for _, bID := range bIDs {
+		var totalSent, totalLimit uint64
+		rs, err := tx.QueryContext(ctx, "SELECT sent, message_limit FROM broadcast_allocations WHERE broadcast_id = ?", bID.String())
+		if err != nil {
+			return err
+		}
+		for rs.Next() {
+			var sent, limit uint64
+			if err := rs.Scan(&sent, &limit); err != nil {
+				rs.Close()
+				return err
+			}
+			totalSent += sent
+			totalLimit += limit
+		}
+		rs.Close()
+		if err := rs.Err(); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, "DELETE FROM broadcast_allocations WHERE broadcast_id = ?", bID.String()); err != nil {
+			return err
+		}
+
+		var bSent, bAllocated uint64
+		row := tx.QueryRowContext(ctx, "SELECT sent, allocated FROM broadcasts WHERE broadcast_id = ?", bID.String())
+		if err := row.Scan(&bSent, &bAllocated); err != nil {
+			if err == sql.ErrNoRows {
+				continue
+			}
+			return err
+		}
+
+		newAllocated := bAllocated
+		if newAllocated >= totalLimit {
+			newAllocated -= totalLimit
+		} else {
+			newAllocated = 0
+		}
+
+		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET message_limit = 0, sent = ?, allocated = ? WHERE broadcast_id = ?", bSent+totalSent, newAllocated, bID.String()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bID ids.BroadcastID, cID common.ClientID, aID ids.AllocationID) error {
