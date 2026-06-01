@@ -65,12 +65,17 @@ type StreamingCommunicator struct {
 	clientCertificateHeader string
 
 	certBytes []byte
+
+	wakeUp chan struct{}
+	mu     sync.Mutex
+	curCon *connection
 }
 
 // Setup implements comms.Communicator.
 func (c *StreamingCommunicator) Setup(cl comms.Context) error {
 	c.cctx = cl
 	c.ctx, c.fin = context.WithCancel(context.Background())
+	c.wakeUp = make(chan struct{}, 1)
 	c.conf = c.cctx.CommunicatorConfig()
 	if c.conf == nil {
 		return errors.New("no communicator_config in client configuration")
@@ -97,6 +102,59 @@ func (c *StreamingCommunicator) Stop() {
 	c.fin()
 	c.working.Wait()
 	c.wd.Stop()
+}
+
+// Reset implements comms.Communicator.
+func (c *StreamingCommunicator) Reset() {
+	log.Infof("Reset called")
+	c.mu.Lock()
+	if c.curCon != nil {
+		c.curCon.stop()
+	}
+	c.mu.Unlock()
+	c.hc.Transport.(*http.Transport).CloseIdleConnections()
+	select {
+	case c.wakeUp <- struct{}{}:
+	default:
+	}
+}
+
+// Flush implements comms.Communicator.
+func (c *StreamingCommunicator) Flush(ctx context.Context) error {
+	log.InfoContextf(ctx, "Flush called")
+
+	c.mu.Lock()
+	for c.curCon == nil || c.curCon.ctx.Err() != nil {
+		log.V(1).InfoContextf(ctx, "Flush: No active connection or connection is dying, waiting for reconnect.")
+		c.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+			// poll again
+		}
+		c.mu.Lock()
+	}
+	con := c.curCon
+	c.mu.Unlock()
+
+	if con != nil {
+		con.pendingLock.Lock()
+		l := len(con.pending)
+		con.pendingLock.Unlock()
+		if l == 0 {
+			log.InfoContextf(ctx, "Flush: Connection active but no pending messages.")
+			return nil
+		}
+		log.InfoContextf(ctx, "Flush: Waiting for %d pending messages to flush.", l)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-con.pendingEmpty:
+			return nil
+		}
+	}
+	return nil
 }
 
 func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
@@ -189,11 +247,21 @@ func (c *StreamingCommunicator) connectLoop() {
 			case <-c.ctx.Done():
 				t.Stop()
 				return
+			case <-c.wakeUp:
+				t.Stop()
 			}
 			continue
 		}
+		c.mu.Lock()
+		c.curCon = con
+		c.mu.Unlock()
+		log.Info("Signal new connection established.")
 		log.V(2).Infof("--%p: started", con)
 		con.working.Wait()
+		c.mu.Lock()
+		c.curCon = nil
+		c.mu.Unlock()
+		log.Info("Connection cleared.")
 		lastContact = time.Now()
 		for _, l := range con.pending {
 			for _, m := range l {
@@ -231,11 +299,12 @@ func (c *connection) readContact(body *bufio.Reader) (cd *fspb.ContactData, err 
 // connection to the given host. ctx only regulates this initial connection.
 func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLife time.Duration) (*connection, error) {
 	ret := connection{
-		cctx:        c.cctx,
-		pending:     make(map[int][]comms.MessageInfo),
-		serverDone:  make(chan struct{}),
-		writingDone: make(chan struct{}),
-		host:        host,
+		cctx:         c.cctx,
+		pending:      make(map[int][]comms.MessageInfo),
+		serverDone:   make(chan struct{}),
+		writingDone:  make(chan struct{}),
+		host:         host,
+		pendingEmpty: make(chan struct{}, 1),
 	}
 	ret.ctx, ret.stop = context.WithTimeout(c.ctx, maxLife)
 
@@ -274,8 +343,12 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	sizeBuf := make([]byte, 0, 16)
 	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
 
+	c.mu.Lock()
+	compression := c.conf.GetCompression()
+	c.mu.Unlock()
+
 	pr, pw := io.Pipe()
-	bw := CompressingWriter(pw, c.conf.GetCompression())
+	bw := CompressingWriter(pw, compression)
 
 	urn := url.URL{Scheme: "https", Host: host, Path: "/streaming-message"}
 	req, err := http.NewRequest("POST", urn.String(), pr)
@@ -285,7 +358,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	req.ContentLength = -1
 	req.Close = true
 	req.Header.Set("Expect", "100-continue")
-	SetContentEncoding(req.Header, c.conf.GetCompression())
+	SetContentEncoding(req.Header, compression)
 	if c.clientCertificateHeader != "" {
 		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})
 		cc := url.PathEscape(string(bc))
@@ -395,6 +468,8 @@ type connection struct {
 	working sync.WaitGroup
 	// Closure which can be called to terminate the connection.
 	stop func()
+
+	pendingEmpty chan struct{}
 
 	// Count of processed messages (per service), as of the last message
 	// sent to the server. Used to update the number of messages the server
@@ -586,6 +661,12 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 			delete(c.pending, cnt)
 			l := len(c.pending)
 			c.pendingLock.Unlock()
+			if l == 0 {
+				select {
+				case c.pendingEmpty <- struct{}{}:
+				default:
+				}
+			}
 			cnt++
 			for _, m := range toAck {
 				m.Ack()

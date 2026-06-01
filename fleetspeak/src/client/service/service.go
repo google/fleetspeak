@@ -59,6 +59,12 @@ type Service interface {
 	Stop() error
 }
 
+// A Flusher is a service that can be requested to flush its buffers or
+// process data immediately.
+type Flusher interface {
+	Flush(ctx context.Context) error
+}
+
 // LocalInfo stores summary information about the local client.
 type LocalInfo struct {
 	ClientID common.ClientID // The ClientID of the local client.

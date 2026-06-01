@@ -58,6 +58,11 @@ type Communicator struct {
 	clientCertificateHeader string
 
 	certBytes []byte
+
+	wakeUp       chan struct{}
+	pollComplete chan error
+	mu           sync.Mutex
+	pollCancel   context.CancelFunc
 }
 
 // Setup implements comms.Communicator.
@@ -108,6 +113,8 @@ func (c *Communicator) configure() error {
 	}
 	c.ctx, c.done = context.WithCancel(context.Background())
 	c.clientCertificateHeader = si.ClientCertificateHeader
+	c.wakeUp = make(chan struct{}, 1)
+	c.pollComplete = make(chan error, 1)
 	c.certBytes = certBytes
 	return nil
 }
@@ -125,6 +132,39 @@ func (c *Communicator) Stop() {
 	c.done()
 	c.working.Wait()
 	c.wd.Stop()
+}
+
+// Reset implements comms.Communicator.
+func (c *Communicator) Reset() {
+	log.Infof("Reset called")
+	c.mu.Lock()
+	if c.pollCancel != nil {
+		c.pollCancel()
+	}
+	c.mu.Unlock()
+	c.hc.Transport.(*http.Transport).CloseIdleConnections()
+	// Drain pollComplete to ensure Flush waits for a new poll.
+	select {
+	case <-c.pollComplete:
+	default:
+	}
+	select {
+	case c.wakeUp <- struct{}{}:
+	default:
+	}
+}
+
+// Flush implements comms.Communicator.
+func (c *Communicator) Flush(ctx context.Context) error {
+	log.InfoContextf(ctx, "Flush called")
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-c.pollComplete:
+			return err
+		}
+	}
 }
 
 // processingLoop polls the server according to the configured policies while
@@ -152,11 +192,19 @@ func (c *Communicator) processingLoop() {
 	// and updates the variables defined above. In case of failure it also sleeps
 	// for the MinFailureDelay.
 	poll := func() {
+		var err error
+		defer func() {
+			select {
+			case c.pollComplete <- err:
+			default:
+			}
+		}()
 		c.wd.Reset()
 		if c.cctx.CurrentID() != c.id {
 			c.configure()
 		}
-		active, err := c.poll(toSend)
+		var active bool
+		active, err = c.poll(toSend)
 		if err != nil {
 			log.Warningf("Failure during polling: %v", err)
 			for _, m := range toSend {
@@ -174,6 +222,8 @@ func (c *Communicator) processingLoop() {
 			select {
 			case <-t.C:
 			case <-c.ctx.Done():
+				t.Stop()
+			case <-c.wakeUp:
 				t.Stop()
 			}
 			return
@@ -255,6 +305,9 @@ func (c *Communicator) processingLoop() {
 			return
 		case <-t.C:
 			poll()
+		case <-c.wakeUp:
+			t.Stop()
+			poll()
 		case m := <-c.cctx.Outbox():
 			t.Stop()
 			toSend = append(toSend, m)
@@ -324,12 +377,16 @@ func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, er
 
 	u := url.URL{Scheme: "https", Host: host, Path: "/message"}
 
+	c.mu.Lock()
+	compression := c.conf.GetCompression()
+	c.mu.Unlock()
+
 	body := &bytes.Buffer{}
-	if c.conf.GetCompression() == fspb.CompressionAlgorithm_COMPRESSION_NONE {
+	if compression == fspb.CompressionAlgorithm_COMPRESSION_NONE {
 		// Shortcut to prevent unnecessary copying of data
 		body = bytes.NewBuffer(data)
 	} else {
-		bw := CompressingWriter(body, c.conf.GetCompression())
+		bw := CompressingWriter(body, compression)
 		bw.Write(data)
 		bw.Close()
 	}
@@ -339,6 +396,17 @@ func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, er
 	if sendErr != nil {
 		return nil, sendErr
 	}
+	var reqCtx context.Context
+	c.mu.Lock()
+	reqCtx, c.pollCancel = context.WithCancel(c.ctx)
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.pollCancel()
+		c.pollCancel = nil
+		c.mu.Unlock()
+	}()
+	req = req.WithContext(reqCtx)
 	SetContentEncoding(req.Header, c.conf.GetCompression())
 	if c.clientCertificateHeader != "" {
 		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})

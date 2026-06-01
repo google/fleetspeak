@@ -733,3 +733,146 @@ func TestCertificateRevoked(t *testing.T) {
 	tl.Close()
 	cl.Stop()
 }
+
+func TestReset(t *testing.T) {
+	var c Communicator
+	conf := config.Configuration{
+		Servers: []string{"localhost:1234"},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    10,
+			MinFailureDelaySeconds: 10,
+		},
+	}
+	dialCalls := make(chan struct{}, 10)
+	c.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialCalls <- struct{}{}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	cl, err := client.New(
+		conf,
+		client.Components{
+			Communicator: &c,
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Wait for first dial attempt
+	select {
+	case <-dialCalls:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first dial attempt")
+	}
+
+	// Call Reset
+	time.Sleep(100 * time.Millisecond)
+	c.Reset()
+
+	// Wait for second dial attempt (should be immediate, not waiting 10s)
+	select {
+	case <-dialCalls:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timed out waiting for second dial attempt after Reset")
+	}
+}
+
+func TestFlush(t *testing.T) {
+	// Create a local https server for the client to talk to.
+	pemCert, pemKey, err := common_util.ServerCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl, err := net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := tl.Addr().String()
+
+	pollCount := int32(0)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
+		atomic.AddInt32(&pollCount, 1)
+		cd := fspb.ContactData{
+			SequencingNonce: 42,
+		}
+		buf, err := proto.Marshal(&cd)
+		if err != nil {
+			t.Fatalf("unable to marshal ContactData: %v", err)
+		}
+		res.Header().Set("Content-Type", "application/octet-stream")
+		res.WriteHeader(http.StatusOK)
+		res.Write(buf)
+	})
+
+	server := http.Server{
+		Addr:    addr,
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			ClientAuth:   tls.RequireAnyClientCert,
+			Certificates: []tls.Certificate{cp},
+			NextProtos:   []string{"h2"},
+		},
+	}
+	l := tls.NewListener(tl, server.TLSConfig)
+	go server.Serve(l)
+	defer tl.Close()
+
+	var c Communicator
+	conf := config.Configuration{
+		TrustedCerts: x509.NewCertPool(),
+		Servers:      []string{addr},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    10,
+			MinFailureDelaySeconds: 10,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+
+	cl, err := client.New(
+		conf,
+		client.Components{
+			Communicator: &c,
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Wait for first poll
+	for atomic.LoadInt32(&pollCount) == 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Call Flush in a goroutine
+	flushDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		flushDone <- c.Flush(ctx)
+	}()
+
+	// Trigger a poll via wakeUp (indirectly via Reset)
+	c.Reset()
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush failed: %v", err)
+		}
+	case <-time.After(6 * time.Second):
+		t.Fatal("Timed out waiting for Flush")
+	}
+}

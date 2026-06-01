@@ -60,9 +60,10 @@ func TestStreamingCreate(t *testing.T) {
 
 type streamingTestServer struct {
 	// These should be populated by the creator.
-	t        *testing.T
-	received chan<- *fspb.ContactData
-	toSend   <-chan *fspb.ContactData
+	t                     *testing.T
+	received              chan<- *fspb.ContactData
+	toSend                <-chan *fspb.ContactData
+	allowMultipleRequests bool
 
 	// These are populated by Start.
 	pemCert, pemKey []byte
@@ -100,9 +101,12 @@ func (s *streamingTestServer) Start() {
 		if err != nil {
 			s.t.Errorf("unable to make ClientID in test server: %v", err)
 		}
-		if reqs := atomic.AddInt32(&s.rc, 1); reqs != 1 {
-			s.t.Errorf("Only expected 1 request, but this is request %d", reqs)
-			http.Error(res, "only expected 1 request", http.StatusBadRequest)
+		reqs := atomic.AddInt32(&s.rc, 1)
+		if !s.allowMultipleRequests {
+			if reqs != 1 {
+				s.t.Errorf("Only expected 1 request, but this is request %d", reqs)
+				http.Error(res, "only expected 1 request", http.StatusBadRequest)
+			}
 		}
 		body := bufio.NewReader(req.Body)
 		b := make([]byte, 4)
@@ -628,4 +632,126 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 		t.Errorf("Expected a ContactData with 2 records, got %d", len(rcb.Messages))
 	}
 	close(toSend)
+}
+
+func TestStreamingReset(t *testing.T) {
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers: []string{"localhost:1234"},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MinFailureDelaySeconds: 10,
+		},
+	}
+	dialCalls := make(chan struct{}, 10)
+	c.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialCalls <- struct{}{}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	cl, err := client.New(
+		conf,
+		client.Components{
+			Communicator: &c,
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Wait for first dial attempt
+	select {
+	case <-dialCalls:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first dial attempt")
+	}
+
+	// Call Reset
+	time.Sleep(100 * time.Millisecond)
+	c.Reset()
+
+	// Wait for second dial attempt (should be immediate, not waiting 10s)
+	select {
+	case <-dialCalls:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timed out waiting for second dial attempt after Reset")
+	}
+}
+
+func TestStreamingFlushAfterReset(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+
+	server := streamingTestServer{
+		t:                     t,
+		received:              received,
+		toSend:                toSend,
+		allowMultipleRequests: true,
+	}
+	server.Start()
+	defer server.Stop()
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{server.Addr()},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Wait for initial connection to be established.
+	acks := make(chan int, 1)
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"}},
+			Ack: func() { acks <- 0 },
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+
+	<-received
+	<-acks
+
+	// Connection is idle.
+
+	// Call Reset to break it.
+	c.Reset()
+
+	// Call Flush in a goroutine.
+	flushDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		flushDone <- c.Flush(ctx)
+	}()
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush failed: %v", err)
+		}
+		if atomic.LoadInt32(&server.rc) < 2 {
+			t.Errorf("Flush returned before reconnect. Expected at least 2 requests, got %d", server.rc)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Flush to complete")
+	}
 }

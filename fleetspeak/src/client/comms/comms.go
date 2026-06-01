@@ -39,6 +39,16 @@ type Communicator interface {
 	Start() error        // Tells the communicator to start sending and receiving messages.
 	Stop()               // Tells the communicator to stop sending and receiving messages.
 
+	// Reset forcefully tears down any underlying network connections and
+	// immediately initiates establishing a fresh connection (or polling,
+	// depending on the implementation) to resume communication.
+	Reset()
+
+	// Flush blocks until the communicator has successfully established a
+	// fresh connection and flushed all pending messages, or until the provided
+	// context expires.
+	Flush(ctx context.Context) error
+
 	// GetFileIfModified attempts to retrieve a file from a server, if it
 	// has been modified since modSince. If it has not been modified, it
 	// returns nil. Otherwise, it returns a ReadCloser for the file's data

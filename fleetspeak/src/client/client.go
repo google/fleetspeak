@@ -310,3 +310,23 @@ func (c *Client) Stop() {
 	done <- struct{}{}
 	log.Info("Messages have been drained.")
 }
+
+// FlushServices triggers all services that support it to flush their data.
+func (c *Client) FlushServices(ctx context.Context) {
+	log.InfoContextf(ctx, "Client: FlushServices called")
+	c.sc.FlushServices(ctx)
+}
+
+// ForceResetAndFlushCommunicator programmatically and forcefully tears down the existing
+// network connection, establishes a fresh one, and blocks until the outbox is
+// successfully drained or the context expires.
+func (c *Client) ForceResetAndFlushCommunicator(ctx context.Context) error {
+	log.InfoContextf(ctx, "ForceResetAndFlushCommunicator triggered")
+	if c.com == nil {
+		return fmt.Errorf("communicator not set")
+	}
+	log.InfoContextf(ctx, "Calling Reset")
+	c.com.Reset()
+	log.InfoContextf(ctx, "Reset finished, calling Flush")
+	return c.com.Flush(ctx)
+}

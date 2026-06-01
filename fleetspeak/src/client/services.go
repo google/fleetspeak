@@ -131,8 +131,7 @@ ll:
 	d.working.Add(1)
 	go func() {
 		defer d.working.Done()
-		ctx = context.WithoutCancel(ctx)
-		d.processingLoop(ctx)
+		d.processingLoop(context.WithoutCancel(ctx))
 	}()
 
 	c.lock.Lock()
@@ -149,7 +148,7 @@ ll:
 	if err != nil {
 		return err
 	}
-	log.Infof("Started service %v with config:\n%s", cfg.Name, string(b))
+	log.InfoContextf(ctx, "Started service %v with config:\n%s", cfg.Name, string(b))
 	return nil
 }
 
@@ -208,6 +207,20 @@ func (c *serviceConfiguration) Stop() {
 		sd.stop()
 	}
 	c.services = make(map[string]*serviceData)
+}
+
+// FlushServices calls Flush on all services that implement the Flusher interface.
+func (c *serviceConfiguration) FlushServices(ctx context.Context) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for _, sd := range c.services {
+		if flusher, ok := sd.service.(service.Flusher); ok {
+			log.InfoContextf(ctx, "Triggering flush for service %s", sd.name)
+			if err := flusher.Flush(ctx); err != nil {
+				log.ErrorContextf(ctx, "Error flushing service %s: %v", sd.name, err)
+			}
+		}
+	}
 }
 
 // A serviceData contains the data we have about a configured service, wrapping
@@ -300,7 +313,7 @@ func (d *serviceData) processingLoop(ctx context.Context) {
 		}
 		id, err := common.BytesToMessageID(m.MessageId)
 		if err != nil {
-			log.Errorf("ignoring message with bad message id: [%v]", m.MessageId)
+			log.ErrorContextf(ctx, "ignoring message with bad message id: [%v]", m.MessageId)
 			continue
 		}
 		err = d.service.ProcessMessage(ctx, m)
