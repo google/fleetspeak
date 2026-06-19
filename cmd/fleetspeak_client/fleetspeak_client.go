@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"time"
 
+	"flag"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"

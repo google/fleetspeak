@@ -18,9 +18,9 @@
 package main
 
 import (
-	"flag"
 	"io/ioutil"
 
+	"flag"
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 

@@ -17,12 +17,12 @@ package main
 
 import (
 	"context"
-	"flag"
 	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"flag"
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 

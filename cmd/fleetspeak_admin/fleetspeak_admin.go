@@ -22,7 +22,6 @@ package main
 
 import (
 	"flag"
-
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
