@@ -95,6 +95,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		Start:  db.Now(),
 		Status: http.StatusTeapot, // Should never actually be returned
 	}
+	var processingStarted bool
 	defer func() {
 		fin()
 		if pi.Status == http.StatusTeapot {
@@ -102,6 +103,9 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 		pi.End = db.Now()
 		s.fs().StatsCollector().ClientPoll(pi)
+		if processingStarted {
+			s.stopProcessing()
+		}
 	}()
 
 	if !s.startProcessing() {
@@ -110,7 +114,7 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Server not ready.", pi.Status)
 		return
 	}
-	defer s.stopProcessing()
+	processingStarted = true
 
 	if req.Method != http.MethodPost {
 		pi.Status = http.StatusBadRequest
