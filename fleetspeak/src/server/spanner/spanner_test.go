@@ -35,6 +35,7 @@ type spannerTestEnv struct {
 	database           string
 	pubsubTopic        string
 	pubsubSubscription string
+	current            db.Store
 }
 
 func (e *spannerTestEnv) Create() error {
@@ -42,6 +43,12 @@ func (e *spannerTestEnv) Create() error {
 }
 
 func (e *spannerTestEnv) Clean() (db.Store, error) {
+	if e.current != nil {
+		if err := e.current.Close(); err != nil {
+			log.Errorf("Error closing datastore: %v", err)
+		}
+		e.current = nil
+	}
 	ctx, fin := context.WithTimeout(context.Background(), 30*time.Second)
 	defer fin()
 	log.Info("Resetting PubSub Topic & Subscription")
@@ -77,6 +84,7 @@ func (e *spannerTestEnv) Clean() (db.Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.current = s
 	m := []*spanner.Mutation{
 		spanner.Delete(s.clients, spanner.AllKeys()),
 		spanner.Delete(s.messages, spanner.AllKeys()),
@@ -89,6 +97,12 @@ func (e *spannerTestEnv) Clean() (db.Store, error) {
 }
 
 func (e *spannerTestEnv) Destroy() error {
+	if e.current != nil {
+		if err := e.current.Close(); err != nil {
+			log.Errorf("Error closing datastore: %v", err)
+		}
+		e.current = nil
+	}
 	return nil
 }
 

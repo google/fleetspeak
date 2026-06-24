@@ -42,6 +42,7 @@ type Datastore struct {
 	pubsubClient               *pubsub.Client
 	pubsubSub                  *pubsub.Subscription
 	pubsubTopic                *pubsub.Topic
+	pubsubCancel               context.CancelFunc
 }
 
 // MakeDatastore creates any missing tables and returns a Datastore. The db
@@ -85,6 +86,7 @@ func MakeDatastore(projectID, inst, db, pubsubTopic, pubsubSubscription string) 
 // Close implements db.Store.
 // Close closes the underlying database resources.
 func (d *Datastore) Close() error {
+	d.StopMessageProcessor()
 	d.dbClient.Close()
 	if err := d.pubsubClient.Close(); err != nil {
 		return err

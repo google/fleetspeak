@@ -748,7 +748,12 @@ func (d *Datastore) tryClientMessagesForProcessing(ctx context.Context, id commo
 
 // RegisterMessageProcessor implements db.Store.
 func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
-	ctx := context.Background()
+	if d.pubsubCancel != nil {
+		d.pubsubCancel()
+	}
+	var ctx context.Context
+	ctx, d.pubsubCancel = context.WithCancel(context.Background())
+
 	go func() {
 		err := d.pubsubSub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
 			msgKeySet := spanner.KeySets()
@@ -771,5 +776,9 @@ func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 // StopMessageProcessor implements db.Store.
 func (d *Datastore) StopMessageProcessor() {
 	d.pubsubTopic.Stop()
+	if d.pubsubCancel != nil {
+		d.pubsubCancel()
+		d.pubsubCancel = nil
+	}
 	log.Error("+++ messagestore: StopMessageProcessor() called")
 }
