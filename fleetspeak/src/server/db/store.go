@@ -202,6 +202,9 @@ type ContactData struct {
 	// If non-empty, indicates that the contact is or was a streaming contact to
 	// the listed FS server. (As defined by notifications module being used.)
 	StreamingTo string
+
+	// The labels of the client at the time of contact.
+	Labels []*fspb.Label
 }
 
 // ClientStore provides methods to store and retrieve information about clients.

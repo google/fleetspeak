@@ -153,6 +153,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 			Addr:          addr.String(),
 			ClientClock:   cd.ClientClock,
 			StreamingTo:   streamingTo,
+			Labels:        res.Client.Labels,
 		})
 	if err != nil {
 		return nil, nil, false, err
