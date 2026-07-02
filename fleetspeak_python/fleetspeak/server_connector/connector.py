@@ -351,7 +351,8 @@ class ServiceClient(metaclass=abc.ABCMeta):
   implementation of this according to their grpc connection requirements.
   """
 
-  @abc.abstractmethod
+  outgoing: Any = None
+
   def __init__(
       self,
       service_name: str,
@@ -361,6 +362,7 @@ class ServiceClient(metaclass=abc.ABCMeta):
     Args:
       service_name: The Fleetspeak service name to communicate with.
     """
+    pass
 
   @abc.abstractmethod
   def Listen(
@@ -414,7 +416,7 @@ class InsecureGRPCServiceClient(ServiceClient):
           If both fleetspeak_message_listen_address and fleetspeak_server are
           unset.
     """
-    super(InsecureGRPCServiceClient, self).__init__(service_name)
+    super(InsecureGRPCServiceClient, self).__init__(service_name)  # pyrefly: ignore[missing-attribute]
 
     if fleetspeak_message_listen_address is None:
       fleetspeak_message_listen_address = (
