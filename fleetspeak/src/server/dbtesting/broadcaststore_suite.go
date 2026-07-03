@@ -184,7 +184,11 @@ func broadcastStoreTest(t *testing.T, ds db.Store) {
 
 	// Clean them all up.
 	for _, ids := range allocs {
-		if err := ds.CleanupAllocation(ctx, ids.bID, ids.aID); err != nil {
+		var finalSent uint64
+		if ids == allocs[0] || ids == allocs[4] {
+			finalSent = 1
+		}
+		if err := ds.CleanupAllocation(ctx, ids.bID, ids.aID, finalSent); err != nil {
 			t.Errorf("Unable to cleanup allocation %v: %v", ids, err)
 		}
 	}
@@ -248,8 +252,20 @@ func testDisableBroadcasts(t *testing.T, ds db.Store, bid ids.BroadcastID, clien
 		t.Errorf("Expected ErrBroadcastDisabled, got: %v", err)
 	}
 
+	// 3b. SaveBroadcastMessage with empty AllocationID (unlimited) should also fail with ErrBroadcastDisabled.
+	mid2, _ := common.RandomMessageID()
+	err = ds.SaveBroadcastMessage(ctx, &fspb.Message{
+		MessageId:    mid2.Bytes(),
+		Destination:  &fspb.Address{ClientId: clientID.Bytes(), ServiceName: "test"},
+		CreationTime: db.NowProto(),
+	}, bid, clientID, ids.AllocationID{})
+
+	if !errors.Is(err, db.ErrBroadcastDisabled) {
+		t.Errorf("Expected ErrBroadcastDisabled for empty AllocationID, got: %v", err)
+	}
+
 	// 4. CleanupAllocation should ignore the missing allocation and succeed gracefully.
-	if err := ds.CleanupAllocation(ctx, bid, a.ID); err != nil {
+	if err := ds.CleanupAllocation(ctx, bid, a.ID, 0); err != nil {
 		t.Errorf("CleanupAllocation failed for deleted allocation: %v", err)
 	}
 }
@@ -353,11 +369,95 @@ func testBroadcastReplacement(t *testing.T, ds db.Store) {
 	}
 }
 
+func testUnlimitedBroadcast(t *testing.T, ds db.Store) {
+	ctx := t.Context()
+
+	bID, err := ids.RandomBroadcastID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	br := &spb.Broadcast{
+		BroadcastId: bID.Bytes(),
+		Source:      &fspb.Address{ServiceName: "testService"},
+		MessageType: "UnlimitedBroadcastNoAlloc",
+	}
+
+	if err := ds.CreateBroadcast(ctx, br, db.BroadcastUnlimited); err != nil {
+		t.Fatalf("CreateBroadcast failed: %v", err)
+	}
+
+	clientID, _ := common.BytesToClientID([]byte{0, 0, 0, 0, 0, 0, 0, 9})
+	if err := ds.AddClient(ctx, clientID, &db.ClientData{
+		Key: []byte("client key"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Save broadcast message with empty AllocationID (unlimited broadcast bypass).
+	mID, _ := common.RandomMessageID()
+	msg := &fspb.Message{
+		MessageId:    mID.Bytes(),
+		Source:       &fspb.Address{ServiceName: "testService"},
+		Destination:  &fspb.Address{ClientId: clientID.Bytes(), ServiceName: "testService"},
+		MessageType:  "UnlimitedBroadcastNoAlloc",
+		CreationTime: db.NowProto(),
+	}
+
+	if err := ds.SaveBroadcastMessage(ctx, msg, bID, clientID, ids.AllocationID{}); err != nil {
+		t.Fatalf("SaveBroadcastMessage with empty AllocationID failed: %v", err)
+	}
+
+	// 2. Sent count in DB should still be 0 before CleanupAllocation.
+	bs, err := ds.ListActiveBroadcasts(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *db.BroadcastInfo
+	for _, b := range bs {
+		if bytes.Equal(b.Broadcast.BroadcastId, bID.Bytes()) {
+			found = b
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("Broadcast %v not found in active broadcasts", bID)
+	}
+	if found.Sent != 0 {
+		t.Errorf("Expected Sent count in DB to be 0 before cleanup, got %v", found.Sent)
+	}
+
+	// 3. CleanupAllocation with empty AllocationID and finalSent = 1.
+	if err := ds.CleanupAllocation(ctx, bID, ids.AllocationID{}, 1); err != nil {
+		t.Fatalf("CleanupAllocation with empty AllocationID failed: %v", err)
+	}
+
+	// 4. Sent count in DB should now be updated to 1.
+	bs, err = ds.ListActiveBroadcasts(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found = nil
+	for _, b := range bs {
+		if bytes.Equal(b.Broadcast.BroadcastId, bID.Bytes()) {
+			found = b
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("Broadcast %v not found in active broadcasts after cleanup", bID)
+	}
+	if found.Sent != 1 {
+		t.Errorf("Expected Sent count in DB to be 1 after cleanup, got %v", found.Sent)
+	}
+}
+
 func broadcastStoreTestSuite(t *testing.T, env DbTestEnv) {
 	t.Run("BroadcastStoreTestSuite", func(t *testing.T) {
 		runTestSuite(t, env, map[string]func(*testing.T, db.Store){
 			"BroadcastStoreTest":       broadcastStoreTest,
 			"BroadcastReplacementTest": testBroadcastReplacement,
+			"UnlimitedBroadcastTest":   testUnlimitedBroadcast,
 		})
 	})
 }

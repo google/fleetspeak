@@ -283,9 +283,9 @@ func (d MonitoredDatastore) CreateAllocation(ctx context.Context, id ids.Broadca
 	return res, err
 }
 
-func (d MonitoredDatastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID) error {
+func (d MonitoredDatastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID, finalSent uint64) error {
 	s := ftime.Now()
-	err := d.D.CleanupAllocation(ctx, bid, aid)
+	err := d.D.CleanupAllocation(ctx, bid, aid, finalSent)
 	d.C.DatastoreOperation(s, ftime.Now(), "CleanupAllocation", err)
 	return err
 }

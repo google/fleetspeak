@@ -229,6 +229,28 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 	}
 
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
+		if err := d.tryStoreMessage(ctx, tx, dbm, true); err != nil {
+			return err
+		}
+
+		if len(aID.Bytes()) == 0 {
+			var limit uint64
+			r := tx.QueryRowContext(ctx, "SELECT message_limit FROM broadcasts WHERE broadcast_id = ?", bID.Bytes())
+			if err := r.Scan(&limit); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return db.ErrBroadcastDisabled
+				}
+				return err
+			}
+			if limit == 0 {
+				return db.ErrBroadcastDisabled
+			}
+			if _, err := tx.ExecContext(ctx, "INSERT INTO broadcast_sent(broadcast_id, client_id) VALUES (?, ?)", bID.Bytes(), cID.Bytes()); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		var as, al uint64
 		exp := &tspb.Timestamp{}
 		r := tx.QueryRowContext(ctx, "SELECT sent, message_limit, expiration_time_seconds, expiration_time_nanos FROM broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.Bytes(), aID.Bytes())
@@ -249,14 +271,10 @@ func (d *Datastore) SaveBroadcastMessage(ctx context.Context, msg *fspb.Message,
 			return fmt.Errorf("SaveBroadcastMessage: broadcast allocation [%v, %v] is expired: %v", aID, bID, et)
 		}
 
-		if err := d.tryStoreMessage(ctx, tx, dbm, true); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO broadcast_sent(broadcast_id, client_id) VALUES (?, ?)", bID.Bytes(), cID.Bytes()); err != nil {
 			return err
 		}
-
-		if _, err := tx.ExecContext(ctx, "UPDATE broadcast_allocations SET sent = ? WHERE broadcast_id = ? AND allocation_id = ?", as+1, bID.Bytes(), aID.Bytes()); err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, "INSERT INTO broadcast_sent(broadcast_id, client_id) VALUES (?, ?)", bID.Bytes(), cID.Bytes())
+		_, err = tx.ExecContext(ctx, "UPDATE broadcast_allocations SET sent = ? WHERE broadcast_id = ? AND allocation_id = ?", as+1, bID.Bytes(), aID.Bytes())
 		return err
 	})
 }
@@ -422,12 +440,20 @@ func (d *Datastore) CreateAllocation(ctx context.Context, id ids.BroadcastID, fr
 	return ret, err
 }
 
-func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, aID ids.AllocationID) error {
+func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, aID ids.AllocationID, finalSent uint64) error {
 	return d.runInTx(ctx, false, func(tx *sql.Tx) error {
 		var b dbBroadcast
 		r := tx.QueryRowContext(ctx, "SELECT sent, allocated, message_limit FROM broadcasts WHERE broadcast_id = ?", bID.Bytes())
 		if err := r.Scan(&b.sent, &b.allocated, &b.messageLimit); err != nil {
 			return err
+		}
+
+		if len(aID.Bytes()) == 0 {
+			// Unlimited broadcast: no allocation in DB, just update Sent count.
+			if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET sent = ? WHERE broadcast_id = ?", b.sent+finalSent, bID.Bytes()); err != nil {
+				return err
+			}
+			return nil
 		}
 
 		var as, al uint64
@@ -442,7 +468,7 @@ func (d *Datastore) CleanupAllocation(ctx context.Context, bID ids.BroadcastID, 
 		if err != nil {
 			return fmt.Errorf("unable to clear allocation [%v,%v]: %v", bID.String(), aID.String(), err)
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET sent = ?, allocated = ? WHERE broadcast_id = ?", b.sent+as, newAllocated, bID.Bytes()); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE broadcasts SET sent = ?, allocated = ? WHERE broadcast_id = ?", b.sent+finalSent, newAllocated, bID.Bytes()); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, "DELETE from broadcast_allocations WHERE broadcast_id = ? AND allocation_id = ?", bID.Bytes(), aID.Bytes()); err != nil {

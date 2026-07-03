@@ -166,6 +166,27 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 		return err
 	}
 
+	sentCols := []string{"BroadcastID", "ClientID"}
+	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.broadcastSent, sentCols, []any{bid.Bytes(), cid.Bytes()})}
+
+	if len(aid.Bytes()) == 0 {
+		row, err := txn.ReadRow(ctx, d.broadcasts, spanner.Key{bid.Bytes()}, []string{"MessageLimit"})
+		if err != nil {
+			if spanner.ErrCode(err) == codes.NotFound {
+				return db.ErrBroadcastDisabled
+			}
+			return err
+		}
+		var limit int64
+		if err := row.Columns(&limit); err != nil {
+			return err
+		}
+		if limit == 0 {
+			return db.ErrBroadcastDisabled
+		}
+		return txn.BufferWrite(ms)
+	}
+
 	row, err := txn.ReadRow(ctx, d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}, []string{"Sent", "MessageLimit", "ExpiresTime"})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.NotFound {
@@ -194,9 +215,7 @@ func (d *Datastore) trySaveBroadcastMessage(ctx context.Context, txn *spanner.Re
 	}
 
 	allocationCols := []string{"BroadcastID", "AllocationID", "Sent"}
-	sentCols := []string{"BroadcastID", "ClientID"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcastAllocations, allocationCols, []any{bid.Bytes(), aid.Bytes(), sent + 1})}
-	ms = append(ms, spanner.InsertOrUpdate(d.broadcastSent, sentCols, []any{bid.Bytes(), cid.Bytes()}))
+	ms = append(ms, spanner.Update(d.broadcastAllocations, allocationCols, []any{bid.Bytes(), aid.Bytes(), sent + 1}))
 	return txn.BufferWrite(ms)
 }
 
@@ -331,15 +350,14 @@ func (d *Datastore) tryCreateAllocation(ctx context.Context, txn *spanner.ReadWr
 }
 
 // CleanupAllocation implements db.BroadcastStore.
-func (d *Datastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID) error {
+func (d *Datastore) CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID, finalSent uint64) error {
 	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		return d.tryCleanupAllocation(ctx, txn, bid, aid)
+		return d.tryCleanupAllocation(ctx, txn, bid, aid, finalSent)
 	})
 	return err
 }
 
-func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadWriteTransaction, bid ids.BroadcastID, aid ids.AllocationID) error {
-
+func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadWriteTransaction, bid ids.BroadcastID, aid ids.AllocationID, finalSent uint64) error {
 	row, err := txn.ReadRow(ctx, d.broadcasts, spanner.Key{bid.Bytes()}, []string{"Allocated", "Sent"})
 	if err != nil {
 		return err
@@ -349,15 +367,22 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 		return err
 	}
 
-	row, err = txn.ReadRow(ctx, d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}, []string{"MessageLimit", "Sent"})
+	if len(aid.Bytes()) == 0 {
+		// Unlimited broadcast: no allocation in DB, just update Sent count.
+		broadcastCols := []string{"BroadcastID", "Sent"}
+		ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []any{bid.Bytes(), bSent + int64(finalSent)})}
+		return txn.BufferWrite(ms)
+	}
+
+	row, err = txn.ReadRow(ctx, d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}, []string{"MessageLimit"})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.NotFound {
 			return nil
 		}
 		return err
 	}
-	var messageLimit, baSent int64
-	if err := row.Columns(&messageLimit, &baSent); err != nil {
+	var messageLimit int64
+	if err := row.Columns(&messageLimit); err != nil {
 		return err
 	}
 
@@ -367,7 +392,7 @@ func (d *Datastore) tryCleanupAllocation(ctx context.Context, txn *spanner.ReadW
 	}
 
 	broadcastCols := []string{"BroadcastID", "Allocated", "Sent"}
-	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []any{bid.Bytes(), int64(newAllocated), bSent + baSent})}
+	ms := []*spanner.Mutation{spanner.Update(d.broadcasts, broadcastCols, []any{bid.Bytes(), int64(newAllocated), bSent + int64(finalSent)})}
 	ms = append(ms, spanner.Delete(d.broadcastAllocations, spanner.Key{bid.Bytes(), aid.Bytes()}))
 	return txn.BufferWrite(ms)
 }

@@ -158,14 +158,15 @@ Infos:
 				continue Infos
 			}
 		}
+		info.useCount.Add(1)
 		if info.limit == db.BroadcastUnlimited {
 			atomic.AddUint64(&info.sent, 1)
 		} else {
 			if !limitedAtomicIncrement(&info.sent, info.limit) {
+				info.useCount.Done()
 				continue
 			}
 		}
-		info.useCount.Add(1)
 		is = append(is, info)
 	}
 	m.l.RUnlock()
@@ -178,10 +179,8 @@ Infos:
 		mid, err := common.RandomMessageID()
 		if err != nil {
 			log.Errorf("unable to create message id: %v", err)
-			if i.limit != db.BroadcastUnlimited {
-				// Incantation to decrement a uint64, recommend AddUint64 docs:
-				atomic.AddUint64(&i.sent, ^uint64(0))
-			}
+			// Incantation to decrement a uint64, recommend AddUint64 docs:
+			atomic.AddUint64(&i.sent, ^uint64(0))
 			i.useCount.Done()
 			continue
 		}
@@ -196,17 +195,19 @@ Infos:
 			Data:         i.b.Data,
 			CreationTime: db.NowProto(),
 		}
-		i.lock.Lock()
-		err = m.bs.SaveBroadcastMessage(ctx, msg, i.bID, id, i.aID)
-		i.lock.Unlock()
+		if i.limit == db.BroadcastUnlimited {
+			err = m.bs.SaveBroadcastMessage(ctx, msg, i.bID, id, ids.AllocationID{})
+		} else {
+			i.lock.Lock()
+			err = m.bs.SaveBroadcastMessage(ctx, msg, i.bID, id, i.aID)
+			i.lock.Unlock()
+		}
 		if err != nil {
 			if !errors.Is(err, db.ErrBroadcastDisabled) {
 				log.Errorf("SaveBroadcastMessage of instance of broadcast %v failed. Not sending. [%v]", i.bID, err)
 			}
-			if i.limit != db.BroadcastUnlimited {
-				// Incantation to decrement a uint64, recommend by AddUint64 docs:
-				atomic.AddUint64(&i.sent, ^uint64(0))
-			}
+			// Incantation to decrement a uint64, recommend by AddUint64 docs:
+			atomic.AddUint64(&i.sent, ^uint64(0))
 			i.useCount.Done()
 			continue
 		}
@@ -260,22 +261,27 @@ func (m *Manager) refreshInfo(ctx context.Context) error {
 			if b.Sent == b.Limit {
 				continue
 			}
-			a, err := m.bs.CreateAllocation(ctx, id, allocFrac, ftime.Now().Add(allocDuration))
-			if err != nil {
-				log.Errorf("Unable to create alloc for broadcast %v, skipping: %v", id, err)
-				continue
+			info := &bInfo{
+				bID:   id,
+				b:     b.Broadcast,
+				limit: b.Limit,
+				sent:  0,
 			}
-			if a != nil {
-				newAllocs[id] = &bInfo{
-					bID: id,
-					b:   b.Broadcast,
-
-					aID:    a.ID,
-					limit:  a.Limit,
-					sent:   0,
-					expiry: a.Expiry,
+			if b.Limit != db.BroadcastUnlimited {
+				a, err := m.bs.CreateAllocation(ctx, id, allocFrac, ftime.Now().Add(allocDuration))
+				if err != nil {
+					log.Errorf("Unable to create alloc for broadcast %v, skipping: %v", id, err)
+					continue
 				}
+				if a == nil {
+					// No remaining messages to allocate.
+					continue
+				}
+				info.aID = a.ID
+				info.limit = a.Limit
+				info.expiry = a.Expiry
 			}
+			newAllocs[id] = info
 		}
 	}
 
@@ -309,7 +315,8 @@ func (m *Manager) refreshInfo(ctx context.Context) error {
 	// cleanup everything we can, even if there are errors.
 	for _, a := range c {
 		a.useCount.Wait()
-		if err := m.bs.CleanupAllocation(ctx, a.bID, a.aID); err != nil {
+		finalSent := atomic.LoadUint64(&a.sent)
+		if err := m.bs.CleanupAllocation(ctx, a.bID, a.aID, finalSent); err != nil {
 			errMsgs = append(errMsgs, fmt.Sprintf("[%v,%v]:\"%v\"", a.bID, a.aID, err))
 		}
 	}
@@ -378,7 +385,8 @@ func (m *Manager) Close(ctx context.Context) error {
 	var errMsgs []string
 	for _, i := range m.infos {
 		i.useCount.Wait()
-		if err := m.bs.CleanupAllocation(ctx, i.bID, i.aID); err != nil {
+		finalSent := atomic.LoadUint64(&i.sent)
+		if err := m.bs.CleanupAllocation(ctx, i.bID, i.aID, finalSent); err != nil {
 			errMsgs = append(errMsgs, fmt.Sprintf("[%v,%v]:\"%v\"", i.bID, i.aID, err))
 		}
 	}

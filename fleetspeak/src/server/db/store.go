@@ -360,6 +360,9 @@ type BroadcastStore interface {
 	DisableBroadcasts(ctx context.Context, bIDs []ids.BroadcastID) error
 
 	// SaveBroadcastMessage saves a new broadcast message.
+	// If aid is empty, saving the message does not update any allocation. If the
+	// broadcast identified by bid is disabled, SaveBroadcastMessage returns
+	// [ErrBroadcastDisabled].
 	SaveBroadcastMessage(ctx context.Context, msg *fspb.Message, bid ids.BroadcastID, cid common.ClientID, aid ids.AllocationID) error
 
 	// ListActiveBroadcasts lists broadcasts which could be sent to some
@@ -374,10 +377,10 @@ type BroadcastStore interface {
 	// expiry. Return nil if there is no message allocation available.
 	CreateAllocation(ctx context.Context, id ids.BroadcastID, frac float32, expiry time.Time) (*AllocationInfo, error)
 
-	// CleanupAllocation deletes the identified allocation record and
-	// updates the broadcast sent count according to the number that were
-	// actually sent under the given allocation.
-	CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID) error
+	// CleanupAllocation increases the broadcast sent count in the datastore
+	// according to finalSent and deletes the specified allocation record if aid
+	// is non-empty.
+	CleanupAllocation(ctx context.Context, bid ids.BroadcastID, aid ids.AllocationID, finalSent uint64) error
 }
 
 // ReadSeekerCloser groups io.ReadSeeker and io.Closer.
