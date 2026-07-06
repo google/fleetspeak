@@ -414,7 +414,7 @@ class InsecureGRPCServiceClient(ServiceClient):
           If both fleetspeak_message_listen_address and fleetspeak_server are
           unset.
     """
-    super(InsecureGRPCServiceClient, self).__init__(service_name)
+    super(InsecureGRPCServiceClient, self).__init__(service_name)  # pyrefly: ignore[missing-attribute]
 
     if fleetspeak_message_listen_address is None:
       fleetspeak_message_listen_address = (
