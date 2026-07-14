@@ -92,7 +92,7 @@ func ExitUngracefully(cause error) {
 // dumpProfile writes the given pprof profile to disk with the given debug flag.
 func dumpProfile(profileDir, profileName string, pprofDebugFlag int) error {
 	profileDumpPath := filepath.Join(profileDir, fmt.Sprintf("fleetspeakd-%s-pprof-%d-%v", profileName, os.Getpid(), time.Now().Format("2006-01-02-15-04-05.000")))
-	fileWriter, err := os.Create(profileDumpPath)
+	fileWriter, err := os.OpenFile(profileDumpPath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return fmt.Errorf("unable to create profile file %q: %v", profileDumpPath, err)
 	}
