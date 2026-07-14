@@ -747,6 +747,9 @@ func (d *Datastore) tryClientMessagesForProcessing(ctx context.Context, id commo
 }
 
 // RegisterMessageProcessor implements db.Store.
+// RegisterMessageProcessor starts a background listener for server message notifications delivered via Pub/Sub.
+// Notifications are ACKed only after message processing completes and a MessageResult is saved to Spanner.
+// If the message is not yet committed or processing fails transiently, the notification is NACKed to trigger Pub/Sub redelivery.
 func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 	if d.pubsubCancel != nil {
 		d.pubsubCancel()
@@ -756,16 +759,20 @@ func (d *Datastore) RegisterMessageProcessor(mp db.MessageProcessor) {
 
 	go func() {
 		err := d.pubsubSub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
-			msgKeySet := spanner.KeySets()
-			msgKeySet = spanner.KeySets(
-				spanner.KeySets(spanner.Key{msg.Data}), msgKeySet)
-			msgs, err := d.tryGetMessages(ctx, msgKeySet, true)
-			if err == nil {
-				msg.Ack()
-				mp.ProcessMessages(msgs)
-			} else {
+			msgKey := spanner.Key{msg.Data}
+			msgs, err := d.tryGetMessages(ctx, msgKey, true)
+			if err != nil || len(msgs) != 1 {
 				msg.Nack()
+				return
 			}
+			mp.ProcessMessages(msgs)
+
+			processedMsgs, err := d.tryGetMessages(ctx, msgKey, false)
+			if err == nil && len(processedMsgs) == 1 && processedMsgs[0].Result != nil {
+				msg.Ack()
+				return
+			}
+			msg.Nack()
 		})
 		if err != nil && err != context.Canceled {
 			log.Errorf("Failed to receive server message for processing: %v", err)
