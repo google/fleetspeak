@@ -488,6 +488,45 @@ func TestPendingMessages(t *testing.T) {
 		}
 	})
 
+	t.Run("GetPendingMessages/RestrictPayloadRetrieval", func(t *testing.T) {
+		restrictedServer := admin.NewServerWithOptions(ts.DS, nil, admin.Options{
+			RestrictPayloadRetrieval: true,
+		})
+
+		t.Run("WantData=true", func(t *testing.T) {
+			greq := &spb.GetPendingMessagesRequest{
+				ClientIds: [][]byte{id.Bytes()},
+				WantData:  true,
+			}
+			if _, err := restrictedServer.GetPendingMessages(ctx, greq); err == nil {
+				t.Fatal("GetPendingMessages(WantData=true) with RestrictPayloadRetrieval should fail, but got nil error")
+			} else if !strings.Contains(err.Error(), "retrieving payloads of pending messages is not permitted") {
+				t.Fatalf("Unexpected error message: %v", err)
+			}
+		})
+
+		t.Run("WantData=false", func(t *testing.T) {
+			greq := &spb.GetPendingMessagesRequest{
+				ClientIds: [][]byte{id.Bytes()},
+				WantData:  false,
+			}
+			gresp, err := restrictedServer.GetPendingMessages(ctx, greq)
+			if err != nil {
+				t.Fatalf("GetPendingMessages returned error: %v", err)
+			}
+			if len(gresp.Messages) != len(msgs) {
+				t.Fatalf("Bad size of returned messages. Expected: %v. Got: %v.", len(msgs), len(gresp.Messages))
+			}
+			for i, msg := range msgs {
+				expectedMessage := proto.Clone(msg).(*fspb.Message)
+				expectedMessage.Data = nil
+				if !proto.Equal(gresp.Messages[i], expectedMessage) {
+					t.Fatalf("Got bad message. Expected: [%v]. Got: [%v].", expectedMessage, gresp.Messages[i])
+				}
+			}
+		})
+	})
+
 	// Delete the message from the pending messages list.
 
 	t.Run("DeletePendingMessages", func(t *testing.T) {

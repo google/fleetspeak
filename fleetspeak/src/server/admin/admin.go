@@ -41,15 +41,27 @@ const (
 	maxMsgSize = 2 << 20 // 2MiB
 )
 
+// Options are optional settings for the admin server.
+type Options struct {
+	RestrictPayloadRetrieval bool // Whether to allow retrieving payloads of pending messages.
+}
+
 // NewServer returns an admin_grpc.AdminServer which performs operations using
 // the provided db.Store.
 func NewServer(s db.Store, n notifications.Notifier) sgrpc.AdminServer {
+	return NewServerWithOptions(s, n, Options{})
+}
+
+// NewServerWithOptions returns an admin_grpc.AdminServer which performs
+// operations using the provided db.Store and options.
+func NewServerWithOptions(s db.Store, n notifications.Notifier, o Options) sgrpc.AdminServer {
 	if n == nil {
 		n = inotifications.NoopNotifier{}
 	}
 	return adminServer{
 		store:    s,
 		notifier: n,
+		options:  o,
 	}
 }
 
@@ -59,6 +71,7 @@ type adminServer struct {
 
 	store    db.Store
 	notifier notifications.Notifier
+	options  Options
 }
 
 func (s adminServer) CreateBroadcast(ctx context.Context, req *spb.CreateBroadcastRequest) (*fspb.EmptyMessage, error) {
@@ -289,6 +302,10 @@ func (s adminServer) DeletePendingMessages(ctx context.Context, r *spb.DeletePen
 }
 
 func (s adminServer) GetPendingMessages(ctx context.Context, r *spb.GetPendingMessagesRequest) (*spb.GetPendingMessagesResponse, error) {
+	if r.WantData && s.options.RestrictPayloadRetrieval {
+		return nil, errors.New("retrieving payloads of pending messages is not permitted")
+	}
+
 	ids, err := s.bytesToClientIds(r.ClientIds)
 	if err != nil {
 		return nil, err
