@@ -59,10 +59,10 @@ type Communicator struct {
 
 	certBytes []byte
 
-	wakeUp       chan struct{}
-	pollComplete chan error
-	mu           sync.Mutex
-	pollCancel   context.CancelFunc
+	wakeUp      chan struct{}
+	mu          sync.Mutex
+	pollDone    chan struct{}
+	lastPollErr error
 }
 
 // Setup implements comms.Communicator.
@@ -114,7 +114,7 @@ func (c *Communicator) configure() error {
 	c.ctx, c.done = context.WithCancel(context.Background())
 	c.clientCertificateHeader = si.ClientCertificateHeader
 	c.wakeUp = make(chan struct{}, 1)
-	c.pollComplete = make(chan error, 1)
+	c.pollDone = make(chan struct{})
 	c.certBytes = certBytes
 	return nil
 }
@@ -137,17 +137,7 @@ func (c *Communicator) Stop() {
 // Reset implements comms.Communicator.
 func (c *Communicator) Reset() {
 	log.Infof("Reset called")
-	c.mu.Lock()
-	if c.pollCancel != nil {
-		c.pollCancel()
-	}
-	c.mu.Unlock()
 	c.hc.Transport.(*http.Transport).CloseIdleConnections()
-	// Drain pollComplete to ensure Flush waits for a new poll.
-	select {
-	case <-c.pollComplete:
-	default:
-	}
 	select {
 	case c.wakeUp <- struct{}{}:
 	default:
@@ -157,13 +147,17 @@ func (c *Communicator) Reset() {
 // Flush implements comms.Communicator.
 func (c *Communicator) Flush(ctx context.Context) error {
 	log.InfoContextf(ctx, "Flush called")
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case err := <-c.pollComplete:
-			return err
-		}
+	c.mu.Lock()
+	done := c.pollDone
+	c.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		return c.lastPollErr
 	}
 }
 
@@ -194,10 +188,11 @@ func (c *Communicator) processingLoop() {
 	poll := func() {
 		var err error
 		defer func() {
-			select {
-			case c.pollComplete <- err:
-			default:
-			}
+			c.mu.Lock()
+			c.lastPollErr = err
+			close(c.pollDone)
+			c.pollDone = make(chan struct{})
+			c.mu.Unlock()
 		}()
 		c.wd.Reset()
 		if c.cctx.CurrentID() != c.id {
@@ -396,17 +391,7 @@ func (c *Communicator) pollHost(host string, data []byte) (*fspb.ContactData, er
 	if sendErr != nil {
 		return nil, sendErr
 	}
-	var reqCtx context.Context
-	c.mu.Lock()
-	reqCtx, c.pollCancel = context.WithCancel(c.ctx)
-	c.mu.Unlock()
-	defer func() {
-		c.mu.Lock()
-		c.pollCancel()
-		c.pollCancel = nil
-		c.mu.Unlock()
-	}()
-	req = req.WithContext(reqCtx)
+	req = req.WithContext(c.ctx)
 	SetContentEncoding(req.Header, c.conf.GetCompression())
 	if c.clientCertificateHeader != "" {
 		bc := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.certBytes})
