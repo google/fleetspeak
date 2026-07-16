@@ -130,6 +130,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
 		return nil, nil, false, fmt.Errorf("unable to parse contact_data: %v", err)
 	}
+	wcd.Reset() // Free the raw bytes
 	if len(cd.Messages) > maxMessagesPerContact {
 		return nil, nil, false, fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}
@@ -235,6 +236,7 @@ func (c commsContext) HandleMessagesFromClient(ctx context.Context, info *comms.
 	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
 		return fmt.Errorf("unable to parse contact_data: %v", err)
 	}
+	wcd.Reset() // Free the raw bytes
 	if len(cd.Messages) > maxMessagesPerContact {
 		return fmt.Errorf("contact_data contains %d messages, only %d allowed", len(cd.Messages), maxMessagesPerContact)
 	}

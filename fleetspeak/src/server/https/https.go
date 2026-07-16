@@ -17,7 +17,10 @@
 package https
 
 import (
+	"bytes"
 	"crypto/tls"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -26,7 +29,9 @@ import (
 	log "github.com/golang/glog"
 	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
+	"google.golang.org/protobuf/proto"
 
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
 )
 
@@ -93,6 +98,7 @@ type Params struct {
 	StreamingJitter             time.Duration                                        // Maximum amount of jitter to add to StreamingLifespan.
 	MaxPerClientBatchProcessors uint32                                               // Maximum number of concurrent processors for messages coming from a single client.
 	FileServerAuthorization     bool                                                 // Whether to authorize file server requests using the authorizer.
+	MaxReusableBufferSize       int                                                  // Maximum size of http request body byte buffers to reuse using a [sync.Pool].
 }
 
 // NewCommunicator creates a Communicator, which listens through l and identifies
@@ -236,4 +242,48 @@ func (c *Communicator) startProcessing() bool {
 
 func (c *Communicator) stopProcessing() {
 	c.pending.Done()
+}
+
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+func getBuffer(size, maxSize int) *bytes.Buffer {
+	if size > maxSize {
+		return bytes.NewBuffer(make([]byte, 0, size))
+	}
+	b := bufferPool.Get().(*bytes.Buffer)
+	b.Reset()
+	b.Grow(size)
+	return b
+}
+
+func putBuffer(b *bytes.Buffer, maxSize int) {
+	if b != nil && b.Cap() <= maxSize {
+		bufferPool.Put(b)
+	}
+}
+
+func readWrappedContactData(r io.Reader, size, maxReusableBufferSize int) (*fspb.WrappedContactData, int, error) {
+	b := getBuffer(size, maxReusableBufferSize)
+	defer putBuffer(b, maxReusableBufferSize)
+
+	var err error
+	if size > 0 {
+		_, err = io.CopyN(b, r, int64(size))
+	} else {
+		_, err = b.ReadFrom(r)
+	}
+	readBytes := b.Len()
+	if err != nil {
+		return nil, readBytes, fmt.Errorf("error reading body: %w", err)
+	}
+
+	wcd := &fspb.WrappedContactData{}
+	if err := proto.Unmarshal(b.Bytes(), wcd); err != nil {
+		return nil, readBytes, fmt.Errorf("error parsing body: %w", err)
+	}
+	return wcd, readBytes, nil
 }

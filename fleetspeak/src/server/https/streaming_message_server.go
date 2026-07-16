@@ -229,20 +229,14 @@ func (s *streamingMessageServer) initialPoll(ctx context.Context, addr net.Addr,
 		return nil, false, makeError(fmt.Sprintf("initial contact size too large: got %d, expected at most %d", size, MaxContactSize), http.StatusBadRequest)
 	}
 
-	buf := make([]byte, size)
-	_, err = io.ReadFull(body, buf)
-	if err != nil {
-		return nil, false, makeError(fmt.Sprintf("error reading body for initial exchange: %v", err), http.StatusBadRequest)
-	}
+	wcd, readBytes, err := readWrappedContactData(body, int(size), s.p.MaxReusableBufferSize)
 	pi.ReadTime = time.Since(st)
-	pi.ReadBytes = int(size)
-
-	var wcd fspb.WrappedContactData
-	if err := proto.Unmarshal(buf, &wcd); err != nil {
-		return nil, false, makeError(fmt.Sprintf("error parsing body: %v", err), http.StatusBadRequest)
+	pi.ReadBytes = readBytes
+	if err != nil {
+		return nil, false, makeError(err.Error(), http.StatusBadRequest)
 	}
 
-	info, toSend, more, err := s.fs().InitializeConnection(ctx, addr, key, &wcd, true)
+	info, toSend, more, err := s.fs().InitializeConnection(ctx, addr, key, wcd, true)
 	if err == comms.ErrNotAuthorized {
 		return nil, false, makeError("not authorized", http.StatusServiceUnavailable)
 	}
@@ -374,18 +368,12 @@ func (m *streamManager) readOne() (*stats.PollInfo, *fspb.WrappedContactData, er
 		}
 		pi.End = db.Now()
 	}()
-	buf := make([]byte, size)
-	if _, err := io.ReadFull(m.body, buf); err != nil {
-		pi.Status = http.StatusBadRequest
-		return pi, nil, fmt.Errorf("error reading streamed data: %v", err)
-	}
+	wcd, readBytes, err := readWrappedContactData(m.body, int(size), m.s.p.MaxReusableBufferSize)
 	pi.ReadTime = time.Since(pi.Start)
-	pi.ReadBytes = int(size)
-
-	wcd := &fspb.WrappedContactData{}
-	if err = proto.Unmarshal(buf, wcd); err != nil {
+	pi.ReadBytes = readBytes
+	if err != nil {
 		pi.Status = http.StatusBadRequest
-		return pi, nil, fmt.Errorf("error parsing streamed data: %v", err)
+		return pi, nil, err
 	}
 
 	// Validate message early to provide feedback to the agent and fail with a

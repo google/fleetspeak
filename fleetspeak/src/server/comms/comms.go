@@ -131,6 +131,9 @@ type Context interface {
 	//
 	// In addition, returns an indication whether there might be additional
 	// messages for the client.
+	//
+	// InitializeConnection takes ownership of wcd and may mutate it during
+	// processing. The caller must not use wcd after this function returns.
 	InitializeConnection(ctx context.Context, addr net.Addr, key crypto.PublicKey, wcd *fspb.WrappedContactData, streaming bool) (i *ConnectionInfo, d *fspb.ContactData, more bool, err error)
 
 	// ValidateMessagesFromClient validates the message contained in WrappedContactData.
@@ -140,6 +143,9 @@ type Context interface {
 	// HandleMessagesFromClient processes the messages contained in a WrappedContactData
 	// received from the client.  The ConnectionInfo parameter should have been
 	// created by an InitializeConnection call made for this connection.
+	//
+	// HandleMessagesFromClient takes ownership of wcd and may mutate it during
+	// processing. The caller must not use wcd after this function returns.
 	HandleMessagesFromClient(ctx context.Context, info *ConnectionInfo, wcd *fspb.WrappedContactData) error
 
 	// GetMessagesForClient finds unprocessed messages for a given client and

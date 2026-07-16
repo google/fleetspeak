@@ -17,7 +17,6 @@ package https
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -30,8 +29,6 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
-
-	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 // messageServer uses a subset of Communicator in order to handle clients polls.
@@ -147,31 +144,24 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 	pi.ID = id
 
-	req.Body = http.MaxBytesReader(res, req.Body, MaxContactSize+1)
-	st := time.Now()
-	buf, err := io.ReadAll(req.Body)
-	pi.ReadTime = time.Since(st)
-	pi.ReadBytes = len(buf)
-
-	if len(buf) > MaxContactSize {
+	if req.ContentLength > MaxContactSize {
 		pi.Status = http.StatusBadRequest
 		http.Error(res, fmt.Sprintf("body can't be larger than %v bytes", MaxContactSize), pi.Status)
 		return
 	}
+	req.Body = http.MaxBytesReader(res, req.Body, MaxContactSize+1)
+	st := time.Now()
+	wcd, readBytes, err := readWrappedContactData(req.Body, int(req.ContentLength), s.p.MaxReusableBufferSize)
+	pi.ReadTime = time.Since(st)
+	pi.ReadBytes = readBytes
 	if err != nil {
 		pi.Status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("error reading body: %v", err), pi.Status)
-		return
-	}
-	var wcd fspb.WrappedContactData
-	if err = proto.Unmarshal(buf, &wcd); err != nil {
-		pi.Status = http.StatusBadRequest
-		http.Error(res, fmt.Sprintf("error parsing body: %v", err), pi.Status)
+		http.Error(res, err.Error(), pi.Status)
 		return
 	}
 	addr := addrFromString(req.RemoteAddr)
 
-	info, toSend, _, err := s.fs().InitializeConnection(ctx, addr, cert.PublicKey, &wcd, false)
+	info, toSend, _, err := s.fs().InitializeConnection(ctx, addr, cert.PublicKey, wcd, false)
 	if err == comms.ErrNotAuthorized {
 		pi.Status = http.StatusServiceUnavailable
 		http.Error(res, "not authorized", pi.Status)
