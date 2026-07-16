@@ -42,7 +42,10 @@ type Service interface {
 	// net.Error which reports as a timeout or temporary error, the message will
 	// be retried according the ServerRetryPolicy. Otherwise the error will be
 	// assumed to be permanent.
-	ProcessMessage(context.Context, *fspb.Message) error
+	// The implementation is allowed to set `m.Data = nil` to optimize memory
+	// usage if the operation is successful. On failure, it must make sure that
+	// `m.Data` is still intact when returning.
+	ProcessMessage(ctx context.Context, m *fspb.Message) error
 
 	// Stop initiates and waits for an orderly shut down. It will only be
 	// called when there are no more active calls to ProcessMessage and
