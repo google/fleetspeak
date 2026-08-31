@@ -2,7 +2,7 @@ configuration_name: "Example"
 
 components_config {
 
-  mysql_data_source_name: "fleetspeak-user:fleetspeak-password@tcp(mysql-server:3306)/fleetspeak"
+  mysql_data_source_name: "fleetspeak-user:FS_PASSWORD@tcp(mysql-server:3306)/fleetspeak"
 
   https_config {
     listen_address: "fleetspeak-server:9090"
