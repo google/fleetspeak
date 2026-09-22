@@ -205,7 +205,7 @@ func (s adminServer) StreamClientContacts(req *spb.StreamClientContactsRequest, 
 	return s.store.StreamClientContacts(srv.Context(), id, callback)
 }
 
-func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.EmptyMessage, error) {
+func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*spb.InsertMessageResponse, error) {
 	// At this point, we mostly trust the message we get, but do some basic
 	// sanity checks and generate missing metadata.
 	if m.Destination == nil || m.Destination.ServiceName == "" {
@@ -214,6 +214,8 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 	if m.Source == nil || m.Source.ServiceName == "" {
 		return nil, errors.New("message must have Source")
 	}
+
+	// TODO hardening should be added here (disallow a pre-provided message ID). See b/563331518
 	if len(m.MessageId) == 0 {
 		id, err := common.RandomMessageID()
 		if err != nil {
@@ -272,7 +274,7 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*fspb.
 		}
 	}
 
-	return &fspb.EmptyMessage{}, nil
+	return &spb.InsertMessageResponse{MessageId: m.MessageId}, nil
 }
 
 func (s adminServer) bytesToClientIds(ids [][]byte) ([]common.ClientID, error) {
