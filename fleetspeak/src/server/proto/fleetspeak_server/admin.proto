@@ -46,6 +46,12 @@ message StreamClientIdsResponse {
   bytes client_id = 1;
 }
 
+// The response to InsertMessage calls on Admin service.
+message InsertMessageResponse {
+  // The inserted message ID.
+  bytes message_id = 1;
+}
+
 message Client {
   // Next unused tag: 8
 
@@ -173,9 +179,8 @@ service Admin {
 
   // InsertMessage inserts a message into the Fleetspeak system to be processed
   // by the server or delivered to a client.
-  // TODO: Have this method return the message that is written to the
-  // datastore (or at least the id).
-  rpc InsertMessage(fleetspeak.Message) returns (fleetspeak.EmptyMessage) {}
+  // Returns the ID of the message that is written to the datastore.
+  rpc InsertMessage(fleetspeak.Message) returns (InsertMessageResponse) {}
 
   // DeletePendingMessages clears message queues for given clients.
   rpc DeletePendingMessages(DeletePendingMessagesRequest)

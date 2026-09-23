@@ -62,9 +62,8 @@ type AdminClient interface {
 	GetMessageStatus(ctx context.Context, in *GetMessageStatusRequest, opts ...grpc.CallOption) (*GetMessageStatusResponse, error)
 	// InsertMessage inserts a message into the Fleetspeak system to be processed
 	// by the server or delivered to a client.
-	// TODO: Have this method return the message that is written to the
-	// datastore (or at least the id).
-	InsertMessage(ctx context.Context, in *fleetspeak.Message, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
+	// Returns the ID of the message that is written to the datastore.
+	InsertMessage(ctx context.Context, in *fleetspeak.Message, opts ...grpc.CallOption) (*InsertMessageResponse, error)
 	// DeletePendingMessages clears message queues for given clients.
 	DeletePendingMessages(ctx context.Context, in *DeletePendingMessagesRequest, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error)
 	// Returns the pending messages for given clients.
@@ -191,9 +190,9 @@ func (c *adminClient) GetMessageStatus(ctx context.Context, in *GetMessageStatus
 	return out, nil
 }
 
-func (c *adminClient) InsertMessage(ctx context.Context, in *fleetspeak.Message, opts ...grpc.CallOption) (*fleetspeak.EmptyMessage, error) {
+func (c *adminClient) InsertMessage(ctx context.Context, in *fleetspeak.Message, opts ...grpc.CallOption) (*InsertMessageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(fleetspeak.EmptyMessage)
+	out := new(InsertMessageResponse)
 	err := c.cc.Invoke(ctx, Admin_InsertMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -304,9 +303,8 @@ type AdminServer interface {
 	GetMessageStatus(context.Context, *GetMessageStatusRequest) (*GetMessageStatusResponse, error)
 	// InsertMessage inserts a message into the Fleetspeak system to be processed
 	// by the server or delivered to a client.
-	// TODO: Have this method return the message that is written to the
-	// datastore (or at least the id).
-	InsertMessage(context.Context, *fleetspeak.Message) (*fleetspeak.EmptyMessage, error)
+	// Returns the ID of the message that is written to the datastore.
+	InsertMessage(context.Context, *fleetspeak.Message) (*InsertMessageResponse, error)
 	// DeletePendingMessages clears message queues for given clients.
 	DeletePendingMessages(context.Context, *DeletePendingMessagesRequest) (*fleetspeak.EmptyMessage, error)
 	// Returns the pending messages for given clients.
@@ -359,7 +357,7 @@ func (UnimplementedAdminServer) StreamClientContacts(*StreamClientContactsReques
 func (UnimplementedAdminServer) GetMessageStatus(context.Context, *GetMessageStatusRequest) (*GetMessageStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMessageStatus not implemented")
 }
-func (UnimplementedAdminServer) InsertMessage(context.Context, *fleetspeak.Message) (*fleetspeak.EmptyMessage, error) {
+func (UnimplementedAdminServer) InsertMessage(context.Context, *fleetspeak.Message) (*InsertMessageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InsertMessage not implemented")
 }
 func (UnimplementedAdminServer) DeletePendingMessages(context.Context, *DeletePendingMessagesRequest) (*fleetspeak.EmptyMessage, error) {
