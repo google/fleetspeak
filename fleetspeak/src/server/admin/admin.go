@@ -214,8 +214,10 @@ func (s adminServer) InsertMessage(ctx context.Context, m *fspb.Message) (*spb.I
 	if m.Source == nil || m.Source.ServiceName == "" {
 		return nil, errors.New("message must have Source")
 	}
+	if m.Result != nil {
+		return nil, errors.New("cannot insert message with pre-set Result")
+	}
 
-	// TODO(b/563331518): hardening should be added here (disallow a pre-provided message ID).
 	if len(m.MessageId) == 0 {
 		id, err := common.RandomMessageID()
 		if err != nil {
