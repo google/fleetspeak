@@ -229,8 +229,10 @@ type Message struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// A hash based on origin and origin_message_id. It is set by the fleetspeak
-	// system on message intake and may be used for deduplication.
+	// A hash based on origin and source_message_id (when the message is sent from
+	// the client), or a random UUID (when the message is sent from the server).
+	// It is set by the fleetspeak system on message intake and may be used for
+	// deduplication.
 	MessageId []byte `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
 	// The source of the messages. Required.
 	Source *Address `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`

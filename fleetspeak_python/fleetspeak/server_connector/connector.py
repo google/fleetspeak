@@ -199,7 +199,7 @@ class OutgoingConnection(object):
       message: common_pb2.Message,
       timeout: Optional[datetime.timedelta] = None,
       single_try_timeout: Optional[datetime.timedelta] = None,
-  ) -> None:
+  ) -> admin_pb2.InsertMessageResponse:
     """Inserts a message into the Fleetspeak server.
 
     Sets message.source, if unset.
@@ -210,6 +210,9 @@ class OutgoingConnection(object):
         a default of 30 seconds is used.
       single_try_timeout: A timeout for each try. If not specified, will be set
         to the same value as "timeout".
+
+    Returns:
+      The InsertMessageResponse from the Fleetspeak server.
 
     Raises:
       grpc.RpcError: if the RPC fails.
@@ -229,8 +232,8 @@ class OutgoingConnection(object):
     if not message.message_id:
       message.message_id = os.urandom(32)
 
-    def Fn(t: datetime.timedelta) -> None:
-      self._stub.InsertMessage(message, timeout=t.total_seconds())
+    def Fn(t: datetime.timedelta) -> admin_pb2.InsertMessageResponse:
+      return self._stub.InsertMessage(message, timeout=t.total_seconds())
 
     return RetryLoop(Fn, timeout=timeout, single_try_timeout=single_try_timeout)
 
@@ -451,7 +454,7 @@ class InsecureGRPCServiceClient(ServiceClient):
   def Send(
       self,
       message: common_pb2.Message,
-  ) -> None:
+  ) -> admin_pb2.InsertMessageResponse:
     """Send one message.
 
     Deprecated, users should migrate to call self.outgoing.InsertMessage
@@ -459,10 +462,16 @@ class InsecureGRPCServiceClient(ServiceClient):
 
     Args:
       message: A message to send.
+
+    Returns:
+      The InsertMessageResponse from the Fleetspeak server.
+
+    Raises:
+      NotConfigured: If the outgoing address is not provided.
     """
     if not self.outgoing:
       raise NotConfigured("Send address not provided.")
-    self.outgoing.InsertMessage(message)
+    return self.outgoing.InsertMessage(message)
 
   def Listen(
       self,
