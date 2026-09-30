@@ -142,9 +142,21 @@ func (c *Communicator) Reset() {
 	log.Infof("Reset called")
 	c.mu.Lock()
 	if c.pollCancel != nil {
+		// A poll is in flight and owns c.pollDone. It will close it with an
+		// error once canceled, so give Flush a fresh channel to wait on.
 		c.pollCancel()
+		c.pollDone = make(chan struct{})
+	} else {
+		select {
+		case <-c.pollDone:
+			c.pollDone = make(chan struct{})
+		default:
+			// c.pollDone is still open but not yet claimed by a poll (e.g. it was
+			// created when a message was queued). Keep it: the poll triggered by
+			// wakeUp below will claim and close it. Replacing it would orphan any
+			// Flush already waiting on it.
+		}
 	}
-	c.pollDone = make(chan struct{})
 	c.mu.Unlock()
 	c.hc.Transport.(*http.Transport).CloseIdleConnections()
 	select {
