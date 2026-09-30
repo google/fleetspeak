@@ -22,9 +22,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
@@ -271,9 +273,15 @@ func TestInsertMessageAPI(t *testing.T) {
 		CreationTime: db.NowProto(),
 	}
 
-	if _, err := as.InsertMessage(ctx, proto.Clone(&m).(*fspb.Message)); err != nil {
+	resp, err := as.InsertMessage(ctx, proto.Clone(&m).(*fspb.Message))
+	if err != nil {
 		t.Fatalf("InsertMessage returned error: %v", err)
 	}
+	wantResp := &spb.InsertMessageResponse{MessageId: mid.Bytes()}
+	if !proto.Equal(resp, wantResp) {
+		t.Errorf("InsertMessage() message ID mismatch: got %x, want %x", resp, wantResp)
+	}
+
 	// m should now be available for processing:
 	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
 	if err != nil {
@@ -281,6 +289,96 @@ func TestInsertMessageAPI(t *testing.T) {
 	}
 	if len(msgs) != 1 || !proto.Equal(msgs[0], &m) {
 		t.Errorf("ClientMessagesForProcessing(%v) returned unexpected value, got: %v, want [%v]", id, msgs, m.String())
+	}
+}
+
+func TestInsertMessageAPI_Replay(t *testing.T) {
+	mid, err := common.RandomMessageID()
+	if err != nil {
+		t.Fatalf("Unable to create message id: %v", err)
+	}
+	ctx := context.Background()
+
+	ts := testserver.Make(t, "server", "AdminServer", nil)
+	defer ts.S.Stop()
+
+	key, err := ts.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
+
+	as := admin.NewServer(ts.DS, nil)
+
+	original := fspb.Message{
+		MessageId:    mid.Bytes(),
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+		MessageType:  "OriginalType",
+		CreationTime: db.NowProto(),
+		Data: anypbtest.New(t, &fspb.Signature{
+			Signature: []byte("original payload"),
+		}),
+	}
+	if _, err := as.InsertMessage(ctx, &original); err != nil {
+		t.Fatalf("InsertMessage(original) returned error: %v", err)
+	}
+
+	// Attacker replays the same MessageId with a forged payload attempting to
+	// overwrite the stored message state.
+	attacker := fspb.Message{
+		MessageId:    mid.Bytes(),
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+		MessageType:  "AttackerType",
+		CreationTime: db.NowProto(),
+		Data: anypbtest.New(t, &fspb.Signature{
+			Signature: []byte("attacker payload"),
+		}),
+	}
+
+	if _, err := as.InsertMessage(ctx, &attacker); err != nil {
+		t.Logf("InsertMessage(attacker) rejected: %v", err)
+	}
+
+	// Verify the stored message is completely unchanged.
+	if diff := cmp.Diff(&original, ts.GetMessage(ctx, mid), protocmp.Transform()); diff != "" {
+		t.Errorf("Stored message modified (-want +got):\n%s", diff)
+	}
+
+	// The message must still be pending delivery for the client.
+	msgs, err := ts.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
+	if err != nil {
+		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
+	}
+	if len(msgs) != 1 {
+		t.Errorf("ClientMessagesForProcessing(%v) got %d messages, want 1", id, len(msgs))
+	}
+}
+
+func TestInsertMessageAPI_PresetResultRejection(t *testing.T) {
+	ctx := context.Background()
+
+	ts := testserver.Make(t, "server", "AdminServer", nil)
+	defer ts.S.Stop()
+
+	as := admin.NewServer(ts.DS, nil)
+
+	m := fspb.Message{
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService"},
+		MessageType:  "DummyType",
+		CreationTime: db.NowProto(),
+		Result: &fspb.MessageResult{
+			ProcessedTime: db.NowProto(),
+		},
+	}
+
+	if _, err := as.InsertMessage(ctx, &m); err == nil {
+		t.Errorf("InsertMessage with pre-set Result succeeded, want error")
 	}
 }
 
@@ -316,10 +414,58 @@ func TestInsertMessageAPI_LargeMessages(t *testing.T) {
 		}),
 	}
 
-	if _, err := adminServer.InsertMessage(ctx, &msg); err == nil {
+	if resp, err := adminServer.InsertMessage(ctx, &msg); err == nil {
 		t.Fatal("Expected InsertMessage to return an error.")
+	} else if resp != nil {
+		t.Errorf("InsertMessage() returned message ID %v despite error %v", resp.MessageId, err)
 	} else if !strings.Contains(err.Error(), "exceeds the 2097152-byte limit") {
 		t.Errorf("Unexpected error: [%v].", err)
+	}
+}
+
+func TestInsertMessageAPI_NoPresetMessageID(t *testing.T) {
+	ctx := context.Background()
+
+	server := testserver.Make(t, "server", "AdminServer", nil)
+	defer server.S.Stop()
+
+	key, err := server.AddClient()
+	if err != nil {
+		t.Fatalf("Unable to add client: %v", err)
+	}
+	id, err := common.MakeClientID(key)
+	if err != nil {
+		t.Fatalf("Unable to make ClientID: %v", err)
+	}
+
+	as := admin.NewServer(server.DS, nil)
+
+	// No MessageId is set, should create random ID:
+	m := fspb.Message{
+		Source:       &fspb.Address{ServiceName: "TestService"},
+		Destination:  &fspb.Address{ServiceName: "TestService", ClientId: id.Bytes()},
+		MessageType:  "DummyType",
+		CreationTime: db.NowProto(),
+	}
+
+	resp, err := as.InsertMessage(ctx, proto.Clone(&m).(*fspb.Message))
+	if err != nil {
+		t.Fatalf("InsertMessage returned error: %v", err)
+	}
+	if len(resp.GetMessageId()) == 0 {
+		t.Errorf("InsertMessage() response message ID is empty")
+	}
+	if _, err := common.BytesToMessageID(resp.GetMessageId()); err != nil {
+		t.Errorf("InsertMessage() returned invalid MessageID (%x): %v", resp.GetMessageId(), err)
+	}
+
+	// Verify the message stored in the database has the assigned MessageId:
+	msgs, err := server.DS.ClientMessagesForProcessing(ctx, id, 10, nil)
+	if err != nil {
+		t.Fatalf("ClientMessagesForProcessing(%v) returned error: %v", id, err)
+	}
+	if len(msgs) != 1 || !bytes.Equal(msgs[0].GetMessageId(), resp.GetMessageId()) {
+		t.Errorf("ClientMessagesForProcessing(%v) unexpected message ID, got: %v, want %x", id, msgs, resp.GetMessageId())
 	}
 }
 
