@@ -112,7 +112,7 @@ def compile_protos():
 
   root_dir = os.path.join(THIS_DIRECTORY, "..")
   protoc_command = [
-      "python",
+      sys.executable,
       "-m",
       "grpc_tools.protoc",
       "--python_out",
