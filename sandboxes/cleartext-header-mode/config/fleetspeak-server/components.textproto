@@ -1,4 +1,4 @@
-mysql_data_source_name:"fleetspeak-user:fleetspeak-password@tcp(mysql-server:3306)/fleetspeak"
+mysql_data_source_name:"fleetspeak-user:FS_PASSWORD@tcp(mysql-server:3306)/fleetspeak"
 https_config: {
   listen_address: "0.0.0.0:9090"
   certificates:"FRONTEND_CERTIFICATE"
