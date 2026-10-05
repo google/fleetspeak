@@ -54,6 +54,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sqlite"
+	"github.com/google/fleetspeak/fleetspeak/src/server/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/server/testserver"
 
 	cpb "github.com/google/fleetspeak/fleetspeak/src/server/components/proto/fleetspeak_components"
@@ -1133,4 +1134,209 @@ func TestStreamingBatchProcessorPanicRecovered(t *testing.T) {
 	if cd.AckIndex != 2 {
 		t.Errorf("ContactData.AckIndex = %d, want 2", cd.AckIndex)
 	}
+}
+
+type noopStatsCollector struct {
+	stats.Collector
+}
+
+func (noopStatsCollector) ClientPoll(stats.PollInfo) {}
+
+type blockingBatchCommsContext struct {
+	comms.Context
+	started chan struct{}
+	release chan struct{}
+	active  atomic.Int32
+	peak    atomic.Int32
+	handled atomic.Int32
+}
+
+func (f *blockingBatchCommsContext) StatsCollector() stats.Collector {
+	return noopStatsCollector{}
+}
+
+func (f *blockingBatchCommsContext) ValidateMessagesFromClient(_ context.Context, _ *comms.ConnectionInfo, _ *fspb.WrappedContactData) (*fspb.ValidationInfo, error) {
+	return nil, nil
+}
+
+func (f *blockingBatchCommsContext) HandleMessagesFromClient(ctx context.Context, _ *comms.ConnectionInfo, _ *fspb.WrappedContactData) error {
+	cur := f.active.Add(1)
+	for {
+		p := f.peak.Load()
+		if cur <= p || f.peak.CompareAndSwap(p, cur) {
+			break
+		}
+	}
+	f.started <- struct{}{}
+	select {
+	case <-f.release:
+	case <-ctx.Done():
+	}
+	f.active.Add(-1)
+	f.handled.Add(1)
+	return nil
+}
+
+func framedBatches(n int) *bufio.Reader {
+	var buf bytes.Buffer
+	for i := 0; i < n; i++ {
+		buf.Write(makeWrapped())
+	}
+	return bufio.NewReader(&buf)
+}
+
+func TestStreamManagerReadLoopConcurrencyLimit(t *testing.T) {
+	t.Run("bounds concurrency and delivers all acks", func(t *testing.T) {
+		const (
+			limit   = 2
+			batches = 6
+		)
+		fakeCtx := &blockingBatchCommsContext{
+			started: make(chan struct{}, batches),
+			release: make(chan struct{}),
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		m := &streamManager{
+			s:      NewStreamingMessageServer(func() comms.Context { return fakeCtx }, Params{MaxPerClientBatchProcessors: limit}, nil),
+			ctx:    ctx,
+			cancel: cancel,
+			info:   &comms.ConnectionInfo{},
+			body:   framedBatches(batches),
+			out:    make(chan *fspb.ContactData, batches),
+		}
+
+		m.reading.Add(1)
+		go m.readLoop()
+
+		for i := 0; i < limit; i++ {
+			select {
+			case <-fakeCtx.started:
+			case <-time.After(5 * time.Second):
+				t.Fatalf("timed out waiting for batch %d to start", i+1)
+			}
+		}
+
+		// No additional batch should start while all slots are occupied.
+		select {
+		case <-fakeCtx.started:
+			t.Fatal("extra batch started while concurrency limit was reached")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		close(fakeCtx.release)
+		m.reading.Wait()
+		close(m.out)
+
+		if got := fakeCtx.peak.Load(); got != limit {
+			t.Errorf("peak concurrent HandleMessagesFromClient = %d, want %d", got, limit)
+		}
+		if got := fakeCtx.handled.Load(); got != batches {
+			t.Errorf("handled batches = %d, want %d", got, batches)
+		}
+
+		acked := make(map[uint64]bool)
+		for cd := range m.out {
+			acked[cd.AckIndex] = true
+		}
+		for i := uint64(1); i <= batches; i++ {
+			if !acked[i] {
+				t.Errorf("missing ack for batch %d (got %v)", i, acked)
+			}
+		}
+	})
+
+	t.Run("defaults to 10 when MaxPerClientBatchProcessors is zero", func(t *testing.T) {
+		const batches = defaultMaxPerClientBatchProcessors + 2
+		fakeCtx := &blockingBatchCommsContext{
+			started: make(chan struct{}, batches),
+			release: make(chan struct{}),
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		m := &streamManager{
+			s:      NewStreamingMessageServer(func() comms.Context { return fakeCtx }, Params{MaxPerClientBatchProcessors: 0}, nil),
+			ctx:    ctx,
+			cancel: cancel,
+			info:   &comms.ConnectionInfo{},
+			body:   framedBatches(batches),
+			out:    make(chan *fspb.ContactData, batches),
+		}
+
+		m.reading.Add(1)
+		go m.readLoop()
+
+		for i := 0; i < defaultMaxPerClientBatchProcessors; i++ {
+			select {
+			case <-fakeCtx.started:
+			case <-time.After(5 * time.Second):
+				t.Fatalf("timed out waiting for batch %d to start", i+1)
+			}
+		}
+		select {
+		case <-fakeCtx.started:
+			t.Fatal("extra batch started beyond default concurrency limit")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		close(fakeCtx.release)
+		m.reading.Wait()
+
+		if got := fakeCtx.peak.Load(); got != defaultMaxPerClientBatchProcessors {
+			t.Errorf("peak concurrent HandleMessagesFromClient = %d, want %d", got, defaultMaxPerClientBatchProcessors)
+		}
+		if got := fakeCtx.handled.Load(); got != batches {
+			t.Errorf("handled batches = %d, want %d", got, batches)
+		}
+	})
+
+	t.Run("returns when ctx canceled while waiting for slot", func(t *testing.T) {
+		fakeCtx := &blockingBatchCommsContext{
+			started: make(chan struct{}, 3),
+			release: make(chan struct{}),
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		m := &streamManager{
+			s:      NewStreamingMessageServer(func() comms.Context { return fakeCtx }, Params{MaxPerClientBatchProcessors: 1}, nil),
+			ctx:    ctx,
+			cancel: cancel,
+			info:   &comms.ConnectionInfo{},
+			body:   framedBatches(3),
+			out:    make(chan *fspb.ContactData, 3),
+		}
+
+		readLoopDone := make(chan struct{})
+		m.reading.Add(1)
+		go func() {
+			m.readLoop()
+			close(readLoopDone)
+		}()
+
+		select {
+		case <-fakeCtx.started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for first batch to start")
+		}
+
+		// Allow readLoop to read the second batch and block acquiring batchSem.
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+
+		select {
+		case <-readLoopDone:
+		case <-time.After(5 * time.Second):
+			t.Fatal("readLoop did not return after ctx was canceled while waiting for slot")
+		}
+
+		close(fakeCtx.release)
+		m.reading.Wait()
+
+		if got := fakeCtx.handled.Load(); got != 1 {
+			t.Errorf("handled batches = %d, want 1", got)
+		}
+	})
 }

@@ -16,6 +16,7 @@ package https
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"crypto"
 	"encoding/binary"
@@ -308,9 +309,9 @@ func (m *streamManager) readLoop() {
 
 	cnt := uint64(0)
 
-	// Number of batches from the same client that will be processed concurrently.
-	const maxBatchProcessors = 10
-	batchCh := make(chan *fspb.WrappedContactData, m.s.p.MaxPerClientBatchProcessors)
+	// batchSem limits how many batches from this client are processed
+	// concurrently (including handing the ack to writeLoop).
+	batchSem := make(chan struct{}, cmp.Or(m.s.p.MaxPerClientBatchProcessors, defaultMaxPerClientBatchProcessors))
 
 	for {
 		pi, wcd, err := m.readOne()
@@ -329,27 +330,34 @@ func (m *streamManager) readLoop() {
 		// Increment the counter with every processed message.
 		cnt++
 
-		// This will block if number of concurrent processors is greater than maxBatchProcessors.
-		batchCh <- wcd
+		// Acquire a processing slot. This blocks while the maximum number of
+		// batches is already being processed, and gives up if the stream is
+		// shutting down.
+		select {
+		case batchSem <- struct{}{}:
+		case <-m.ctx.Done():
+			return
+		}
 		// Ensure the m.out stays open while the message processing is not done.
 		m.reading.Add(1)
 		// Given that the processing is done concurrently, capture the current counter value in
 		// the function argument.
-		go func(curCnt uint64) {
+		go func(curCnt uint64, wcd *fspb.WrappedContactData) {
 			defer m.reading.Done()
+			// Hold the slot through the ack send so total worker goroutines per stream stay bounded.
+			defer func() { <-batchSem }()
 			defer func() {
 				if r := recover(); r != nil {
 					log.Errorf("Streaming message processor for client [%v] panicked: %v", m.info.Client.ID, r)
 				}
 			}()
 
-			wcd := <-batchCh
 			if err := m.processOne(wcd); err != nil {
 				log.Errorf("Error processing message from %v: %v", m.info.Client.ID, err)
 				return
 			}
 			m.out <- &fspb.ContactData{AckIndex: curCnt}
-		}(cnt)
+		}(cnt, wcd)
 
 		m.s.fs().StatsCollector().ClientPoll(*pi)
 	}
