@@ -249,3 +249,217 @@ func TestGetFileUnauthorizedClient(t *testing.T) {
 		t.Errorf("getFileIfModified() succeeded, want error")
 	}
 }
+
+func TestBackoff(t *testing.T) {
+	testCases := []struct {
+		name                string
+		baseSeconds         int32
+		maxSeconds          int32
+		consecutiveFailures int
+		wantSec             int32
+	}{
+		{
+			name:                "first attempt (0 failures)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 0,
+			wantSec:             1,
+		},
+		{
+			name:                "second attempt (1 failure)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 1,
+			wantSec:             2,
+		},
+		{
+			name:                "third attempt (2 failures)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 2,
+			wantSec:             4,
+		},
+		{
+			name:                "fourth attempt (3 failures)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 3,
+			wantSec:             8,
+		},
+		{
+			name:                "fifth attempt (4 failures)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 4,
+			wantSec:             16,
+		},
+		{
+			name:                "sixth attempt (5 failures)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 5,
+			wantSec:             32,
+		},
+		{
+			name:                "clamped to maxSeconds",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 6,
+			wantSec:             60,
+		},
+		{
+			name:                "clamped to maxSeconds on high failures",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 10,
+			wantSec:             60,
+		},
+		{
+			name:                "capped shift beyond 16",
+			baseSeconds:         1,
+			maxSeconds:          100000,
+			consecutiveFailures: 20,
+			wantSec:             65536,
+		},
+		{
+			name:                "zero baseSeconds defaults to 1",
+			baseSeconds:         0,
+			maxSeconds:          60,
+			consecutiveFailures: 0,
+			wantSec:             1,
+		},
+		{
+			name:                "negative baseSeconds defaults to 1",
+			baseSeconds:         -5,
+			maxSeconds:          60,
+			consecutiveFailures: 0,
+			wantSec:             1,
+		},
+		{
+			name:                "zero maxSeconds defaults to 300",
+			baseSeconds:         1,
+			maxSeconds:          0,
+			consecutiveFailures: 10,
+			wantSec:             300,
+		},
+		{
+			name:                "negative maxSeconds defaults to 300",
+			baseSeconds:         1,
+			maxSeconds:          -10,
+			consecutiveFailures: 10,
+			wantSec:             300,
+		},
+		{
+			name:                "maxSeconds less than baseSeconds clamps to baseSeconds",
+			baseSeconds:         10,
+			maxSeconds:          5,
+			consecutiveFailures: 2,
+			wantSec:             10,
+		},
+		{
+			name:                "negative consecutiveFailures treated as 0",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: -1,
+			wantSec:             1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := backoff(tc.baseSeconds, tc.maxSeconds, tc.consecutiveFailures)
+			if got != tc.wantSec {
+				t.Errorf("backoff(%d, %d, %d) = %d, want %d", tc.baseSeconds, tc.maxSeconds, tc.consecutiveFailures, got, tc.wantSec)
+			}
+		})
+	}
+}
+
+func TestBackoffWithJitter(t *testing.T) {
+	testCases := []struct {
+		name                string
+		baseSeconds         int32
+		maxSeconds          int32
+		consecutiveFailures int
+		wantMin             time.Duration
+		wantMax             time.Duration
+	}{
+		{
+			name:                "attempt 0 (1s to 1.5s)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 0,
+			wantMin:             time.Second,
+			wantMax:             1500 * time.Millisecond,
+		},
+		{
+			name:                "attempt 1 (2s to 3s)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 1,
+			wantMin:             2 * time.Second,
+			wantMax:             3 * time.Second,
+		},
+		{
+			name:                "attempt 2 (4s to 6s)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 2,
+			wantMin:             4 * time.Second,
+			wantMax:             6 * time.Second,
+		},
+		{
+			name:                "clamped to maxSec (60s to 90s)",
+			baseSeconds:         1,
+			maxSeconds:          60,
+			consecutiveFailures: 10,
+			wantMin:             60 * time.Second,
+			wantMax:             90 * time.Second,
+		},
+		{
+			name:                "zero and negative arguments fallback",
+			baseSeconds:         0,
+			maxSeconds:          0,
+			consecutiveFailures: -1,
+			wantMin:             time.Second,
+			wantMax:             1500 * time.Millisecond,
+		},
+		{
+			name:                "maxSec < baseSec clamps to baseSec",
+			baseSeconds:         10,
+			maxSeconds:          5,
+			consecutiveFailures: 1,
+			wantMin:             10 * time.Second,
+			wantMax:             15 * time.Second,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var minD, maxD time.Duration
+			for i := 0; i < 50; i++ {
+				d := backoffWithJitter(tc.baseSeconds, tc.maxSeconds, tc.consecutiveFailures)
+				if d < tc.wantMin || d > tc.wantMax {
+					t.Errorf("backoffWithJitter(%d, %d, %d) = %v, want between %v and %v",
+						tc.baseSeconds, tc.maxSeconds, tc.consecutiveFailures, d, tc.wantMin, tc.wantMax)
+				}
+				if i == 0 || d < minD {
+					minD = d
+				}
+				if i == 0 || d > maxD {
+					maxD = d
+				}
+			}
+			if minD == maxD {
+				t.Errorf("backoffWithJitter(%d, %d, %d) did not jitter: min == max == %v",
+					tc.baseSeconds, tc.maxSeconds, tc.consecutiveFailures, minD)
+			}
+		})
+	}
+}
+
+func TestJitterZero(t *testing.T) {
+	if got := jitter(0); got != 0 {
+		t.Errorf("jitter(0) = %v, want 0", got)
+	}
+}

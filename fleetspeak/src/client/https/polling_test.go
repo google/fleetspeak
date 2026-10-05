@@ -980,3 +980,100 @@ func TestFlush(t *testing.T) {
 		t.Errorf("pollCount after repeated Reset+Flush = %d, want > %d", got, before)
 	}
 }
+
+func TestPollingBackoffResetsAfterSuccess(t *testing.T) {
+	var shouldFail atomic.Bool
+	shouldFail.Store(true)
+	failed := make(chan time.Time, 16)
+	succeeded := make(chan struct{}, 16)
+
+	okBody, err := proto.Marshal(&fspb.ContactData{SequencingNonce: 42})
+	if err != nil {
+		t.Fatalf("proto.Marshal() failed: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/message", func(res http.ResponseWriter, req *http.Request) {
+		if shouldFail.Load() {
+			http.Error(res, "server error", http.StatusInternalServerError)
+			failed <- time.Now()
+			return
+		}
+		res.Header().Set("Content-Type", "application/octet-stream")
+		res.WriteHeader(http.StatusOK)
+		res.Write(okBody)
+		succeeded <- struct{}{}
+	})
+	addr, trusted := startStreamingTLSServer(t, mux, "h2")
+
+	var c Communicator
+	cctx := newTestCommsContext(
+		t,
+		comms.ServerInfo{
+			Servers:      []string{addr},
+			TrustedCerts: trusted,
+		},
+		&clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    20,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+		},
+	)
+	startCommunicator(t, &c, cctx)
+
+	waitFail := func(what string) time.Time {
+		t.Helper()
+		select {
+		case ts := <-failed:
+			return ts
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out waiting for %s", what)
+			return time.Time{}
+		}
+	}
+
+	// Failure 1 sleeps [1.0s, 1.5s], failure 2 sleeps [2.0s, 3.0s], and
+	// failure 3 leaves consecutiveFailures at 3 (next delay would be [8s, 12s]).
+	t1 := waitFail("first failed poll")
+	t2 := waitFail("second failed poll")
+	t3 := waitFail("third failed poll")
+
+	if d := t2.Sub(t1); d < 900*time.Millisecond {
+		t.Errorf("delay after 1st failure = %v, want >= 900ms", d)
+	}
+	if d := t3.Sub(t2); d < 1900*time.Millisecond {
+		t.Errorf("delay after 2nd failure = %v, want >= 1.9s (exponential backoff)", d)
+	}
+
+	// Allow the next poll to succeed and wake up out of backoff sleep.
+	shouldFail.Store(false)
+	time.Sleep(100 * time.Millisecond)
+	c.Reset()
+
+	select {
+	case <-succeeded:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for successful poll")
+	}
+	flushCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer flushCancel()
+	if err := c.Flush(flushCtx); err != nil {
+		t.Fatalf("Flush() = %v, want nil", err)
+	}
+
+	// Trigger a new failure; poll() sleeps for the backoff duration before
+	// returning and completing Flush. Because the successful poll reset backoff,
+	// that sleep should be back to [1.0s, 1.5s] rather than >= 4s.
+	shouldFail.Store(true)
+	c.Reset()
+
+	tAfterReset := waitFail("first failed poll after reset")
+	flushCtx2, flushCancel2 := context.WithTimeout(t.Context(), 10*time.Second)
+	defer flushCancel2()
+	if err := c.Flush(flushCtx2); err == nil {
+		t.Fatalf("Flush() after failed poll = nil, want error")
+	}
+	if d := time.Since(tAfterReset); d < 900*time.Millisecond || d >= 3500*time.Millisecond {
+		t.Errorf("backoff sleep after successful poll = %v, want in [900ms, 3.5s)", d)
+	}
+}
