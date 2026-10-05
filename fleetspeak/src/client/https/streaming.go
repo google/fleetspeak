@@ -192,6 +192,7 @@ func (c *StreamingCommunicator) connectLoop() {
 	defer c.working.Done()
 
 	lastContact := time.Now()
+	consecutiveFailures := 0
 	for {
 		c.wd.Reset()
 		if c.id != c.cctx.CurrentID() {
@@ -241,7 +242,13 @@ func (c *StreamingCommunicator) connectLoop() {
 			if time.Since(lastContact) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second {
 				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastContact))
 			}
-			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
+			maxDelay := c.conf.MaxPollDelaySeconds
+			if maxDelay <= 0 {
+				maxDelay = 300
+			}
+			delay := backoffWithJitter(c.conf.MinFailureDelaySeconds, maxDelay, consecutiveFailures)
+			consecutiveFailures++
+			t := time.NewTimer(delay)
 			select {
 			case <-t.C:
 			case <-c.ctx.Done():
@@ -252,6 +259,7 @@ func (c *StreamingCommunicator) connectLoop() {
 			}
 			continue
 		}
+		consecutiveFailures = 0
 		c.mu.Lock()
 		c.curCon = con
 		c.mu.Unlock()
