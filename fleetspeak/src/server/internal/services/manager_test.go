@@ -259,3 +259,55 @@ func TestProcessMessageBatch_PanicAndNonBatchedHandled(t *testing.T) {
 	// Calling ProcessMessageBatch on a panicking BatchedService must recover without crashing.
 	mgr.ProcessMessageBatch(ctx, "BatchedSvc", []*fspb.Message{msg})
 }
+
+type recordingErroredStatsCollector struct {
+	testStatsCollector
+	tempErrors atomic.Int32
+	permErrors atomic.Int32
+}
+
+func (s *recordingErroredStatsCollector) MessageErrored(_, _ time.Time, isTemp bool, _ *fspb.Message, _ bool, _ *db.ClientData) {
+	if isTemp {
+		s.tempErrors.Add(1)
+	} else {
+		s.permErrors.Add(1)
+	}
+}
+
+func TestProcessMessage_DoneContextShortCircuits(t *testing.T) {
+	ds := newTestDatastore(t, "DoneContextShortCircuit")
+	sc := &recordingErroredStatsCollector{}
+	svc := &panickingService{}
+	mgr := NewManager(ds, map[string]service.Factory{
+		"TestFactory": func(*spb.ServiceConfig) (service.Service, error) { return svc, nil },
+	}, sc, cache.NewClients())
+	defer mgr.Stop()
+
+	if err := mgr.Install(&spb.ServiceConfig{
+		Name:    "TestService",
+		Factory: "TestFactory",
+	}); err != nil {
+		t.Fatalf("mgr.Install() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	msg, _ := newTestMessage(t, "TestService", "NormalMsg", "canceled-1")
+	res := mgr.services["TestService"].processMessage(ctx, msg, true, &db.ClientData{Blacklisted: true})
+	if res != nil {
+		t.Errorf("processMessage(canceled ctx) = %v, want nil", res)
+	}
+	if !msg.IsBlocklistedSource {
+		t.Errorf("msg.IsBlocklistedSource = false, want true")
+	}
+	if got := svc.processed.Load(); got != 0 {
+		t.Errorf("svc.processed = %d, want 0 (service should not be invoked)", got)
+	}
+	if got := sc.tempErrors.Load(); got != 1 {
+		t.Errorf("tempErrors = %d, want 1", got)
+	}
+	if got := sc.permErrors.Load(); got != 0 {
+		t.Errorf("permErrors = %d, want 0", got)
+	}
+}
