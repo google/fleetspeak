@@ -17,6 +17,7 @@ package servertests_test
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -44,6 +45,32 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	checkCachedLabels := func(want []*fspb.Label) {
+		t.Helper()
+		info, _, _, err := ts.CC.InitializeConnection(
+			ctx,
+			&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+			k,
+			&fspb.WrappedContactData{},
+			false,
+		)
+		if err != nil {
+			t.Fatalf("InitializeConnection() failed: %v", err)
+		}
+		if !info.Client.Cached {
+			t.Errorf("info.Client.Cached = false, want true")
+		}
+		if !db.LabelsEqual(info.Client.Labels, want) {
+			t.Errorf("cached info.Client.Labels = %v, want %v", info.Client.Labels, want)
+		}
+	}
+
+	// Seed a non-client service label; ClientInfo must preserve it in both the
+	// datastore and the client cache.
+	if err := ts.DS.AddClientLabel(ctx, id, &fspb.Label{ServiceName: "TestService", Label: "keep"}); err != nil {
+		t.Fatal(err)
+	}
+
 	m := fspb.Message{
 		Source: &fspb.Address{
 			ClientId:    id.Bytes(),
@@ -57,6 +84,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		Data: anypbtest.New(t, &fspb.ClientInfoData{
 			Labels: []*fspb.Label{
 				{ServiceName: "client", Label: "linux"},
+				{ServiceName: "client", Label: "linux"}, // duplicate label should be skipped
 				{ServiceName: "client", Label: "corp"},
 			},
 			Services: []*fspb.ClientInfoData_ServiceID{
@@ -70,13 +98,47 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	wantLabels1 := []*fspb.Label{
+		{ServiceName: "TestService", Label: "keep"},
+		{ServiceName: "client", Label: "linux"},
+		{ServiceName: "client", Label: "corp"},
+	}
 	cd, err := ts.DS.GetClientData(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cd.Labels) != 2 {
-		t.Errorf("Expected 2 labels, got: %v", cd.Labels)
+	if !db.LabelsEqual(cd.Labels, wantLabels1) {
+		t.Errorf("datastore labels = %v, want %v", cd.Labels, wantLabels1)
 	}
+	checkCachedLabels(wantLabels1)
+
+	// Remove client:corp and verify the cache is updated in place without losing
+	// client:linux or TestService:keep.
+	m.SourceMessageId = []byte("2")
+	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
+	m.Data = anypbtest.New(t, &fspb.ClientInfoData{
+		Labels: []*fspb.Label{
+			{ServiceName: "client", Label: "linux"},
+		},
+		Services: []*fspb.ClientInfoData_ServiceID{
+			{Name: "TestService", Signature: []byte("signature")},
+		},
+	})
+	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
+		t.Fatal(err)
+	}
+	wantLabels2 := []*fspb.Label{
+		{ServiceName: "TestService", Label: "keep"},
+		{ServiceName: "client", Label: "linux"},
+	}
+	cd, err = ts.DS.GetClientData(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !db.LabelsEqual(cd.Labels, wantLabels2) {
+		t.Errorf("datastore labels = %v, want %v", cd.Labels, wantLabels2)
+	}
+	checkCachedLabels(wantLabels2)
 
 	// Set an authorizer label in the datastore; ClientInfo must not remove it
 	// and must ignore any client-spoofed non-client labels.
@@ -84,7 +146,7 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m.SourceMessageId = []byte("2")
+	m.SourceMessageId = []byte("3")
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
 	m.Data = anypbtest.New(t, &fspb.ClientInfoData{
 		Labels: []*fspb.Label{
@@ -98,17 +160,17 @@ func TestSystemServiceClientInfo(t *testing.T) {
 	if err := ts.ProcessMessageFromClient(k, &m); err != nil {
 		t.Fatal(err)
 	}
+	wantLabels3 := []*fspb.Label{
+		{ServiceName: "TestService", Label: "keep"},
+		{ServiceName: "client", Label: "linux"},
+		{ServiceName: "authorizer", Label: "GECC"},
+	}
 	cd, err = ts.DS.GetClientData(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cd.Labels) != 2 {
-		t.Errorf("Expected 2 labels (client:linux and authorizer:GECC), got: %v", cd.Labels)
-	}
-	for _, l := range cd.Labels {
-		if l.ServiceName == "authorizer" && l.Label != "GECC" {
-			t.Errorf("Unexpected authorizer label: %v", l)
-		}
+	if !db.LabelsEqual(cd.Labels, wantLabels3) {
+		t.Errorf("datastore labels = %v, want %v", cd.Labels, wantLabels3)
 	}
 }
 

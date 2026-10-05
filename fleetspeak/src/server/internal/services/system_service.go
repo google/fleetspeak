@@ -206,16 +206,25 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 
 	// Remove labels not in nl, remember labels already present.
 	ol := make(map[string]bool)
+	// updatedLabels mirrors the label changes written below, so that the cached
+	// entry can be refreshed in place on success. If a write fails partway
+	// through, the entry is evicted instead, since earlier writes may already
+	// have been applied.
+	var updatedLabels []*fspb.Label
 	for _, l := range cd.Labels {
-		if l.ServiceName == clientServiceName {
-			if !nl[l.Label] {
-				if err = s.datastore.RemoveClientLabel(ctx, cid, l); err != nil {
-					return service.TemporaryError{E: fmt.Errorf("unable to remove label[%v]: %v", l, err)}
-				}
-			} else {
-				ol[l.Label] = true
-			}
+		if l.ServiceName != clientServiceName {
+			updatedLabels = append(updatedLabels, l)
+			continue
 		}
+		if !nl[l.Label] {
+			if err = s.datastore.RemoveClientLabel(ctx, cid, l); err != nil {
+				s.cc.Update(cid, nil)
+				return service.TemporaryError{E: fmt.Errorf("unable to remove label[%v]: %v", l, err)}
+			}
+			continue
+		}
+		ol[l.Label] = true
+		updatedLabels = append(updatedLabels, l)
 	}
 
 	// Add labels from nl which are not yet present.
@@ -225,14 +234,17 @@ func (s *systemService) processClientInfo(ctx context.Context, cid common.Client
 		}
 		if !ol[l.Label] {
 			if err = s.datastore.AddClientLabel(ctx, cid, l); err != nil {
+				s.cc.Update(cid, nil)
 				return service.TemporaryError{E: fmt.Errorf("unable to add label[%v]: %v", l, err)}
 			}
+			ol[l.Label] = true // data.Labels may contain duplicates.
+			updatedLabels = append(updatedLabels, l)
 		}
 	}
-	// Forget anything we know about this client. Other servers could have
-	// now-stale data, but this client is likely to stick with us due to
-	// connection reuse.
-	s.cc.Update(cid, nil)
+	// Other servers could have now-stale data, but this client is likely to
+	// stick with us due to connection reuse.
+	cd.Labels = updatedLabels
+	s.cc.Update(cid, cd)
 	return nil
 }
 

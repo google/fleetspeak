@@ -15,6 +15,8 @@
 package services
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,6 +25,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
+	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	monitoringpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -142,5 +145,94 @@ func TestProcessResourceUsage_ValidResourceUsage(t *testing.T) {
 	}
 	if len(records) != 1 {
 		t.Fatalf("len(FetchResourceUsageRecords(%v)) = %d, want 1", cid, len(records))
+	}
+}
+
+type fakeClientInfoStore struct {
+	db.Store
+	cd        *db.ClientData
+	removeErr error
+	addErr    error
+}
+
+func (f *fakeClientInfoStore) GetClientData(_ context.Context, _ common.ClientID) (*db.ClientData, error) {
+	return &db.ClientData{
+		Key:    f.cd.Key,
+		Labels: append([]*fspb.Label(nil), f.cd.Labels...),
+	}, nil
+}
+
+func (f *fakeClientInfoStore) RemoveClientLabel(_ context.Context, _ common.ClientID, _ *fspb.Label) error {
+	return f.removeErr
+}
+
+func (f *fakeClientInfoStore) AddClientLabel(_ context.Context, _ common.ClientID, _ *fspb.Label) error {
+	return f.addErr
+}
+
+func TestProcessClientInfo_EvictsCacheOnWriteError(t *testing.T) {
+	cid, err := common.StringToClientID("0102030405060708")
+	if err != nil {
+		t.Fatalf("StringToClientID() failed: %v", err)
+	}
+	errWrite := errors.New("datastore write failed")
+
+	testCases := []struct {
+		name      string
+		existing  []*fspb.Label
+		incoming  []*fspb.Label
+		removeErr error
+		addErr    error
+	}{
+		{
+			name:      "RemoveClientLabel failure evicts cached client",
+			existing:  []*fspb.Label{{ServiceName: "client", Label: "old"}},
+			incoming:  nil,
+			removeErr: errWrite,
+		},
+		{
+			name:     "AddClientLabel failure evicts cached client",
+			existing: []*fspb.Label{{ServiceName: "client", Label: "keep"}},
+			incoming: []*fspb.Label{
+				{ServiceName: "client", Label: "keep"},
+				{ServiceName: "client", Label: "new"},
+			},
+			addErr: errWrite,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cc := cache.NewClients()
+			cd := &db.ClientData{Key: []byte("test-key"), Labels: tc.existing}
+			cc.Update(cid, cd)
+			if cc.Get(cid) == nil {
+				t.Fatal("cc.Get(cid) = nil after seeding cache, want non-nil")
+			}
+
+			payload, err := anypb.New(&fspb.ClientInfoData{Labels: tc.incoming})
+			if err != nil {
+				t.Fatalf("anypb.New() failed: %v", err)
+			}
+
+			s := &systemService{
+				datastore: &fakeClientInfoStore{
+					cd:        cd,
+					removeErr: tc.removeErr,
+					addErr:    tc.addErr,
+				},
+				cc: cc,
+			}
+			err = s.processClientInfo(t.Context(), cid, payload)
+			if err == nil {
+				t.Fatal("processClientInfo() = nil, want error")
+			}
+			if !service.IsTemporary(err) {
+				t.Errorf("service.IsTemporary(%v) = false, want true", err)
+			}
+			if got := cc.Get(cid); got != nil {
+				t.Errorf("cc.Get(cid) after write error = %v, want nil (evicted)", got)
+			}
+		})
 	}
 }
