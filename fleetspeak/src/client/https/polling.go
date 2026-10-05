@@ -199,6 +199,7 @@ func (c *Communicator) processingLoop() {
 
 	var toSendSize int // approximate size of toSend in bytes
 	var lastPoll, oldestUnsent, lastActive time.Time
+	consecutiveFailures := 0
 
 	// poll performs a poll (actually implemented by c.poll), records any errors
 	// and updates the variables defined above. In case of failure it also sleeps
@@ -253,7 +254,13 @@ func (c *Communicator) processingLoop() {
 				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastPoll))
 			}
 
-			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
+			maxDelay := c.conf.MaxPollDelaySeconds
+			if maxDelay <= 0 {
+				maxDelay = 300
+			}
+			delay := backoffWithJitter(c.conf.MinFailureDelaySeconds, maxDelay, consecutiveFailures)
+			consecutiveFailures++
+			t := time.NewTimer(delay)
 			select {
 			case <-t.C:
 			case <-c.ctx.Done():
@@ -263,6 +270,7 @@ func (c *Communicator) processingLoop() {
 			}
 			return
 		}
+		consecutiveFailures = 0
 		for _, m := range toSend {
 			m.Ack()
 		}

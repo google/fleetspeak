@@ -173,3 +173,40 @@ func TestGetFileUnauthorizedClient(t *testing.T) {
 		t.Errorf("getFileIfModified() succeeded, want error")
 	}
 }
+
+func TestBackoffWithJitter(t *testing.T) {
+	baseSec := int32(1)
+	maxSec := int32(60)
+
+	// Attempt 0: 1.0x to 1.5x baseSec
+	for i := 0; i < 100; i++ {
+		d := backoffWithJitter(baseSec, maxSec, 0)
+		if d < time.Second || d > 1500*time.Millisecond {
+			t.Errorf("attempt 0: got %v, want between 1s and 1.5s", d)
+		}
+	}
+
+	// Attempt 1: 2.0x to 3.0x baseSec
+	for i := 0; i < 100; i++ {
+		d := backoffWithJitter(baseSec, maxSec, 1)
+		if d < 2*time.Second || d > 3*time.Second {
+			t.Errorf("attempt 1: got %v, want between 2s and 3s", d)
+		}
+	}
+
+	// Attempt 2: 4.0x to 6.0x baseSec
+	for i := 0; i < 100; i++ {
+		d := backoffWithJitter(baseSec, maxSec, 2)
+		if d < 4*time.Second || d > 6*time.Second {
+			t.Errorf("attempt 2: got %v, want between 4s and 6s", d)
+		}
+	}
+
+	// High attempt: should clamp to maxSec (60s to 90s with jitter)
+	for i := 0; i < 100; i++ {
+		d := backoffWithJitter(baseSec, maxSec, 10)
+		if d < 60*time.Second || d > 90*time.Second {
+			t.Errorf("attempt 10: got %v, want between 60s and 90s", d)
+		}
+	}
+}
