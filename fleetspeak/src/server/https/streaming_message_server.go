@@ -16,6 +16,7 @@ package https
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"crypto"
 	"encoding/binary"
@@ -304,8 +305,7 @@ func (m *streamManager) readLoop() {
 	cnt := uint64(0)
 
 	// Number of batches from the same client that will be processed concurrently.
-	const maxBatchProcessors = 10
-	batchCh := make(chan *fspb.WrappedContactData, m.s.p.MaxPerClientBatchProcessors)
+	batchCh := make(chan struct{}, cmp.Or(m.s.p.MaxPerClientBatchProcessors, 10))
 
 	for {
 		pi, wcd, err := m.readOne()
@@ -325,21 +325,25 @@ func (m *streamManager) readLoop() {
 		cnt++
 
 		// This will block if number of concurrent processors is greater than maxBatchProcessors.
-		batchCh <- wcd
+		select {
+		case batchCh <- struct{}{}:
+		case <-m.ctx.Done():
+			return
+		}
 		// Ensure the m.out stays open while the message processing is not done.
 		m.reading.Add(1)
 		// Given that the processing is done concurrently, capture the current counter value in
 		// the function argument.
-		go func(curCnt uint64) {
+		go func(curCnt uint64, wcd *fspb.WrappedContactData) {
 			defer m.reading.Done()
+			defer func() { <-batchCh }()
 
-			wcd := <-batchCh
 			if err := m.processOne(wcd); err != nil {
 				log.Errorf("Error processing message from %v: %v", m.info.Client.ID, err)
 				return
 			}
 			m.out <- &fspb.ContactData{AckIndex: curCnt}
-		}(cnt)
+		}(cnt, wcd)
 
 		m.s.fs().StatsCollector().ClientPoll(*pi)
 	}
