@@ -65,6 +65,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		ID:           id,
 		ContactSize:  len(wcd.ContactData),
 		ClientLabels: wcd.ClientLabels,
+		Type:         authorizer.ClientContact,
 	}
 	if !c.s.authorizer.Allow2(addr, contactInfo) {
 		log.Warningf("[id:%v addr:%v labels:%v] Allow2 failed", id, addr, wcd.ClientLabels)
@@ -216,6 +217,7 @@ func (c commsContext) ValidateMessagesFromClient(ctx context.Context, info *comm
 			ID:           info.Client.ID,
 			ContactSize:  len(wcd.ContactData),
 			ClientLabels: wcd.ClientLabels,
+			Type:         authorizer.ClientContact,
 		},
 		info.AuthClientInfo,
 		sigs)

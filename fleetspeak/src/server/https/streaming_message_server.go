@@ -406,7 +406,6 @@ func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
 		case <-ctx.Done():
 			return
 		case <-m.ctx.Done():
-			log.Warningf("Extra time required while processing message from %v.", m.info.Client.ID)
 			t := time.NewTimer(15 * time.Second)
 			defer t.Stop()
 			select {

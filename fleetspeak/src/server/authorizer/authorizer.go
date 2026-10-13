@@ -25,12 +25,35 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+// ContactType indicates the type of request being authorized.
+type ContactType int
+
+// ContactType values.
+const (
+	UnknownContactType ContactType = iota // Unspecified contact type.
+	ClientContact                         // Standard client contact (poll or streaming).
+	FileRequest                           // File server request.
+)
+
+// String implements fmt.Stringer.
+func (t ContactType) String() string {
+	switch t {
+	case ClientContact:
+		return "CLIENT_CONTACT"
+	case FileRequest:
+		return "FILE_REQUEST"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // ContactInfo contains information deducible from TLS negotiation and
 // very basic analysis of the provided contact data.
 type ContactInfo struct {
 	ID           common.ClientID
-	ContactSize  int      // The size of the contact, in bytes.
-	ClientLabels []string // The client labels included in the contact.
+	ContactSize  int         // The size of the contact, in bytes.
+	ClientLabels []string    // The client labels included in the contact.
+	Type         ContactType // The type of contact being authorized.
 }
 
 // ClientInfo contains information known once the client has been

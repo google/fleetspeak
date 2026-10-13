@@ -139,6 +139,7 @@ func (s fileServer) authorizeFileRequest(req *http.Request, id common.ClientID, 
 		ID:           id,
 		ContactSize:  0,
 		ClientLabels: labels,
+		Type:         authorizer.FileRequest,
 	}
 
 	if !s.fs().Authorizer().Allow2(addr, ci) {
