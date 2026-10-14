@@ -17,7 +17,9 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +33,7 @@ import (
 	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clienttestutils"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
@@ -40,6 +43,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 var (
@@ -676,4 +680,165 @@ func signServiceConfig(t *testing.T, cfg *fspb.ClientServiceConfig) *fspb.Signed
 		t.Fatalf("Unable to serialize service config: %v", err)
 	}
 	return &fspb.SignedClientServiceConfig{ServiceConfig: b}
+}
+
+// stopTimeout bounds how long the tests below wait for Client.Stop. Stop only
+// has to stop in-process components and ack in-memory messages, so it returns
+// well within this time unless it deadlocks.
+const stopTimeout = 10 * time.Second
+
+// queueServerMessages passes n messages for the server with the given priority
+// and payload size to cl. It returns a counter of the calls to the messages'
+// Ack callbacks.
+func queueServerMessages(t *testing.T, cl *Client, n int, priority fspb.Message_Priority, payloadSize int) *atomic.Int32 {
+	t.Helper()
+	acks := &atomic.Int32{}
+	for i := range n {
+		ctx, cancel := context.WithTimeout(t.Context(), stopTimeout)
+		err := cl.ProcessMessage(ctx, service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "RemoteService"},
+				Priority:    priority,
+				Data:        &anypb.Any{Value: make([]byte, payloadSize)},
+			},
+			Ack: func() { acks.Add(1) },
+		})
+		cancel()
+		if err != nil {
+			t.Fatalf("ProcessMessage() of message %d/%d failed: %v", i+1, n, err)
+		}
+	}
+	return acks
+}
+
+// stopWithTimeout calls cl.Stop and reports whether it returned within
+// stopTimeout. If it did not, Stop keeps running in the background.
+func stopWithTimeout(cl *Client) bool {
+	stopped := make(chan struct{})
+	go func() {
+		cl.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+		return true
+	case <-time.After(stopTimeout):
+		return false
+	}
+}
+
+func TestStopAcksPendingMessages(t *testing.T) {
+	// Without a communicator, nothing acks the messages for the server, so they
+	// stay pending in the RetryLoop of their priority until Stop acks them. A
+	// RetryLoop stops reading new messages while it holds maxBufferCount
+	// messages or maxBufferBytes of data. HIGH isn't covered because the system
+	// service sends HIGH messages concurrently, which makes the RetryLoop's
+	// state unpredictable; all three RetryLoops run the same code.
+	for _, tc := range []struct {
+		name        string
+		priority    fspb.Message_Priority
+		messages    int
+		payloadSize int
+	}{
+		{
+			name:     "LowBelowLimits",
+			priority: fspb.Message_LOW,
+			messages: maxBufferCount - 1,
+		},
+		{
+			name:     "LowAtCountLimit",
+			priority: fspb.Message_LOW,
+			messages: maxBufferCount,
+		},
+		{
+			name:     "MediumAtCountLimit",
+			priority: fspb.Message_MEDIUM,
+			messages: maxBufferCount,
+		},
+		{
+			name:        "LowAtSizeLimit",
+			priority:    fspb.Message_LOW,
+			messages:    1,
+			payloadSize: maxBufferBytes,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cl, err := New(config.Configuration{}, Components{})
+			if err != nil {
+				t.Fatalf("Unable to create client: %v", err)
+			}
+			acks := queueServerMessages(t, cl, tc.messages, tc.priority, tc.payloadSize)
+
+			if !stopWithTimeout(cl) {
+				t.Fatalf("Stop() with %d pending %v messages of %d bytes did not return within %v", tc.messages, tc.priority, tc.payloadSize, stopTimeout)
+			}
+			if got := acks.Load(); got != int32(tc.messages) {
+				t.Errorf("Stop() acked %d of %d pending messages, want all of them acked once", got, tc.messages)
+			}
+		})
+	}
+}
+
+// offlineCommunicator is a comms.Communicator which takes messages from the
+// outbox but never delivers them, like a communicator which can't reach the
+// server. Like the HTTPS communicators, it nacks the messages it holds when it
+// is stopped.
+type offlineCommunicator struct {
+	comms.Communicator
+
+	cctx comms.Context
+	stop chan struct{}
+	done chan struct{}
+}
+
+func (c *offlineCommunicator) Setup(cctx comms.Context) error {
+	c.cctx = cctx
+	return nil
+}
+
+func (c *offlineCommunicator) Start() error {
+	c.stop = make(chan struct{})
+	c.done = make(chan struct{})
+	go func() {
+		defer close(c.done)
+		var held []comms.MessageInfo
+		for {
+			select {
+			case m := <-c.cctx.Outbox():
+				held = append(held, m)
+			case <-c.stop:
+				for _, m := range held {
+					m.Nack()
+				}
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (c *offlineCommunicator) Stop() {
+	close(c.stop)
+	<-c.done
+}
+
+func (c *offlineCommunicator) GetFileIfModified(context.Context, string, string, time.Time) (io.ReadCloser, time.Time, error) {
+	return nil, time.Time{}, errors.New("server unreachable")
+}
+
+func TestStopWhileServerUnreachable(t *testing.T) {
+	cl, err := New(config.Configuration{}, Components{Communicator: &offlineCommunicator{}})
+	if err != nil {
+		t.Fatalf("Unable to create client: %v", err)
+	}
+	// Fill the LOW RetryLoop with messages which the communicator takes but
+	// can't deliver, as happens when a machine is offline for a while.
+	queueServerMessages(t, cl, maxBufferCount, fspb.Message_LOW, 0)
+
+	// Unlike TestStopAcksPendingMessages, don't count the acks: Stop only acks
+	// the messages which the RetryLoop resends after the communicator nacks
+	// them, and the RetryLoop may terminate before resending all of them.
+	if !stopWithTimeout(cl) {
+		t.Fatalf("Stop() with %d undeliverable messages did not return within %v", maxBufferCount, stopTimeout)
+	}
 }

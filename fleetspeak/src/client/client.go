@@ -276,26 +276,16 @@ func (c *Client) Stop() {
 	//
 	// - At this point, the communicator is off, so nothing else should be
 	//   draining outbox. We do this ourselves and Ack everything so that the
-	//   RetryLoops are guaranteed to terminate.
+	//   RetryLoops are guaranteed to terminate. We have to start draining
+	//   before waiting for the RetryLoops: a RetryLoop with maxBufferCount or
+	//   maxBufferBytes worth of pending messages doesn't read its input, so it
+	//   only notices that the input was closed once some of them are acked.
 	//
 	// - The fake Acks in 1) are safe because the config manager is stopped.
 	//   This means that client services are shut down and the Acks will not be
 	//   reported outside of this process.
 
-	close(c.outLow)
-	close(c.outMedium)
-	close(c.outHigh)
-	c.retryLoopsDone.Wait()
-	log.Info("Retry loops have terminated.")
-
-	// - Now, no more messages enter outUnsorted.
-	//
-	// - We close outUnsorted and drain outbox, to make sure no messages are lost.
-	//   Once these two things are complete, SortLoop will return, and the client
-	//   can be shut down.
-
 	done := make(chan struct{})
-	close(c.outUnsorted)
 	go func() {
 		for {
 			select {
@@ -306,6 +296,20 @@ func (c *Client) Stop() {
 			}
 		}
 	}()
+
+	close(c.outLow)
+	close(c.outMedium)
+	close(c.outHigh)
+	c.retryLoopsDone.Wait()
+	log.Info("Retry loops have terminated.")
+
+	// - Now, no more messages enter outUnsorted.
+	//
+	// - We close outUnsorted and keep draining outbox, to make sure no messages
+	//   are lost. Once these two things are complete, SortLoop will return, and
+	//   the client can be shut down.
+
+	close(c.outUnsorted)
 	c.sortLoopDone.Wait()
 	done <- struct{}{}
 	log.Info("Messages have been drained.")
