@@ -250,7 +250,11 @@ var bufferPool = sync.Pool{
 	},
 }
 
+// getBuffer returns an empty buffer with a capacity of at least size bytes.
+// Buffers of up to maxSize bytes are taken from bufferPool. A negative size is
+// treated as 0.
 func getBuffer(size, maxSize int) *bytes.Buffer {
+	size = max(size, 0)
 	if size > maxSize {
 		return bytes.NewBuffer(make([]byte, 0, size))
 	}
@@ -266,12 +270,20 @@ func putBuffer(b *bytes.Buffer, maxSize int) {
 	}
 }
 
+// readWrappedContactData reads a WrappedContactData from r and returns it,
+// together with the number of bytes read.
+//
+// A non-negative size is the exact size of the WrappedContactData, e.g. the
+// length of a frame on a streaming connection, and exactly that many bytes are
+// read from r. A size of 0 denotes an empty WrappedContactData. A negative size
+// means that the size is unknown, e.g. for a decompressed request body, and r
+// is read until EOF.
 func readWrappedContactData(r io.Reader, size, maxReusableBufferSize int) (*fspb.WrappedContactData, int, error) {
 	b := getBuffer(size, maxReusableBufferSize)
 	defer putBuffer(b, maxReusableBufferSize)
 
 	var err error
-	if size > 0 {
+	if size >= 0 {
 		_, err = io.CopyN(b, r, int64(size))
 	} else {
 		_, err = b.ReadFrom(r)

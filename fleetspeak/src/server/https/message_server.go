@@ -154,6 +154,13 @@ func (s messageServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	wcd, readBytes, err := readWrappedContactData(req.Body, int(req.ContentLength), s.p.MaxReusableBufferSize)
 	pi.ReadTime = time.Since(st)
 	pi.ReadBytes = readBytes
+	// The length of compressed and chunked bodies is only known once they have
+	// been read.
+	if readBytes > MaxContactSize {
+		pi.Status = http.StatusBadRequest
+		http.Error(res, fmt.Sprintf("body can't be larger than %v bytes", MaxContactSize), pi.Status)
+		return
+	}
 	if err != nil {
 		pi.Status = http.StatusBadRequest
 		http.Error(res, err.Error(), pi.Status)

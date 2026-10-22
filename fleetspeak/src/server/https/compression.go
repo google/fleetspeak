@@ -32,6 +32,10 @@ func (h *CompressionHandler) ServeHTTP(res http.ResponseWriter, req *http.Reques
 		defer zr.Close()
 		req.Body = zr
 		req.Header.Del("Content-Encoding")
+		// The length of the request describes the compressed body. The length of
+		// the decompressed body is unknown.
+		req.ContentLength = -1
+		req.Header.Del("Content-Length")
 	default:
 		http.Error(res, fmt.Sprintf("unsupported content encoding: %s", encoding), http.StatusUnsupportedMediaType)
 		return
