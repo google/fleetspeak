@@ -35,6 +35,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -472,6 +473,371 @@ func TestStreaming(t *testing.T) {
 				if cd.AckIndex != i {
 					t.Errorf("Received ack for contact %d, but expected %d", cd.AckIndex, i)
 				}
+			}
+		})
+	}
+}
+
+// marshalWrapped returns a serialized WrappedContactData with the given client
+// labels, wrapping a ContactData that only has its client clock set.
+func marshalWrapped(t *testing.T, labels ...string) []byte {
+	t.Helper()
+	cd, err := proto.Marshal(&fspb.ContactData{ClientClock: db.NowProto()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := proto.Marshal(&fspb.WrappedContactData{ContactData: cd, ClientLabels: labels})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// compress returns b compressed with the given algorithm, as the client sends
+// it.
+func compress(t *testing.T, b []byte, compression fspb.CompressionAlgorithm) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	bw := https.CompressingWriter(&buf, compression)
+	if _, err := bw.Write(b); err != nil {
+		t.Fatal(err)
+	}
+	if err := bw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// postMessage sends body to the /message endpoint of the server at addr,
+// announcing the given compression. If hideLength is set, the body is sent
+// without a Content-Length header, i.e. chunked.
+func postMessage(t *testing.T, cl *http.Client, addr string, body []byte, compression fspb.CompressionAlgorithm, hideLength bool) *http.Response {
+	t.Helper()
+	u := url.URL{Scheme: "https", Host: addr, Path: "/message"}
+	var r io.Reader = bytes.NewReader(body)
+	if hideLength {
+		// Hide the type of the reader, so that its length is unknown.
+		r = io.MultiReader(r)
+	}
+	req, err := http.NewRequest(http.MethodPost, u.String(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hideLength {
+		req.ContentLength = -1
+	}
+	req.Close = true
+	https.SetContentEncoding(req.Header, compression)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("POST to /message failed: %v", err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	return resp
+}
+
+// checkPollResponse checks that resp is a successful response to a poll.
+func checkPollResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Error reading response body: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Poll returned status %d (%q), want %d", resp.StatusCode, b, http.StatusOK)
+	}
+	var cd fspb.ContactData
+	if err := proto.Unmarshal(b, &cd); err != nil {
+		t.Fatalf("Unable to parse returned data as ContactData: %v", err)
+	}
+	if cd.SequencingNonce == 0 {
+		t.Error("Expected SequencingNonce in returned ContactData")
+	}
+}
+
+// checkClientLabels checks that the client with the given id exists in the
+// datastore and has exactly the given labels.
+func checkClientLabels(t *testing.T, ds *sqlite.Datastore, id common.ClientID, want []string) {
+	t.Helper()
+	cd, err := ds.GetClientData(context.Background(), id)
+	if err != nil {
+		t.Fatalf("Error getting client data after poll: %v", err)
+	}
+	var got []string
+	for _, l := range cd.Labels {
+		got = append(got, l.GetLabel())
+	}
+	slices.Sort(got)
+	want = slices.Sorted(slices.Values(want))
+	if !slices.Equal(got, want) {
+		t.Errorf("Client has labels %q, want %q", got, want)
+	}
+}
+
+func TestReadWrappedContactData(t *testing.T) {
+	wcdBytes := marshalWrapped(t, "linux", "test")
+	wcd := &fspb.WrappedContactData{}
+	if err := proto.Unmarshal(wcdBytes, wcd); err != nil {
+		t.Fatal(err)
+	}
+	const next = "next frame"
+
+	testCases := []struct {
+		name          string
+		input         []byte
+		size          int
+		want          *fspb.WrappedContactData
+		wantReadBytes int
+		wantUnread    string
+		wantErr       bool
+	}{
+		{
+			name:          "exact size",
+			input:         append(bytes.Clone(wcdBytes), next...),
+			size:          len(wcdBytes),
+			want:          wcd,
+			wantReadBytes: len(wcdBytes),
+			wantUnread:    next,
+		},
+		{
+			name:          "zero size",
+			input:         []byte(next),
+			size:          0,
+			want:          &fspb.WrappedContactData{},
+			wantReadBytes: 0,
+			wantUnread:    next,
+		},
+		{
+			name:          "unknown size",
+			input:         wcdBytes,
+			size:          -1,
+			want:          wcd,
+			wantReadBytes: len(wcdBytes),
+		},
+		{
+			name:          "empty input of unknown size",
+			input:         nil,
+			size:          -1,
+			want:          &fspb.WrappedContactData{},
+			wantReadBytes: 0,
+		},
+		{
+			name:          "truncated input",
+			input:         wcdBytes[:len(wcdBytes)-1],
+			size:          len(wcdBytes),
+			wantReadBytes: len(wcdBytes) - 1,
+			wantErr:       true,
+		},
+		{
+			name:          "invalid input",
+			input:         []byte(next),
+			size:          len(next),
+			wantReadBytes: len(next),
+			wantErr:       true,
+		},
+	}
+	for _, tc := range testCases {
+		// Cover both pooled and freshly allocated buffers.
+		for _, maxReusableBufferSize := range []int{0, 1024 * 1024} {
+			t.Run(fmt.Sprintf("%s/maxReusableBufferSize=%d", tc.name, maxReusableBufferSize), func(t *testing.T) {
+				r := bytes.NewReader(tc.input)
+				got, readBytes, err := readWrappedContactData(r, tc.size, maxReusableBufferSize)
+				if (err != nil) != tc.wantErr {
+					t.Errorf("readWrappedContactData(size=%d) returned error %v, want error: %t", tc.size, err, tc.wantErr)
+				}
+				if !tc.wantErr && !proto.Equal(got, tc.want) {
+					t.Errorf("readWrappedContactData(size=%d) = %v, want %v", tc.size, got, tc.want)
+				}
+				if readBytes != tc.wantReadBytes {
+					t.Errorf("readWrappedContactData(size=%d) read %d bytes, want %d", tc.size, readBytes, tc.wantReadBytes)
+				}
+				unread, err := io.ReadAll(r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(unread) != tc.wantUnread {
+					t.Errorf("readWrappedContactData(size=%d) left %q unread, want %q", tc.size, unread, tc.wantUnread)
+				}
+			})
+		}
+	}
+}
+
+func TestCompressedPoll(t *testing.T) {
+	s, ds, addr := makeServer(t, "CompressedPoll", nil, nil)
+	defer s.Stop()
+
+	testCases := []struct {
+		name       string
+		labels     []string
+		hideLength bool
+	}{
+		{
+			// The compressed body is much shorter than the WrappedContactData.
+			name:   "compressible",
+			labels: []string{"linux", strings.Repeat("compressible", 100)},
+		},
+		{
+			// With the zlib header and checksum, the compressed body is longer than
+			// the WrappedContactData.
+			name:   "small",
+			labels: []string{"linux"},
+		},
+		{
+			name:       "without content length",
+			labels:     []string{"linux", strings.Repeat("compressible", 100)},
+			hideLength: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, cl, _, _ := makeClient(t, true)
+			body := compress(t, marshalWrapped(t, tc.labels...), fspb.CompressionAlgorithm_COMPRESSION_DEFLATE)
+			resp := postMessage(t, cl, addr, body, fspb.CompressionAlgorithm_COMPRESSION_DEFLATE, tc.hideLength)
+			checkPollResponse(t, resp)
+			// The labels show that the server read the whole WrappedContactData.
+			checkClientLabels(t, ds, id, tc.labels)
+		})
+	}
+}
+
+func TestPollWithoutContentLength(t *testing.T) {
+	s, ds, addr := makeServer(t, "PollWithoutContentLength", nil, nil)
+	defer s.Stop()
+	id, cl, _, _ := makeClient(t, true)
+
+	labels := []string{"linux", "test"}
+	resp := postMessage(t, cl, addr, marshalWrapped(t, labels...), fspb.CompressionAlgorithm_COMPRESSION_NONE, true)
+	checkPollResponse(t, resp)
+	checkClientLabels(t, ds, id, labels)
+}
+
+func TestPollTooLarge(t *testing.T) {
+	ctx := context.Background()
+	s, ds, addr := makeServer(t, "PollTooLarge", nil, nil)
+	defer s.Stop()
+
+	// A valid WrappedContactData of MaxContactSize+1 bytes: the contact_data
+	// field takes 1 byte for its tag and 4 bytes for its length.
+	tooLarge, err := proto.Marshal(&fspb.WrappedContactData{ContactData: make([]byte, MaxContactSize+1-5)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tooLarge) != MaxContactSize+1 {
+		t.Fatalf("WrappedContactData has %d bytes, want %d", len(tooLarge), MaxContactSize+1)
+	}
+
+	// The sizes of these bodies are unknown until the server has read them.
+	testCases := []struct {
+		name        string
+		compression fspb.CompressionAlgorithm
+	}{
+		{
+			name:        "uncompressed",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		{
+			name:        "deflate",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, cl, _, _ := makeClient(t, true)
+			body := compress(t, tooLarge, tc.compression)
+			resp := postMessage(t, cl, addr, body, tc.compression, true)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("Poll returned status %d, want %d", resp.StatusCode, http.StatusBadRequest)
+			}
+			if _, err := ds.GetClientData(ctx, id); err == nil {
+				t.Error("Client exists in the datastore after a poll that was too large")
+			}
+		})
+	}
+}
+
+func TestStreamingEmptyContacts(t *testing.T) {
+	s, _, addr := makeServer(t, "StreamingEmptyContacts", nil, nil)
+	defer s.Stop()
+
+	testCases := []struct {
+		name        string
+		compression fspb.CompressionAlgorithm
+	}{
+		{
+			name:        "uncompressed",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		{
+			name:        "deflate",
+			compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The stream stays open, so the server must not wait for its end.
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_, cl, _, _ := makeClient(t, true)
+
+			pr, pw := io.Pipe()
+			defer pr.Close()
+			// Ending the request body is the only way to unblock the client if the
+			// server doesn't respond.
+			stop := context.AfterFunc(ctx, func() { pr.CloseWithError(context.Cause(ctx)) })
+			defer stop()
+			bw := https.CompressingWriter(pw, tc.compression)
+			defer bw.Close()
+			emptyFrame := binary.AppendUvarint(nil, 0)
+
+			initialContactWritten := make(chan struct{})
+			go func() {
+				defer close(initialContactWritten)
+				// An empty WrappedContactData is a valid, though atypical, initial
+				// contact. It has to be written during the http.Client.Do call below,
+				// because the server writes headers at the end of the first exchange.
+				binary.Write(bw, binary.LittleEndian, magic)
+				if _, err := bw.Write(emptyFrame); err != nil {
+					t.Error(err)
+				}
+				bw.Flush()
+			}()
+
+			u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), pr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.ContentLength = -1
+			req.Close = true
+			req.Header.Set("Expect", "100-continue")
+			https.SetContentEncoding(req.Header, tc.compression)
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatalf("Streaming post failed: %v", err)
+			}
+			defer resp.Body.Close()
+			body := bufio.NewReader(resp.Body)
+			cd, err := readContact(body)
+			if err != nil {
+				t.Fatalf("Error reading ContactData of the initial exchange: %v", err)
+			}
+			if cd.AckIndex != 0 {
+				t.Errorf("AckIndex of initial exchange should be unset, got %d", cd.AckIndex)
+			}
+			<-initialContactWritten
+
+			// Empty WrappedContactData on the stream are acked like any other.
+			if _, err := bw.Write(emptyFrame); err != nil {
+				t.Fatal(err)
+			}
+			bw.Flush()
+			cd, err = readContact(body)
+			if err != nil {
+				t.Fatalf("Error reading ack of an empty WrappedContactData: %v", err)
+			}
+			if cd.AckIndex != 1 {
+				t.Errorf("Received ack for contact %d, but expected 1", cd.AckIndex)
 			}
 		})
 	}
