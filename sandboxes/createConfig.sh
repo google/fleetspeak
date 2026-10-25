@@ -36,3 +36,30 @@ cp cert.pem key.pem ./cleartext-xfcc-mode/
 cp cert.pem key.pem ./direct-mtls-mode/
 cp cert.pem key.pem ./https-header-mode/
 cp cert.pem key.pem ./passthrough-mode/
+
+MYSQL_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9@%*+,-./' < /dev/urandom 2>/dev/null | head -c 16)
+FLEETSPEAK_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9@%*+,-./' < /dev/urandom 2>/dev/null | head -c 16)
+
+sed -i 's@FS_SQL_PASSWORD@'"$MYSQL_PASSWORD"'@' ./cleartext-header-mode/docker-compose.yaml
+sed -i 's@FS_SQL_PASSWORD@'"$MYSQL_PASSWORD"'@' ./cleartext-xfcc-mode/docker-compose.yaml
+sed -i 's@FS_SQL_PASSWORD@'"$MYSQL_PASSWORD"'@' ./direct-mtls-mode/docker-compose.yaml
+sed -i 's@FS_SQL_PASSWORD@'"$MYSQL_PASSWORD"'@' ./https-header-mode/docker-compose.yaml
+sed -i 's@FS_SQL_PASSWORD@'"$MYSQL_PASSWORD"'@' ./passthrough-mode/docker-compose.yaml
+
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-header-mode/docker-compose.yaml
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-xfcc-mode/docker-compose.yaml
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./direct-mtls-mode/docker-compose.yaml
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./https-header-mode/docker-compose.yaml
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./passthrough-mode/docker-compose.yaml
+
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-header-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-xfcc-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./direct-mtls-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./https-header-mode/config/fleetspeak-server/components.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./passthrough-mode/config/fleetspeak-server/components.textproto
+
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-header-mode/config/fleetspeak.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./cleartext-xfcc-mode/config/fleetspeak.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./direct-mtls-mode/config/fleetspeak.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./https-header-mode/config/fleetspeak.textproto
+sed -i 's@FS_PASSWORD@'"$FLEETSPEAK_PASSWORD"'@' ./passthrough-mode/config/fleetspeak.textproto
