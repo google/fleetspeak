@@ -148,6 +148,31 @@ func jitter(seconds int32) time.Duration {
 	return time.Duration((1.0 + 0.5*mrand.Float32()) * float32(seconds) * float32(time.Second))
 }
 
+// backoffWithJitter calculates an exponential backoff duration based on the consecutive failure count,
+// clamped between baseSeconds and maxSeconds, plus up to 50% random jitter.
+func backoffWithJitter(baseSeconds, maxSeconds int32, consecutiveFailures int) time.Duration {
+	if baseSeconds <= 0 {
+		baseSeconds = 1
+	}
+	if maxSeconds <= 0 {
+		maxSeconds = 300 // default 5 minutes
+	}
+	if maxSeconds < baseSeconds {
+		maxSeconds = baseSeconds
+	}
+	if consecutiveFailures < 0 {
+		consecutiveFailures = 0
+	}
+	if consecutiveFailures > 16 {
+		consecutiveFailures = 16
+	}
+	delaySec := float64(baseSeconds) * float64(uint64(1)<<consecutiveFailures)
+	if delaySec > float64(maxSeconds) {
+		delaySec = float64(maxSeconds)
+	}
+	return time.Duration((1.0 + 0.5*mrand.Float64()) * delaySec * float64(time.Second))
+}
+
 // getFileIfModified fetches the file with the given name from the file server
 // with the HTTP GET method. The hosts are sequentially dialed until one of them
 // successfully responds. If no proper response was received, the function
