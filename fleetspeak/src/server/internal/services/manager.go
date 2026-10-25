@@ -208,7 +208,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 			}
 
 			c.stats.MessageIngested(true, m, cData)
-			res := l.processMessage(ctx, m, false)
+			res := l.processMessage(ctx, m, false, cData)
 			if res != nil {
 				hasResult[i] = true
 				m.Result = res
@@ -237,12 +237,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 // processMessage attempts to processes m, returning a fspb.MessageResult. It
 // also updates stats, calling exactly one of MessageDropped, MessageFailed,
 // MessageProcessed.
-func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool) *fspb.MessageResult {
-	cData, err := s.manager.clientData(ctx, m)
-	if err != nil {
-		log.Warningf("Couldn't fetch client data for the message: %v", err)
-	}
-
+func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool, cData *db.ClientData) *fspb.MessageResult {
 	if cData == nil {
 		log.Warningf("Can't annotate message with blocklisted status [service=%s] as client data couldn't be fetched.", s.name)
 	} else {
@@ -268,7 +263,13 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFir
 	}
 
 	start := ftime.Now()
-	e := s.service.ProcessMessage(ctx, m)
+	var e error
+	// ctx may have already expired during the caller's c.clientData(ctx, m) lookup.
+	if ctx.Err() != nil {
+		e = service.TemporaryError{E: ctx.Err()}
+	} else {
+		e = s.service.ProcessMessage(ctx, m)
+	}
 	switch {
 	case e == nil:
 		s.manager.stats.MessageProcessed(start, ftime.Now(), m, isFirstTry, cData)
@@ -334,7 +335,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 			}
 			c.stats.MessageIngested(false, m, cData)
 
-			res := l.processMessage(ctx1, m, true)
+			res := l.processMessage(ctx1, m, true, cData)
 			if res == nil {
 				return
 			}
