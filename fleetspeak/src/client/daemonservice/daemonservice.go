@@ -250,8 +250,16 @@ func (s *Service) executionManagerLoop(ctx context.Context) error {
 		err = eg.Wait()
 		ex.Shutdown()
 		wErr := waitEg.Wait()
-		if err == nil {
-			err = wErr
+
+		// `err` can already contain `wErr` in case subprocess exits early (in which
+		// case we cancel the context, wrapping the error). In that case `Join` only
+		// duplicates the information.
+		//
+		// However, in case the subprocess does not exit early but instead the stop
+		// is requested, we want to know whether it shuts down orderly or not, so
+		// `Join` makes sense to preserve that.
+		if !errors.Is(err, wErr) {
+			err = errors.Join(err, wErr)
 		}
 
 		s.sc.Stats().DaemonServiceSubprocessFinished(s.name, err)
