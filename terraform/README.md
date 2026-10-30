@@ -18,17 +18,17 @@ to install Terraform binary on your machine.
 ## Instrumenting Terraform with credentials
 
 1.  Install Google Cloud SDK ([link](https://cloud.google.com/sdk/install)).
-2.  Obtain Google Cloud credentials by running the following: `bash gcloud auth
-    application-default login` Your credentials will be saved to a file
-    `~/.config/gcloud/application_default_credentials.json`. It will be used by
-    terraform.
+2.  Obtain Google Cloud credentials by running the following:
+    `bash gcloud auth application-default login` Your credentials will be saved
+    to a file `~/.config/gcloud/application_default_credentials.json`. It will
+    be used by terraform.
 
 ## Running Terraform
 
 1.  `cd` to terraform directory
 2.  Run the following to initialize Terraform: `bash terraform init`
-3.  Then run the following to start installation: `bash terraform apply -var
-    "project_name=*your_project_name*"`
+3.  Then run the following to start installation:
+    `bash terraform apply -var "project_name=*your_project_name*"`
 
 By default 1 fleetspeak server and 1 client will be started. You can specify
 these numbers with terraform variables: `bash terraform apply -var
@@ -48,5 +48,5 @@ the bucket created by Terraform
 
 ## Destroying resources
 
-When tests are finished, destroy all the resources by running `bash terraform
-destroy -var "project_name=*your_project_name*"`
+When tests are finished, destroy all the resources by running
+`bash terraform destroy -var "project_name=*your_project_name*"`

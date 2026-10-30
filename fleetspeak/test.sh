@@ -14,17 +14,13 @@
 # limitations under the License.
 
 
-# Get absolute path to symlink's directory
-set +e # Do not exit if readlink errors out
-SCRIPT_DIR="$(/usr/bin/dirname "$(readlink -e "${ARGV0}" 2>/dev/null)")"
 # Exit on error.
 set -e
-if [[ -z "${SCRIPT_DIR}" || "${SCRIPT_DIR}" == '.' ]]; then
-  SCRIPT_DIR="$(/usr/bin/dirname "${BASH_SOURCE[0]}")"
-  if [[ -z "${SCRIPT_DIR}" ]]; then
-    /bin/echo 'Failed to resolve script directory.'
-    exit 1
-  fi
+
+SCRIPT_DIR="$(/usr/bin/dirname "${BASH_SOURCE[0]}")"
+if [[ -z "${SCRIPT_DIR}" ]]; then
+  /bin/echo 'Failed to resolve script directory.'
+  exit 1
 fi
 # Go to this script's directory.
 cd "${SCRIPT_DIR}"

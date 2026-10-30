@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up MySQL
         run: |
-          sudo /etc/init.d/mysql start
+          sudo systemctl start mysql.service
           mysql -e 'CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
       - uses: actions/setup-go@v3
         with:
@@ -104,7 +104,12 @@ jobs:
           cd fleetspeak
           ./build-pkgs.sh
           # Pass through MySQL config environment variables to sudo.
-          sudo -E ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
+          sudo env \
+            MYSQL_TEST_USER="${MYSQL_TEST_USER}" \
+            MYSQL_TEST_PASS="${MYSQL_TEST_PASS}" \
+            MYSQL_TEST_ADDR="${MYSQL_TEST_ADDR}" \
+            MYSQL_TEST_E2E_DB="${MYSQL_TEST_E2E_DB}" \
+            ./test-package.sh ./fleetspeak-server_$(cat ../VERSION)_amd64.deb ./fleetspeak-client_$(cat ../VERSION)_amd64.deb
       - name: Build installers
         run: |
           DEPLOY_PATH=$GITHUB_WORKSPACE/deploy/
