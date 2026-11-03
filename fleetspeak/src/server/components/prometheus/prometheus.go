@@ -50,14 +50,14 @@ var (
 		Name: "fleetspeak_messages_sent_total",
 		Help: "The total number of messages sent to clients by Fleetspeak server",
 	},
-		[]string{"source_service", "destination_service", "message_type", "client_labels"},
+		[]string{"source_service", "destination_service", "message_type"},
 	)
 
 	messagesSentSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fleetspeak_messages_sent_payload_bytes_size",
 		Help: "The total payload size of messages sent to clients by Fleetspeak server (in bytes)",
 	},
-		[]string{"source_service", "destination_service", "message_type", "client_labels"},
+		[]string{"source_service", "destination_service", "message_type"},
 	)
 
 	messagesSaved = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -231,7 +231,6 @@ func (s StatsCollector) MessageSent(m *fspb.Message) {
 	messagesSent.WithLabelValues(m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Inc()
 	payloadBytes := calculatePayloadBytes(m)
 	messagesSentSize.WithLabelValues(m.Source.ServiceName, m.Destination.ServiceName, m.MessageType).Add(float64(payloadBytes))
-
 }
 
 func calculatePayloadBytes(m *fspb.Message) int {
@@ -285,6 +284,9 @@ func (s StatsCollector) DatastoreOperation(start, end time.Time, operation strin
 }
 
 func getClientDataLabelsConcatenated(cd *db.ClientData) string {
+	if cd == nil {
+		return ""
+	}
 	var clientDataLabels []string
 	for _, labelStruct := range cd.Labels {
 		clientDataLabels = append(clientDataLabels, labelStruct.GetLabel())
@@ -293,14 +295,21 @@ func getClientDataLabelsConcatenated(cd *db.ClientData) string {
 	return strings.Join(clientDataLabels[:], ",")
 }
 
+func isBlacklisted(cd *db.ClientData) string {
+	if cd == nil {
+		return "false"
+	}
+	return strconv.FormatBool(cd.Blacklisted)
+}
+
 func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.ResourceUsageData, v *fspb.ValidationInfo) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
-	blacklisted := strconv.FormatBool(cd.Blacklisted)
+	blacklisted := isBlacklisted(cd)
 	scope := rud.Scope
 	version := rud.Version
 
 	// CounterVec
-	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), scope, rud.Version).Inc()
+	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, blacklisted, scope, rud.Version).Inc()
 
 	// HistorgramVecs
 	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
@@ -313,5 +322,5 @@ func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.Re
 
 func (s StatsCollector) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillNotification) {
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
-	killNotificationsReceived.WithLabelValues(clientDataLabels, strconv.FormatBool(cd.Blacklisted), kn.Service, kn.Reason.String()).Inc()
+	killNotificationsReceived.WithLabelValues(clientDataLabels, isBlacklisted(cd), kn.Service, kn.Reason.String()).Inc()
 }
