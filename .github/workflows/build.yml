@@ -19,6 +19,25 @@ jobs:
       SPANNER_SUBSCRIPTION: spanner-megs-sub
     steps:
       - uses: actions/checkout@v3
+      - name: Configure reliable DNS for APT
+        run: |
+          default_if="$(ip -o route show to default | awk '{print $5; exit}')"
+          if [[ -n "${default_if}" ]]; then
+            sudo resolvectl dns "${default_if}" 8.8.8.8 1.1.1.1
+            sudo resolvectl flush-caches
+            if ! getent ahosts archive.ubuntu.com >/dev/null; then
+              sudo resolvectl dns "${default_if}" 168.63.129.16
+              sudo resolvectl flush-caches
+            fi
+          fi
+          for host in azure.archive.ubuntu.com archive.ubuntu.com security.ubuntu.com; do
+            if ! getent ahosts "${host}" >/dev/null; then
+              ip="$(curl -fsSL --resolve dns.google:443:8.8.8.8 "https://dns.google/resolve?name=${host}&type=A" | python3 -c 'import json, sys; data = json.load(sys.stdin); print(next((a["data"] for a in data.get("Answer", []) if a.get("type") == 1), ""))')"
+              if [[ -n "${ip}" ]]; then
+                printf '%s %s\n' "${ip}" "${host}" | sudo tee -a /etc/hosts >/dev/null
+              fi
+            fi
+          done
       - name: Set up MySQL
         run: |
           sudo systemctl start mysql.service
@@ -82,8 +101,8 @@ jobs:
           gcloud emulators spanner start &
           gcloud spanner instances create ${{ env.SPANNER_INSTANCE }} \
             --config=emulator-config --description="Spanner Test Instance" --nodes=1
-          sudo apt-get update
-          sudo apt install -y protobuf-compiler libprotobuf-dev
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y protobuf-compiler libprotobuf-dev
           cd ./spanner-setup
           bash ./setup.sh
           cd ..
@@ -99,8 +118,8 @@ jobs:
         timeout-minutes: 10
         run: |
           mysql -e 'DROP DATABASE ${{ env.MYSQL_TEST_E2E_DB }}; CREATE DATABASE ${{ env.MYSQL_TEST_E2E_DB }};' -u${{ env.MYSQL_TEST_USER }} -p${{ env.MYSQL_TEST_PASS }}
-          sudo apt-get update
-          sudo apt install debhelper devscripts fakeroot libparse-debcontrol-perl build-essential
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y debhelper devscripts fakeroot libparse-debcontrol-perl build-essential
           cd fleetspeak
           ./build-pkgs.sh
           # Pass through MySQL config environment variables to sudo.
