@@ -3,6 +3,9 @@ package https
 import (
 	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -22,8 +25,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
@@ -753,5 +758,337 @@ func TestStreamingFlushAfterReset(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out waiting for Flush to complete")
+	}
+}
+
+// streamingTestContext is a comms.Context with an empty Outbox, for tests that
+// run a StreamingCommunicator without a client.Client.
+type streamingTestContext struct {
+	comms.Context
+	id   common.ClientID
+	priv *ecdsa.PrivateKey
+	si   comms.ServerInfo
+	conf *clpb.CommunicatorConfig
+}
+
+func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return nil }
+func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return nil }
+func (c *streamingTestContext) CurrentID() common.ClientID        { return c.id }
+func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
+	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: c.priv.Public()}, nil
+}
+func (c *streamingTestContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
+func (c *streamingTestContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
+func (c *streamingTestContext) ChainRevoked([]*x509.Certificate) bool        { return false }
+func (c *streamingTestContext) Stats() stats.Collector                       { return stats.NoopCollector{} }
+func (c *streamingTestContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &fspb.WrappedContactData{ContactData: b}, nil, nil
+}
+
+// TestStreamingStopDuringDialWithDeflate stops the communicator while connect
+// waits for a connection to be dialed, which is before anything reads the
+// request body that connect writes through the DEFLATE writer.
+func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID failed: %v", err)
+	}
+
+	dialing := make(chan struct{}, 1)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			select {
+			case dialing <- struct{}{}:
+			default:
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si:   comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		conf: &clpb.CommunicatorConfig{
+			Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	select {
+	case <-dialing:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the communicator to dial")
+	}
+
+	stopped := make(chan struct{})
+	go func() {
+		c.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Stop to return")
+	}
+}
+
+func TestStreamingResetBeforeConnectionPublished(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	defer close(toSend)
+
+	server := streamingTestServer{
+		t:                     t,
+		received:              received,
+		toSend:                toSend,
+		allowMultipleRequests: true,
+	}
+	server.Start()
+	defer server.Stop()
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{server.Addr()},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// Pause inside Ack during connect(), before connectLoop publishes c.curCon.
+	ackEntered := make(chan struct{})
+	releaseAck := make(chan struct{})
+	var ackOnce sync.Once
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"}},
+			Ack: func() {
+				ackOnce.Do(func() {
+					close(ackEntered)
+					<-releaseAck
+				})
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+
+	<-received
+	<-ackEntered
+	c.mu.Lock()
+	published := c.curCon != nil
+	c.mu.Unlock()
+	if published {
+		close(releaseAck)
+		t.Fatal("Ack ran after the connection was published, want it to run during connect(): the message missed the initial exchange")
+	}
+
+	// Trigger Reset and Flush while c.curCon is still nil inside connect().
+	c.Reset()
+	flushDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		flushDone <- c.Flush(ctx)
+	}()
+	close(releaseAck)
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush failed: %v", err)
+		}
+		if got := atomic.LoadInt32(&server.rc); got < 2 {
+			t.Errorf("Flush returned before post-Reset reconnect: got %d requests, want at least 2", got)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Flush to complete")
+	}
+}
+
+// TestStreamingResetDuringConnect checks that Reset abandons a connection
+// attempt that the server has stalled, so that the Flush that follows
+// completes on a new connection.
+func TestStreamingResetDuringConnect(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// headersBeforeStall is whether the server sends the response headers
+		// before it stalls. If it does, the client is reading the initial
+		// ContactData when Reset is called; if not, it is waiting for the
+		// response.
+		headersBeforeStall bool
+	}{
+		{name: "StalledBeforeResponseHeaders"},
+		{name: "StalledAfterResponseHeaders", headersBeforeStall: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testStreamingResetDuringConnect(t, tc.headersBeforeStall)
+		})
+	}
+}
+
+func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
+	t.Helper()
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert failed: %v", err)
+	}
+	cp, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair failed: %v", err)
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("ResolveTCPAddr failed: %v", err)
+	}
+	tl, err := net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatalf("ListenTCP failed: %v", err)
+	}
+	addr := tl.Addr().String()
+
+	var reqCount atomic.Int32
+	req1Stalled := make(chan struct{})
+	req1Aborted := make(chan struct{})
+	testDone := make(chan struct{})
+
+	handler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		reqNum := reqCount.Add(1)
+		body := bufio.NewReader(req.Body)
+		b := make([]byte, 4)
+		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
+			return
+		}
+		size, err := binary.ReadUvarint(body)
+		if err != nil {
+			return
+		}
+		buf := make([]byte, size)
+		if _, err := io.ReadFull(body, buf); err != nil {
+			return
+		}
+
+		if reqNum == 1 {
+			defer close(req1Aborted)
+			if headersBeforeStall {
+				res.WriteHeader(http.StatusOK)
+				res.(http.Flusher).Flush()
+			}
+			close(req1Stalled)
+			// Reading from body blocks until Reset closes the client stream.
+			_, _ = io.Copy(io.Discard, body)
+			return
+		}
+
+		outBuf, err := proto.Marshal(&fspb.ContactData{AckIndex: 0})
+		if err != nil {
+			t.Errorf("Unable to encode response: %v", err)
+			return
+		}
+		sizeBuf := binary.AppendUvarint(nil, uint64(len(outBuf)))
+		if _, err := res.Write(sizeBuf); err != nil {
+			return
+		}
+		if _, err := res.Write(outBuf); err != nil {
+			return
+		}
+		res.(http.Flusher).Flush()
+		select {
+		case <-req.Context().Done():
+		case <-testDone:
+		}
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/streaming-message", &https.CompressionHandler{Wrapped: handler})
+	server := http.Server{
+		Addr:    addr,
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			ClientAuth:   tls.RequireAnyClientCert,
+			Certificates: []tls.Certificate{cp},
+			NextProtos:   []string{"h2"},
+		},
+	}
+	l := tls.NewListener(tl, server.TLSConfig)
+	go server.Serve(l)
+	defer server.Close()
+	defer close(testDone)
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{addr},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c,
+		})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	select {
+	case <-req1Stalled:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the server to stall the first connection attempt")
+	}
+
+	c.Reset()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := c.Flush(ctx); err != nil {
+		t.Fatalf("Flush after Reset = %v, want nil", err)
+	}
+	if got := reqCount.Load(); got < 2 {
+		t.Errorf("Server received %d requests before Flush returned, want at least 2", got)
+	}
+	select {
+	case <-req1Aborted:
+	case <-time.After(5 * time.Second):
+		t.Error("Timed out waiting for Reset to abort the stalled first request")
 	}
 }
