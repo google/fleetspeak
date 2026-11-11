@@ -59,19 +59,40 @@ type Communicator struct {
 
 	certBytes []byte
 
-	// Synchronization for Reset/Flush
-	wakeUp      chan struct{}
-	mu          sync.Mutex
-	pollDone    chan struct{}
+	// wakeUp ends processingLoop's wait before the next poll, or its wait after
+	// a failed poll.
+	wakeUp chan struct{}
+
+	// mu guards the fields below it, and cross-goroutine reads of hc and
+	// certBytes (in Reset and GetFileIfModified) against updates on the
+	// processingLoop goroutine in configure.
+	mu sync.Mutex
+	// reqSeq numbers the most recent request for a poll, made by Reset, by a
+	// message taken from Outbox, or by processingLoop when it starts a poll
+	// that nothing requested.
+	reqSeq uint64
+	// urgentSeq is the reqSeq of the most recent Reset.
+	// processingLoop polls without delay while urgentSeq > doneSeq.
+	urgentSeq uint64
+	// startedSeq is the reqSeq served by the most recently started poll.
+	startedSeq uint64
+	// doneSeq is the reqSeq served by the most recent poll that Reset did not
+	// cancel.
+	doneSeq uint64
+	// pollNotify is closed and replaced each time doneSeq advances.
+	pollNotify chan struct{}
+	// lastPollErr is the result of the poll that set doneSeq.
 	lastPollErr error
-	pollCancel  context.CancelFunc
+	// pollCancel cancels the poll in progress. It is nil between polls.
+	pollCancel context.CancelFunc
 }
 
 // Setup implements comms.Communicator.
 func (c *Communicator) Setup(cl comms.Context) error {
 	c.cctx = cl
-	c.pollDone = make(chan struct{})
-	close(c.pollDone) // Start closed so Flush returns immediately if no messages.
+	c.ctx, c.done = context.WithCancel(context.Background())
+	c.wakeUp = make(chan struct{}, 1)
+	c.pollNotify = make(chan struct{})
 	return c.configure()
 }
 
@@ -111,14 +132,15 @@ func (c *Communicator) configure() error {
 		c.conf.FailureSuicideTimeSeconds = 60 * 60 * 24 * 7
 	}
 
-	c.hc = &http.Client{
+	hc := &http.Client{
 		Transport: tr,
 		Timeout:   5 * time.Minute,
 	}
-	c.ctx, c.done = context.WithCancel(context.Background())
-	c.clientCertificateHeader = si.ClientCertificateHeader
-	c.wakeUp = make(chan struct{}, 1)
+	c.mu.Lock()
+	c.hc = hc
 	c.certBytes = certBytes
+	c.mu.Unlock()
+	c.clientCertificateHeader = si.ClientCertificateHeader
 	return nil
 }
 
@@ -141,12 +163,14 @@ func (c *Communicator) Stop() {
 func (c *Communicator) Reset() {
 	log.Infof("Reset called")
 	c.mu.Lock()
+	c.reqSeq++
+	c.urgentSeq = c.reqSeq
 	if c.pollCancel != nil {
 		c.pollCancel()
 	}
-	c.pollDone = make(chan struct{})
+	hc := c.hc
 	c.mu.Unlock()
-	c.hc.Transport.(*http.Transport).CloseIdleConnections()
+	hc.Transport.(*http.Transport).CloseIdleConnections()
 	select {
 	case c.wakeUp <- struct{}{}:
 	default:
@@ -156,9 +180,28 @@ func (c *Communicator) Reset() {
 // Flush implements comms.Communicator.
 func (c *Communicator) Flush(ctx context.Context) error {
 	log.InfoContextf(ctx, "Flush called")
+	c.mu.Lock()
+	target := c.reqSeq
+	if c.doneSeq >= target {
+		err := c.lastPollErr
+		c.mu.Unlock()
+		return err
+	}
+	c.mu.Unlock()
+
+	select {
+	case c.wakeUp <- struct{}{}:
+	default:
+	}
+
 	for {
 		c.mu.Lock()
-		done := c.pollDone
+		if c.doneSeq >= target {
+			err := c.lastPollErr
+			c.mu.Unlock()
+			return err
+		}
+		notify := c.pollNotify
 		c.mu.Unlock()
 
 		select {
@@ -166,15 +209,7 @@ func (c *Communicator) Flush(ctx context.Context) error {
 			return ctx.Err()
 		case <-c.ctx.Done():
 			return c.ctx.Err()
-		case <-done:
-			c.mu.Lock()
-			err := c.lastPollErr
-			if err != nil && c.pollDone != done {
-				c.mu.Unlock()
-				continue
-			}
-			c.mu.Unlock()
-			return err
+		case <-notify:
 		}
 	}
 }
@@ -204,24 +239,39 @@ func (c *Communicator) processingLoop() {
 	// and updates the variables defined above. In case of failure it also sleeps
 	// for the MinFailureDelay.
 	poll := func() {
-		var err error
-		c.mu.Lock()
-		select {
-		case <-c.pollDone:
-			c.pollDone = make(chan struct{})
-		default:
+	drainLoop:
+		for c.ctx.Err() == nil && toSendSize < sendBytesThreshold && len(toSend) < sendCountThreshold {
+			select {
+			case m := <-c.cctx.Outbox():
+				toSend = append(toSend, m)
+				toSendSize += 2 + proto.Size(m.M)
+			default:
+				break drainLoop
+			}
 		}
+
+		var err error
+		var wasReset bool
+		c.mu.Lock()
+		if c.reqSeq <= c.startedSeq {
+			c.reqSeq++
+		}
+		mySeq := c.reqSeq
+		c.startedSeq = mySeq
 		reqCtx, cancel := context.WithCancel(c.ctx)
 		c.pollCancel = cancel
-		myDone := c.pollDone
 		c.mu.Unlock()
 
 		defer func() {
 			cancel()
 			c.mu.Lock()
 			c.pollCancel = nil
-			c.lastPollErr = err
-			close(myDone)
+			if !wasReset {
+				c.lastPollErr = err
+				c.doneSeq = mySeq
+				close(c.pollNotify)
+				c.pollNotify = make(chan struct{})
+			}
 			c.mu.Unlock()
 		}()
 
@@ -232,15 +282,12 @@ func (c *Communicator) processingLoop() {
 		var active bool
 		active, err = c.poll(reqCtx, toSend)
 		if err != nil {
-			c.mu.Lock()
-			wasReset := errors.Is(err, context.Canceled) && c.ctx.Err() == nil
-			c.mu.Unlock()
-
+			wasReset = errors.Is(err, context.Canceled) && c.ctx.Err() == nil
 			if wasReset {
 				return
 			}
 
-			log.Warningf("Failure during polling: %v", err)
+			log.WarningContextf(reqCtx, "Failure during polling: %v", err)
 			for _, m := range toSend {
 				m.Nack()
 			}
@@ -311,8 +358,14 @@ func (c *Communicator) processingLoop() {
 			}
 		}
 
+		// Reset also sends on wakeUp, but the wait after a failed poll can
+		// consume that token, so urgentSeq is what guarantees its poll.
+		c.mu.Lock()
+		urgent := c.urgentSeq > c.doneSeq
+		c.mu.Unlock()
+
 		now := time.Now()
-		if now.After(deadline) || toSendSize > sendBytesThreshold || len(toSend) >= sendCountThreshold {
+		if urgent || now.After(deadline) || toSendSize > sendBytesThreshold || len(toSend) >= sendCountThreshold {
 			log.V(1).Info("Polling without delay.")
 			poll()
 			if c.ctx.Err() != nil {
@@ -346,10 +399,8 @@ func (c *Communicator) processingLoop() {
 		case m := <-c.cctx.Outbox():
 			t.Stop()
 			c.mu.Lock()
-			select {
-			case <-c.pollDone:
-				c.pollDone = make(chan struct{})
-			default:
+			if c.reqSeq <= c.startedSeq {
+				c.reqSeq++
 			}
 			c.mu.Unlock()
 
@@ -479,9 +530,14 @@ func (c *Communicator) pollHost(ctx context.Context, host string, data []byte) (
 	return cd, nil
 }
 
+// GetFileIfModified implements comms.Communicator.
 func (c *Communicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, c.cctx, c.certBytes, hosts, c.hc, service, name, modSince)
+	c.mu.Lock()
+	hc := c.hc
+	certBytes := c.certBytes
+	c.mu.Unlock()
+	return getFileIfModified(ctx, c.cctx, certBytes, hosts, hc, service, name, modSince)
 }

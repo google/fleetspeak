@@ -15,7 +15,11 @@
 package https
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -26,6 +30,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -34,8 +39,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	common_util "github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
@@ -128,8 +135,15 @@ func testCommunicator(t *testing.T, proxy *url.URL, compression fspb.Compression
 	// the client.
 	var handle http.HandlerFunc = func(res http.ResponseWriter, req *http.Request) {
 		if clientCertHeader != "" {
-			if req.Header.Get(clientCertHeader) == "" {
+			rawHeader := req.Header.Get(clientCertHeader)
+			if rawHeader == "" {
 				t.Errorf("client certificate header is not set")
+			} else if unescaped, err := url.PathUnescape(rawHeader); err != nil {
+				t.Errorf("unable to unescape client certificate header: %v", err)
+			} else if block, _ := pem.Decode([]byte(unescaped)); block == nil || block.Type != "CERTIFICATE" {
+				t.Errorf("client certificate header = %q, want a CERTIFICATE PEM block", unescaped)
+			} else if !bytes.Equal(block.Bytes, req.TLS.PeerCertificates[0].Raw) {
+				t.Errorf("client certificate header DER mismatch: got %d bytes, want %d bytes", len(block.Bytes), len(req.TLS.PeerCertificates[0].Raw))
 			}
 		}
 		cid, err := common.MakeClientID(req.TLS.PeerCertificates[0].PublicKey)
@@ -874,5 +888,480 @@ func TestFlush(t *testing.T) {
 		}
 	case <-time.After(6 * time.Second):
 		t.Fatal("Timed out waiting for Flush")
+	}
+}
+
+type pollingFlushTestContext struct {
+	comms.Context
+	id                 common.ClientID
+	priv               *ecdsa.PrivateKey
+	si                 comms.ServerInfo
+	conf               *clpb.CommunicatorConfig
+	outbox             chan comms.MessageInfo
+	processContactData func(context.Context, *fspb.ContactData, bool) error
+}
+
+func (c *pollingFlushTestContext) Outbox() <-chan comms.MessageInfo { return c.outbox }
+func (c *pollingFlushTestContext) CurrentID() common.ClientID       { return c.id }
+func (c *pollingFlushTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
+	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: c.priv.Public()}, nil
+}
+func (c *pollingFlushTestContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
+func (c *pollingFlushTestContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
+func (c *pollingFlushTestContext) ChainRevoked([]*x509.Certificate) bool        { return false }
+func (c *pollingFlushTestContext) Stats() stats.Collector                       { return stats.NoopCollector{} }
+func (c *pollingFlushTestContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {
+	if c.processContactData != nil {
+		return c.processContactData(ctx, cd, streaming)
+	}
+	return nil
+}
+func (c *pollingFlushTestContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &fspb.WrappedContactData{ContactData: b}, nil, nil
+}
+
+// startPollingFlushTestServer serves handler at /message over TLS until the
+// test ends. It returns a comms.Context for a client of that server whose
+// poll, buffer and failure delays are all 60s, longer than any test waits.
+func startPollingFlushTestServer(t *testing.T, handler http.HandlerFunc) *pollingFlushTestContext {
+	t.Helper()
+	pemCert, pemKey, err := common_util.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert failed: %v", err)
+	}
+	cp, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair failed: %v", err)
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("ResolveTCPAddr failed: %v", err)
+	}
+	tl, err := net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatalf("ListenTCP failed: %v", err)
+	}
+	addr := tl.Addr().String()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/message", handler)
+	server := http.Server{
+		Addr:    addr,
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			ClientAuth:   tls.RequireAnyClientCert,
+			Certificates: []tls.Certificate{cp},
+			NextProtos:   []string{"h2"},
+		},
+	}
+	go server.Serve(tls.NewListener(tl, server.TLSConfig))
+	t.Cleanup(func() { server.Close() })
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID failed: %v", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+
+	return &pollingFlushTestContext{
+		id:   id,
+		priv: priv,
+		si: comms.ServerInfo{
+			TrustedCerts: pool,
+			Servers:      []string{addr},
+		},
+		conf: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    60,
+			MaxBufferDelaySeconds:  60,
+			MinFailureDelaySeconds: 60,
+		},
+		outbox: make(chan comms.MessageInfo),
+	}
+}
+
+// writeEmptyContactData answers a poll with a ContactData that carries no
+// messages.
+func writeEmptyContactData(t *testing.T, res http.ResponseWriter) {
+	t.Helper()
+	buf, err := proto.Marshal(&fspb.ContactData{SequencingNonce: 42})
+	if err != nil {
+		t.Errorf("unable to marshal ContactData: %v", err)
+		http.Error(res, "marshal error", http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "application/octet-stream")
+	res.WriteHeader(http.StatusOK)
+	res.Write(buf)
+}
+
+// TestPollDrainsReadyOutbox checks that a poll sends every message that is
+// ready in Outbox when the poll starts.
+func TestPollDrainsReadyOutbox(t *testing.T) {
+	const numMessages = 3
+	msgCounts := make(chan int, 10)
+	cctx := startPollingFlushTestServer(t, func(res http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("unable to read request body: %v", err)
+		}
+		var wcd fspb.WrappedContactData
+		var cd fspb.ContactData
+		if err := proto.Unmarshal(body, &wcd); err != nil {
+			t.Errorf("unable to unmarshal WrappedContactData: %v", err)
+		} else if err := proto.Unmarshal(wcd.ContactData, &cd); err != nil {
+			t.Errorf("unable to unmarshal ContactData: %v", err)
+		}
+		msgCounts <- len(cd.Messages)
+		writeEmptyContactData(t, res)
+	})
+	cctx.outbox = make(chan comms.MessageInfo, numMessages)
+
+	// Hold the first poll in ProcessContactData so that every message is
+	// ready in Outbox before processingLoop looks at Outbox again.
+	var poll1Once, releasePoll1Once sync.Once
+	inPoll1Process := make(chan struct{})
+	releasePoll1Process := make(chan struct{})
+	closeReleasePoll1 := func() { releasePoll1Once.Do(func() { close(releasePoll1Process) }) }
+	cctx.processContactData = func(context.Context, *fspb.ContactData, bool) error {
+		poll1Once.Do(func() {
+			close(inPoll1Process)
+			<-releasePoll1Process
+		})
+		return nil
+	}
+
+	var c Communicator
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer c.Stop()
+	defer closeReleasePoll1()
+
+	select {
+	case <-inPoll1Process:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first poll to enter ProcessContactData")
+	}
+
+	for range numMessages {
+		cctx.outbox <- comms.MessageInfo{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"},
+				Background:  true,
+			},
+			Ack:  func() {},
+			Nack: func() {},
+		}
+	}
+	// Reset makes processingLoop poll again without waiting
+	// MaxBufferDelaySeconds.
+	c.Reset()
+	closeReleasePoll1()
+
+	for i, want := range []int{0, numMessages} {
+		select {
+		case got := <-msgCounts:
+			if got != want {
+				t.Errorf("Poll %d carried %d messages, want %d", i+1, got, want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Timed out waiting for poll %d", i+1)
+		}
+	}
+}
+
+// waitForFirstPoll blocks until c has completed a poll, after which
+// processingLoop waits MaxPollDelaySeconds unless something wakes it.
+func waitForFirstPoll(t *testing.T, c *Communicator) {
+	t.Helper()
+	timeout := time.After(5 * time.Second)
+	for {
+		c.mu.Lock()
+		done := c.doneSeq >= 1
+		notify := c.pollNotify
+		c.mu.Unlock()
+		if done {
+			return
+		}
+		select {
+		case <-notify:
+		case <-timeout:
+			t.Fatal("Timed out waiting for initial poll to complete")
+		}
+	}
+}
+
+func TestFlushWakesBufferedOutbox(t *testing.T) {
+	cctx := startPollingFlushTestServer(t, func(res http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		writeEmptyContactData(t, res)
+	})
+
+	var c Communicator
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer c.Stop()
+
+	waitForFirstPoll(t, &c)
+
+	// Enqueue a small background message on the unbuffered Outbox channel; once
+	// the send completes, processingLoop has received it and will wait
+	// MaxBufferDelaySeconds (60s) unless Flush wakes it.
+	acked := make(chan struct{})
+	cctx.outbox <- comms.MessageInfo{
+		M: &fspb.Message{
+			Destination: &fspb.Address{ServiceName: "DummyService"},
+			Background:  true,
+		},
+		Ack:  func() { close(acked) },
+		Nack: func() {},
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		c.mu.Lock()
+		buffered := c.reqSeq > c.doneSeq
+		c.mu.Unlock()
+		if buffered {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Timed out waiting for Outbox message to advance reqSeq")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	flushCtx, flushCancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer flushCancel()
+	if err := c.Flush(flushCtx); err != nil {
+		t.Fatalf("Flush failed while message buffered: %v", err)
+	}
+
+	select {
+	case <-acked:
+	default:
+		t.Fatal("Expected buffered message to be acked before Flush returned")
+	}
+}
+
+// notifyOnDoneContext calls onDone the first time Done is called. Flush first
+// calls Done when it is about to block waiting for a poll, so onDone reports
+// that Flush has requested a poll and is waiting for it.
+type notifyOnDoneContext struct {
+	context.Context
+	once   sync.Once
+	onDone func()
+}
+
+func (c *notifyOnDoneContext) Done() <-chan struct{} {
+	c.once.Do(c.onDone)
+	return c.Context.Done()
+}
+
+func TestFlushAfterResetWaitsForPostResetPoll(t *testing.T) {
+	var pollCount atomic.Int32
+	var poll2StartedOnce, releasePoll2Once sync.Once
+	poll2Started := make(chan struct{})
+	releasePoll2 := make(chan struct{})
+	closeReleasePoll2 := func() { releasePoll2Once.Do(func() { close(releasePoll2) }) }
+	cctx := startPollingFlushTestServer(t, func(res http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		if pollCount.Add(1) == 2 {
+			poll2StartedOnce.Do(func() { close(poll2Started) })
+			<-releasePoll2
+		}
+		writeEmptyContactData(t, res)
+	})
+
+	var poll1Once, releasePoll1Once sync.Once
+	inPoll1Process := make(chan struct{})
+	releasePoll1Process := make(chan struct{})
+	closeReleasePoll1 := func() { releasePoll1Once.Do(func() { close(releasePoll1Process) }) }
+	cctx.processContactData = func(context.Context, *fspb.ContactData, bool) error {
+		poll1Once.Do(func() {
+			close(inPoll1Process)
+			<-releasePoll1Process
+		})
+		return nil
+	}
+
+	var dialCount atomic.Int32
+	var c Communicator
+	c.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialCount.Add(1)
+		return (&net.Dialer{}).DialContext(ctx, network, addr)
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer c.Stop()
+	defer closeReleasePoll2()
+	defer closeReleasePoll1()
+
+	select {
+	case <-inPoll1Process:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first poll to enter ProcessContactData")
+	}
+
+	c.Reset()
+
+	flushWaiting := make(chan struct{})
+	baseCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer flushCancel()
+	flushCtx := &notifyOnDoneContext{
+		Context: baseCtx,
+		onDone:  func() { close(flushWaiting) },
+	}
+	flushDone := make(chan error, 1)
+	go func() {
+		flushDone <- c.Flush(flushCtx)
+	}()
+
+	select {
+	case <-flushWaiting:
+	case err := <-flushDone:
+		t.Fatalf("Flush returned %v before post-Reset poll started", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for Flush to wait on poll completion")
+	}
+
+	closeReleasePoll1()
+
+	select {
+	case <-poll2Started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for post-Reset poll to start")
+	}
+
+	select {
+	case err := <-flushDone:
+		t.Fatalf("Flush returned %v before post-Reset poll completed", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	closeReleasePoll2()
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Fatalf("Flush failed after post-Reset poll: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for Flush after post-Reset poll")
+	}
+
+	if got := pollCount.Load(); got < 2 {
+		t.Errorf("Server received %d polls before Flush returned, want at least 2", got)
+	}
+	if got := dialCount.Load(); got < 2 {
+		t.Errorf("Communicator dialed %d times, want at least 2 because Reset closes the idle connection", got)
+	}
+}
+
+func TestFlushAfterResetBeforeFailureDelay(t *testing.T) {
+	var failPolls atomic.Bool
+	cctx := startPollingFlushTestServer(t, func(res http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		if failPolls.Load() {
+			http.Error(res, "injected failure", http.StatusInternalServerError)
+			return
+		}
+		writeEmptyContactData(t, res)
+	})
+
+	var c Communicator
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer c.Stop()
+
+	waitForFirstPoll(t, &c)
+
+	// processingLoop Nacks the messages of a failed poll just before it starts
+	// the MinFailureDelaySeconds wait, so a Nack that blocks holds
+	// processingLoop at the point where a wakeUp token sent now is consumed by
+	// that wait rather than by the wait for the next poll.
+	nackEntered := make(chan struct{})
+	releaseNack := make(chan struct{})
+	var releaseNackOnce sync.Once
+	closeReleaseNack := func() { releaseNackOnce.Do(func() { close(releaseNack) }) }
+	defer closeReleaseNack()
+	failPolls.Store(true)
+	cctx.outbox <- comms.MessageInfo{
+		M: &fspb.Message{
+			Destination: &fspb.Address{ServiceName: "DummyService"},
+			Background:  true,
+		},
+		Ack: func() {},
+		Nack: func() {
+			close(nackEntered)
+			<-releaseNack
+		},
+	}
+	c.Reset()
+
+	select {
+	case <-nackEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for the failed poll to Nack its message")
+	}
+	failPolls.Store(false)
+
+	c.Reset()
+
+	flushWaiting := make(chan struct{})
+	baseCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer flushCancel()
+	flushCtx := &notifyOnDoneContext{
+		Context: baseCtx,
+		onDone:  func() { close(flushWaiting) },
+	}
+	flushDone := make(chan error, 1)
+	go func() {
+		flushDone <- c.Flush(flushCtx)
+	}()
+
+	select {
+	case <-flushWaiting:
+	case err := <-flushDone:
+		t.Fatalf("Flush returned %v while the failed poll was still Nacking", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for Flush to wait on poll completion")
+	}
+
+	closeReleaseNack()
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush after Reset = %v, want nil from a poll made without waiting MaxPollDelaySeconds", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Flush to return")
 	}
 }
