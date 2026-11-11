@@ -33,6 +33,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server"
+	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/service"
@@ -68,7 +69,7 @@ func (c FakeCommunicator) Start() error { return nil }
 func (c FakeCommunicator) Stop() {}
 
 // makeTestServer is a helper to create a test server with optional components.
-func makeTestServer(t *testing.T, testName, caseName string, comms []comms.Communicator, fileStores map[string]db.FileStore, factories map[string]service.Factory, config *spb.ServerConfig) Server {
+func makeTestServer(t *testing.T, testName, caseName string, comms []comms.Communicator, fileStores map[string]db.FileStore, factories map[string]service.Factory, config *spb.ServerConfig, auth authorizer.Authorizer) Server {
 	t.Helper()
 	tempDir, tmpDirCleanup := comtesting.GetTempDir(testName)
 	defer tmpDirCleanup()
@@ -101,6 +102,7 @@ func makeTestServer(t *testing.T, testName, caseName string, comms []comms.Commu
 			ServiceFactories: factories,
 			Communicators:    append(comms, FakeCommunicator{&ret}),
 			FileStores:       fileStores,
+			Authorizer:       auth,
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -113,12 +115,17 @@ func makeTestServer(t *testing.T, testName, caseName string, comms []comms.Commu
 // Make creates a server.Server using the provided communicators. It creates and
 // attaches it to an sqlite datastore based on the test and test case names.
 func Make(t *testing.T, testName, caseName string, comms []comms.Communicator) Server {
-	return makeTestServer(t, testName, caseName, comms, nil, nil, nil)
+	return makeTestServer(t, testName, caseName, comms, nil, nil, nil, nil)
+}
+
+// MakeWithAuthorizer creates a server.Server using the provided authorizer.
+func MakeWithAuthorizer(t *testing.T, testName, caseName string, auth authorizer.Authorizer) Server {
+	return makeTestServer(t, testName, caseName, nil, nil, nil, nil, auth)
 }
 
 // MakeWithFileStores creates a server.Server using the provided communicators and file stores.
 func MakeWithFileStores(t *testing.T, testName, caseName string, comms []comms.Communicator, fileStores map[string]db.FileStore) Server {
-	return makeTestServer(t, testName, caseName, comms, fileStores, nil, nil)
+	return makeTestServer(t, testName, caseName, comms, fileStores, nil, nil, nil)
 }
 
 // MakeWithService creates a server.Server using the provided service. Like in Make(), a sqlite
@@ -135,7 +142,7 @@ func MakeWithService(t *testing.T, testName, caseName string, serviceInstance se
 			MaxParallelism: 5,
 		}},
 	}
-	return makeTestServer(t, testName, caseName, nil, nil, factories, config)
+	return makeTestServer(t, testName, caseName, nil, nil, factories, config, nil)
 }
 
 // MakeWithBatchedService creates with the given batched service backed by a
@@ -158,7 +165,7 @@ func MakeWithBatchedService(t *testing.T, svcName string, svc service.Service) *
 		}},
 	}
 
-	ts := makeTestServer(t, "batched_service", svcName, nil, nil, factories, config)
+	ts := makeTestServer(t, "batched_service", svcName, nil, nil, factories, config, nil)
 	return &ts
 }
 

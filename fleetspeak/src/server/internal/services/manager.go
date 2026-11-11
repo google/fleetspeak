@@ -105,8 +105,9 @@ func (c *Manager) Install(cfg *spb.ServiceConfig) error {
 	// "system" is a special service handling configuration and other
 	// message passing for Fleetspeak itself. "client" is the service name
 	// used for labels set by (and known by) the base Fleetspeak client
-	// itself.
-	if cfg.Name == "" || cfg.Name == "system" || cfg.Name == "client" {
+	// itself. "authorizer" is the service name used for labels set by the
+	// server's authorizer based on ValidationInfo tags.
+	if cfg.Name == "" || cfg.Name == "system" || cfg.Name == "client" || cfg.Name == "authorizer" {
 		return fmt.Errorf("illegal service name [%v]", cfg.Name)
 	}
 

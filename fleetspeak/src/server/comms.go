@@ -39,8 +39,11 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
-const maxMessagesPerContact = 100
-const processingChunkSize = 10
+const (
+	maxMessagesPerContact = 100
+	processingChunkSize   = 10
+	authorizerServiceName = "authorizer"
+)
 
 type commsContext struct {
 	s *Server
@@ -126,6 +129,7 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 		log.Warningf("[id:%v addr:%v labels:%v] Allow4 failed", id, addr, wcd.ClientLabels)
 		return nil, nil, false, comms.ErrNotAuthorized
 	}
+	c.updateAuthorizerLabels(ctx, &res, validationInfo)
 
 	var cd fspb.ContactData
 	if err = proto.Unmarshal(wcd.ContactData, &cd); err != nil {
@@ -180,6 +184,50 @@ func (c commsContext) InitializeConnection(ctx context.Context, addr net.Addr, k
 
 	res.AuthClientInfo.New = false
 	return &res, &toSend, len(toSend.Messages) == maxMessagesPerContact, nil
+}
+
+// updateAuthorizerLabels reconciles the client's "authorizer" labels with the
+// tag keys present in validationInfo.
+func (c commsContext) updateAuthorizerLabels(ctx context.Context, info *comms.ConnectionInfo, validationInfo *fspb.ValidationInfo) {
+	tags := validationInfo.GetTags()
+	existing := make(map[string]bool)
+	var labels []*fspb.Label
+	changed := false
+
+	for _, l := range info.Client.Labels {
+		if l.ServiceName != authorizerServiceName {
+			labels = append(labels, l)
+			continue
+		}
+		if _, ok := tags[l.Label]; ok {
+			existing[l.Label] = true
+			labels = append(labels, l)
+		} else {
+			if err := c.s.dataStore.RemoveClientLabel(ctx, info.Client.ID, l); err != nil {
+				log.Warningf("Unable to remove authorizer label [%v] for client [%v]: %v", l, info.Client.ID, err)
+			}
+			changed = true
+		}
+	}
+
+	for tag := range tags {
+		if !existing[tag] {
+			l := &fspb.Label{ServiceName: authorizerServiceName, Label: tag}
+			if err := c.s.dataStore.AddClientLabel(ctx, info.Client.ID, l); err != nil {
+				log.Warningf("Unable to add authorizer label [%v] for client [%v]: %v", l, info.Client.ID, err)
+				continue
+			}
+			labels = append(labels, l)
+			changed = true
+		}
+	}
+
+	if changed {
+		info.Client.Labels = labels
+		info.AuthClientInfo.Labels = labels
+		info.Client.Cached = false
+		c.s.clientCache.Update(info.Client.ID, nil)
+	}
 }
 
 // getClientInfo loads basic information about a client. Returns nil if the client does

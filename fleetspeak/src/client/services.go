@@ -84,7 +84,7 @@ func (c *serviceConfiguration) InstallSignedService(sd *fspb.SignedClientService
 }
 
 func validateServiceName(sname string) error {
-	if sname == "" || sname == "system" || sname == "client" {
+	if sname == "" || sname == "system" || sname == "client" || sname == "authorizer" {
 		return fmt.Errorf("illegal service name [%v]", sname)
 	}
 	return nil
