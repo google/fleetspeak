@@ -909,3 +909,97 @@ func TestCleartextXfccStreaming(t *testing.T) {
 	bw.Close()
 	resp.Body.Close()
 }
+
+func makeWrappedWithSignatures(sigs []*fspb.Signature) []byte {
+	cd := &fspb.ContactData{
+		ClientClock: db.NowProto(),
+	}
+	b, err := proto.Marshal(cd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	wcd := &fspb.WrappedContactData{
+		ContactData:  b,
+		ClientLabels: []string{"linux", "test"},
+		Signatures:   sigs,
+	}
+
+	buf, err := proto.Marshal(wcd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sizeBuf := make([]byte, 0, 16)
+	sizeBuf = binary.AppendUvarint(sizeBuf, uint64(len(buf)))
+
+	return append(sizeBuf, buf...)
+}
+
+func TestStreamingEmptySignatureCertificate(t *testing.T) {
+	ctx := context.Background()
+	s, _, addr := makeServer(t, "StreamingEmptySigCert", nil, nil)
+	_, cl, _, _ := makeClient(t, true)
+	defer s.Stop()
+
+	pr, pw := io.Pipe()
+	defer pr.Close()
+
+	bw := https.CompressingWriter(pw, fspb.CompressionAlgorithm_COMPRESSION_NONE)
+	defer bw.Close()
+
+	emptyCertSigs := []*fspb.Signature{
+		{
+			Algorithm: int32(x509.SHA256WithRSA),
+		},
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		binary.Write(bw, binary.LittleEndian, magic)
+		if _, err := bw.Write(makeWrappedWithSignatures(emptyCertSigs)); err != nil {
+			t.Error(err)
+		}
+		bw.Flush()
+		wg.Done()
+	}()
+
+	u := url.URL{Scheme: "https", Host: addr, Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+	https.SetContentEncoding(req.Header, fspb.CompressionAlgorithm_COMPRESSION_NONE)
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	defer resp.Body.Close()
+
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange = %d, want 0", cd.AckIndex)
+	}
+	wg.Wait()
+
+	for i := uint64(1); i <= 2; i++ {
+		if _, err := bw.Write(makeWrappedWithSignatures(emptyCertSigs)); err != nil {
+			t.Error(err)
+		}
+		bw.Flush()
+		cd, err := readContact(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cd.AckIndex != i {
+			t.Errorf("ContactData.AckIndex = %d, want %d", cd.AckIndex, i)
+		}
+	}
+}
