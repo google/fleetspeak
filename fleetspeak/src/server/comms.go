@@ -21,7 +21,9 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"sort"
 	"time"
@@ -510,7 +512,7 @@ func (c commsContext) ReadFile(ctx context.Context, service, name string) (data 
 // IsNotFound returns whether an error returned by ReadFile indicates that the
 // file was not found.
 func (c commsContext) IsNotFound(err error) bool {
-	return c.s.dataStore.IsNotFound(err)
+	return c.s.dataStore.IsNotFound(err) || errors.Is(err, fs.ErrNotExist)
 }
 
 // StatsCollector returns the stats.Collector used by the Fleetspeak

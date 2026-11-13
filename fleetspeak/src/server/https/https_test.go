@@ -347,6 +347,16 @@ func TestServiceSpecificFile(t *testing.T) {
 		t.Errorf("Unexpected file body, got %s, want %s", string(b), string(expectedData))
 	}
 	resp.Body.Close()
+
+	u.Path = path.Join("/files", url.PathEscape(service), "nonexistent")
+	resp, err = cl.Get(u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Unexpected response code when reading nonexistent file got %v want %v.", resp.StatusCode, http.StatusNotFound)
+	}
+	resp.Body.Close()
 }
 
 func makeWrapped() []byte {

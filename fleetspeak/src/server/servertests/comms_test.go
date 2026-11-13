@@ -23,6 +23,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
+	"fmt"
+	"io/fs"
 	"net"
 	"strings"
 	"testing"
@@ -834,5 +836,22 @@ func TestAuthorizerLabels(t *testing.T) {
 	}
 	if !db.LabelsEqual(cd.Labels, wantLabels) {
 		t.Errorf("cd.Labels after nil ValidationInfo=%v, want %v", cd.Labels, wantLabels)
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	ts := testserver.Make(t, "server", "IsNotFound", nil)
+	defer ts.S.Stop()
+
+	if !ts.CC.IsNotFound(fs.ErrNotExist) {
+		t.Errorf("IsNotFound(fs.ErrNotExist) = false, want true")
+	}
+	wrapped := fmt.Errorf("file missing: %w", fs.ErrNotExist)
+	if !ts.CC.IsNotFound(wrapped) {
+		t.Errorf("IsNotFound(%v) = false, want true", wrapped)
+	}
+	otherErr := errors.New("internal error")
+	if ts.CC.IsNotFound(otherErr) {
+		t.Errorf("IsNotFound(%v) = true, want false", otherErr)
 	}
 }
