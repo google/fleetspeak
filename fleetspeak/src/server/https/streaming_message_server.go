@@ -300,6 +300,11 @@ type streamManager struct {
 func (m *streamManager) readLoop() {
 	defer m.reading.Done()
 	defer m.cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("Streaming readLoop for client [%v] panicked: %v", m.info.Client.ID, r)
+		}
+	}()
 
 	cnt := uint64(0)
 

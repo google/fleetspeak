@@ -23,6 +23,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
+	"fmt"
+	"io/fs"
 	"net"
 	"strings"
 	"testing"
@@ -30,6 +32,7 @@ import (
 
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
+	"github.com/google/fleetspeak/fleetspeak/src/server/authorizer"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/services"
 	"github.com/google/fleetspeak/fleetspeak/src/server/sertesting"
@@ -706,5 +709,149 @@ func TestBatchedService(t *testing.T) {
 		protocmp.IgnoreFields(&fspb.Message{}, "message_id"),
 	); diff != "" {
 		t.Errorf("unexpected batches from simulated contact (-want +got):\n%s", diff)
+	}
+}
+
+type fakeValidationInfoAuthorizer struct {
+	authorizer.PermissiveAuthorizer
+	vi *fspb.ValidationInfo
+}
+
+func (a *fakeValidationInfoAuthorizer) Allow4(net.Addr, authorizer.ContactInfo, authorizer.ClientInfo, []authorizer.SignatureInfo) (bool, *fspb.ValidationInfo) {
+	return true, a.vi
+}
+
+func TestAuthorizerLabels(t *testing.T) {
+	ctx := context.Background()
+	auth := &fakeValidationInfoAuthorizer{
+		vi: &fspb.ValidationInfo{
+			Tags: map[string]string{
+				"GECC": "cert-fingerprint",
+				"IP":   "127.0.0.1",
+			},
+		},
+	}
+	ts := testserver.MakeWithAuthorizer(t, "server", "AuthorizerLabels", auth)
+	defer ts.S.Stop()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := privateKey.Public()
+	id, err := common.MakeClientID(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Initial contact sets both client-reported and authorizer labels.
+	ci, _, _, err := ts.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		pub,
+		&fspb.WrappedContactData{ClientLabels: []string{"linux"}},
+		false)
+	if err != nil {
+		t.Fatalf("InitializeConnection() failed: %v", err)
+	}
+
+	wantLabels := []*fspb.Label{
+		{ServiceName: "client", Label: "linux"},
+		{ServiceName: "authorizer", Label: "GECC"},
+		{ServiceName: "authorizer", Label: "IP"},
+	}
+	if !db.LabelsEqual(ci.Client.Labels, wantLabels) {
+		t.Errorf("ci.Client.Labels=%v, want %v", ci.Client.Labels, wantLabels)
+	}
+	if !db.LabelsEqual(ci.AuthClientInfo.Labels, wantLabels) {
+		t.Errorf("ci.AuthClientInfo.Labels=%v, want %v", ci.AuthClientInfo.Labels, wantLabels)
+	}
+	cd, err := ts.DS.GetClientData(ctx, id)
+	if err != nil {
+		t.Fatalf("GetClientData() failed: %v", err)
+	}
+	if !db.LabelsEqual(cd.Labels, wantLabels) {
+		t.Errorf("cd.Labels=%v, want %v", cd.Labels, wantLabels)
+	}
+
+	// 2. Subsequent contact without the GECC tag removes authorizer:GECC while
+	// keeping client:linux and authorizer:IP.
+	auth.vi = &fspb.ValidationInfo{
+		Tags: map[string]string{
+			"IP": "127.0.0.1",
+		},
+	}
+	ci, _, _, err = ts.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		pub,
+		&fspb.WrappedContactData{ClientLabels: []string{"linux"}},
+		false)
+	if err != nil {
+		t.Fatalf("InitializeConnection() failed: %v", err)
+	}
+
+	wantLabels = []*fspb.Label{
+		{ServiceName: "client", Label: "linux"},
+		{ServiceName: "authorizer", Label: "IP"},
+	}
+	if !db.LabelsEqual(ci.Client.Labels, wantLabels) {
+		t.Errorf("ci.Client.Labels after GECC removal=%v, want %v", ci.Client.Labels, wantLabels)
+	}
+	if !db.LabelsEqual(ci.AuthClientInfo.Labels, wantLabels) {
+		t.Errorf("ci.AuthClientInfo.Labels after GECC removal=%v, want %v", ci.AuthClientInfo.Labels, wantLabels)
+	}
+	cd, err = ts.DS.GetClientData(ctx, id)
+	if err != nil {
+		t.Fatalf("GetClientData() failed: %v", err)
+	}
+	if !db.LabelsEqual(cd.Labels, wantLabels) {
+		t.Errorf("cd.Labels after GECC removal=%v, want %v", cd.Labels, wantLabels)
+	}
+
+	// 3. Subsequent contact with nil ValidationInfo removes all authorizer labels.
+	auth.vi = nil
+	ci, _, _, err = ts.CC.InitializeConnection(
+		ctx,
+		&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 123},
+		pub,
+		&fspb.WrappedContactData{ClientLabels: []string{"linux"}},
+		false)
+	if err != nil {
+		t.Fatalf("InitializeConnection() failed: %v", err)
+	}
+
+	wantLabels = []*fspb.Label{
+		{ServiceName: "client", Label: "linux"},
+	}
+	if !db.LabelsEqual(ci.Client.Labels, wantLabels) {
+		t.Errorf("ci.Client.Labels after nil ValidationInfo=%v, want %v", ci.Client.Labels, wantLabels)
+	}
+	if !db.LabelsEqual(ci.AuthClientInfo.Labels, wantLabels) {
+		t.Errorf("ci.AuthClientInfo.Labels after nil ValidationInfo=%v, want %v", ci.AuthClientInfo.Labels, wantLabels)
+	}
+	cd, err = ts.DS.GetClientData(ctx, id)
+	if err != nil {
+		t.Fatalf("GetClientData() failed: %v", err)
+	}
+	if !db.LabelsEqual(cd.Labels, wantLabels) {
+		t.Errorf("cd.Labels after nil ValidationInfo=%v, want %v", cd.Labels, wantLabels)
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	ts := testserver.Make(t, "server", "IsNotFound", nil)
+	defer ts.S.Stop()
+
+	if !ts.CC.IsNotFound(fs.ErrNotExist) {
+		t.Errorf("IsNotFound(fs.ErrNotExist) = false, want true")
+	}
+	wrapped := fmt.Errorf("file missing: %w", fs.ErrNotExist)
+	if !ts.CC.IsNotFound(wrapped) {
+		t.Errorf("IsNotFound(%v) = false, want true", wrapped)
+	}
+	otherErr := errors.New("internal error")
+	if ts.CC.IsNotFound(otherErr) {
+		t.Errorf("IsNotFound(%v) = true, want false", otherErr)
 	}
 }

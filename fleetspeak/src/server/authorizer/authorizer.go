@@ -128,10 +128,13 @@ type Authorizer interface {
 	// processing the messages provided by the client.
 	//
 	// When accept=true, all messages will have their
-	// validation_info field set to the returned string, and then
-	// they will be saved and processed. When accept=false,
-	// processing will end, nothing will be saved, and the client
-	// will receive an http 503 or equivalent error code.
+	// validation_info field set to the returned ValidationInfo, and then
+	// they will be saved and processed. In addition, the keys of
+	// validation_info.tags will be set on the client as labels with
+	// service_name="authorizer" (and any previously set "authorizer"
+	// labels not present in validation_info.tags will be removed).
+	// When accept=false, processing will end, nothing will be saved, and
+	// the client will receive an http 503 or equivalent error code.
 	Allow4(net.Addr, ContactInfo, ClientInfo, []SignatureInfo) (accept bool, vi *fspb.ValidationInfo)
 }
 

@@ -78,11 +78,18 @@ func TestSystemServiceClientInfo(t *testing.T) {
 		t.Errorf("Expected 2 labels, got: %v", cd.Labels)
 	}
 
+	// Set an authorizer label in the datastore; ClientInfo must not remove it
+	// and must ignore any client-spoofed non-client labels.
+	if err := ts.DS.AddClientLabel(ctx, id, &fspb.Label{ServiceName: "authorizer", Label: "GECC"}); err != nil {
+		t.Fatal(err)
+	}
+
 	m.SourceMessageId = []byte("2")
 	m.MessageId = common.MakeMessageID(m.Source, m.SourceMessageId).Bytes()
 	m.Data = anypbtest.New(t, &fspb.ClientInfoData{
 		Labels: []*fspb.Label{
 			{ServiceName: "client", Label: "linux"},
+			{ServiceName: "authorizer", Label: "SPOOFED"},
 		},
 		Services: []*fspb.ClientInfoData_ServiceID{
 			{Name: "TestService", Signature: []byte("signature")},
@@ -95,8 +102,13 @@ func TestSystemServiceClientInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cd.Labels) != 1 {
-		t.Errorf("Expected 1 label, got: %v", cd.Labels)
+	if len(cd.Labels) != 2 {
+		t.Errorf("Expected 2 labels (client:linux and authorizer:GECC), got: %v", cd.Labels)
+	}
+	for _, l := range cd.Labels {
+		if l.ServiceName == "authorizer" && l.Label != "GECC" {
+			t.Errorf("Unexpected authorizer label: %v", l)
+		}
 	}
 }
 

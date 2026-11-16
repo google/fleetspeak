@@ -31,7 +31,6 @@ const (
 	communicatorFilename  = "communicator.txt"
 	signedServicesDirname = "services"
 	textServicesDirname   = "textservices"
-	writebackFilename     = "writeback"
 )
 
 // FilesystemPersistenceHandler defines the filesystem configuration storage strategy.
