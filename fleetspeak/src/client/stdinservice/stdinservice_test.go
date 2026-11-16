@@ -18,8 +18,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client/clitesting"
 	"github.com/google/fleetspeak/fleetspeak/src/common/anypbtest"
@@ -28,12 +31,54 @@ import (
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
+const helperArg = "--stdinservice-test-helper"
+
+func init() {
+	if len(os.Args) < 3 || os.Args[1] != helperArg {
+		return
+	}
+	mode, rest := os.Args[2], os.Args[3:]
+	switch mode {
+	case "echo":
+		fmt.Fprint(os.Stdout, strings.Join(rest, " "))
+	case "cat":
+		if _, err := io.Copy(os.Stdout, os.Stdin); err != nil {
+			fmt.Fprintf(os.Stderr, "io.Copy: %v\n", err)
+			os.Exit(1)
+		}
+	case "busy":
+		end := time.Now().Add(time.Second)
+		for time.Now().Before(end) {
+			_, _ = os.ReadDir(".")
+		}
+	case "sleep":
+		if len(rest) < 1 {
+			fmt.Fprintln(os.Stderr, "sleep mode requires a duration argument")
+			os.Exit(2)
+		}
+		d, err := time.ParseDuration(rest[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "time.ParseDuration: %v\n", err)
+			os.Exit(1)
+		}
+		time.Sleep(d)
+	case "log":
+		fmt.Fprint(os.Stdout, "stdout_")
+		fmt.Fprint(os.Stderr, "stderr_")
+		fmt.Fprint(os.Stdout, "stdout_")
+	default:
+		fmt.Fprintf(os.Stderr, "unknown helper mode: %q\n", mode)
+		os.Exit(2)
+	}
+	os.Exit(0)
+}
+
 func TestStdinServiceWithEcho(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "EchoService",
 		Config: anypbtest.New(t, &sspb.Config{
-			Cmd:  "python",
-			Args: []string{"-c", `import sys; sys.stdout.write(" ".join(sys.argv[1:]))`},
+			Cmd:  os.Args[0],
+			Args: []string{helperArg, "echo"},
 		}),
 	})
 	if err != nil {
@@ -81,7 +126,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "CatService",
 		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
+			Cmd: os.Args[0],
 		}),
 	})
 	if err != nil {
@@ -100,10 +145,7 @@ func TestStdinServiceWithCat(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", `
-import sys, shutil
-shutil.copyfileobj(sys.stdin, sys.stdout)
-		`},
+				Args:  []string{helperArg, "cat"},
 				Input: []byte("foo bar"),
 			}),
 		})
@@ -133,7 +175,7 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "BashService",
 		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
+			Cmd: os.Args[0],
 		}),
 	})
 	if err != nil {
@@ -152,15 +194,8 @@ func TestStdinServiceReportsResourceUsage(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				// Generate some system (os.listdir) and user (everything else) execution time...
-				Args: []string{"-c", `
-import os
-import time
-
-t0 = time.time()
-while time.time() - t0 < 1.:
-  os.listdir(".")
-		`},
+				// Generate some system (os.ReadDir) and user execution time.
+				Args: []string{helperArg, "busy"},
 			}),
 		})
 	if err != nil {
@@ -194,7 +229,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 	s, err := Factory(&fspb.ClientServiceConfig{
 		Name: "SleepService",
 		Config: anypbtest.New(t, &sspb.Config{
-			Cmd: "python",
+			Cmd: os.Args[0],
 		}),
 	})
 	if err != nil {
@@ -216,11 +251,7 @@ func TestStdinServiceCancellation(t *testing.T) {
 		&fspb.Message{
 			MessageType: "StdinServiceInputMessage",
 			Data: anypbtest.New(t, &sspb.InputMessage{
-				Args: []string{"-c", fmt.Sprintf(`
-import time
-
-time.sleep(%f)
-		`, clitesting.FakeCommTimeout.Seconds())},
+				Args: []string{helperArg, "sleep", clitesting.FakeCommTimeout.String()},
 			}),
 		}); err != nil && !strings.HasSuffix(err.Error(), "context canceled") {
 		t.Fatal(err)
@@ -232,16 +263,6 @@ time.sleep(%f)
 func TestStdinServiceLogLevel(t *testing.T) {
 	oldLogOutputFunc := logOutputFunc
 	t.Cleanup(func() { logOutputFunc = oldLogOutputFunc })
-
-	const py = `
-import sys
-sys.stdout.write("stdout_")
-sys.stdout.flush()
-sys.stderr.write("stderr_")
-sys.stderr.flush()
-sys.stdout.write("stdout_")
-sys.stdout.flush()
-`
 
 	tests := []struct {
 		name    string
@@ -261,8 +282,8 @@ sys.stdout.flush()
 
 			s, err := Factory(&fspb.ClientServiceConfig{
 				Config: anypbtest.New(t, &sspb.Config{
-					Cmd:      "python",
-					Args:     []string{"-c", py},
+					Cmd:      os.Args[0],
+					Args:     []string{helperArg, "log"},
 					LogLevel: tc.level,
 				}),
 			})
