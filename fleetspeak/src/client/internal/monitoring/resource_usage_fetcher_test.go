@@ -16,13 +16,64 @@ package monitoring
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	log "github.com/golang/glog"
 )
+
+const (
+	workloadDurationEnvVar = "FLEETSPEAK_MONITORING_TEST_WORKLOAD_DURATION"
+	workloadHelperTestName = "TestResourceUsageWorkloadHelper"
+)
+
+// TestResourceUsageWorkloadHelper is not a standalone test; it is invoked in a
+// subprocess by workloadCmd to generate measurable user CPU, system CPU, and
+// resident memory usage without relying on an external interpreter.
+func TestResourceUsageWorkloadHelper(t *testing.T) {
+	rawDuration := os.Getenv(workloadDurationEnvVar)
+	if rawDuration == "" {
+		return
+	}
+	d, err := time.ParseDuration(rawDuration)
+	if err != nil {
+		t.Fatalf("time.ParseDuration(%q): %v", rawDuration, err)
+	}
+	// Allocate a string and repeatedly list the current directory to generate
+	// user CPU, system CPU, and resident memory usage.
+	var b strings.Builder
+	for i := range 5000 {
+		fmt.Fprint(&b, i)
+	}
+	_ = b.String()
+	end := time.Now().Add(d)
+	for time.Now().Before(end) {
+		_, _ = os.ReadDir(".")
+		time.Sleep(20 * time.Millisecond)
+	}
+	os.Exit(0)
+}
+
+// workloadCmd returns an exec.Cmd that runs TestResourceUsageWorkloadHelper in
+// a single-core subprocess for duration d.
+func workloadCmd(t *testing.T, d time.Duration) *exec.Cmd {
+	t.Helper()
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable(): %v", err)
+	}
+	cmd := exec.Command(exe, "-test.run=^"+workloadHelperTestName+"$")
+	cmd.Env = append(os.Environ(),
+		workloadDurationEnvVar+"="+d.String(),
+		"GOMAXPROCS=1",
+		"GOGC=20",
+	)
+	return cmd
+}
 
 func checkFloat64(name string, value, min, max float64) error {
 	if value < min || value > max {
@@ -40,20 +91,9 @@ func checkInt64(name string, value, min, max int64) error {
 
 func TestResourceUsageFromFinishedCmd(t *testing.T) {
 	ruf := ResourceUsageFetcher{}
-	// Generate some system (os.listdir) and user (everything else) execution
-	// time, consume some memory...
-	cmd := exec.Command("python", "-c", `
-import os
-import time
-
-s = ""
-for i in range(5000):
-  s += str(i)
-
-t0 = time.time()
-while time.time() - t0 < 1.:
-  os.listdir(".")
-	`)
+	// Generate some system (os.ReadDir) and user execution time, consume some
+	// memory.
+	cmd := workloadCmd(t, time.Second)
 	start := time.Now()
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Unexpected error from Run(): %v", err)
@@ -79,20 +119,9 @@ while time.time() - t0 < 1.:
 func TestResourceUsageForPID(t *testing.T) {
 	ruf := ResourceUsageFetcher{}
 	log.Infof("Testing resource usage on [%s, %s]", runtime.GOARCH, runtime.GOOS)
-	// Generate some system (os.listdir) and user (everything else) execution
-	// time, consume some memory...
-	cmd := exec.Command("python", "-c", `
-import os
-import time
-
-s = ""
-for i in range(5000):
-  s += str(i)
-
-t0 = time.time()
-while time.time() - t0 < 60.:
-  os.listdir(".")
-	`)
+	// Generate some system (os.ReadDir) and user execution time, consume some
+	// memory.
+	cmd := workloadCmd(t, 60*time.Second)
 	start := time.Now()
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Unexpected error from Run(): %v", err)
