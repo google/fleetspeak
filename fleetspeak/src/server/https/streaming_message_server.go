@@ -337,6 +337,11 @@ func (m *streamManager) readLoop() {
 		// the function argument.
 		go func(curCnt uint64) {
 			defer m.reading.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorf("Streaming message processor for client [%v] panicked: %v", m.info.Client.ID, r)
+				}
+			}()
 
 			wcd := <-batchCh
 			if err := m.processOne(wcd); err != nil {
@@ -405,6 +410,7 @@ func (m *streamManager) processOne(wcd *fspb.WrappedContactData) error {
 	// should only happen when things are unexpectedly slow and likely
 	// causes duplicate messages.
 	ctx, fin := context.WithCancel(context.Background())
+	defer fin()
 	go func() {
 		defer fin()
 		select {

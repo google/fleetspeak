@@ -37,6 +37,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1011,5 +1012,125 @@ func TestStreamingEmptySignatureCertificate(t *testing.T) {
 		if cd.AckIndex != i {
 			t.Errorf("ContactData.AckIndex = %d, want %d", cd.AckIndex, i)
 		}
+	}
+}
+
+type panicOnceHandleContext struct {
+	comms.Context
+	calls    atomic.Int32
+	panicked chan struct{}
+}
+
+func (c *panicOnceHandleContext) HandleMessagesFromClient(ctx context.Context, info *comms.ConnectionInfo, wcd *fspb.WrappedContactData) error {
+	if c.calls.Add(1) == 1 {
+		defer close(c.panicked)
+		panic("simulated HandleMessagesFromClient panic")
+	}
+	return c.Context.HandleMessagesFromClient(ctx, info, wcd)
+}
+
+type wrappingCommunicator struct {
+	*Communicator
+	panicCtx *panicOnceHandleContext
+}
+
+func (w *wrappingCommunicator) Setup(fs comms.Context) error {
+	w.panicCtx = &panicOnceHandleContext{
+		Context:  fs,
+		panicked: make(chan struct{}),
+	}
+	return w.Communicator.Setup(w.panicCtx)
+}
+
+func TestStreamingBatchProcessorPanicRecovered(t *testing.T) {
+	ctx := context.Background()
+	cert, key, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverCert = cert
+
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	com, err := NewCommunicator(Params{Listener: tl, Cert: cert, Key: key, Streaming: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wrapped := &wrappingCommunicator{Communicator: com}
+	ts := testserver.MakeWithFileStores(t, "https", "StreamingBatchPanic", []comms.Communicator{wrapped}, nil)
+	defer ts.S.Stop()
+
+	_, cl, _, _ := makeClient(t, true)
+
+	pr, pw := io.Pipe()
+	defer pr.Close()
+
+	bw := https.CompressingWriter(pw, fspb.CompressionAlgorithm_COMPRESSION_NONE)
+	defer bw.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		binary.Write(bw, binary.LittleEndian, magic)
+		if _, err := bw.Write(makeWrapped()); err != nil {
+			t.Error(err)
+		}
+		bw.Flush()
+	}()
+
+	u := url.URL{Scheme: "https", Host: tl.Addr().String(), Path: "/streaming-message"}
+	req, err := http.NewRequest("POST", u.String(), pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ContentLength = -1
+	req.Close = true
+	req.Header.Set("Expect", "100-continue")
+	https.SetContentEncoding(req.Header, fspb.CompressionAlgorithm_COMPRESSION_NONE)
+	req = req.WithContext(ctx)
+	resp, err := cl.Do(req)
+	if err != nil {
+		t.Fatalf("Streaming post failed (%v): %v", resp, err)
+	}
+	defer resp.Body.Close()
+
+	body := bufio.NewReader(resp.Body)
+	cd, err := readContact(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cd.AckIndex != 0 {
+		t.Errorf("AckIndex of initial exchange = %d, want 0", cd.AckIndex)
+	}
+	wg.Wait()
+
+	// Frame 1 triggers a panic inside streamManager's per-batch goroutine; it
+	// must be recovered without crashing the server or wedging the stream.
+	if _, err := bw.Write(makeWrapped()); err != nil {
+		t.Fatal(err)
+	}
+	bw.Flush()
+	<-wrapped.panicCtx.panicked
+
+	// Frame 2 must still be processed and acknowledged on the same stream.
+	if _, err := bw.Write(makeWrapped()); err != nil {
+		t.Fatal(err)
+	}
+	bw.Flush()
+
+	cd, err = readContact(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cd.AckIndex != 2 {
+		t.Errorf("ContactData.AckIndex = %d, want 2", cd.AckIndex)
 	}
 }

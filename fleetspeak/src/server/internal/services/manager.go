@@ -170,7 +170,14 @@ func (c *Manager) ProcessMessageBatch(ctx context.Context, serviceName string, m
 	batchedSvc, ok := svc.service.(service.BatchedService)
 	if !ok {
 		log.ErrorContextf(ctx, "Service %v does not implement BatchedService", serviceName)
+		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.ErrorContextf(ctx, "Panic processing batched messages for %v: %v", serviceName, r)
+		}
+	}()
 
 	if err := batchedSvc.ProcessMessageBatch(ctx, msgs); err != nil {
 		log.ErrorContextf(ctx, "Process batched messages: %v", err)
@@ -191,6 +198,15 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 		i, m := idx, msg
 		go func() {
 			defer working.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					var dst string
+					if m.Destination != nil {
+						dst = m.Destination.ServiceName
+					}
+					log.Errorf("Panic while processing backlogged message %q for service %q: %v", hex.EncodeToString(m.MessageId), dst, r)
+				}
+			}()
 			l := c.services[m.Destination.ServiceName]
 			if l == nil {
 				log.Errorf("Message in datastore %q is for unknown service %q.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
@@ -269,7 +285,7 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFir
 	}
 
 	start := ftime.Now()
-	e := s.service.ProcessMessage(ctx, m)
+	e := s.callProcessMessage(ctx, m)
 	switch {
 	case e == nil:
 		s.manager.stats.MessageProcessed(start, ftime.Now(), m, isFirstTry, cData)
@@ -295,6 +311,15 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFir
 	return nil
 }
 
+func (s *liveService) callProcessMessage(ctx context.Context, m *fspb.Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in ProcessMessage: %v", r)
+		}
+	}()
+	return s.service.ProcessMessage(ctx, m)
+}
+
 // HandleNewMessages handles newly arrived messages that should be processed on
 // the fleetspeak server. This handling includes validating that we recognize
 // its ServiceNames, saving the messages to the datastore and attempting to
@@ -316,6 +341,15 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 		m := msg
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					var dst string
+					if m.Destination != nil {
+						dst = m.Destination.ServiceName
+					}
+					log.Errorf("Panic while handling new message %q for service %q: %v", hex.EncodeToString(m.MessageId), dst, r)
+				}
+			}()
 			l := c.services[m.Destination.ServiceName]
 			if l == nil {
 				log.Errorf("Received new message %q for unknown service %q.", hex.EncodeToString(m.MessageId), m.Destination.ServiceName)
