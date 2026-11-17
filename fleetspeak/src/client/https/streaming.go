@@ -67,6 +67,9 @@ type StreamingCommunicator struct {
 	certBytes []byte
 
 	wakeUp chan struct{}
+	// mu protects curCon, and cross-goroutine reads of hc and certBytes (in
+	// Reset and GetFileIfModified) against updates on the connectLoop goroutine
+	// in configure.
 	mu     sync.Mutex
 	curCon *connection
 }
@@ -111,8 +114,9 @@ func (c *StreamingCommunicator) Reset() {
 	if c.curCon != nil {
 		c.curCon.stop()
 	}
+	hc := c.hc
 	c.mu.Unlock()
-	c.hc.Transport.(*http.Transport).CloseIdleConnections()
+	hc.Transport.(*http.Transport).CloseIdleConnections()
 	select {
 	case c.wakeUp <- struct{}{}:
 	default:
@@ -161,7 +165,11 @@ func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, 
 	c.hostLock.RLock()
 	hosts := append([]string(nil), c.hosts...)
 	c.hostLock.RUnlock()
-	return getFileIfModified(ctx, c.cctx, c.certBytes, hosts, c.hc, service, name, modSince)
+	c.mu.Lock()
+	hc := c.hc
+	certBytes := c.certBytes
+	c.mu.Unlock()
+	return getFileIfModified(ctx, c.cctx, certBytes, hosts, hc, service, name, modSince)
 }
 
 func (c *StreamingCommunicator) configure() error {
@@ -169,22 +177,29 @@ func (c *StreamingCommunicator) configure() error {
 	if err != nil {
 		return err
 	}
-	c.id = id
 
 	si, err := c.cctx.ServerInfo()
 	if err != nil {
 		return fmt.Errorf("unable to configure communicator, could not get server information: %v", err)
 	}
-	c.hosts = append([]string(nil), si.Servers...)
-	if len(c.hosts) == 0 {
+	if len(si.Servers) == 0 {
 		return errors.New("no server_addresses in client configuration")
 	}
-	c.hc = &http.Client{
+	c.hostLock.Lock()
+	c.hosts = append([]string(nil), si.Servers...)
+	c.hostLock.Unlock()
+	hc := &http.Client{
 		Transport: tr,
 		Timeout:   15 * time.Minute,
 	}
-	c.clientCertificateHeader = si.ClientCertificateHeader
+	c.mu.Lock()
+	c.hc = hc
 	c.certBytes = certBytes
+	c.mu.Unlock()
+	c.clientCertificateHeader = si.ClientCertificateHeader
+	// Set last, so that c.id still differs from the current client ID after a
+	// failure and connectLoop calls configure again.
+	c.id = id
 	return nil
 }
 
@@ -195,7 +210,9 @@ func (c *StreamingCommunicator) connectLoop() {
 	for {
 		c.wd.Reset()
 		if c.id != c.cctx.CurrentID() {
-			c.configure()
+			if err := c.configure(); err != nil {
+				log.WarningContextf(c.ctx, "Unable to reconfigure for the current client ID, continuing with the previous configuration: %v", err)
+			}
 		}
 		var con *connection
 		var err error

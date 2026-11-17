@@ -3,6 +3,9 @@ package https
 import (
 	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -22,8 +25,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
+	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/comtesting"
 	"github.com/google/fleetspeak/fleetspeak/src/server/https"
@@ -753,5 +758,83 @@ func TestStreamingFlushAfterReset(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out waiting for Flush to complete")
+	}
+}
+
+// streamingTestContext is a comms.Context with an empty Outbox, for tests that
+// run a StreamingCommunicator without a client.Client.
+type streamingTestContext struct {
+	comms.Context
+	id   common.ClientID
+	priv *ecdsa.PrivateKey
+	si   comms.ServerInfo
+	conf *clpb.CommunicatorConfig
+}
+
+func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return nil }
+func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return nil }
+func (c *streamingTestContext) CurrentID() common.ClientID        { return c.id }
+func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
+	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: c.priv.Public()}, nil
+}
+func (c *streamingTestContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
+func (c *streamingTestContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
+func (c *streamingTestContext) ChainRevoked([]*x509.Certificate) bool        { return false }
+func (c *streamingTestContext) Stats() stats.Collector                       { return stats.NoopCollector{} }
+func (c *streamingTestContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &fspb.WrappedContactData{ContactData: b}, nil, nil
+}
+
+// TestStreamingConfigureFailureKeepsID checks that a configure() that fails
+// leaves c.id unchanged. connectLoop calls configure() while c.id differs
+// from the current client ID, so this is what makes it try again.
+func TestStreamingConfigureFailureKeepsID(t *testing.T) {
+	newIdentity := func() (common.ClientID, *ecdsa.PrivateKey) {
+		t.Helper()
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+		if err != nil {
+			t.Fatalf("GenerateKey failed: %v", err)
+		}
+		id, err := common.MakeClientID(priv.Public())
+		if err != nil {
+			t.Fatalf("MakeClientID failed: %v", err)
+		}
+		return id, priv
+	}
+	servers := []string{"localhost:1234"}
+
+	oldID, oldPriv := newIdentity()
+	cctx := &streamingTestContext{
+		id:   oldID,
+		priv: oldPriv,
+		si:   comms.ServerInfo{Servers: servers},
+		conf: &clpb.CommunicatorConfig{},
+	}
+	var c StreamingCommunicator
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	defer c.fin()
+
+	newID, newPriv := newIdentity()
+	cctx.id, cctx.priv = newID, newPriv
+	cctx.si.Servers = nil
+	if err := c.configure(); err == nil {
+		t.Fatal("configure() with no server addresses = nil, want an error")
+	}
+	if c.id != oldID {
+		t.Errorf("c.id = %v after a failed configure(), want the previous ID %v", c.id, oldID)
+	}
+
+	cctx.si.Servers = servers
+	if err := c.configure(); err != nil {
+		t.Fatalf("configure() = %v, want nil", err)
+	}
+	if c.id != newID {
+		t.Errorf("c.id = %v after a successful configure(), want the new ID %v", c.id, newID)
 	}
 }
