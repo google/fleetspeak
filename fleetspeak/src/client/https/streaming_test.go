@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/rand"
 	"net"
@@ -765,14 +766,15 @@ func TestStreamingFlushAfterReset(t *testing.T) {
 // run a StreamingCommunicator without a client.Client.
 type streamingTestContext struct {
 	comms.Context
-	id   common.ClientID
-	priv *ecdsa.PrivateKey
-	si   comms.ServerInfo
-	conf *clpb.CommunicatorConfig
+	id     common.ClientID
+	priv   *ecdsa.PrivateKey
+	si     comms.ServerInfo
+	conf   *clpb.CommunicatorConfig
+	beacon <-chan struct{}
 }
 
 func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return nil }
-func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return nil }
+func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return c.beacon }
 func (c *streamingTestContext) CurrentID() common.ClientID        { return c.id }
 func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
 	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: c.priv.Public()}, nil
@@ -836,5 +838,173 @@ func TestStreamingConfigureFailureKeepsID(t *testing.T) {
 	}
 	if c.id != newID {
 		t.Errorf("c.id = %v after a successful configure(), want the new ID %v", c.id, newID)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+// TestStreamingConnectClosesRequestPipeOnError checks that connect closes the
+// request body pipe before returning an error, whether the attempt is canceled,
+// fails in RoundTrip, receives a non-200 status, or fails reading the initial
+// ContactData.
+func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID failed: %v", err)
+	}
+	beacon := make(chan struct{})
+	close(beacon)
+
+	errDial := errors.New("dial failed")
+	for _, tc := range []struct {
+		name      string
+		roundTrip func(cancel context.CancelFunc, req *http.Request) (*http.Response, error)
+		wantErr   error
+	}{
+		{
+			name: "ContextCanceled",
+			roundTrip: func(cancel context.CancelFunc, req *http.Request) (*http.Response, error) {
+				cancel()
+				<-req.Context().Done()
+				return nil, req.Context().Err()
+			},
+			wantErr: context.Canceled,
+		},
+		{
+			name: "RoundTripError",
+			roundTrip: func(_ context.CancelFunc, _ *http.Request) (*http.Response, error) {
+				return nil, errDial
+			},
+			wantErr: errDial,
+		},
+		{
+			name: "NonOKStatus",
+			roundTrip: func(_ context.CancelFunc, _ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Body:       http.NoBody,
+				}, nil
+			},
+		},
+		{
+			name: "ReadContactError",
+			roundTrip: func(_ context.CancelFunc, _ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       http.NoBody,
+				}, nil
+			},
+			wantErr: io.EOF,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := &streamingTestContext{
+				id:     id,
+				priv:   priv,
+				si:     comms.ServerInfo{Servers: []string{"localhost:1234"}},
+				conf:   &clpb.CommunicatorConfig{Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE},
+				beacon: beacon,
+			}
+			var c StreamingCommunicator
+			if err := c.Setup(cctx); err != nil {
+				t.Fatalf("Setup() unexpected error: %v", err)
+			}
+			t.Cleanup(c.fin)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
+
+			var reqBody io.ReadCloser
+			c.hc = &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					reqBody = req.Body
+					t.Cleanup(func() { _ = req.Body.Close() })
+					return tc.roundTrip(cancel, req)
+				}),
+			}
+
+			con, err := c.connect(ctx, "localhost:1234", time.Minute)
+			if con != nil {
+				con.stop()
+				t.Errorf("connect() = %v, want nil", con)
+			}
+			if err == nil {
+				t.Fatal("connect() error = nil, want non-nil")
+			}
+			if tc.wantErr != nil && !errors.Is(err, tc.wantErr) {
+				t.Errorf("connect() error = %v, want %v", err, tc.wantErr)
+			}
+			if reqBody == nil {
+				t.Fatal("RoundTrip was not called")
+			}
+			if n, readErr := reqBody.Read(make([]byte, 1)); n != 0 || !errors.Is(readErr, io.ErrClosedPipe) {
+				t.Errorf("req.Body.Read() after failed connect = (%d, %v), want (0, %v)", n, readErr, io.ErrClosedPipe)
+			}
+		})
+	}
+}
+
+// TestStreamingStopDuringDialWithDeflate stops the communicator while connect
+// waits for a connection to be dialed, which is before anything reads the
+// request body that connect writes through the DEFLATE writer.
+func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID failed: %v", err)
+	}
+
+	dialing := make(chan struct{}, 1)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			select {
+			case dialing <- struct{}{}:
+			default:
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si:   comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		conf: &clpb.CommunicatorConfig{
+			Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	select {
+	case <-dialing:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the communicator to dial")
+	}
+
+	stopped := make(chan struct{})
+	go func() {
+		c.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Stop to return")
 	}
 }

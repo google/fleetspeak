@@ -396,8 +396,8 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		case <-ctx.Done():
 			ret.stop()
 			// If we close context at the wrong time, the initial Do might not
-			// return until we close the pipe.
-			bw.Close()
+			// return until we close the pipe. Close pw and not bw: the goroutine
+			// below may be writing to bw, and bw is not safe for concurrent use.
 			pw.Close()
 			canceled <- true
 		}
@@ -414,7 +414,14 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}()
 	resp, err := c.hc.Do(req)
 	close(ok)
+	// abandon ends the goroutine that writes the initial data, so that
+	// nothing uses bw after connect returns an error.
+	abandon := func() {
+		pr.Close()
+		ret.working.Wait()
+	}
 	if <-canceled {
+		abandon()
 		return nil, ctx.Err()
 	}
 
@@ -422,6 +429,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		c.cctx.Stats().OutboundContactData(host, 0, err)
 		log.V(1).Infof("Streaming connection attempt failed: %v", err)
 		ret.stop()
+		abandon()
 		return nil, err
 	}
 	go func() {
@@ -434,6 +442,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		log.V(1).Infof("Streaming connection failed: %v", err)
 		ret.stop()
 		resp.Body.Close()
+		abandon()
 		return nil, err
 	}
 
