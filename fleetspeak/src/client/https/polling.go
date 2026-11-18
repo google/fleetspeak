@@ -142,9 +142,21 @@ func (c *Communicator) Reset() {
 	log.Infof("Reset called")
 	c.mu.Lock()
 	if c.pollCancel != nil {
+		// An uncanceled poll owns the current c.pollDone as myDone and will close
+		// it; allocate a new channel so Flush waits for the post-Reset poll.
 		c.pollCancel()
+		c.pollCancel = nil
+		c.pollDone = make(chan struct{})
+	} else {
+		// No uncanceled poll owns c.pollDone. Replace it only if closed; if open
+		// (queued Outbox message or prior Reset), keep it so the upcoming poll
+		// closes the channel existing Flush callers are already waiting on.
+		select {
+		case <-c.pollDone:
+			c.pollDone = make(chan struct{})
+		default:
+		}
 	}
-	c.pollDone = make(chan struct{})
 	c.mu.Unlock()
 	c.hc.Transport.(*http.Transport).CloseIdleConnections()
 	select {

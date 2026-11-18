@@ -833,8 +833,9 @@ func TestFlush(t *testing.T) {
 		TrustedCerts: x509.NewCertPool(),
 		Servers:      []string{addr},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
-			MaxPollDelaySeconds:    10,
-			MinFailureDelaySeconds: 10,
+			MaxPollDelaySeconds:    60,
+			MaxBufferDelaySeconds:  60,
+			MinFailureDelaySeconds: 60,
 		},
 	}
 	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
@@ -851,28 +852,133 @@ func TestFlush(t *testing.T) {
 	}
 	defer cl.Stop()
 
-	// Wait for first poll
+	// Wait for first poll.
 	for atomic.LoadInt32(&pollCount) == 0 {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	// Call Flush in a goroutine
+	waitForBufferedOutbox := func() {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			c.mu.Lock()
+			idle := c.pollCancel == nil
+			done := c.pollDone
+			c.mu.Unlock()
+			select {
+			case <-done:
+			default:
+				if idle {
+					return
+				}
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("Timed out waiting for buffered Outbox message to open pollDone")
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
+	// 1. Flush called before Reset while an Outbox message is buffered: Reset
+	// must keep the open pollDone channel rather than orphaning the Flush waiter.
+	acked := make(chan struct{})
+	if err := cl.ProcessMessage(t.Context(), service.AckMessage{
+		M:   &fspb.Message{Destination: &fspb.Address{ServiceName: "DummyService"}},
+		Ack: func() { close(acked) },
+	}); err != nil {
+		t.Fatalf("ProcessMessage failed: %v", err)
+	}
+	waitForBufferedOutbox()
+
 	flushDone := make(chan error, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		flushDone <- c.Flush(ctx)
 	}()
 
-	// Trigger a poll via wakeUp (indirectly via Reset)
+	select {
+	case err := <-flushDone:
+		t.Fatalf("Flush returned before Reset flushed buffered message: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
 	c.Reset()
 
 	select {
 	case err := <-flushDone:
 		if err != nil {
-			t.Errorf("Flush failed: %v", err)
+			t.Fatalf("Flush failed: %v", err)
 		}
 	case <-time.After(6 * time.Second):
 		t.Fatal("Timed out waiting for Flush")
+	}
+	select {
+	case <-acked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for message Ack")
+	}
+
+	// 2. Standard Reset followed by Flush when idle: Flush must wait for the
+	// Reset-triggered poll to complete.
+	before := atomic.LoadInt32(&pollCount)
+	c.Reset()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := c.Flush(ctx); err != nil {
+		t.Fatalf("Flush after Reset failed: %v", err)
+	}
+	if got := atomic.LoadInt32(&pollCount); got <= before {
+		t.Errorf("pollCount after Reset+Flush = %d, want > %d", got, before)
+	}
+
+	// 3. Repeated Reset while an in-flight poll has not yet exited: the first
+	// Reset allocates a new pollDone for the post-Reset poll, and the second
+	// Reset must not orphan a Flush caller waiting on that channel.
+	inAck := make(chan struct{})
+	releaseAck := make(chan struct{})
+	if err := cl.ProcessMessage(t.Context(), service.AckMessage{
+		M: &fspb.Message{Destination: &fspb.Address{ServiceName: "DummyService"}},
+		Ack: func() {
+			close(inAck)
+			<-releaseAck
+		},
+	}); err != nil {
+		t.Fatalf("ProcessMessage failed: %v", err)
+	}
+	waitForBufferedOutbox()
+	c.Reset()
+	select {
+	case <-inAck:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for in-flight poll Ack")
+	}
+
+	before = atomic.LoadInt32(&pollCount)
+	c.Reset()
+	flushDone2 := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		flushDone2 <- c.Flush(ctx)
+	}()
+	select {
+	case err := <-flushDone2:
+		t.Fatalf("Flush returned before in-flight poll finished: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	c.Reset()
+	close(releaseAck)
+
+	select {
+	case err := <-flushDone2:
+		if err != nil {
+			t.Fatalf("Flush after repeated Reset failed: %v", err)
+		}
+	case <-time.After(6 * time.Second):
+		t.Fatal("Timed out waiting for Flush after repeated Reset")
+	}
+	if got := atomic.LoadInt32(&pollCount); got <= before {
+		t.Errorf("pollCount after repeated Reset+Flush = %d, want > %d", got, before)
 	}
 }
