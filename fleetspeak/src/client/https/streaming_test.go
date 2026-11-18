@@ -71,6 +71,9 @@ type streamingTestServer struct {
 	received              chan<- *fspb.ContactData
 	toSend                <-chan *fspb.ContactData
 	allowMultipleRequests bool
+	// beforeAck, if set, is called after the server receives a record and
+	// before it acknowledges it.
+	beforeAck func()
 
 	// These are populated by Start.
 	pemCert, pemKey []byte
@@ -157,6 +160,9 @@ func (s *streamingTestServer) Start() {
 				return
 			}
 			s.received <- &rcd
+			if s.beforeAck != nil {
+				s.beforeAck()
+			}
 			cd := &fspb.ContactData{
 				AckIndex: cnt,
 			}
@@ -1670,5 +1676,169 @@ func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
 	case <-req1Aborted:
 	case <-time.After(5 * time.Second):
 		t.Error("Timed out waiting for Reset to abort the stalled first request")
+	}
+}
+
+// TestStreamingFlushWaitsForPendingAcks checks that Flush returns only after
+// the server has acknowledged the streamed records and the Ack callbacks of
+// their messages have returned, on a connection that has already had an
+// earlier streamed record acknowledged.
+func TestStreamingFlushWaitsForPendingAcks(t *testing.T) {
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	defer close(toSend)
+
+	// The server acknowledges records only while ackGate is nil or closed.
+	var ackGateMu sync.Mutex
+	var ackGate chan struct{}
+	server := streamingTestServer{
+		t:        t,
+		received: received,
+		toSend:   toSend,
+		beforeAck: func() {
+			ackGateMu.Lock()
+			gate := ackGate
+			ackGateMu.Unlock()
+			if gate != nil {
+				<-gate
+			}
+		},
+	}
+	server.Start()
+	defer server.Stop()
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{server.Addr()},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("unable to add server cert to pool")
+	}
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c})
+	if err != nil {
+		t.Fatalf("unable to create client: %v", err)
+	}
+	defer cl.Stop()
+
+	// waitForDummyRecord blocks until the server has received a record that
+	// carries a DummyService message.
+	waitForDummyRecord := func() {
+		t.Helper()
+		timeout := time.After(10 * time.Second)
+		for {
+			select {
+			case cd := <-received:
+				for _, m := range cd.Messages {
+					if m.Destination.ServiceName == "DummyService" {
+						return
+					}
+				}
+			case <-timeout:
+				t.Fatal("Timed out waiting for the server to receive a DummyService message")
+			}
+		}
+	}
+
+	// Wait for the record of the initial exchange, so that the messages below
+	// are streamed and tracked in connection.pending.
+	select {
+	case <-received:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the initial exchange")
+	}
+
+	// A first streamed record that is acknowledged normally.
+	firstAcked := make(chan struct{})
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"}},
+			Ack: func() { close(firstAcked) },
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+	waitForDummyRecord()
+	select {
+	case <-firstAcked:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the first streamed message to be acknowledged")
+	}
+
+	// A second streamed record, which the server does not acknowledge until
+	// releaseServerAck is closed, and whose Ack callback blocks until
+	// releaseAck is closed.
+	releaseServerAck := make(chan struct{})
+	var releaseServerAckOnce sync.Once
+	closeReleaseServerAck := func() { releaseServerAckOnce.Do(func() { close(releaseServerAck) }) }
+	defer closeReleaseServerAck()
+	ackGateMu.Lock()
+	ackGate = releaseServerAck
+	ackGateMu.Unlock()
+
+	ackEntered := make(chan struct{})
+	releaseAck := make(chan struct{})
+	var releaseAckOnce sync.Once
+	closeReleaseAck := func() { releaseAckOnce.Do(func() { close(releaseAck) }) }
+	defer closeReleaseAck()
+	if err := cl.ProcessMessage(context.Background(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"}},
+			Ack: func() {
+				close(ackEntered)
+				<-releaseAck
+			},
+		}); err != nil {
+		t.Fatalf("unable to hand message to client: %v", err)
+	}
+	waitForDummyRecord()
+
+	flushDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		flushDone <- c.Flush(ctx)
+	}()
+
+	// These two checks can only detect a Flush that returns too early; the
+	// 100ms is how long each gives it to do so.
+	select {
+	case err := <-flushDone:
+		t.Fatalf("Flush returned %v before the server acknowledged the second record", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	closeReleaseServerAck()
+	select {
+	case <-ackEntered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the Ack callback of the second message")
+	}
+	select {
+	case err := <-flushDone:
+		t.Fatalf("Flush returned %v while the Ack callback of the second message was running", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	closeReleaseAck()
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush = %v, want nil", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Flush to return")
 	}
 }

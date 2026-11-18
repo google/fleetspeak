@@ -141,23 +141,26 @@ func (c *StreamingCommunicator) notifyWakeUp() {
 func (c *StreamingCommunicator) Flush(ctx context.Context) error {
 	log.InfoContextf(ctx, "Flush called")
 
-	c.mu.Lock()
-	for c.curCon == nil || c.curCon.ctx.Err() != nil {
-		log.V(1).InfoContextf(ctx, "Flush: No active connection or connection is dying, waiting for reconnect.")
-		c.mu.Unlock()
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-			// poll again
-		}
+	for {
 		c.mu.Lock()
-	}
-	con := c.curCon
-	c.mu.Unlock()
+		for c.curCon == nil || c.curCon.ctx.Err() != nil {
+			log.V(1).InfoContextf(ctx, "Flush: No active connection or connection is dying, waiting for reconnect.")
+			c.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-c.ctx.Done():
+				return c.ctx.Err()
+			case <-time.After(50 * time.Millisecond):
+				// poll again
+			}
+			c.mu.Lock()
+		}
+		con := c.curCon
+		c.mu.Unlock()
 
-	if con != nil {
 		con.pendingLock.Lock()
+		pendingEmpty := con.pendingEmpty
 		l := len(con.pending)
 		con.pendingLock.Unlock()
 		if l == 0 {
@@ -168,11 +171,16 @@ func (c *StreamingCommunicator) Flush(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-con.pendingEmpty:
+		case <-c.ctx.Done():
+			return c.ctx.Err()
+		case <-con.ctx.Done():
+			// The pending messages will be Nacked. Wait for the next
+			// connection.
+			continue
+		case <-pendingEmpty:
 			return nil
 		}
 	}
-	return nil
 }
 
 func (c *StreamingCommunicator) GetFileIfModified(ctx context.Context, service, name string, modSince time.Time) (io.ReadCloser, time.Time, error) {
@@ -378,13 +386,15 @@ func (c *connection) readContact(body *bufio.Reader) (cd *fspb.ContactData, err 
 // connect performs an initial exchange and returns an active streaming
 // connection to the given host. ctx only regulates this initial connection.
 func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLife time.Duration) (*connection, error) {
+	pendingEmpty := make(chan struct{})
+	close(pendingEmpty)
 	ret := connection{
 		cctx:         c.cctx,
 		pending:      make(map[int][]comms.MessageInfo),
 		serverDone:   make(chan struct{}),
 		writingDone:  make(chan struct{}),
 		host:         host,
-		pendingEmpty: make(chan struct{}, 1),
+		pendingEmpty: pendingEmpty,
 	}
 	ret.ctx, ret.stop = context.WithTimeout(c.ctx, maxLife)
 
@@ -588,6 +598,9 @@ type connection struct {
 	// Closure which can be called to terminate the connection.
 	stop func()
 
+	// pendingEmpty is closed while pending is empty. writeLoop replaces it
+	// with an open channel when it adds the first record to pending.
+	// Protected by pendingLock.
 	pendingEmpty chan struct{}
 
 	// Count of processed messages (per service), as of the last message
@@ -678,6 +691,9 @@ func (c *connection) writeLoop(bw BodyWriter) {
 		}
 		if msgs != nil {
 			c.pendingLock.Lock()
+			if len(c.pending) == 0 {
+				c.pendingEmpty = make(chan struct{})
+			}
 			c.pending[cnt] = msgs
 			c.pendingLock.Unlock()
 		}
@@ -777,19 +793,24 @@ func (c *connection) readLoop(body *bufio.Reader, closer io.Closer) {
 		if cd.AckIndex != 0 {
 			c.pendingLock.Lock()
 			toAck := c.pending[cnt]
-			delete(c.pending, cnt)
-			l := len(c.pending)
 			c.pendingLock.Unlock()
-			if l == 0 {
-				select {
-				case c.pendingEmpty <- struct{}{}:
-				default:
-				}
-			}
-			cnt++
+			// The record stays in pending while its Ack callbacks run, so that
+			// Flush returns only after they have.
 			for _, m := range toAck {
 				m.Ack()
 			}
+			c.pendingLock.Lock()
+			delete(c.pending, cnt)
+			cnt++
+			l := len(c.pending)
+			if l == 0 {
+				select {
+				case <-c.pendingEmpty:
+				default:
+					close(c.pendingEmpty)
+				}
+			}
+			c.pendingLock.Unlock()
 			if writingDone && l == 0 {
 				return
 			}
