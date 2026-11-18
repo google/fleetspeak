@@ -2,6 +2,7 @@ package https
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -762,18 +763,21 @@ func TestStreamingFlushAfterReset(t *testing.T) {
 	}
 }
 
-// streamingTestContext is a comms.Context with an empty Outbox, for tests that
-// run a StreamingCommunicator without a client.Client.
+// streamingTestContext is a minimal comms.Context for tests that run a
+// StreamingCommunicator without a client.Client.
 type streamingTestContext struct {
 	comms.Context
-	id     common.ClientID
-	priv   *ecdsa.PrivateKey
-	si     comms.ServerInfo
-	conf   *clpb.CommunicatorConfig
-	beacon <-chan struct{}
+	id                 common.ClientID
+	priv               *ecdsa.PrivateKey
+	si                 comms.ServerInfo
+	conf               *clpb.CommunicatorConfig
+	outbox             <-chan comms.MessageInfo
+	beacon             <-chan struct{}
+	stats              stats.Collector
+	processContactData func(ctx context.Context, cd *fspb.ContactData, streaming bool) error
 }
 
-func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return nil }
+func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return c.outbox }
 func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return c.beacon }
 func (c *streamingTestContext) CurrentID() common.ClientID        { return c.id }
 func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
@@ -782,13 +786,24 @@ func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
 func (c *streamingTestContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
 func (c *streamingTestContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
 func (c *streamingTestContext) ChainRevoked([]*x509.Certificate) bool        { return false }
-func (c *streamingTestContext) Stats() stats.Collector                       { return stats.NoopCollector{} }
+func (c *streamingTestContext) Stats() stats.Collector {
+	if c.stats != nil {
+		return c.stats
+	}
+	return stats.NoopCollector{}
+}
 func (c *streamingTestContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
 	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
 	if err != nil {
 		return nil, nil, err
 	}
 	return &fspb.WrappedContactData{ContactData: b}, nil, nil
+}
+func (c *streamingTestContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {
+	if c.processContactData != nil {
+		return c.processContactData(ctx, cd, streaming)
+	}
+	return nil
 }
 
 // TestStreamingConfigureFailureKeepsID checks that a configure() that fails
@@ -863,11 +878,18 @@ func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
 	beacon := make(chan struct{})
 	close(beacon)
 
+	emptyContactPayload, err := proto.Marshal(&fspb.ContactData{})
+	if err != nil {
+		t.Fatalf("proto.Marshal() failed: %v", err)
+	}
+	emptyContactFrame := append(binary.AppendUvarint(nil, uint64(len(emptyContactPayload))), emptyContactPayload...)
+
 	errDial := errors.New("dial failed")
 	for _, tc := range []struct {
-		name      string
-		roundTrip func(cancel context.CancelFunc, req *http.Request) (*http.Response, error)
-		wantErr   error
+		name               string
+		roundTrip          func(cancel context.CancelFunc, req *http.Request) (*http.Response, error)
+		processContactData func(cancel context.CancelFunc, reqCtx context.Context) error
+		wantErr            error
 	}{
 		{
 			name: "ContextCanceled",
@@ -904,8 +926,28 @@ func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
 			},
 			wantErr: io.EOF,
 		},
+		{
+			name: "CanceledDuringProcessContactData",
+			roundTrip: func(_ context.CancelFunc, _ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(emptyContactFrame)),
+				}, nil
+			},
+			processContactData: func(cancel context.CancelFunc, reqCtx context.Context) error {
+				cancel()
+				<-reqCtx.Done()
+				return nil
+			},
+			wantErr: context.Canceled,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
+
+			var reqCtx context.Context
+			var reqBody io.ReadCloser
 			cctx := &streamingTestContext{
 				id:     id,
 				priv:   priv,
@@ -913,18 +955,20 @@ func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
 				conf:   &clpb.CommunicatorConfig{Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE},
 				beacon: beacon,
 			}
+			if tc.processContactData != nil {
+				cctx.processContactData = func(context.Context, *fspb.ContactData, bool) error {
+					return tc.processContactData(cancel, reqCtx)
+				}
+			}
 			var c StreamingCommunicator
 			if err := c.Setup(cctx); err != nil {
 				t.Fatalf("Setup() unexpected error: %v", err)
 			}
 			t.Cleanup(c.fin)
 
-			ctx, cancel := context.WithCancel(t.Context())
-			t.Cleanup(cancel)
-
-			var reqBody io.ReadCloser
 			c.hc = &http.Client{
 				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					reqCtx = req.Context()
 					reqBody = req.Body
 					t.Cleanup(func() { _ = req.Body.Close() })
 					return tc.roundTrip(cancel, req)
@@ -1006,5 +1050,625 @@ func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
 	case <-stopped:
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out waiting for Stop to return")
+	}
+}
+
+func TestStreamingResetBeforeConnectionPublished(t *testing.T) {
+	t.Parallel()
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	defer close(toSend)
+
+	server := streamingTestServer{
+		t:                     t,
+		received:              received,
+		toSend:                toSend,
+		allowMultipleRequests: true,
+	}
+	server.Start()
+	defer server.Stop()
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{server.Addr()},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c})
+	if err != nil {
+		t.Fatalf("client.New() failed: %v", err)
+	}
+	defer cl.Stop()
+
+	// Pause inside Ack during connect(), before connectLoop publishes c.curCon.
+	ackEntered := make(chan struct{})
+	releaseAck := make(chan struct{})
+	var ackOnce sync.Once
+	if err := cl.ProcessMessage(t.Context(),
+		service.AckMessage{
+			M: &fspb.Message{
+				Destination: &fspb.Address{ServiceName: "DummyService"}},
+			Ack: func() {
+				ackOnce.Do(func() {
+					close(ackEntered)
+					<-releaseAck
+				})
+			},
+		}); err != nil {
+		t.Fatalf("ProcessMessage() failed: %v", err)
+	}
+
+	<-received
+	<-ackEntered
+	c.mu.Lock()
+	published := c.curCon != nil
+	c.mu.Unlock()
+	if published {
+		close(releaseAck)
+		t.Fatal("Ack ran after the connection was published, want it to run during connect(): the message missed the initial exchange")
+	}
+
+	// Trigger Reset and Flush while c.curCon is still nil inside connect().
+	c.Reset()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	flushDone := make(chan error, 1)
+	go func() {
+		flushDone <- c.Flush(ctx)
+	}()
+	close(releaseAck)
+
+	select {
+	case err := <-flushDone:
+		if err != nil {
+			t.Errorf("Flush failed: %v", err)
+		}
+		if got := atomic.LoadInt32(&server.rc); got < 2 {
+			t.Errorf("Flush returned before post-Reset reconnect: got %d requests, want at least 2", got)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for Flush to complete")
+	}
+}
+
+// TestStreamingMultiHostFailover checks that connectLoop tries the next
+// configured server immediately when the first server fails without Reset, and
+// promotes the working server to the front of c.hosts.
+func TestStreamingMultiHostFailover(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	defer close(toSend)
+
+	server := streamingTestServer{
+		t:                     t,
+		received:              received,
+		toSend:                toSend,
+		allowMultipleRequests: true,
+	}
+	server.Start()
+	defer server.Stop()
+
+	trusted := x509.NewCertPool()
+	if !trusted.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+
+	const unreachableAddr = "unreachable.invalid:443"
+	var unreachableDials atomic.Int32
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if addr == unreachableAddr {
+				unreachableDials.Add(1)
+				return nil, errors.New("connection refused")
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, addr)
+		},
+	}
+	beacon := make(chan struct{}, 2)
+	beacon <- struct{}{}
+	beacon <- struct{}{}
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si: comms.ServerInfo{
+			Servers:      []string{unreachableAddr, server.Addr()},
+			TrustedCerts: trusted,
+		},
+		conf: &clpb.CommunicatorConfig{
+			MinFailureDelaySeconds: 10,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		beacon: beacon,
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	defer c.Stop()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := c.Flush(ctx); err != nil {
+		t.Fatalf("Flush() = %v, want nil", err)
+	}
+	if got := unreachableDials.Load(); got != 1 {
+		t.Errorf("unreachable host dial count = %d, want 1", got)
+	}
+
+	// Reconnecting after Reset starts with the promoted working server rather
+	// than dialing unreachableAddr again.
+	c.Reset()
+	reconnectCtx, reconnectCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer reconnectCancel()
+	if err := c.Flush(reconnectCtx); err != nil {
+		t.Fatalf("Flush() after Reset = %v, want nil", err)
+	}
+	if got := atomic.LoadInt32(&server.rc); got < 2 {
+		t.Errorf("server request count after Reset = %d, want at least 2", got)
+	}
+	if got := unreachableDials.Load(); got != 1 {
+		t.Errorf("unreachable host dial count after Reset = %d, want 1", got)
+	}
+}
+
+// TestStreamingResetSkipsSuicideCheck checks that an attempt abandoned by Reset
+// skips the FailureSuicideTimeSeconds check.
+func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	dialCalls := make(chan struct{}, 4)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			dialCalls <- struct{}{}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	beacon := make(chan struct{})
+	close(beacon)
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si:   comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		conf: &clpb.CommunicatorConfig{
+			MinFailureDelaySeconds:    10,
+			FailureSuicideTimeSeconds: 1,
+		},
+		beacon: beacon,
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	defer c.Stop()
+
+	select {
+	case <-dialCalls:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first dial attempt")
+	}
+
+	time.Sleep(1100 * time.Millisecond)
+	c.Reset()
+
+	select {
+	case <-dialCalls:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timed out waiting for second dial attempt after Reset")
+	}
+}
+
+// TestStreamingFailureDelayAfterReset checks that a wakeUp token left by an
+// earlier Reset does not cut short the retry delay of a later unrelated
+// connection failure, while a Reset during that retry delay wakes connectLoop
+// immediately.
+func TestStreamingFailureDelayAfterReset(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	var attempts atomic.Int32
+	dialCalls := make(chan int32, 8)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			n := attempts.Add(1)
+			dialCalls <- n
+			if n == 2 {
+				return nil, errors.New("connection refused")
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	beacon := make(chan struct{})
+	close(beacon)
+	cctx := &streamingTestContext{
+		id:     id,
+		priv:   priv,
+		si:     comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		conf:   &clpb.CommunicatorConfig{MinFailureDelaySeconds: 10},
+		beacon: beacon,
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	defer c.Stop()
+
+	select {
+	case got := <-dialCalls:
+		if got != 1 {
+			t.Fatalf("first dial attempt = %d, want 1", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for first dial attempt")
+	}
+
+	// Reset cancels attempt 1 and buffers a wakeUp token. Attempt 2 drains
+	// that token on start and then fails without Reset.
+	c.Reset()
+
+	select {
+	case got := <-dialCalls:
+		if got != 2 {
+			t.Fatalf("second dial attempt = %d, want 2", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for second dial attempt")
+	}
+
+	select {
+	case got := <-dialCalls:
+		t.Fatalf("DialContext() called for attempt %d during MinFailureDelaySeconds wait", got)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	// A Reset during the MinFailureDelaySeconds wait wakes connectLoop at once.
+	c.Reset()
+
+	select {
+	case got := <-dialCalls:
+		if got != 3 {
+			t.Fatalf("third dial attempt = %d, want 3", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timed out waiting for third dial attempt after Reset")
+	}
+}
+
+type inboundErrorDelayStats struct {
+	stats.NoopCollector
+	releaseEarly <-chan struct{}
+	onErrorDone  func()
+}
+
+func (s *inboundErrorDelayStats) InboundContactData(_ string, _ int, err error) {
+	if err != nil {
+		select {
+		case <-s.releaseEarly:
+		case <-time.After(200 * time.Millisecond):
+		}
+		s.onErrorDone()
+	}
+}
+
+// TestStreamingDiscardWaitsForConnectionStop checks that when connectLoop
+// discards a connection whose attempt started before Reset, it waits for that
+// connection's goroutines to finish before starting the replacement attempt.
+func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	received := make(chan *fspb.ContactData, 5)
+	toSend := make(chan *fspb.ContactData, 5)
+	defer close(toSend)
+
+	server := streamingTestServer{
+		t:                     t,
+		received:              received,
+		toSend:                toSend,
+		allowMultipleRequests: true,
+	}
+	server.Start()
+	defer server.Stop()
+
+	trusted := x509.NewCertPool()
+	if !trusted.AppendCertsFromPEM(server.pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+
+	var dialCount atomic.Int32
+	var firstReadStopped atomic.Bool
+	var startedBeforeFirstStopped atomic.Bool
+	secondDialStarted := make(chan struct{})
+	var secondDialOnce sync.Once
+
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if dialCount.Add(1) == 2 {
+				startedBeforeFirstStopped.Store(!firstReadStopped.Load())
+				secondDialOnce.Do(func() { close(secondDialStarted) })
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, addr)
+		},
+	}
+
+	// Closing beacon inside Ack makes the replacement connect() return from
+	// groupMessages without waiting 1s, so DialContext runs immediately if
+	// connectLoop skips con.working.Wait().
+	beacon := make(chan struct{})
+	outbox := make(chan comms.MessageInfo, 1)
+	var ackOnce sync.Once
+	outbox <- comms.MessageInfo{
+		M: &fspb.Message{Destination: &fspb.Address{ServiceName: "DummyService"}},
+		Ack: func() {
+			ackOnce.Do(func() {
+				close(beacon)
+				c.Reset()
+			})
+		},
+		Nack: func() {},
+	}
+
+	cctx := &streamingTestContext{
+		id:     id,
+		priv:   priv,
+		si:     comms.ServerInfo{Servers: []string{server.Addr()}, TrustedCerts: trusted},
+		conf:   &clpb.CommunicatorConfig{MinFailureDelaySeconds: 10, Compression: fspb.CompressionAlgorithm_COMPRESSION_NONE},
+		outbox: outbox,
+		beacon: beacon,
+		stats: &inboundErrorDelayStats{
+			releaseEarly: secondDialStarted,
+			onErrorDone:  func() { firstReadStopped.Store(true) },
+		},
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	defer c.Stop()
+
+	select {
+	case <-secondDialStarted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for replacement dial attempt after Reset")
+	}
+	if startedBeforeFirstStopped.Load() {
+		t.Error("connectLoop() started replacement attempt before discarded connection finished stopping")
+	}
+}
+
+type outboundContactObserver struct {
+	stats.NoopCollector
+	onSuccess func()
+}
+
+func (o *outboundContactObserver) OutboundContactData(_ string, _ int, err error) {
+	if err == nil && o.onSuccess != nil {
+		o.onSuccess()
+	}
+}
+
+// TestStreamingResetDuringConnect checks that Reset abandons a connection
+// attempt that the server has stalled, so that the Flush that follows
+// completes on a new connection.
+func TestStreamingResetDuringConnect(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		// headersBeforeStall is whether the server sends the response headers
+		// before it stalls. If it does, the client is reading the initial
+		// ContactData when Reset is called; if not, it is waiting for the
+		// response.
+		headersBeforeStall bool
+	}{
+		{name: "StalledBeforeResponseHeaders"},
+		{name: "StalledAfterResponseHeaders", headersBeforeStall: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testStreamingResetDuringConnect(t, tc.headersBeforeStall)
+		})
+	}
+}
+
+func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert failed: %v", err)
+	}
+	cp, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair failed: %v", err)
+	}
+	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("ResolveTCPAddr failed: %v", err)
+	}
+	tl, err := net.ListenTCP("tcp", ad)
+	if err != nil {
+		t.Fatalf("ListenTCP failed: %v", err)
+	}
+	addr := tl.Addr().String()
+
+	var reqCount atomic.Int32
+	req1Stalled := make(chan struct{})
+	req1Aborted := make(chan struct{})
+	testDone := make(chan struct{})
+
+	handler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		reqNum := reqCount.Add(1)
+		body := bufio.NewReader(req.Body)
+		b := make([]byte, 4)
+		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
+			return
+		}
+		size, err := binary.ReadUvarint(body)
+		if err != nil {
+			return
+		}
+		buf := make([]byte, size)
+		if _, err := io.ReadFull(body, buf); err != nil {
+			return
+		}
+
+		if reqNum == 1 {
+			defer close(req1Aborted)
+			if headersBeforeStall {
+				res.WriteHeader(http.StatusOK)
+				res.(http.Flusher).Flush()
+			}
+			close(req1Stalled)
+			// Reading from body blocks until Reset closes the client stream.
+			_, _ = io.Copy(io.Discard, body)
+			return
+		}
+
+		outBuf, err := proto.Marshal(&fspb.ContactData{AckIndex: 0})
+		if err != nil {
+			t.Errorf("Unable to encode response: %v", err)
+			return
+		}
+		sizeBuf := binary.AppendUvarint(nil, uint64(len(outBuf)))
+		if _, err := res.Write(sizeBuf); err != nil {
+			return
+		}
+		if _, err := res.Write(outBuf); err != nil {
+			return
+		}
+		res.(http.Flusher).Flush()
+		select {
+		case <-req.Context().Done():
+		case <-testDone:
+		}
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/streaming-message", &https.CompressionHandler{Wrapped: handler})
+	server := http.Server{
+		Addr:    addr,
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			ClientAuth:   tls.RequireAnyClientCert,
+			Certificates: []tls.Certificate{cp},
+			NextProtos:   []string{"h2"},
+		},
+	}
+	l := tls.NewListener(tl, server.TLSConfig)
+	go server.Serve(l)
+	defer server.Close()
+	defer close(testDone)
+
+	var c StreamingCommunicator
+	conf := config.Configuration{
+		Servers:       []string{addr},
+		TrustedCerts:  x509.NewCertPool(),
+		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
+		CommunicatorConfig: &clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    2,
+			MaxBufferDelaySeconds:  1,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
+		},
+	}
+	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+	headersReceived := make(chan struct{})
+	var headersOnce sync.Once
+	cl, err := client.New(
+		conf,
+		client.Components{
+			ServiceFactories: map[string]service.Factory{"NOOP": service.NOOPFactory},
+			Communicator:     &c,
+			Stats: &outboundContactObserver{
+				onSuccess: func() {
+					headersOnce.Do(func() { close(headersReceived) })
+				},
+			},
+		})
+	if err != nil {
+		t.Fatalf("client.New() failed: %v", err)
+	}
+	defer cl.Stop()
+
+	select {
+	case <-req1Stalled:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Timed out waiting for the server to stall the first connection attempt")
+	}
+	if headersBeforeStall {
+		select {
+		case <-headersReceived:
+		case <-time.After(10 * time.Second):
+			t.Fatal("Timed out waiting for the client to receive the stalled response headers")
+		}
+	}
+
+	c.Reset()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := c.Flush(ctx); err != nil {
+		t.Fatalf("Flush after Reset = %v, want nil", err)
+	}
+	if got := reqCount.Load(); got < 2 {
+		t.Errorf("Server received %d requests before Flush returned, want at least 2", got)
+	}
+	select {
+	case <-req1Aborted:
+	case <-time.After(5 * time.Second):
+		t.Error("Timed out waiting for Reset to abort the stalled first request")
 	}
 }

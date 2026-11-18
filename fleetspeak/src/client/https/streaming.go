@@ -67,11 +67,17 @@ type StreamingCommunicator struct {
 	certBytes []byte
 
 	wakeUp chan struct{}
-	// mu protects curCon, and cross-goroutine reads of hc and certBytes (in
-	// Reset and GetFileIfModified) against updates on the connectLoop goroutine
-	// in configure.
+	// mu protects the fields below it, and cross-goroutine reads of hc and
+	// certBytes (in Reset and GetFileIfModified) against updates on the
+	// connectLoop goroutine in configure.
 	mu     sync.Mutex
 	curCon *connection
+	// resetSeq counts calls to Reset. connectLoop publishes a connection as
+	// curCon only if resetSeq has not changed since it started connecting.
+	resetSeq uint64
+	// connectCancel cancels the connection attempt in progress. It is nil
+	// while connectLoop is not connecting.
+	connectCancel context.CancelFunc
 }
 
 // Setup implements comms.Communicator.
@@ -111,12 +117,20 @@ func (c *StreamingCommunicator) Stop() {
 func (c *StreamingCommunicator) Reset() {
 	log.Infof("Reset called")
 	c.mu.Lock()
+	c.resetSeq++
+	if c.connectCancel != nil {
+		c.connectCancel()
+	}
 	if c.curCon != nil {
 		c.curCon.stop()
 	}
+	c.notifyWakeUp()
 	hc := c.hc
 	c.mu.Unlock()
 	hc.Transport.(*http.Transport).CloseIdleConnections()
+}
+
+func (c *StreamingCommunicator) notifyWakeUp() {
 	select {
 	case c.wakeUp <- struct{}{}:
 	default:
@@ -214,6 +228,16 @@ func (c *StreamingCommunicator) connectLoop() {
 				log.WarningContextf(c.ctx, "Unable to reconfigure for the current client ID, continuing with the previous configuration: %v", err)
 			}
 		}
+		c.mu.Lock()
+		myResetSeq := c.resetSeq
+		select {
+		case <-c.wakeUp:
+		default:
+		}
+		conLoopCtx, conLoopCancel := context.WithCancel(c.ctx)
+		c.connectCancel = conLoopCancel
+		c.mu.Unlock()
+
 		var con *connection
 		var err error
 		for i, h := range c.hosts {
@@ -222,7 +246,7 @@ func (c *StreamingCommunicator) connectLoop() {
 			// is fully sent. Setting a 12 minutes timeout means that even in the worst
 			// case (20Mb-sized chunk) a 28Kbyte/s connection would be enough to
 			// successfully connect.
-			conCTX, fin := context.WithTimeout(c.ctx, 12*time.Minute)
+			conCTX, fin := context.WithTimeout(conLoopCtx, 12*time.Minute)
 			// The server limits us to a 10m connection, and we prefer that
 			// the server close the connection so it can minimize the chance of
 			// a message getting lost while being sent to us.
@@ -230,15 +254,29 @@ func (c *StreamingCommunicator) connectLoop() {
 			fin()
 			if err != nil {
 				if c.ctx.Err() != nil {
+					// NOMUTANTS -- c.ctx is already canceled; satisfies lostcancel.
+					conLoopCancel()
 					return
 				}
 				con = nil
-				log.Warningf("Connection to %v failed with error: %v", h, err)
+				c.mu.Lock()
+				// NOMUTANTS -- Multi-host failover covers the true mutation; the false
+				// mutation only logs and runs already-canceled host iterations.
+				wasReset := c.resetSeq != myResetSeq
+				c.mu.Unlock()
+				// NOMUTANTS -- conLoopCtx is already canceled; breaking only skips
+				// warning logs and already-canceled host iterations.
+				if wasReset {
+					// Reset abandoned this attempt. The remaining hosts would be
+					// tried with the canceled conLoopCtx, so start over.
+					break
+				}
+				log.WarningContextf(conCTX, "Connection to %v failed with error: %v", h, err)
 				var certErr *tls.CertificateVerificationError
 				if errors.As(err, &certErr) {
-					log.Warning("Unverified certificates:")
+					log.WarningContext(conCTX, "Unverified certificates:")
 					for _, cert := range certErr.UnverifiedCertificates {
-						log.Warningf("%+v", cert)
+						log.WarningContextf(conCTX, "%+v", cert)
 					}
 				}
 				continue
@@ -252,11 +290,27 @@ func (c *StreamingCommunicator) connectLoop() {
 				break
 			}
 		}
+		c.mu.Lock()
+		// NOMUTANTS -- conLoopCancel is idempotent; clearing avoids retaining the
+		// finished context between attempts.
+		c.connectCancel = nil
+		c.mu.Unlock()
+		// NOMUTANTS -- Detaches conLoopCtx from c.ctx; per-host conCTX contexts are
+		// already canceled by fin.
+		conLoopCancel()
+
 		if con == nil {
-			log.V(1).Info("Connection failed, sleeping before retry.")
+			c.mu.Lock()
+			wasReset := c.resetSeq != myResetSeq
+			c.mu.Unlock()
+			if wasReset {
+				// Reconnect without the failure delay.
+				continue
+			}
+			log.V(1).InfoContext(c.ctx, "Connection failed, sleeping before retry.")
 			// Failure!
 			if time.Since(lastContact) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second {
-				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastContact))
+				log.FatalContextf(c.ctx, "Too Lonely! Failed to contact server in %v.", time.Since(lastContact))
 			}
 			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
 			select {
@@ -270,6 +324,14 @@ func (c *StreamingCommunicator) connectLoop() {
 			continue
 		}
 		c.mu.Lock()
+		if c.resetSeq != myResetSeq {
+			// Reset was called after this connection attempt started, so the
+			// connection predates the Reset. Discard it and connect again.
+			c.mu.Unlock()
+			con.stop()
+			con.working.Wait()
+			goto nackPending
+		}
 		c.curCon = con
 		c.mu.Unlock()
 		log.Info("Signal new connection established.")
@@ -280,6 +342,7 @@ func (c *StreamingCommunicator) connectLoop() {
 		c.mu.Unlock()
 		log.Info("Connection cleared.")
 		lastContact = time.Now()
+	nackPending:
 		for _, l := range con.pending {
 			for _, m := range l {
 				m.Nack()
@@ -427,7 +490,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 
 	if err != nil {
 		c.cctx.Stats().OutboundContactData(host, 0, err)
-		log.V(1).Infof("Streaming connection attempt failed: %v", err)
+		log.V(1).InfoContextf(ctx, "Streaming connection attempt failed: %v", err)
 		ret.stop()
 		abandon()
 		return nil, err
@@ -435,11 +498,38 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	go func() {
 		<-ret.ctx.Done()
 		err := resp.Body.Close()
-		log.V(2).Infof("--%p: Context finished, body closed with result: %v", &ret, err)
+		log.V(2).InfoContextf(ret.ctx, "--%p: Context finished, body closed with result: %v", &ret, err)
 	}()
 
+	// Until the initial messages are acknowledged, cancel ret.ctx if ctx is
+	// canceled. That closes resp.Body (above) and so ends a blocked read of
+	// the initial ContactData.
+	handshakeDone := make(chan struct{})
+	handshakeCanceled := make(chan bool, 1)
+	go func() {
+		select {
+		case <-handshakeDone:
+			handshakeCanceled <- false
+		case <-ctx.Done():
+			ret.stop()
+			handshakeCanceled <- true
+		}
+	}()
+	// stopHandshakeWatch ends the goroutine above and reports whether it
+	// canceled ret.ctx.
+	var stopHandshakeOnce sync.Once
+	var wasHandshakeCanceled bool
+	stopHandshakeWatch := func() bool {
+		stopHandshakeOnce.Do(func() {
+			close(handshakeDone)
+			wasHandshakeCanceled = <-handshakeCanceled
+		})
+		return wasHandshakeCanceled
+	}
+
 	fail := func(err error) (*connection, error) {
-		log.V(1).Infof("Streaming connection failed: %v", err)
+		stopHandshakeWatch()
+		log.V(1).InfoContextf(ctx, "Streaming connection failed: %v", err)
 		ret.stop()
 		resp.Body.Close()
 		abandon()
@@ -451,7 +541,7 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 		c.cctx.Stats().OutboundContactData(host, len(buf), err)
 		return fail(err)
 	}
-	log.V(2).Infof("POST to %v succeeded with status: %v and protocol: %v", host, resp.StatusCode, resp.Proto)
+	log.V(2).InfoContextf(ctx, "POST to %v succeeded with status: %v and protocol: %v", host, resp.StatusCode, resp.Proto)
 	c.cctx.Stats().OutboundContactData(host, len(buf), nil)
 	body := bufio.NewReader(resp.Body)
 	cd, err := ret.readContact(body)
@@ -460,6 +550,9 @@ func (c *StreamingCommunicator) connect(ctx context.Context, host string, maxLif
 	}
 	if err := c.cctx.ProcessContactData(ctx, cd, false); err != nil {
 		return fail(err)
+	}
+	if stopHandshakeWatch() {
+		return fail(ctx.Err())
 	}
 
 	for _, m := range toSend {
