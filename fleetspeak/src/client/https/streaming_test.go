@@ -1842,3 +1842,242 @@ func TestStreamingFlushWaitsForPendingAcks(t *testing.T) {
 		t.Fatal("Timed out waiting for Flush to return")
 	}
 }
+
+// TestStreamingResetClosesIdleConnections checks that Reset closes pooled
+// keep-alive connections on the communicator's HTTP transport.
+func TestStreamingResetClosesIdleConnections(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert() failed: %v", err)
+	}
+	keyPair, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair() failed: %v", err)
+	}
+	ln, err := tls.Listen("tcp", "localhost:0", &tls.Config{
+		Certificates: []tls.Certificate{keyPair},
+		ClientAuth:   tls.RequireAnyClientCert,
+	})
+	if err != nil {
+		t.Fatalf("tls.Listen() failed: %v", err)
+	}
+	srv := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotModified)
+		}),
+	}
+	go srv.Serve(ln)
+	defer srv.Close()
+
+	trusted := x509.NewCertPool()
+	if !trusted.AppendCertsFromPEM(pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+
+	var dials atomic.Int32
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dials.Add(1)
+			return (&net.Dialer{}).DialContext(ctx, network, addr)
+		},
+	}
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si: comms.ServerInfo{
+			Servers:      []string{ln.Addr().String()},
+			TrustedCerts: trusted,
+		},
+		conf: &clpb.CommunicatorConfig{},
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	defer c.fin()
+
+	modSince := time.Unix(1000, 0)
+	if _, _, err := c.GetFileIfModified(t.Context(), "svc", "file", modSince); err != nil {
+		t.Fatalf("first GetFileIfModified() failed: %v", err)
+	}
+	if got := dials.Load(); got != 1 {
+		t.Fatalf("dials after first GetFileIfModified() = %d, want 1", got)
+	}
+
+	c.Reset()
+
+	if _, _, err := c.GetFileIfModified(t.Context(), "svc", "file", modSince); err != nil {
+		t.Fatalf("second GetFileIfModified() failed: %v", err)
+	}
+	if got := dials.Load(); got != 2 {
+		t.Errorf("dials after Reset() and second GetFileIfModified() = %d, want 2", got)
+	}
+}
+
+// TestStreamingDisconnectUpdatesLastContact checks that when an active
+// connection closes, connectLoop clears curCon and updates lastContact so a
+// failed reconnect attempt measures FailureSuicideTimeSeconds from the
+// disconnect rather than from communicator startup.
+func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
+	t.Parallel()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert() failed: %v", err)
+	}
+	keyPair, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair() failed: %v", err)
+	}
+	ln, err := tls.Listen("tcp", "localhost:0", &tls.Config{
+		Certificates: []tls.Certificate{keyPair},
+		ClientAuth:   tls.RequireAnyClientCert,
+	})
+	if err != nil {
+		t.Fatalf("tls.Listen() failed: %v", err)
+	}
+
+	closeStream := make(chan struct{})
+	var closeStreamOnce sync.Once
+	defer closeStreamOnce.Do(func() { close(closeStream) })
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/streaming-message", func(w http.ResponseWriter, req *http.Request) {
+		body := bufio.NewReader(req.Body)
+		b := make([]byte, 4)
+		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
+			return
+		}
+		size, err := binary.ReadUvarint(body)
+		if err != nil {
+			return
+		}
+		if _, err := io.ReadFull(body, make([]byte, size)); err != nil {
+			return
+		}
+		outBuf, err := proto.Marshal(&fspb.ContactData{AckIndex: 0})
+		if err != nil {
+			t.Errorf("proto.Marshal() failed: %v", err)
+			return
+		}
+		sizeBuf := binary.AppendUvarint(nil, uint64(len(outBuf)))
+		if _, err := w.Write(sizeBuf); err != nil {
+			return
+		}
+		if _, err := w.Write(outBuf); err != nil {
+			return
+		}
+		w.(http.Flusher).Flush()
+		select {
+		case <-req.Context().Done():
+		case <-closeStream:
+		}
+	})
+	srv := &http.Server{Handler: mux}
+	go srv.Serve(ln)
+	defer srv.Close()
+
+	trusted := x509.NewCertPool()
+	if !trusted.AppendCertsFromPEM(pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+
+	var attempts atomic.Int32
+	dialCalls := make(chan int32, 4)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			n := attempts.Add(1)
+			dialCalls <- n
+			if n >= 2 {
+				return nil, errors.New("connection refused")
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, addr)
+		},
+	}
+	beacon := make(chan struct{}, 1)
+	beacon <- struct{}{}
+	cctx := &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si: comms.ServerInfo{
+			Servers:      []string{ln.Addr().String()},
+			TrustedCerts: trusted,
+		},
+		conf: &clpb.CommunicatorConfig{
+			MinFailureDelaySeconds:    10,
+			FailureSuicideTimeSeconds: 1,
+			Compression:               fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+		beacon: beacon,
+	}
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	defer c.Stop()
+
+	flushCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer flushCancel()
+	if err := c.Flush(flushCtx); err != nil {
+		t.Fatalf("Flush() = %v, want nil", err)
+	}
+	if got := <-dialCalls; got != 1 {
+		t.Fatalf("first dial attempt = %d, want 1", got)
+	}
+
+	// Stay connected past FailureSuicideTimeSeconds before the server closes
+	// the stream, then close beacon so the failed retry does not wait 1s in
+	// groupMessages.
+	time.Sleep(1100 * time.Millisecond)
+	closeStreamOnce.Do(func() { close(closeStream) })
+	close(beacon)
+
+	select {
+	case got := <-dialCalls:
+		if got != 2 {
+			t.Fatalf("second dial attempt = %d, want 2", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for reconnect attempt after server closed stream")
+	}
+
+	c.mu.Lock()
+	curCon := c.curCon
+	c.mu.Unlock()
+	if curCon != nil {
+		t.Errorf("c.curCon after connection closed = %v, want nil", curCon)
+	}
+
+	// Let connectLoop run the FailureSuicideTimeSeconds check and enter the
+	// MinFailureDelaySeconds wait, then wake it to confirm it stayed alive.
+	time.Sleep(50 * time.Millisecond)
+	c.Reset()
+
+	select {
+	case got := <-dialCalls:
+		if got != 3 {
+			t.Fatalf("third dial attempt = %d, want 3", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for dial attempt after Reset")
+	}
+}
