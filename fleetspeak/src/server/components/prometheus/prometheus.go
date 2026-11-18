@@ -303,21 +303,25 @@ func isBlacklisted(cd *db.ClientData) string {
 }
 
 func (s StatsCollector) ResourceUsageDataReceived(cd *db.ClientData, rud *mpb.ResourceUsageData, v *fspb.ValidationInfo) {
+	ru := rud.GetResourceUsage()
+	if ru == nil {
+		return
+	}
 	clientDataLabels := getClientDataLabelsConcatenated(cd)
 	blacklisted := isBlacklisted(cd)
-	scope := rud.Scope
-	version := rud.Version
+	scope := rud.GetScope()
+	version := rud.GetVersion()
 
 	// CounterVec
-	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, blacklisted, scope, rud.Version).Inc()
+	resourcesUsageDataReceivedCount.WithLabelValues(clientDataLabels, blacklisted, scope, version).Inc()
 
 	// HistorgramVecs
-	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanUserCpuRate())
-	resourcesUsageDataReceivedByMaxUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMaxUserCpuRate())
-	resourcesUsageDataReceivedByMeanSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanSystemCpuRate())
-	resourcesUsageDataReceivedByMaxSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMaxSystemCpuRate())
-	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(rud.ResourceUsage.GetMeanResidentMemory())
-	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(float64(rud.ResourceUsage.GetMaxResidentMemory()))
+	resourcesUsageDataReceivedByMeanUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(ru.GetMeanUserCpuRate())
+	resourcesUsageDataReceivedByMaxUserCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(ru.GetMaxUserCpuRate())
+	resourcesUsageDataReceivedByMeanSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(ru.GetMeanSystemCpuRate())
+	resourcesUsageDataReceivedByMaxSystemCPURate.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(ru.GetMaxSystemCpuRate())
+	resourcesUsageDataReceivedByMeanResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(ru.GetMeanResidentMemory())
+	resourcesUsageDataReceivedByMaxResidentMemory.WithLabelValues(clientDataLabels, blacklisted, scope, version).Observe(float64(ru.GetMaxResidentMemory()))
 }
 
 func (s StatsCollector) KillNotificationReceived(cd *db.ClientData, kn *mpb.KillNotification) {

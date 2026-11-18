@@ -242,6 +242,9 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if err := d.UnmarshalTo(rud); err != nil {
 		return fmt.Errorf("unable to unmarshal data as ResourceUsageData: %v", err)
 	}
+	if rud.GetResourceUsage() == nil {
+		return errors.New("ResourceUsageData missing resource_usage")
+	}
 
 	cd, err := s.sctx.GetClientData(ctx, cid)
 	if err != nil {

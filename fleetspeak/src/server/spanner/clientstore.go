@@ -17,6 +17,7 @@ package spanner
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -420,6 +421,9 @@ func (d *Datastore) tryLinkMessagesToContact(tr *spanner.ReadWriteTransaction, c
 
 // RecordResourceUsageData implements db.Store.
 func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {
+	if rud.GetResourceUsage() == nil {
+		return errors.New("ResourceUsageData missing resource_usage")
+	}
 	_, err := d.dbClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		return d.tryRecordResourceUsageData(txn, id, rud)
 	})
@@ -427,20 +431,24 @@ func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.Clien
 }
 
 func (d *Datastore) tryRecordResourceUsageData(tr *spanner.ReadWriteTransaction, id common.ClientID, rud *mpb.ResourceUsageData) error {
+	ru := rud.GetResourceUsage()
+	if ru == nil {
+		return errors.New("ResourceUsageData missing resource_usage")
+	}
 	record := spb.ClientResourceUsageRecord{
-		Scope:                 rud.Scope,
-		Pid:                   rud.Pid,
-		ProcessStartTime:      rud.ProcessStartTime,
-		ClientTimestamp:       rud.DataTimestamp,
-		ProcessTerminated:     rud.ProcessTerminated,
-		MeanUserCpuRate:       float32(rud.ResourceUsage.MeanUserCpuRate),
-		MaxUserCpuRate:        float32(rud.ResourceUsage.MaxUserCpuRate),
-		MeanSystemCpuRate:     float32(rud.ResourceUsage.MeanSystemCpuRate),
-		MaxSystemCpuRate:      float32(rud.ResourceUsage.MaxSystemCpuRate),
-		MeanResidentMemoryMib: int32(rud.ResourceUsage.MeanResidentMemory * bytesToMIB),
-		MaxResidentMemoryMib:  int32(float64(rud.ResourceUsage.MaxResidentMemory) * bytesToMIB),
-		MeanNumFds:            int32(rud.ResourceUsage.GetMeanNumFds()),
-		MaxNumFds:             int32(rud.ResourceUsage.GetMaxNumFds()),
+		Scope:                 rud.GetScope(),
+		Pid:                   rud.GetPid(),
+		ProcessStartTime:      rud.GetProcessStartTime(),
+		ClientTimestamp:       rud.GetDataTimestamp(),
+		ProcessTerminated:     rud.GetProcessTerminated(),
+		MeanUserCpuRate:       float32(ru.GetMeanUserCpuRate()),
+		MaxUserCpuRate:        float32(ru.GetMaxUserCpuRate()),
+		MeanSystemCpuRate:     float32(ru.GetMeanSystemCpuRate()),
+		MaxSystemCpuRate:      float32(ru.GetMaxSystemCpuRate()),
+		MeanResidentMemoryMib: int32(ru.GetMeanResidentMemory() * bytesToMIB),
+		MaxResidentMemoryMib:  int32(float64(ru.GetMaxResidentMemory()) * bytesToMIB),
+		MeanNumFds:            int32(ru.GetMeanNumFds()),
+		MaxNumFds:             int32(ru.GetMaxNumFds()),
 	}
 	resourceUsageCols := []string{"ClientID", "ServerTimestamp", "Record"}
 	ms := []*spanner.Mutation{spanner.InsertOrUpdate(d.clientResourceUsageRecords, resourceUsageCols, []any{id.Bytes(), spanner.CommitTimestamp, &record})}

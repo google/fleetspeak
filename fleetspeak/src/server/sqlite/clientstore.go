@@ -17,6 +17,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -390,35 +391,39 @@ func (d *Datastore) LinkMessagesToContact(ctx context.Context, contact db.Contac
 }
 
 func (d *Datastore) RecordResourceUsageData(ctx context.Context, id common.ClientID, rud *mpb.ResourceUsageData) error {
+	ru := rud.GetResourceUsage()
+	if ru == nil {
+		return errors.New("ResourceUsageData missing resource_usage")
+	}
 	d.l.Lock()
 	defer d.l.Unlock()
-	if err := rud.ProcessStartTime.CheckValid(); err != nil {
+	if err := rud.GetProcessStartTime().CheckValid(); err != nil {
 		return fmt.Errorf("failed to parse process start time: %v", err)
 	}
-	processStartTime := rud.ProcessStartTime.AsTime()
-	if err := rud.DataTimestamp.CheckValid(); err != nil {
+	processStartTime := rud.GetProcessStartTime().AsTime()
+	if err := rud.GetDataTimestamp().CheckValid(); err != nil {
 		return fmt.Errorf("failed to parse data timestamp: %v", err)
 	}
-	clientTimestamp := rud.DataTimestamp.AsTime()
+	clientTimestamp := rud.GetDataTimestamp().AsTime()
 	return d.runInTx(func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
 			"INSERT INTO client_resource_usage_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			id.String(),
-			rud.Scope,
-			rud.Pid,
+			rud.GetScope(),
+			rud.GetPid(),
 			processStartTime.UnixNano(),
 			clientTimestamp.UnixNano(),
 			db.Now().UnixNano(),
-			rud.ProcessTerminated,
-			rud.ResourceUsage.MeanUserCpuRate,
-			rud.ResourceUsage.MaxUserCpuRate,
-			rud.ResourceUsage.MeanSystemCpuRate,
-			rud.ResourceUsage.MaxSystemCpuRate,
-			int32(rud.ResourceUsage.MeanResidentMemory*bytesToMIB),
-			int32(float64(rud.ResourceUsage.MaxResidentMemory)*bytesToMIB),
-			int32(rud.ResourceUsage.MeanNumFds),
-			rud.ResourceUsage.MaxNumFds)
+			rud.GetProcessTerminated(),
+			ru.GetMeanUserCpuRate(),
+			ru.GetMaxUserCpuRate(),
+			ru.GetMeanSystemCpuRate(),
+			ru.GetMaxSystemCpuRate(),
+			int32(ru.GetMeanResidentMemory()*bytesToMIB),
+			int32(float64(ru.GetMaxResidentMemory())*bytesToMIB),
+			int32(ru.GetMeanNumFds()),
+			ru.GetMaxNumFds())
 		return err
 	})
 }

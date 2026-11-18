@@ -541,6 +541,17 @@ func fetchResourceUsageRecordsTest(t *testing.T, ds db.Store) {
 		t.Fatalf("Invalid time.Time object cannot be converted to tpb.Timestamp: %v", err)
 	}
 
+	if err := ds.RecordResourceUsageData(ctx, clientID, nil); err == nil {
+		t.Error("RecordResourceUsageData(nil) = nil, want non-nil error")
+	}
+	if err := ds.RecordResourceUsageData(ctx, clientID, &mpb.ResourceUsageData{
+		Scope:            "test-scope",
+		ProcessStartTime: &tspb.Timestamp{Seconds: 1234567890, Nanos: 98765},
+		DataTimestamp:    &tspb.Timestamp{Seconds: 1234567891, Nanos: 98765},
+	}); err == nil {
+		t.Error("RecordResourceUsageData(unset ResourceUsage) = nil, want non-nil error")
+	}
+
 	err = ds.RecordResourceUsageData(ctx, clientID, &rud)
 	if err != nil {
 		t.Fatalf("Unexpected error when writing client resource-usage data: %v", err)
