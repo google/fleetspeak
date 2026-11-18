@@ -812,38 +812,122 @@ func (c *streamingTestContext) ProcessContactData(ctx context.Context, cd *fspb.
 	return nil
 }
 
+func newStreamingTestIdentity(t *testing.T) (common.ClientID, *ecdsa.PrivateKey) {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+	return id, priv
+}
+
+func newStreamingTestContext(t *testing.T, si comms.ServerInfo, conf *clpb.CommunicatorConfig) *streamingTestContext {
+	t.Helper()
+	id, priv := newStreamingTestIdentity(t)
+	return &streamingTestContext{
+		id:   id,
+		priv: priv,
+		si:   si,
+		conf: conf,
+	}
+}
+
+func startStreamingCommunicator(t *testing.T, c *StreamingCommunicator, cctx *streamingTestContext) {
+	t.Helper()
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	t.Cleanup(c.Stop)
+}
+
+func mustTrustedCertPool(t *testing.T, pemCert []byte) *x509.CertPool {
+	t.Helper()
+	trusted := x509.NewCertPool()
+	if !trusted.AppendCertsFromPEM(pemCert) {
+		t.Fatal("AppendCertsFromPEM() = false, want true")
+	}
+	return trusted
+}
+
+func startStreamingTLSServer(t *testing.T, handler http.Handler, nextProtos ...string) (string, *x509.CertPool) {
+	t.Helper()
+	pemCert, pemKey, err := comtesting.ServerCert()
+	if err != nil {
+		t.Fatalf("ServerCert() failed: %v", err)
+	}
+	keyPair, err := tls.X509KeyPair(pemCert, pemKey)
+	if err != nil {
+		t.Fatalf("X509KeyPair() failed: %v", err)
+	}
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{keyPair},
+		ClientAuth:   tls.RequireAnyClientCert,
+		NextProtos:   nextProtos,
+	}
+	ln, err := tls.Listen("tcp", "localhost:0", tlsCfg)
+	if err != nil {
+		t.Fatalf("tls.Listen() failed: %v", err)
+	}
+	srv := &http.Server{
+		Handler:   handler,
+		TLSConfig: tlsCfg,
+	}
+	go srv.Serve(ln)
+	t.Cleanup(func() { _ = srv.Close() })
+	return ln.Addr().String(), mustTrustedCertPool(t, pemCert)
+}
+
+func readStreamingContactFrame(body *bufio.Reader) error {
+	if _, err := io.ReadFull(body, make([]byte, 4)); err != nil {
+		return err
+	}
+	size, err := binary.ReadUvarint(body)
+	if err != nil {
+		return err
+	}
+	_, err = io.ReadFull(body, make([]byte, size))
+	return err
+}
+
+func writeStreamingContactFrame(t *testing.T, w http.ResponseWriter, cd *fspb.ContactData) bool {
+	t.Helper()
+	outBuf, err := proto.Marshal(cd)
+	if err != nil {
+		t.Errorf("proto.Marshal() failed: %v", err)
+		return false
+	}
+	if _, err := w.Write(binary.AppendUvarint(nil, uint64(len(outBuf)))); err != nil {
+		return false
+	}
+	if _, err := w.Write(outBuf); err != nil {
+		return false
+	}
+	w.(http.Flusher).Flush()
+	return true
+}
+
 // TestStreamingConfigureFailureKeepsID checks that a configure() that fails
 // leaves c.id unchanged. connectLoop calls configure() while c.id differs
 // from the current client ID, so this is what makes it try again.
 func TestStreamingConfigureFailureKeepsID(t *testing.T) {
-	newIdentity := func() (common.ClientID, *ecdsa.PrivateKey) {
-		t.Helper()
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-		if err != nil {
-			t.Fatalf("GenerateKey failed: %v", err)
-		}
-		id, err := common.MakeClientID(priv.Public())
-		if err != nil {
-			t.Fatalf("MakeClientID failed: %v", err)
-		}
-		return id, priv
-	}
 	servers := []string{"localhost:1234"}
 
-	oldID, oldPriv := newIdentity()
-	cctx := &streamingTestContext{
-		id:   oldID,
-		priv: oldPriv,
-		si:   comms.ServerInfo{Servers: servers},
-		conf: &clpb.CommunicatorConfig{},
-	}
+	cctx := newStreamingTestContext(t, comms.ServerInfo{Servers: servers}, &clpb.CommunicatorConfig{})
+	oldID := cctx.id
 	var c StreamingCommunicator
 	if err := c.Setup(cctx); err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
 	defer c.fin()
 
-	newID, newPriv := newIdentity()
+	newID, newPriv := newStreamingTestIdentity(t)
 	cctx.id, cctx.priv = newID, newPriv
 	cctx.si.Servers = nil
 	if err := c.configure(); err == nil {
@@ -873,14 +957,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // fails in RoundTrip, receives a non-200 status, or fails reading the initial
 // ContactData.
 func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID failed: %v", err)
-	}
+	id, priv := newStreamingTestIdentity(t)
 	beacon := make(chan struct{})
 	close(beacon)
 
@@ -1006,15 +1083,6 @@ func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
 // waits for a connection to be dialed, which is before anything reads the
 // request body that connect writes through the DEFLATE writer.
 func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID failed: %v", err)
-	}
-
 	dialing := make(chan struct{}, 1)
 	c := StreamingCommunicator{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -1026,14 +1094,11 @@ func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
 			return nil, ctx.Err()
 		},
 	}
-	cctx := &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si:   comms.ServerInfo{Servers: []string{"localhost:1234"}},
-		conf: &clpb.CommunicatorConfig{
-			Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
-		},
-	}
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		&clpb.CommunicatorConfig{Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE},
+	)
 	if err := c.Setup(cctx); err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
@@ -1077,7 +1142,7 @@ func TestStreamingResetBeforeConnectionPublished(t *testing.T) {
 	var c StreamingCommunicator
 	conf := config.Configuration{
 		Servers:       []string{server.Addr()},
-		TrustedCerts:  x509.NewCertPool(),
+		TrustedCerts:  mustTrustedCertPool(t, server.pemCert),
 		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
@@ -1085,9 +1150,6 @@ func TestStreamingResetBeforeConnectionPublished(t *testing.T) {
 			MinFailureDelaySeconds: 1,
 			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
 		},
-	}
-	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
 	}
 	cl, err := client.New(
 		conf,
@@ -1155,15 +1217,6 @@ func TestStreamingResetBeforeConnectionPublished(t *testing.T) {
 // promotes the working server to the front of c.hosts.
 func TestStreamingMultiHostFailover(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
 	received := make(chan *fspb.ContactData, 5)
 	toSend := make(chan *fspb.ContactData, 5)
 	defer close(toSend)
@@ -1176,11 +1229,6 @@ func TestStreamingMultiHostFailover(t *testing.T) {
 	}
 	server.Start()
 	defer server.Stop()
-
-	trusted := x509.NewCertPool()
-	if !trusted.AppendCertsFromPEM(server.pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
-	}
 
 	const unreachableAddr = "unreachable.invalid:443"
 	var unreachableDials atomic.Int32
@@ -1196,26 +1244,19 @@ func TestStreamingMultiHostFailover(t *testing.T) {
 	beacon := make(chan struct{}, 2)
 	beacon <- struct{}{}
 	beacon <- struct{}{}
-	cctx := &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si: comms.ServerInfo{
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{
 			Servers:      []string{unreachableAddr, server.Addr()},
-			TrustedCerts: trusted,
+			TrustedCerts: mustTrustedCertPool(t, server.pemCert),
 		},
-		conf: &clpb.CommunicatorConfig{
+		&clpb.CommunicatorConfig{
 			MinFailureDelaySeconds: 10,
 			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
 		},
-		beacon: beacon,
-	}
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer c.Stop()
+	)
+	cctx.beacon = beacon
+	startStreamingCommunicator(t, &c, cctx)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -1246,15 +1287,6 @@ func TestStreamingMultiHostFailover(t *testing.T) {
 // skips the FailureSuicideTimeSeconds check.
 func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
 	dialCalls := make(chan struct{}, 4)
 	c := StreamingCommunicator{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -1265,23 +1297,16 @@ func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
 	}
 	beacon := make(chan struct{})
 	close(beacon)
-	cctx := &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si:   comms.ServerInfo{Servers: []string{"localhost:1234"}},
-		conf: &clpb.CommunicatorConfig{
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		&clpb.CommunicatorConfig{
 			MinFailureDelaySeconds:    10,
 			FailureSuicideTimeSeconds: 1,
 		},
-		beacon: beacon,
-	}
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer c.Stop()
+	)
+	cctx.beacon = beacon
+	startStreamingCommunicator(t, &c, cctx)
 
 	select {
 	case <-dialCalls:
@@ -1305,15 +1330,6 @@ func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
 // immediately.
 func TestStreamingFailureDelayAfterReset(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
 	var attempts atomic.Int32
 	dialCalls := make(chan int32, 8)
 	c := StreamingCommunicator{
@@ -1329,20 +1345,13 @@ func TestStreamingFailureDelayAfterReset(t *testing.T) {
 	}
 	beacon := make(chan struct{})
 	close(beacon)
-	cctx := &streamingTestContext{
-		id:     id,
-		priv:   priv,
-		si:     comms.ServerInfo{Servers: []string{"localhost:1234"}},
-		conf:   &clpb.CommunicatorConfig{MinFailureDelaySeconds: 10},
-		beacon: beacon,
-	}
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer c.Stop()
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		&clpb.CommunicatorConfig{MinFailureDelaySeconds: 10},
+	)
+	cctx.beacon = beacon
+	startStreamingCommunicator(t, &c, cctx)
 
 	select {
 	case got := <-dialCalls:
@@ -1406,15 +1415,6 @@ func (s *inboundErrorDelayStats) InboundContactData(_ string, _ int, err error) 
 // connection's goroutines to finish before starting the replacement attempt.
 func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
 	received := make(chan *fspb.ContactData, 5)
 	toSend := make(chan *fspb.ContactData, 5)
 	defer close(toSend)
@@ -1427,11 +1427,6 @@ func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
 	}
 	server.Start()
 	defer server.Stop()
-
-	trusted := x509.NewCertPool()
-	if !trusted.AppendCertsFromPEM(server.pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
-	}
 
 	var dialCount atomic.Int32
 	var firstReadStopped atomic.Bool
@@ -1466,25 +1461,18 @@ func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
 		Nack: func() {},
 	}
 
-	cctx := &streamingTestContext{
-		id:     id,
-		priv:   priv,
-		si:     comms.ServerInfo{Servers: []string{server.Addr()}, TrustedCerts: trusted},
-		conf:   &clpb.CommunicatorConfig{MinFailureDelaySeconds: 10, Compression: fspb.CompressionAlgorithm_COMPRESSION_NONE},
-		outbox: outbox,
-		beacon: beacon,
-		stats: &inboundErrorDelayStats{
-			releaseEarly: secondDialStarted,
-			onErrorDone:  func() { firstReadStopped.Store(true) },
-		},
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{Servers: []string{server.Addr()}, TrustedCerts: mustTrustedCertPool(t, server.pemCert)},
+		&clpb.CommunicatorConfig{MinFailureDelaySeconds: 10, Compression: fspb.CompressionAlgorithm_COMPRESSION_NONE},
+	)
+	cctx.outbox = outbox
+	cctx.beacon = beacon
+	cctx.stats = &inboundErrorDelayStats{
+		releaseEarly: secondDialStarted,
+		onErrorDone:  func() { firstReadStopped.Store(true) },
 	}
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer c.Stop()
+	startStreamingCommunicator(t, &c, cctx)
 
 	select {
 	case <-secondDialStarted:
@@ -1531,24 +1519,6 @@ func TestStreamingResetDuringConnect(t *testing.T) {
 }
 
 func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
-	pemCert, pemKey, err := comtesting.ServerCert()
-	if err != nil {
-		t.Fatalf("ServerCert failed: %v", err)
-	}
-	cp, err := tls.X509KeyPair(pemCert, pemKey)
-	if err != nil {
-		t.Fatalf("X509KeyPair failed: %v", err)
-	}
-	ad, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("ResolveTCPAddr failed: %v", err)
-	}
-	tl, err := net.ListenTCP("tcp", ad)
-	if err != nil {
-		t.Fatalf("ListenTCP failed: %v", err)
-	}
-	addr := tl.Addr().String()
-
 	var reqCount atomic.Int32
 	req1Stalled := make(chan struct{})
 	req1Aborted := make(chan struct{})
@@ -1557,16 +1527,7 @@ func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
 	handler := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		reqNum := reqCount.Add(1)
 		body := bufio.NewReader(req.Body)
-		b := make([]byte, 4)
-		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
-			return
-		}
-		size, err := binary.ReadUvarint(body)
-		if err != nil {
-			return
-		}
-		buf := make([]byte, size)
-		if _, err := io.ReadFull(body, buf); err != nil {
+		if err := readStreamingContactFrame(body); err != nil {
 			return
 		}
 
@@ -1582,19 +1543,9 @@ func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
 			return
 		}
 
-		outBuf, err := proto.Marshal(&fspb.ContactData{AckIndex: 0})
-		if err != nil {
-			t.Errorf("Unable to encode response: %v", err)
+		if !writeStreamingContactFrame(t, res, &fspb.ContactData{AckIndex: 0}) {
 			return
 		}
-		sizeBuf := binary.AppendUvarint(nil, uint64(len(outBuf)))
-		if _, err := res.Write(sizeBuf); err != nil {
-			return
-		}
-		if _, err := res.Write(outBuf); err != nil {
-			return
-		}
-		res.(http.Flusher).Flush()
 		select {
 		case <-req.Context().Done():
 		case <-testDone:
@@ -1603,24 +1554,13 @@ func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/streaming-message", &https.CompressionHandler{Wrapped: handler})
-	server := http.Server{
-		Addr:    addr,
-		Handler: mux,
-		TLSConfig: &tls.Config{
-			ClientAuth:   tls.RequireAnyClientCert,
-			Certificates: []tls.Certificate{cp},
-			NextProtos:   []string{"h2"},
-		},
-	}
-	l := tls.NewListener(tl, server.TLSConfig)
-	go server.Serve(l)
-	defer server.Close()
+	addr, trusted := startStreamingTLSServer(t, mux, "h2")
 	defer close(testDone)
 
 	var c StreamingCommunicator
 	conf := config.Configuration{
 		Servers:       []string{addr},
-		TrustedCerts:  x509.NewCertPool(),
+		TrustedCerts:  trusted,
 		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
@@ -1628,9 +1568,6 @@ func testStreamingResetDuringConnect(t *testing.T, headersBeforeStall bool) {
 			MinFailureDelaySeconds: 1,
 			Compression:            fspb.CompressionAlgorithm_COMPRESSION_DEFLATE,
 		},
-	}
-	if !conf.TrustedCerts.AppendCertsFromPEM(pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
 	}
 	headersReceived := make(chan struct{})
 	var headersOnce sync.Once
@@ -1710,7 +1647,7 @@ func TestStreamingFlushWaitsForPendingAcks(t *testing.T) {
 	var c StreamingCommunicator
 	conf := config.Configuration{
 		Servers:       []string{server.Addr()},
-		TrustedCerts:  x509.NewCertPool(),
+		TrustedCerts:  mustTrustedCertPool(t, server.pemCert),
 		FixedServices: []*fspb.ClientServiceConfig{{Name: "NOOPService", Factory: "NOOP"}},
 		CommunicatorConfig: &clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    2,
@@ -1718,9 +1655,6 @@ func TestStreamingFlushWaitsForPendingAcks(t *testing.T) {
 			MinFailureDelaySeconds: 1,
 			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
 		},
-	}
-	if !conf.TrustedCerts.AppendCertsFromPEM(server.pemCert) {
-		t.Fatal("unable to add server cert to pool")
 	}
 	cl, err := client.New(
 		conf,
@@ -1847,42 +1781,9 @@ func TestStreamingFlushWaitsForPendingAcks(t *testing.T) {
 // keep-alive connections on the communicator's HTTP transport.
 func TestStreamingResetClosesIdleConnections(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
-	pemCert, pemKey, err := comtesting.ServerCert()
-	if err != nil {
-		t.Fatalf("ServerCert() failed: %v", err)
-	}
-	keyPair, err := tls.X509KeyPair(pemCert, pemKey)
-	if err != nil {
-		t.Fatalf("X509KeyPair() failed: %v", err)
-	}
-	ln, err := tls.Listen("tcp", "localhost:0", &tls.Config{
-		Certificates: []tls.Certificate{keyPair},
-		ClientAuth:   tls.RequireAnyClientCert,
-	})
-	if err != nil {
-		t.Fatalf("tls.Listen() failed: %v", err)
-	}
-	srv := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNotModified)
-		}),
-	}
-	go srv.Serve(ln)
-	defer srv.Close()
-
-	trusted := x509.NewCertPool()
-	if !trusted.AppendCertsFromPEM(pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
-	}
+	addr, trusted := startStreamingTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotModified)
+	}))
 
 	var dials atomic.Int32
 	c := StreamingCommunicator{
@@ -1891,15 +1792,14 @@ func TestStreamingResetClosesIdleConnections(t *testing.T) {
 			return (&net.Dialer{}).DialContext(ctx, network, addr)
 		},
 	}
-	cctx := &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si: comms.ServerInfo{
-			Servers:      []string{ln.Addr().String()},
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{
+			Servers:      []string{addr},
 			TrustedCerts: trusted,
 		},
-		conf: &clpb.CommunicatorConfig{},
-	}
+		&clpb.CommunicatorConfig{},
+	)
 	if err := c.Setup(cctx); err != nil {
 		t.Fatalf("Setup() failed: %v", err)
 	}
@@ -1929,75 +1829,24 @@ func TestStreamingResetClosesIdleConnections(t *testing.T) {
 // disconnect rather than from communicator startup.
 func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
 	t.Parallel()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-
-	pemCert, pemKey, err := comtesting.ServerCert()
-	if err != nil {
-		t.Fatalf("ServerCert() failed: %v", err)
-	}
-	keyPair, err := tls.X509KeyPair(pemCert, pemKey)
-	if err != nil {
-		t.Fatalf("X509KeyPair() failed: %v", err)
-	}
-	ln, err := tls.Listen("tcp", "localhost:0", &tls.Config{
-		Certificates: []tls.Certificate{keyPair},
-		ClientAuth:   tls.RequireAnyClientCert,
-	})
-	if err != nil {
-		t.Fatalf("tls.Listen() failed: %v", err)
-	}
-
 	closeStream := make(chan struct{})
 	var closeStreamOnce sync.Once
 	defer closeStreamOnce.Do(func() { close(closeStream) })
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/streaming-message", func(w http.ResponseWriter, req *http.Request) {
-		body := bufio.NewReader(req.Body)
-		b := make([]byte, 4)
-		if _, err := io.ReadAtLeast(body, b, 4); err != nil {
+		if err := readStreamingContactFrame(bufio.NewReader(req.Body)); err != nil {
 			return
 		}
-		size, err := binary.ReadUvarint(body)
-		if err != nil {
+		if !writeStreamingContactFrame(t, w, &fspb.ContactData{AckIndex: 0}) {
 			return
 		}
-		if _, err := io.ReadFull(body, make([]byte, size)); err != nil {
-			return
-		}
-		outBuf, err := proto.Marshal(&fspb.ContactData{AckIndex: 0})
-		if err != nil {
-			t.Errorf("proto.Marshal() failed: %v", err)
-			return
-		}
-		sizeBuf := binary.AppendUvarint(nil, uint64(len(outBuf)))
-		if _, err := w.Write(sizeBuf); err != nil {
-			return
-		}
-		if _, err := w.Write(outBuf); err != nil {
-			return
-		}
-		w.(http.Flusher).Flush()
 		select {
 		case <-req.Context().Done():
 		case <-closeStream:
 		}
 	})
-	srv := &http.Server{Handler: mux}
-	go srv.Serve(ln)
-	defer srv.Close()
-
-	trusted := x509.NewCertPool()
-	if !trusted.AppendCertsFromPEM(pemCert) {
-		t.Fatal("AppendCertsFromPEM() = false, want true")
-	}
+	addr, trusted := startStreamingTLSServer(t, mux)
 
 	var attempts atomic.Int32
 	dialCalls := make(chan int32, 4)
@@ -2013,27 +1862,20 @@ func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
 	}
 	beacon := make(chan struct{}, 1)
 	beacon <- struct{}{}
-	cctx := &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si: comms.ServerInfo{
-			Servers:      []string{ln.Addr().String()},
+	cctx := newStreamingTestContext(
+		t,
+		comms.ServerInfo{
+			Servers:      []string{addr},
 			TrustedCerts: trusted,
 		},
-		conf: &clpb.CommunicatorConfig{
+		&clpb.CommunicatorConfig{
 			MinFailureDelaySeconds:    10,
 			FailureSuicideTimeSeconds: 1,
 			Compression:               fspb.CompressionAlgorithm_COMPRESSION_NONE,
 		},
-		beacon: beacon,
-	}
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer c.Stop()
+	)
+	cctx.beacon = beacon
+	startStreamingCommunicator(t, &c, cctx)
 
 	flushCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer flushCancel()
