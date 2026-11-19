@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -648,46 +645,44 @@ func TestStreamingCommunicatorBulkFast(t *testing.T) {
 }
 
 func TestStreamingReset(t *testing.T) {
-	var c StreamingCommunicator
-	conf := config.Configuration{
-		Servers: []string{"localhost:1234"},
-		CommunicatorConfig: &clpb.CommunicatorConfig{
-			MinFailureDelaySeconds: 10,
+	t.Parallel()
+	dialCalls := make(chan struct{}, 10)
+	c := StreamingCommunicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialCalls <- struct{}{}
+			<-ctx.Done()
+			return nil, ctx.Err()
 		},
 	}
-	dialCalls := make(chan struct{}, 10)
-	c.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		dialCalls <- struct{}{}
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
+	beacon := make(chan struct{})
+	close(beacon)
+	cctx := newTestCommsContext(
+		t,
+		comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		&clpb.CommunicatorConfig{MinFailureDelaySeconds: 10},
+	)
+	cctx.beacon = beacon
+	startCommunicator(t, &c, cctx)
 
-	cl, err := client.New(
-		conf,
-		client.Components{
-			Communicator: &c,
-		})
-	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
-	}
-	defer cl.Stop()
-
-	// Wait for first dial attempt
 	select {
 	case <-dialCalls:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for first dial attempt")
 	}
 
-	// Call Reset
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-dialCalls:
+		t.Fatal("DialContext() called a second time before Reset()")
+	case <-time.After(100 * time.Millisecond):
+	}
+
 	c.Reset()
 
-	// Wait for second dial attempt (should be immediate, not waiting 10s)
+	// Reset cancels the in-flight connect attempt and retries without waiting 10s.
 	select {
 	case <-dialCalls:
 	case <-time.After(2 * time.Second):
-		t.Fatal("Timed out waiting for second dial attempt after Reset")
+		t.Fatal("Timed out waiting for second dial attempt after Reset()")
 	}
 }
 
@@ -769,84 +764,6 @@ func TestStreamingFlushAfterReset(t *testing.T) {
 	}
 }
 
-// streamingTestContext is a minimal comms.Context for tests that run a
-// StreamingCommunicator without a client.Client.
-type streamingTestContext struct {
-	comms.Context
-	id                 common.ClientID
-	priv               *ecdsa.PrivateKey
-	si                 comms.ServerInfo
-	conf               *clpb.CommunicatorConfig
-	outbox             <-chan comms.MessageInfo
-	beacon             <-chan struct{}
-	stats              stats.Collector
-	processContactData func(ctx context.Context, cd *fspb.ContactData, streaming bool) error
-}
-
-func (c *streamingTestContext) Outbox() <-chan comms.MessageInfo  { return c.outbox }
-func (c *streamingTestContext) ProcessingBeacon() <-chan struct{} { return c.beacon }
-func (c *streamingTestContext) CurrentID() common.ClientID        { return c.id }
-func (c *streamingTestContext) CurrentIdentity() (comms.ClientIdentity, error) {
-	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: c.priv.Public()}, nil
-}
-func (c *streamingTestContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
-func (c *streamingTestContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
-func (c *streamingTestContext) ChainRevoked([]*x509.Certificate) bool        { return false }
-func (c *streamingTestContext) Stats() stats.Collector {
-	if c.stats != nil {
-		return c.stats
-	}
-	return stats.NoopCollector{}
-}
-func (c *streamingTestContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
-	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
-	if err != nil {
-		return nil, nil, err
-	}
-	return &fspb.WrappedContactData{ContactData: b}, nil, nil
-}
-func (c *streamingTestContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {
-	if c.processContactData != nil {
-		return c.processContactData(ctx, cd, streaming)
-	}
-	return nil
-}
-
-func newStreamingTestIdentity(t *testing.T) (common.ClientID, *ecdsa.PrivateKey) {
-	t.Helper()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey() failed: %v", err)
-	}
-	id, err := common.MakeClientID(priv.Public())
-	if err != nil {
-		t.Fatalf("MakeClientID() failed: %v", err)
-	}
-	return id, priv
-}
-
-func newStreamingTestContext(t *testing.T, si comms.ServerInfo, conf *clpb.CommunicatorConfig) *streamingTestContext {
-	t.Helper()
-	id, priv := newStreamingTestIdentity(t)
-	return &streamingTestContext{
-		id:   id,
-		priv: priv,
-		si:   si,
-		conf: conf,
-	}
-}
-
-func startStreamingCommunicator(t *testing.T, c *StreamingCommunicator, cctx *streamingTestContext) {
-	t.Helper()
-	if err := c.Setup(cctx); err != nil {
-		t.Fatalf("Setup() failed: %v", err)
-	}
-	if err := c.Start(); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	t.Cleanup(c.Stop)
-}
-
 func mustTrustedCertPool(t *testing.T, pemCert []byte) *x509.CertPool {
 	t.Helper()
 	trusted := x509.NewCertPool()
@@ -919,7 +836,7 @@ func writeStreamingContactFrame(t *testing.T, w http.ResponseWriter, cd *fspb.Co
 func TestStreamingConfigureFailureKeepsID(t *testing.T) {
 	servers := []string{"localhost:1234"}
 
-	cctx := newStreamingTestContext(t, comms.ServerInfo{Servers: servers}, &clpb.CommunicatorConfig{})
+	cctx := newTestCommsContext(t, comms.ServerInfo{Servers: servers}, &clpb.CommunicatorConfig{})
 	oldID := cctx.id
 	var c StreamingCommunicator
 	if err := c.Setup(cctx); err != nil {
@@ -927,7 +844,7 @@ func TestStreamingConfigureFailureKeepsID(t *testing.T) {
 	}
 	defer c.fin()
 
-	newID, newPriv := newStreamingTestIdentity(t)
+	newID, newPriv := newTestIdentity(t)
 	cctx.id, cctx.priv = newID, newPriv
 	cctx.si.Servers = nil
 	if err := c.configure(); err == nil {
@@ -957,7 +874,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // fails in RoundTrip, receives a non-200 status, or fails reading the initial
 // ContactData.
 func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
-	id, priv := newStreamingTestIdentity(t)
+	id, priv := newTestIdentity(t)
 	beacon := make(chan struct{})
 	close(beacon)
 
@@ -1031,7 +948,7 @@ func TestStreamingConnectClosesRequestPipeOnError(t *testing.T) {
 
 			var reqCtx context.Context
 			var reqBody io.ReadCloser
-			cctx := &streamingTestContext{
+			cctx := &testCommsContext{
 				id:     id,
 				priv:   priv,
 				si:     comms.ServerInfo{Servers: []string{"localhost:1234"}},
@@ -1094,7 +1011,7 @@ func TestStreamingStopDuringDialWithDeflate(t *testing.T) {
 			return nil, ctx.Err()
 		},
 	}
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{Servers: []string{"localhost:1234"}},
 		&clpb.CommunicatorConfig{Compression: fspb.CompressionAlgorithm_COMPRESSION_DEFLATE},
@@ -1244,7 +1161,7 @@ func TestStreamingMultiHostFailover(t *testing.T) {
 	beacon := make(chan struct{}, 2)
 	beacon <- struct{}{}
 	beacon <- struct{}{}
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{
 			Servers:      []string{unreachableAddr, server.Addr()},
@@ -1256,7 +1173,7 @@ func TestStreamingMultiHostFailover(t *testing.T) {
 		},
 	)
 	cctx.beacon = beacon
-	startStreamingCommunicator(t, &c, cctx)
+	startCommunicator(t, &c, cctx)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -1297,7 +1214,7 @@ func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
 	}
 	beacon := make(chan struct{})
 	close(beacon)
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{Servers: []string{"localhost:1234"}},
 		&clpb.CommunicatorConfig{
@@ -1306,7 +1223,7 @@ func TestStreamingResetSkipsSuicideCheck(t *testing.T) {
 		},
 	)
 	cctx.beacon = beacon
-	startStreamingCommunicator(t, &c, cctx)
+	startCommunicator(t, &c, cctx)
 
 	select {
 	case <-dialCalls:
@@ -1345,13 +1262,13 @@ func TestStreamingFailureDelayAfterReset(t *testing.T) {
 	}
 	beacon := make(chan struct{})
 	close(beacon)
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{Servers: []string{"localhost:1234"}},
 		&clpb.CommunicatorConfig{MinFailureDelaySeconds: 10},
 	)
 	cctx.beacon = beacon
-	startStreamingCommunicator(t, &c, cctx)
+	startCommunicator(t, &c, cctx)
 
 	select {
 	case got := <-dialCalls:
@@ -1461,7 +1378,7 @@ func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
 		Nack: func() {},
 	}
 
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{Servers: []string{server.Addr()}, TrustedCerts: mustTrustedCertPool(t, server.pemCert)},
 		&clpb.CommunicatorConfig{MinFailureDelaySeconds: 10, Compression: fspb.CompressionAlgorithm_COMPRESSION_NONE},
@@ -1472,7 +1389,7 @@ func TestStreamingDiscardWaitsForConnectionStop(t *testing.T) {
 		releaseEarly: secondDialStarted,
 		onErrorDone:  func() { firstReadStopped.Store(true) },
 	}
-	startStreamingCommunicator(t, &c, cctx)
+	startCommunicator(t, &c, cctx)
 
 	select {
 	case <-secondDialStarted:
@@ -1792,7 +1709,7 @@ func TestStreamingResetClosesIdleConnections(t *testing.T) {
 			return (&net.Dialer{}).DialContext(ctx, network, addr)
 		},
 	}
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{
 			Servers:      []string{addr},
@@ -1862,7 +1779,7 @@ func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
 	}
 	beacon := make(chan struct{}, 1)
 	beacon <- struct{}{}
-	cctx := newStreamingTestContext(
+	cctx := newTestCommsContext(
 		t,
 		comms.ServerInfo{
 			Servers:      []string{addr},
@@ -1875,7 +1792,7 @@ func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
 		},
 	)
 	cctx.beacon = beacon
-	startStreamingCommunicator(t, &c, cctx)
+	startCommunicator(t, &c, cctx)
 
 	flushCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer flushCancel()

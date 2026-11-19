@@ -16,6 +16,11 @@ package https
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
+	"crypto/x509"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -24,8 +29,14 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/stats"
+	"github.com/google/fleetspeak/fleetspeak/src/common"
+
+	clpb "github.com/google/fleetspeak/fleetspeak/src/client/proto/fleetspeak_client"
+	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 )
 
 type testStatsCollector struct {
@@ -39,22 +50,87 @@ func (c *testStatsCollector) AfterGetFileRequest(_, _, _ string, didFetch bool, 
 	}
 }
 
+// testCommsContext is a minimal comms.Context for tests that run a Communicator
+// or StreamingCommunicator without a client.Client.
 type testCommsContext struct {
 	comms.Context
-	stats        stats.Collector
-	clientLabels []string
+	id                 common.ClientID
+	priv               *ecdsa.PrivateKey
+	clientLabels       []string
+	si                 comms.ServerInfo
+	conf               *clpb.CommunicatorConfig
+	outbox             <-chan comms.MessageInfo
+	beacon             <-chan struct{}
+	stats              stats.Collector
+	processContactData func(ctx context.Context, cd *fspb.ContactData, streaming bool) error
 }
 
-func (c *testCommsContext) Stats() stats.Collector {
-	return c.stats
-}
-
+func (c *testCommsContext) Outbox() <-chan comms.MessageInfo  { return c.outbox }
+func (c *testCommsContext) ProcessingBeacon() <-chan struct{} { return c.beacon }
+func (c *testCommsContext) CurrentID() common.ClientID        { return c.id }
 func (c *testCommsContext) CurrentIdentity() (comms.ClientIdentity, error) {
-	return comms.ClientIdentity{Labels: c.clientLabels}, nil
+	var pub crypto.PublicKey
+	if c.priv != nil {
+		pub = c.priv.Public()
+	}
+	return comms.ClientIdentity{ID: c.id, Private: c.priv, Public: pub, Labels: c.clientLabels}, nil
+}
+func (c *testCommsContext) ServerInfo() (comms.ServerInfo, error)        { return c.si, nil }
+func (c *testCommsContext) CommunicatorConfig() *clpb.CommunicatorConfig { return c.conf }
+func (c *testCommsContext) ChainRevoked([]*x509.Certificate) bool        { return false }
+func (c *testCommsContext) Stats() stats.Collector {
+	if c.stats != nil {
+		return c.stats
+	}
+	return stats.NoopCollector{}
+}
+func (c *testCommsContext) MakeContactData(msgs []*fspb.Message, _ map[string]uint64) (*fspb.WrappedContactData, map[string]uint64, error) {
+	b, err := proto.Marshal(&fspb.ContactData{Messages: msgs})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &fspb.WrappedContactData{ContactData: b}, nil, nil
+}
+func (c *testCommsContext) ProcessContactData(ctx context.Context, cd *fspb.ContactData, streaming bool) error {
+	if c.processContactData != nil {
+		return c.processContactData(ctx, cd, streaming)
+	}
+	return nil
 }
 
-func (c *testCommsContext) ServerInfo() (comms.ServerInfo, error) {
-	return comms.ServerInfo{}, nil
+func newTestIdentity(t *testing.T) (common.ClientID, *ecdsa.PrivateKey) {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() failed: %v", err)
+	}
+	id, err := common.MakeClientID(priv.Public())
+	if err != nil {
+		t.Fatalf("MakeClientID() failed: %v", err)
+	}
+	return id, priv
+}
+
+func newTestCommsContext(t *testing.T, si comms.ServerInfo, conf *clpb.CommunicatorConfig) *testCommsContext {
+	t.Helper()
+	id, priv := newTestIdentity(t)
+	return &testCommsContext{
+		id:   id,
+		priv: priv,
+		si:   si,
+		conf: conf,
+	}
+}
+
+func startCommunicator(t *testing.T, c comms.Communicator, cctx comms.Context) {
+	t.Helper()
+	if err := c.Setup(cctx); err != nil {
+		t.Fatalf("Setup() failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start() failed: %v", err)
+	}
+	t.Cleanup(c.Stop)
 }
 
 func createFakeServer(lastModified time.Time, blockedLabels ...string) (*httptest.Server, []string) {

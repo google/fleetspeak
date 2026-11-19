@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/fleetspeak/fleetspeak/src/client"
+	"github.com/google/fleetspeak/fleetspeak/src/client/comms"
 	"github.com/google/fleetspeak/fleetspeak/src/client/config"
 	"github.com/google/fleetspeak/fleetspeak/src/client/service"
 	"github.com/google/fleetspeak/fleetspeak/src/common"
@@ -735,47 +736,44 @@ func TestCertificateRevoked(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	var c Communicator
-	conf := config.Configuration{
-		Servers: []string{"localhost:1234"},
-		CommunicatorConfig: &clpb.CommunicatorConfig{
+	t.Parallel()
+	dialCalls := make(chan struct{}, 10)
+	c := Communicator{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialCalls <- struct{}{}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	cctx := newTestCommsContext(
+		t,
+		comms.ServerInfo{Servers: []string{"localhost:1234"}},
+		&clpb.CommunicatorConfig{
 			MaxPollDelaySeconds:    10,
 			MinFailureDelaySeconds: 10,
 		},
-	}
-	dialCalls := make(chan struct{}, 10)
-	c.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		dialCalls <- struct{}{}
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
+	)
+	startCommunicator(t, &c, cctx)
 
-	cl, err := client.New(
-		conf,
-		client.Components{
-			Communicator: &c,
-		})
-	if err != nil {
-		t.Fatalf("unable to create client: %v", err)
-	}
-	defer cl.Stop()
-
-	// Wait for first dial attempt
 	select {
 	case <-dialCalls:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for first dial attempt")
 	}
 
-	// Call Reset
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-dialCalls:
+		t.Fatal("DialContext() called a second time before Reset()")
+	case <-time.After(100 * time.Millisecond):
+	}
+
 	c.Reset()
 
-	// Wait for second dial attempt (should be immediate, not waiting 10s)
+	// Reset cancels the in-flight poll and retries without waiting 10s.
 	select {
 	case <-dialCalls:
 	case <-time.After(2 * time.Second):
-		t.Fatal("Timed out waiting for second dial attempt after Reset")
+		t.Fatal("Timed out waiting for second dial attempt after Reset()")
 	}
 }
 
