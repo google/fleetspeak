@@ -7,8 +7,8 @@ services:
     environment:
       MYSQL_DATABASE: 'fleetspeak'
       MYSQL_USER: 'fleetspeak-user'
-      MYSQL_PASSWORD: 'fleetspeak-password'
-      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_PASSWORD: 'FS_PASSWORD'
+      MYSQL_ROOT_PASSWORD: 'FS_SQL_PASSWORD'
     ports:
       - '3306:3306'
     expose:
@@ -29,14 +29,12 @@ services:
     - "10000:10000"
 
   fleetspeak-server:
-    build:
-      context: .
-      dockerfile: ../shared/fleetspeak-server/Dockerfile
+    image: ghcr.io/google/fleetspeak:latest
     hostname: fleetspeak-server
     depends_on:
       mysql-server:
         condition: service_healthy
-    entrypoint: ["/app/bin/server", "-components_config", "/config/fleetspeak-server/components.textproto", "-services_config", "/config/fleetspeak-server/services.textproto", "-alsologtostderr"]
+    entrypoint: ["/fleetspeak/bin/server", "-components_config", "/config/fleetspeak-server/components.textproto", "-services_config", "/config/fleetspeak-server/services.textproto", "-alsologtostderr"]
     volumes:
       - "./config:/config"
     ports:
@@ -60,6 +58,6 @@ services:
     depends_on:
       fleetspeak-server:
         condition: service_healthy
-    entrypoint: ["/app/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
+    entrypoint: ["/fleetspeak/bin/client", "-config", "/config/fleetspeak-client/config.textproto", "-alsologtostderr"]
     volumes:
       - "./config:/config"

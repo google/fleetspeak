@@ -7,8 +7,8 @@ services:
     environment:
       MYSQL_DATABASE: 'fleetspeak'
       MYSQL_USER: 'fleetspeak-user'
-      MYSQL_PASSWORD: 'fleetspeak-password'
-      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_PASSWORD: 'FS_PASSWORD'
+      MYSQL_ROOT_PASSWORD: 'FS_SQL_PASSWORD'
     ports:
       - '3306:3306'
     expose:
