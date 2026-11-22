@@ -42,10 +42,13 @@ type fakeServiceContext struct {
 }
 
 func (sc fakeServiceContext) Send(ctx context.Context, m service.AckMessage) error {
+	log.Errorf("XYZ fake service context: Send(m) of %+v", m.M)
 	select {
 	case <-ctx.Done():
+		log.Errorf("XYZ fake service context: Send(m) context canceled: %v cause: %v", ctx.Err(), context.Cause(ctx))
 		return ctx.Err()
 	case sc.out <- m.M:
+		log.Errorf("XYZ fake service context: Send(m) OK")
 		return nil
 	}
 }
@@ -98,7 +101,9 @@ func setUpTestEnv(t *testing.T) *testEnv {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for range out {
+			log.Errorf("XYZ srv.Stop draining out chan")
+			for m := range out {
+				log.Errorf("XYZ Discarded message after stop: %+v", m)
 			}
 		}()
 
@@ -175,6 +180,7 @@ func TestStatsMsg(t *testing.T) {
 	for {
 		select {
 		case res := <-env.ctx.out:
+			log.Errorf("XYZ test res := <-env.ctx.out with res.MessageType=%q", res.MessageType)
 			if res.MessageType != "ResourceUsage" {
 				t.Errorf("Received message of unexpected type '%s'", res.MessageType)
 				continue
