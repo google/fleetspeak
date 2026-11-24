@@ -245,15 +245,30 @@ func (s *systemService) processResourceUsage(ctx context.Context, cid common.Cli
 	if rud.GetResourceUsage() == nil {
 		return errors.New("ResourceUsageData missing resource_usage")
 	}
+	if rud.ProcessStartTime != nil {
+		if err := rud.ProcessStartTime.CheckValid(); err != nil {
+			return fmt.Errorf("invalid process_start_time: %v", err)
+		}
+	}
+	if rud.DataTimestamp != nil {
+		if err := rud.DataTimestamp.CheckValid(); err != nil {
+			return fmt.Errorf("invalid data_timestamp: %v", err)
+		}
+	}
 
 	cd, err := s.sctx.GetClientData(ctx, cid)
 	if err != nil {
-		return fmt.Errorf("failed to get client data for %v: %v", cid, err)
+		if s.datastore.IsNotFound(err) {
+			return fmt.Errorf("failed to get client data for %v: %v", cid, err)
+		}
+		return service.TemporaryError{E: fmt.Errorf("failed to get client data for %v: %v", cid, err)}
 	}
 	s.stats.ResourceUsageDataReceived(cd, rud, v)
 	if err := s.datastore.RecordResourceUsageData(ctx, cid, rud); err != nil {
-		err = fmt.Errorf("failed to write resource-usage data: %v", err)
-		return err
+		if s.datastore.IsNotFound(err) {
+			return fmt.Errorf("failed to write resource-usage data: %v", err)
+		}
+		return service.TemporaryError{E: fmt.Errorf("failed to write resource-usage data: %v", err)}
 	}
 	return nil
 }
@@ -266,12 +281,15 @@ func (s *systemService) processKillNotification(ctx context.Context, cid common.
 	}
 
 	if killNotificationLogLimiter.Allow() {
-		log.Warningf("Received kill notification from %s: [service: %s, reason: %s]", cid, kn.Service, kn.Reason)
+		log.WarningContextf(ctx, "Received kill notification from %s: [service: %s, reason: %s]", cid, kn.Service, kn.Reason)
 	}
 
 	cd, err := s.sctx.GetClientData(ctx, cid)
 	if err != nil {
-		return fmt.Errorf("failed to get client data for %v: %v", cid, err)
+		if s.datastore.IsNotFound(err) {
+			return fmt.Errorf("failed to get client data for %v: %v", cid, err)
+		}
+		return service.TemporaryError{E: fmt.Errorf("failed to get client data for %v: %v", cid, err)}
 	}
 	s.stats.KillNotificationReceived(cd, kn)
 	return nil

@@ -15,6 +15,8 @@
 package services
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,6 +25,7 @@ import (
 	"github.com/google/fleetspeak/fleetspeak/src/common"
 	"github.com/google/fleetspeak/fleetspeak/src/server/db"
 	"github.com/google/fleetspeak/fleetspeak/src/server/internal/cache"
+	"github.com/google/fleetspeak/fleetspeak/src/server/service"
 
 	fspb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak"
 	monitoringpb "github.com/google/fleetspeak/fleetspeak/src/common/proto/fleetspeak_monitoring"
@@ -142,5 +145,177 @@ func TestProcessResourceUsage_ValidResourceUsage(t *testing.T) {
 	}
 	if len(records) != 1 {
 		t.Fatalf("len(FetchResourceUsageRecords(%v)) = %d, want 1", cid, len(records))
+	}
+}
+
+type fakeSystemServiceContext struct {
+	service.Context
+	getClientDataErr error
+}
+
+func (f *fakeSystemServiceContext) GetClientData(_ context.Context, _ common.ClientID) (*db.ClientData, error) {
+	if f.getClientDataErr != nil {
+		return nil, f.getClientDataErr
+	}
+	return &db.ClientData{}, nil
+}
+
+type fakeResourceUsageStore struct {
+	db.Store
+	notFoundErr error
+	recordErr   error
+}
+
+func (f *fakeResourceUsageStore) IsNotFound(err error) bool {
+	return f.notFoundErr != nil && errors.Is(err, f.notFoundErr)
+}
+
+func (f *fakeResourceUsageStore) RecordResourceUsageData(_ context.Context, _ common.ClientID, _ *monitoringpb.ResourceUsageData) error {
+	return f.recordErr
+}
+
+func TestProcessResourceUsageErrorClassification(t *testing.T) {
+	errNotFound := errors.New("not found")
+	errTransient := errors.New("spanner unavailable")
+	cid, err := common.StringToClientID("0102030405060708")
+	if err != nil {
+		t.Fatalf("StringToClientID() failed: %v", err)
+	}
+
+	validRU := &monitoringpb.AggregatedResourceUsage{MeanUserCpuRate: 1.0}
+	badTS := &tspb.Timestamp{Nanos: -1}
+
+	testCases := []struct {
+		name             string
+		rud              *monitoringpb.ResourceUsageData
+		getClientDataErr error
+		recordErr        error
+		wantErr          bool
+		wantTemporary    bool
+	}{
+		{
+			name: "unset timestamps succeed when datastore allows them",
+			rud: &monitoringpb.ResourceUsageData{
+				Scope:         "system",
+				ResourceUsage: validRU,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid process_start_time fails permanently",
+			rud: &monitoringpb.ResourceUsageData{
+				Scope:            "system",
+				ProcessStartTime: badTS,
+				ResourceUsage:    validRU,
+			},
+			wantErr:       true,
+			wantTemporary: false,
+		},
+		{
+			name: "invalid data_timestamp fails permanently",
+			rud: &monitoringpb.ResourceUsageData{
+				Scope:         "system",
+				DataTimestamp: badTS,
+				ResourceUsage: validRU,
+			},
+			wantErr:       true,
+			wantTemporary: false,
+		},
+		{
+			name:             "GetClientData not found fails permanently",
+			rud:              &monitoringpb.ResourceUsageData{Scope: "system", ResourceUsage: validRU},
+			getClientDataErr: errNotFound,
+			wantErr:          true,
+			wantTemporary:    false,
+		},
+		{
+			name:             "GetClientData transient error returns TemporaryError",
+			rud:              &monitoringpb.ResourceUsageData{Scope: "system", ResourceUsage: validRU},
+			getClientDataErr: errTransient,
+			wantErr:          true,
+			wantTemporary:    true,
+		},
+		{
+			name:          "RecordResourceUsageData not found fails permanently",
+			rud:           &monitoringpb.ResourceUsageData{Scope: "system", ResourceUsage: validRU},
+			recordErr:     errNotFound,
+			wantErr:       true,
+			wantTemporary: false,
+		},
+		{
+			name:          "RecordResourceUsageData transient error returns TemporaryError",
+			rud:           &monitoringpb.ResourceUsageData{Scope: "system", ResourceUsage: validRU},
+			recordErr:     errTransient,
+			wantErr:       true,
+			wantTemporary: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := anypb.New(tc.rud)
+			if err != nil {
+				t.Fatalf("anypb.New() failed: %v", err)
+			}
+			s := &systemService{
+				sctx:      &fakeSystemServiceContext{getClientDataErr: tc.getClientDataErr},
+				stats:     &countingResourceUsageStatsCollector{},
+				datastore: &fakeResourceUsageStore{notFoundErr: errNotFound, recordErr: tc.recordErr},
+			}
+			err = s.processResourceUsage(t.Context(), cid, payload, nil)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("processResourceUsage() err = %v, wantErr = %v", err, tc.wantErr)
+			}
+			if tc.wantErr && service.IsTemporary(err) != tc.wantTemporary {
+				t.Errorf("service.IsTemporary(%v) = %v, want %v", err, service.IsTemporary(err), tc.wantTemporary)
+			}
+		})
+	}
+}
+
+func TestProcessKillNotificationErrorClassification(t *testing.T) {
+	errNotFound := errors.New("not found")
+	errTransient := errors.New("spanner unavailable")
+	cid, err := common.StringToClientID("0102030405060708")
+	if err != nil {
+		t.Fatalf("StringToClientID() failed: %v", err)
+	}
+	payload, err := anypb.New(&monitoringpb.KillNotification{Service: "test"})
+	if err != nil {
+		t.Fatalf("anypb.New() failed: %v", err)
+	}
+
+	testCases := []struct {
+		name             string
+		getClientDataErr error
+		wantTemporary    bool
+	}{
+		{
+			name:             "GetClientData not found fails permanently",
+			getClientDataErr: errNotFound,
+			wantTemporary:    false,
+		},
+		{
+			name:             "GetClientData transient error returns TemporaryError",
+			getClientDataErr: errTransient,
+			wantTemporary:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &systemService{
+				sctx:      &fakeSystemServiceContext{getClientDataErr: tc.getClientDataErr},
+				stats:     &countingResourceUsageStatsCollector{},
+				datastore: &fakeResourceUsageStore{notFoundErr: errNotFound},
+			}
+			err := s.processKillNotification(t.Context(), cid, payload)
+			if err == nil {
+				t.Fatal("processKillNotification() = nil, want error")
+			}
+			if service.IsTemporary(err) != tc.wantTemporary {
+				t.Errorf("service.IsTemporary(%v) = %v, want %v", err, service.IsTemporary(err), tc.wantTemporary)
+			}
+		})
 	}
 }
