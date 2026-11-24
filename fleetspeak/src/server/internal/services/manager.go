@@ -225,7 +225,7 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 			}
 
 			c.stats.MessageIngested(true, m, cData)
-			res := l.processMessage(ctx, m, false)
+			res := l.processMessage(ctx, m, false, cData)
 			if res != nil {
 				hasResult[i] = true
 				m.Result = res
@@ -251,15 +251,11 @@ func (c *Manager) ProcessMessages(msgs []*fspb.Message) {
 	}
 }
 
-// processMessage attempts to processes m, returning a fspb.MessageResult. It
-// also updates stats, calling exactly one of MessageDropped, MessageFailed,
-// MessageProcessed.
-func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool) *fspb.MessageResult {
-	cData, err := s.manager.clientData(ctx, m)
-	if err != nil {
-		log.Warningf("Couldn't fetch client data for the message: %v", err)
-	}
-
+// processMessage attempts to process m, returning a fspb.MessageResult. It
+// also updates stats, calling exactly one of MessageDropped, MessageErrored,
+// MessageProcessed. cData is the source client's data as fetched by the
+// caller, or nil if it couldn't be fetched.
+func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFirstTry bool, cData *db.ClientData) *fspb.MessageResult {
 	if cData == nil {
 		log.Warningf("Can't annotate message with blocklisted status [service=%s] as client data couldn't be fetched.", s.name)
 	} else {
@@ -285,7 +281,14 @@ func (s *liveService) processMessage(ctx context.Context, m *fspb.Message, isFir
 	}
 
 	start := ftime.Now()
-	e := s.callProcessMessage(ctx, m)
+	var e error
+	if err := ctx.Err(); err != nil {
+		// Don't call into the service if ctx is already done, e.g. because the
+		// caller's client data lookup used up the deadline or the caller was canceled.
+		e = service.TemporaryError{E: fmt.Errorf("not calling service: %w", err)}
+	} else {
+		e = s.callProcessMessage(ctx, m)
+	}
 	switch {
 	case e == nil:
 		s.manager.stats.MessageProcessed(start, ftime.Now(), m, isFirstTry, cData)
@@ -369,7 +372,7 @@ func (c *Manager) HandleNewMessages(ctx context.Context, msgs []*fspb.Message, c
 			}
 			c.stats.MessageIngested(false, m, cData)
 
-			res := l.processMessage(ctx1, m, true)
+			res := l.processMessage(ctx1, m, true, cData)
 			if res == nil {
 				return
 			}
