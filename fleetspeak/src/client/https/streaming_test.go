@@ -1840,3 +1840,100 @@ func TestStreamingDisconnectUpdatesLastContact(t *testing.T) {
 		t.Fatal("Timed out waiting for dial attempt after Reset")
 	}
 }
+
+func TestStreamingBackoffResetsAfterSuccess(t *testing.T) {
+	var reject atomic.Bool
+	reject.Store(true)
+	rejected := make(chan time.Time, 16)
+	connected := make(chan struct{}, 16)
+	closeStream := make(chan struct{})
+	var closeStreamOnce sync.Once
+	defer closeStreamOnce.Do(func() { close(closeStream) })
+
+	addr, trusted := startStreamingTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if reject.Load() {
+			http.Error(w, "injected failure", http.StatusServiceUnavailable)
+			rejected <- time.Now()
+			return
+		}
+		if err := readStreamingContactFrame(bufio.NewReader(r.Body)); err != nil {
+			return
+		}
+		if !writeStreamingContactFrame(t, w, &fspb.ContactData{}) {
+			return
+		}
+		connected <- struct{}{}
+		<-closeStream
+	}))
+
+	beacon := make(chan struct{})
+	close(beacon)
+	var c StreamingCommunicator
+	cctx := newTestCommsContext(
+		t,
+		comms.ServerInfo{
+			Servers:      []string{addr},
+			TrustedCerts: trusted,
+		},
+		&clpb.CommunicatorConfig{
+			MaxPollDelaySeconds:    20,
+			MinFailureDelaySeconds: 1,
+			Compression:            fspb.CompressionAlgorithm_COMPRESSION_NONE,
+		},
+	)
+	cctx.beacon = beacon
+	startCommunicator(t, &c, cctx)
+
+	waitReject := func(what string) time.Time {
+		t.Helper()
+		select {
+		case ts := <-rejected:
+			return ts
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out waiting for %s", what)
+			return time.Time{}
+		}
+	}
+
+	// Failure 1 sleeps [1.0s, 1.5s], failure 2 sleeps [2.0s, 3.0s], and
+	// failure 3 leaves consecutiveFailures at 3 (next delay would be [8s, 12s]).
+	t1 := waitReject("first rejected connect")
+	t2 := waitReject("second rejected connect")
+	t3 := waitReject("third rejected connect")
+
+	if d := t2.Sub(t1); d < 900*time.Millisecond {
+		t.Errorf("delay after 1st failure = %v, want >= 900ms", d)
+	}
+	if d := t3.Sub(t2); d < 1900*time.Millisecond {
+		t.Errorf("delay after 2nd failure = %v, want >= 1.9s (exponential backoff)", d)
+	}
+
+	// Allow the next connection to succeed and wake up out of backoff sleep.
+	reject.Store(false)
+	time.Sleep(100 * time.Millisecond)
+	c.Reset()
+
+	select {
+	case <-connected:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for streaming connection")
+	}
+	// Flush waits until connectLoop publishes c.curCon and resets consecutiveFailures.
+	flushCtx, flushCancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer flushCancel()
+	if err := c.Flush(flushCtx); err != nil {
+		t.Fatalf("Flush() = %v, want nil", err)
+	}
+
+	// Disconnect and reject subsequent reconnects; because the successful
+	// connection reset backoff, the retry delay should be back to [1.0s, 1.5s]
+	// rather than >= 4s.
+	reject.Store(true)
+	closeStreamOnce.Do(func() { close(closeStream) })
+
+	tAfterReset1 := waitReject("first rejected connect after reset")
+	tAfterReset2 := waitReject("second rejected connect after reset")
+	if d := tAfterReset2.Sub(tAfterReset1); d < 900*time.Millisecond || d >= 3500*time.Millisecond {
+		t.Errorf("retry delay after successful connect = %v, want in [900ms, 3.5s)", d)
+	}
+}

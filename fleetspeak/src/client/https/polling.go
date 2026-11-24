@@ -99,7 +99,7 @@ func (c *Communicator) configure() error {
 		return errors.New("no communicator_config in client configuration")
 	}
 	if c.conf.MaxPollDelaySeconds == 0 {
-		c.conf.MaxPollDelaySeconds = 60 * 5
+		c.conf.MaxPollDelaySeconds = defaultMaxPollDelaySeconds
 	}
 	if c.conf.MaxBufferDelaySeconds == 0 {
 		c.conf.MaxBufferDelaySeconds = 5
@@ -211,10 +211,11 @@ func (c *Communicator) processingLoop() {
 
 	var toSendSize int // approximate size of toSend in bytes
 	var lastPoll, oldestUnsent, lastActive time.Time
+	var consecutiveFailures int
 
 	// poll performs a poll (actually implemented by c.poll), records any errors
 	// and updates the variables defined above. In case of failure it also sleeps
-	// for the MinFailureDelay.
+	// with exponential backoff starting at MinFailureDelaySeconds.
 	poll := func() {
 		var err error
 		c.mu.Lock()
@@ -265,7 +266,9 @@ func (c *Communicator) processingLoop() {
 				log.Fatalf("Too Lonely! Failed to contact server in %v.", time.Since(lastPoll))
 			}
 
-			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
+			delay := backoffWithJitter(c.conf.MinFailureDelaySeconds, c.conf.MaxPollDelaySeconds, consecutiveFailures)
+			consecutiveFailures++
+			t := time.NewTimer(delay)
 			select {
 			case <-t.C:
 			case <-c.ctx.Done():
@@ -275,6 +278,7 @@ func (c *Communicator) processingLoop() {
 			}
 			return
 		}
+		consecutiveFailures = 0
 		for _, m := range toSend {
 			m.Ack()
 		}

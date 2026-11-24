@@ -41,10 +41,14 @@ import (
 )
 
 const (
-	sendBytesThreshold    = 15 * 1024 * 1024
-	minSendBytesThreshold = 256 * 1024
-	sendCountThreshold    = 100
-	closeWaitThreshold    = 30 * time.Second // Matches IdleTimeout in server/https.
+	sendBytesThreshold         = 15 * 1024 * 1024
+	minSendBytesThreshold      = 256 * 1024
+	sendCountThreshold         = 100
+	closeWaitThreshold         = 30 * time.Second // Matches IdleTimeout in server/https.
+	defaultMaxPollDelaySeconds = 60 * 5           // Default 5-minute cap for polling and retry backoff.
+	// maxBackoffShift caps the exponential backoff shift so
+	// int64(baseSeconds) * (1 << shift) cannot overflow int64 (2^16 = 65536s > 18h).
+	maxBackoffShift = 16
 )
 
 func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, addr string) (net.Conn, error)) (common.ClientID, *http.Transport, []byte, error) {
@@ -146,6 +150,37 @@ func makeTransport(cctx comms.Context, dc func(ctx context.Context, network, add
 // jitter adds up to 50% random jitter, and converts to time.Duration.
 func jitter(seconds int32) time.Duration {
 	return time.Duration((1.0 + 0.5*mrand.Float32()) * float32(seconds) * float32(time.Second))
+}
+
+// backoff calculates the exponential backoff in seconds based on consecutive failures,
+// clamped between baseSeconds and maxSeconds.
+func backoff(baseSeconds, maxSeconds int32, consecutiveFailures int) int32 {
+	if baseSeconds <= 0 {
+		baseSeconds = 1
+	}
+	if maxSeconds <= 0 {
+		maxSeconds = defaultMaxPollDelaySeconds
+	}
+	if maxSeconds < baseSeconds {
+		maxSeconds = baseSeconds
+	}
+	if consecutiveFailures < 0 {
+		consecutiveFailures = 0
+	}
+	if consecutiveFailures > maxBackoffShift {
+		consecutiveFailures = maxBackoffShift
+	}
+	delay := int64(baseSeconds) * (int64(1) << consecutiveFailures)
+	if delay > int64(maxSeconds) {
+		delay = int64(maxSeconds)
+	}
+	return int32(delay)
+}
+
+// backoffWithJitter calculates an exponential backoff duration based on the consecutive failure count,
+// clamped between baseSeconds and maxSeconds, plus up to 50% random jitter.
+func backoffWithJitter(baseSeconds, maxSeconds int32, consecutiveFailures int) time.Duration {
+	return jitter(backoff(baseSeconds, maxSeconds, consecutiveFailures))
 }
 
 // getFileIfModified fetches the file with the given name from the file server

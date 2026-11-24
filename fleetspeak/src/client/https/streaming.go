@@ -229,6 +229,7 @@ func (c *StreamingCommunicator) connectLoop() {
 	defer c.working.Done()
 
 	lastContact := time.Now()
+	var consecutiveFailures int
 	for {
 		c.wd.Reset()
 		if c.id != c.cctx.CurrentID() {
@@ -320,7 +321,9 @@ func (c *StreamingCommunicator) connectLoop() {
 			if time.Since(lastContact) > time.Duration(c.conf.FailureSuicideTimeSeconds)*time.Second {
 				log.FatalContextf(c.ctx, "Too Lonely! Failed to contact server in %v.", time.Since(lastContact))
 			}
-			t := time.NewTimer(jitter(c.conf.MinFailureDelaySeconds))
+			delay := backoffWithJitter(c.conf.MinFailureDelaySeconds, c.conf.MaxPollDelaySeconds, consecutiveFailures)
+			consecutiveFailures++
+			t := time.NewTimer(delay)
 			select {
 			case <-t.C:
 			case <-c.ctx.Done():
@@ -340,6 +343,7 @@ func (c *StreamingCommunicator) connectLoop() {
 			con.working.Wait()
 			goto nackPending
 		}
+		consecutiveFailures = 0
 		c.curCon = con
 		c.mu.Unlock()
 		log.Info("Signal new connection established.")
