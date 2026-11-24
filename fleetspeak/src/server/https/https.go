@@ -86,6 +86,10 @@ func (l listener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
+// defaultMaxPerClientBatchProcessors is used when
+// Params.MaxPerClientBatchProcessors is unset.
+const defaultMaxPerClientBatchProcessors = 10
+
 // Params wraps the parameters required to create an https communicator.
 type Params struct {
 	Listener                    net.Listener                                         // Where to listen for connections, required.
@@ -96,7 +100,7 @@ type Params struct {
 	StreamingLifespan           time.Duration                                        // Maximum time to keep a streaming connection open, defaults to 10 min.
 	StreamingCloseTime          time.Duration                                        // How much of StreamingLifespan to allocate to an orderly stream close, defaults to 30 sec.
 	StreamingJitter             time.Duration                                        // Maximum amount of jitter to add to StreamingLifespan.
-	MaxPerClientBatchProcessors uint32                                               // Maximum number of concurrent processors for messages coming from a single client.
+	MaxPerClientBatchProcessors uint32                                               // Maximum number of concurrent processors for messages coming from a single client, defaults to 10.
 	FileServerAuthorization     bool                                                 // Whether to authorize file server requests using the authorizer.
 	MaxReusableBufferSize       int                                                  // Maximum size of http request body byte buffers to reuse using a [sync.Pool].
 }
@@ -111,7 +115,7 @@ func NewCommunicator(p Params) (*Communicator, error) {
 		p.StreamingCloseTime = 30 * time.Second
 	}
 	if p.MaxPerClientBatchProcessors == 0 {
-		p.MaxPerClientBatchProcessors = 10
+		p.MaxPerClientBatchProcessors = defaultMaxPerClientBatchProcessors
 	}
 
 	mux := http.NewServeMux()
