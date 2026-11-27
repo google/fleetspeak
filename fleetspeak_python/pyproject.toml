@@ -1,0 +1,47 @@
+[build-system]
+requires = [
+  "setuptools>=77",
+]
+build-backend = "_build_backend"
+backend-path = ["."]
+
+[project]
+name = "fleetspeak"
+dynamic = ["version"]
+description = "Fleetspeak"
+readme = {text = "Fleetspeak is a framework for communicating with a fleet of machines, with a focus on security monitoring and basic administrative use cases. It is a subproject of GRR ( https://github.com/google/grr/blob/master/README.md ), and can be seen as an effort to modularizing and modernizing its communication mechanism.", content-type = "text/plain"}
+license = "Apache-2.0"
+maintainers = [
+  {name = "GRR Development Team", email = "grr-dev@googlegroups.com"},
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development",
+  "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "absl-py>=0.8.0",
+  "grpcio==1.78.0",
+  "protobuf>=6.31.1,<7.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "grpcio-testing==1.78.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/google/fleetspeak"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION"]}
+
+[tool.setuptools.packages.find]
+include = ["fleetspeak*"]
+namespaces = true

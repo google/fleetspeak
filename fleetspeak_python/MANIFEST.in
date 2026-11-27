@@ -1,0 +1,4 @@
+include VERSION
+include _build_backend.py
+recursive-include fleetspeak *.py
+recursive-exclude * *.pyc
